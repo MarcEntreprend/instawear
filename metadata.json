@@ -1,0 +1,6 @@
+{
+  "name": "InstaWear",
+  "description": "Boutique en ligne premium de vêtements Print-on-Demand célébrant l'énergie des événements mondiaux du sport, de la culture et des fêtes saisonnières avec de l'intelligence artificielle.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
