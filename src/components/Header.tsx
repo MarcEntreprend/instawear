@@ -1,357 +1,492 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, User, Smartphone, Globe, ChevronDown, Menu, X, Landmark, SlidersHorizontal, Sparkles } from 'lucide-react';
-import { CartItem } from '../types';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  ShoppingCart,
+  Search,
+  Heart,
+  User,
+  X,
+  Menu,
+  ChevronDown,
+  Zap,
+} from "lucide-react";
+import { CartItem } from "../types";
 
 interface HeaderProps {
   cart: CartItem[];
+  favoriteCount: number;
   onOpenCart: () => void;
+  onOpenFavorites: () => void;
   onSearch: (term: string) => void;
   currentSearchTerm: string;
-  onSelectCategory: (category: string | null) => void;
+  onSelectCategory: (cat: string | null) => void;
   onSelectEventType: (type: string | null) => void;
   currentEventType: string | null;
+  currentCategory: string | null;
   onOpenAdmin: () => void;
   isAdminActive: boolean;
+  onScrollToSection: (
+    section: "catalog" | "about" | "testimonials" | "faq" | "contact",
+  ) => void;
 }
 
 export default function Header({
   cart,
+  favoriteCount,
   onOpenCart,
+  onOpenFavorites,
   onSearch,
   currentSearchTerm,
   onSelectCategory,
   onSelectEventType,
   currentEventType,
+  currentCategory,
   onOpenAdmin,
-  isAdminActive
+  isAdminActive,
+  onScrollToSection,
 }: HeaderProps) {
-  const [searchTerm, setSearchTerm] = useState(currentSearchTerm);
-  const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
-  const [activeMegaCategory, setActiveMegaCategory] = useState<'women' | 'men' | 'sports' | 'acc'>('sports');
-  
-  // Rotating search placeholder to encourage exploration
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const searchPlaceholders = [
-    "Chercher 'Finale Champions League 2026'...",
-    "Chercher 'Carnaval de Rio'...",
-    "Chercher 'Oktoberfest Bière'...",
-    "Chercher 'Sweat Capuche Halloween'...",
-    "Chercher 'Grand Prix Monaco F1'..."
-  ];
+  const [searchVal, setSearchVal] = useState(currentSearchTerm);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % searchPlaceholders.length);
-    }, 4000);
-    return () => clearInterval(interval);
+    const onScroll = () => setIsScrolled(window.scrollY > 16);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setSearchVal(currentSearchTerm);
+  }, [currentSearchTerm]);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(searchTerm);
+    onSearch(searchVal);
+    inputRef.current?.blur();
   };
 
-  const handleQuickSearch = (term: string) => {
-    setSearchTerm(term);
-    onSearch(term);
-    setIsMegaMenuOpen(false);
-  };
-
-  const totalCartQty = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const navLinks = [
+    {
+      label: "Collections",
+      action: () => {
+        onSelectCategory(null);
+        onSelectEventType(null);
+        onScrollToSection("catalog");
+      },
+    },
+    {
+      label: "Sport",
+      action: () => {
+        onSelectEventType("sport");
+        onScrollToSection("catalog");
+      },
+    },
+    {
+      label: "Festivals",
+      action: () => {
+        onSelectEventType("culture");
+        onScrollToSection("catalog");
+      },
+    },
+    {
+      label: "Saisons",
+      action: () => {
+        onSelectEventType("saisonnier");
+        onScrollToSection("catalog");
+      },
+    },
+    { label: "À propos", action: () => onScrollToSection("about") },
+    { label: "FAQ", action: () => onScrollToSection("faq") },
+  ];
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-slate-950 text-slate-100 border-b border-slate-800 shadow-md">
-      {/* Top Banner Message */}
-      <div className="w-full bg-linear-to-r from-violet-600 to-indigo-600 py-1.5 px-4 text-center text-xs font-medium text-white flex justify-between items-center overflow-hidden">
-        <span className="mx-auto flex items-center gap-1">
-          <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-300" />
-          Livraison GRATUITE sur les articles Choice dès 35€ d&apos;achat ! ⚡ Compte à rebours de la finale UCL actif !
+    <>
+      {/* Promo bar */}
+      <div
+        className="w-full py-2 px-4 text-center text-xs font-semibold"
+        style={{
+          background: "var(--color-accent)",
+          color: "white",
+          letterSpacing: "0.03em",
+        }}
+      >
+        <span className="inline-flex items-center gap-2">
+          <Zap size={12} strokeWidth={2.5} />
+          Livraison gratuite dès 35 € — Impression sous 24h, zéro stock gaspillé
+          <Zap size={12} strokeWidth={2.5} />
         </span>
-        <button 
-          onClick={onOpenAdmin} 
-          className="text-[11px] bg-slate-900/40 hover:bg-slate-900/60 border border-white/20 transition-all rounded px-2.5 py-0.5 font-semibold text-white shrink-0"
-          id="btn-goto-sandbox"
-        >
-          {isAdminActive ? "👁️ Voir le Store" : "🛠️ Créateur POD (Admin)"}
-        </button>
       </div>
 
-      {/* Main Bar */}
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-        {/* Logo */}
-        <div 
-          onClick={() => { onSelectCategory(null); onSelectEventType(null); }}
-          className="flex items-center gap-1.5 cursor-pointer shrink-0"
-          id="brand-logo"
-        >
-          <div className="w-8 h-8 rounded-lg bg-linear-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20">
-            I
-          </div>
-          <span className="font-sans font-black tracking-tight text-xl bg-linear-to-r from-white via-slate-100 to-cyan-400 bg-clip-text text-transparent">
-            Insta<span className="text-cyan-400">Wear</span>
-          </span>
-        </div>
-
-        {/* Search Bar - Capsule (AliExpress Style) */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl relative">
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-full pl-4 pr-1.5 py-1 focus-within:border-cyan-400 focus-within:ring-1 focus-within:ring-cyan-400/30 transition-all duration-200">
-            <input
-              type="text"
-              placeholder={searchPlaceholders[placeholderIndex]}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-transparent border-none text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-0 mr-2 py-1"
-              id="input-main-search"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => { setSearchTerm(''); onSearch(''); }}
-                className="text-slate-400 hover:text-white mr-2 text-xs"
-              >
-                Vider
-              </button>
-            )}
-            <button
-              type="submit"
-              className="bg-linear-to-r from-cyan-400 to-indigo-500 text-slate-950 p-2 rounded-full hover:from-cyan-300 hover:to-indigo-400 transition-all flex items-center justify-center shrink-0"
-              id="btn-search-trigger"
-            >
-              <Search className="w-4 h-4 text-slate-950 font-bold" />
-            </button>
-          </div>
-        </form>
-
-        {/* Top utilities bar (Download App, Country, Profil, basket) */}
-        <div className="flex items-center gap-4 text-xs font-medium shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer group">
-            <Smartphone className="w-4 h-4" />
-            <span>App</span>
-            <div className="hidden group-hover:block absolute top-12 bg-slate-900 border border-slate-800 rounded-lg p-3 text-center shadow-2xl">
-              <p className="font-semibold text-white mb-1">Télécharger l&apos;App InstaWear</p>
-              <div className="w-24 h-24 bg-white p-1 mx-auto my-1.5 rounded flex items-center justify-center font-mono text-slate-950 text-[9px] font-bold">QR CODE</div>
-              <p className="text-slate-400 text-[10px]">Passez commande en 1 clic</p>
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1 text-slate-400 hover:text-white transition-colors cursor-pointer">
-            <Globe className="w-4 h-4" />
-            <span>FR/EUR (€)</span>
-            <ChevronDown className="w-3 h-3" />
-          </div>
-
-          <div className="flex items-center gap-2 cursor-pointer hover:text-cyan-300 transition-colors" onClick={onOpenAdmin}>
-            <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 bg-linear-to-tr from-slate-800 to-slate-900 border border-slate-700">
-              <User className="w-3.5 h-3.5" />
-            </div>
-            <div className="hidden lg:block text-left">
-              <p className="text-[10px] text-slate-400 leading-none">Bonjour, de retour ?</p>
-              <p className="font-bold text-xs mt-0.5">Admin Studio</p>
-            </div>
-          </div>
-
-          {/* Cart Icon Capsule */}
-          <button 
-            onClick={onOpenCart}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-full px-3.5 py-1.5 transition-all text-slate-100"
-            id="header-cart-icon"
+      {/* Main header */}
+      <header
+        className="sticky top-0 z-30 w-full transition-all duration-300"
+        style={{
+          background: isScrolled ? "rgba(250,250,248,0.92)" : "var(--color-bg)",
+          backdropFilter: isScrolled ? "blur(20px) saturate(160%)" : "none",
+          WebkitBackdropFilter: isScrolled
+            ? "blur(20px) saturate(160%)"
+            : "none",
+          borderBottom: `1px solid ${isScrolled ? "var(--color-border)" : "transparent"}`,
+          boxShadow: isScrolled ? "var(--shadow-sm)" : "none",
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+          {/* Logo */}
+          <button
+            onClick={() => {
+              onSelectCategory(null);
+              onSelectEventType(null);
+            }}
+            className="flex items-center gap-2 shrink-0 group"
+            aria-label="InstaWear — Accueil"
           >
-            <div className="relative">
-              <ShoppingCart className="w-4 h-4 text-cyan-400" />
-              {totalCartQty > 0 && (
-                <span className="absolute -top-2.5 -right-2.5 bg-rose-500 text-white font-extrabold text-[10px] rounded-full w-5 h-5 flex items-center justify-center border-2 border-slate-950 scale-95 animate-pulse">
-                  {totalCartQty}
-                </span>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-white transition-transform duration-200 group-hover:scale-105"
+              style={{
+                background: "var(--color-accent)",
+                boxShadow: "var(--shadow-accent)",
+              }}
+            >
+              I
+            </div>
+            <span
+              className="font-black text-xl tracking-tight hidden sm:block"
+              style={{
+                color: "var(--color-ink)",
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+            </span>
+          </button>
+
+          {/* Nav links — desktop */}
+          <nav className="hidden lg:flex items-center gap-1 ml-4">
+            {navLinks.map((link) => (
+              <button
+                key={link.label}
+                onClick={link.action}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                style={{
+                  color: "var(--color-ink2)",
+                  background: "transparent",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--color-surface2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                {link.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Search — center */}
+          <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-auto">
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
+              style={{
+                background: searchFocused
+                  ? "var(--color-surface)"
+                  : "var(--color-surface2)",
+                border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "var(--color-border)"}`,
+                boxShadow: searchFocused
+                  ? "0 0 0 3px rgba(255,92,53,.1)"
+                  : "none",
+              }}
+            >
+              <Search
+                size={15}
+                strokeWidth={2}
+                style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchVal}
+                onChange={(e) => setSearchVal(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Rechercher un événement, un design..."
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+                style={{
+                  color: "var(--color-ink)",
+                  fontFamily: "var(--font-sans)",
+                }}
+              />
+              {searchVal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchVal("");
+                    onSearch("");
+                  }}
+                  className="p-0.5 rounded transition-colors"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  <X size={13} strokeWidth={2} />
+                </button>
               )}
             </div>
-            <span className="hidden sm:inline text-xs font-bold font-sans">Panier</span>
-          </button>
-        </div>
-      </div>
+          </form>
 
-      {/* Sub Navigation Bar */}
-      <div className="bg-slate-900/80 border-t border-slate-800.5.5 px-4 text-xs font-medium">
-        <div className="max-w-7xl mx-auto flex items-center justify-between py-1">
-          <div className="flex items-center gap-6 overflow-x-auto scrollbar-none py-1">
-            {/* Mega Menu Toggle */}
+          {/* Actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Favorites */}
             <button
-              onClick={() => setIsMegaMenuOpen(!isMegaMenuOpen)}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white px-3 py-1 rounded transition-colors shrink-0"
-              id="btn-mega-menu-trigger"
+              onClick={onOpenFavorites}
+              className="relative p-2 rounded-xl transition-all duration-150"
+              style={{ color: "var(--color-ink2)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-surface2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+              aria-label="Mes favoris"
             >
-              {isMegaMenuOpen ? <X className="w-3.5 h-3.5 text-rose-400" /> : <Menu className="w-3.5 h-3.5 text-cyan-400" />}
-              <span>☰ All Categories</span>
-            </button>
-
-            {/* Quick Links */}
-            <button
-              onClick={() => { onSelectCategory(null); onSelectEventType('live'); }}
-              className={`font-semibold shrink-0 transition-colors uppercase tracking-wider ${currentEventType === 'live' ? 'text-rose-500' : 'text-slate-300 hover:text-rose-500'}`}
-            >
-              <span className="inline-block w-2 h-2 bg-rose-500 rounded-full mr-1 anim-pulse animate-ping"></span>
-              ⚡ LIVE EVENT 2026
-            </button>
-            <button
-              onClick={() => { onSelectCategory(null); onSelectEventType('sport'); }}
-              className={`shrink-0 transition-colors ${currentEventType === 'sport' ? 'text-cyan-400' : 'text-slate-300 hover:text-cyan-400'}`}
-            >
-              Sporting Cup
-            </button>
-            <button
-              onClick={() => { onSelectCategory(null); onSelectEventType('culture'); }}
-              className={`shrink-0 transition-colors ${currentEventType === 'culture' ? 'text-indigo-400' : 'text-slate-300 hover:text-indigo-400'}`}
-            >
-              Festivals Monde
-            </button>
-            <button
-              onClick={() => { onSelectCategory(null); onSelectEventType('saisonnier'); }}
-              className={`shrink-0 transition-colors ${currentEventType === 'saisonnier' ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'}`}
-            >
-              Fêtes Saison
-            </button>
-
-            {/* Product categories buttons */}
-            <span className="text-slate-700 py-1">|</span>
-
-            <button onClick={() => { onSelectCategory('tshirt'); onSelectEventType(null); }} className="text-slate-300 hover:text-white shrink-0">
-              T-shirts IA
-            </button>
-            <button onClick={() => { onSelectCategory('hoodie'); onSelectEventType(null); }} className="text-slate-300 hover:text-white shrink-0">
-              Hoodies
-            </button>
-            <button onClick={() => { onSelectCategory('accessory'); onSelectEventType(null); }} className="text-slate-300 hover:text-white shrink-0">
-              Accessoires
-            </button>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1 text-slate-400 shrink-0 select-none">
-            <span className="px-1 text-slate-700">|</span>
-            <span className="hover:text-white transition-colors cursor-pointer" onClick={onOpenAdmin}>Vendre sur InstaWear</span>
-          </div>
-        </div>
-      </div>
-
-      {/* AliExpress-Style Mega Flyout Menu */}
-      {isMegaMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-white text-slate-900 shadow-2xl border-b border-slate-200 grid grid-cols-12 z-55 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-          
-          {/* Left Vertical Categories Slider (Gris clair #F4F4F5) */}
-          <div className="col-span-3 bg-slate-100 border-r border-slate-200 py-4 flex flex-col font-medium">
-            <div 
-              onMouseEnter={() => setActiveMegaCategory('sports')}
-              className={`px-6 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${activeMegaCategory === 'sports' ? 'bg-white font-bold border-l-4 border-indigo-600 text-indigo-600' : 'text-slate-700 hover:bg-slate-200'}`}
-            >
-              <span>🏆 Grands Événements Sportifs</span>
-            </div>
-            <div 
-              onMouseEnter={() => setActiveMegaCategory('women')}
-              className={`px-6 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${activeMegaCategory === 'women' ? 'bg-white font-bold border-l-4 border-indigo-600 text-indigo-600' : 'text-slate-700 hover:bg-slate-200'}`}
-            >
-              <span>🎉 Festivals & Culture de Rue</span>
-            </div>
-            <div 
-              onMouseEnter={() => setActiveMegaCategory('men')}
-              className={`px-6 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${activeMegaCategory === 'men' ? 'bg-white font-bold border-l-4 border-indigo-600 text-indigo-600' : 'text-slate-700 hover:bg-slate-200'}`}
-            >
-              <span>🎃 Saisons & Fêtes Annuelles</span>
-            </div>
-            <div 
-              onMouseEnter={() => setActiveMegaCategory('acc')}
-              className={`px-6 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${activeMegaCategory === 'acc' ? 'bg-white font-bold border-l-4 border-indigo-600 text-indigo-600' : 'text-slate-700 hover:bg-slate-200'}`}
-            >
-              <span>👜 Accessoires & Collection</span>
-            </div>
-            
-            <div className="mt-8 px-6 pt-4 border-t border-slate-200 text-xs text-slate-400">
-              Tous nos prints proviennent de coton biologique et d&apos;encres à l&apos;eau certifiées.
-            </div>
-          </div>
-
-          {/* Right Mega Menu Panel (Fond Blanc) */}
-          <div className="col-span-9 bg-white p-6 grid grid-rows-12 gap-4">
-            
-            {/* Top Recommended Row: Icons + labels */}
-            <div className="row-span-4 border-b border-slate-100 pb-4">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wilder mb-3">Recommandations du moment</p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                <div onClick={() => handleQuickSearch("Rio")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">🌴</div>
-                  <span className="text-[11px] font-medium font-sans">Rio Carnaval</span>
-                </div>
-                <div onClick={() => handleQuickSearch("Coupe")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">⚽</div>
-                  <span className="text-[11px] font-medium font-sans">Champions Finals</span>
-                </div>
-                <div onClick={() => handleQuickSearch("Oktoberfest")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">🍺</div>
-                  <span className="text-[11px] font-medium font-sans">Oktoberfest</span>
-                </div>
-                <div onClick={() => handleQuickSearch("Halloween")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">🔥</div>
-                  <span className="text-[11px] font-medium font-sans">Halloween Neon</span>
-                </div>
-                <div onClick={() => handleQuickSearch("Monaco")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">🏎️</div>
-                  <span className="text-[11px] font-medium font-sans">GP Monaco</span>
-                </div>
-                <div onClick={() => handleQuickSearch("Coachella")} className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-center group">
-                  <div className="w-12 h-12 bg-indigo-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center text-lg">🎆</div>
-                  <span className="text-[11px] font-medium font-sans">Coachella Vibes</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom 4 columns of text links mapping other fields */}
-            <div className="row-span-8 grid grid-cols-4 gap-6 text-sm py-2">
-              <div>
-                <p className="font-extrabold text-slate-900 border-b border-slate-150 pb-1.5 mb-2 text-xs uppercase">👕 Type d&apos;articles</p>
-                <div className="flex flex-col gap-1.5 text-xs text-slate-600">
-                  <span onClick={() => { onSelectCategory('tshirt'); setIsMegaMenuOpen(false); }} className="hover:text-indigo-600 cursor-pointer">T-Shirts Collection</span>
-                  <span onClick={() => { onSelectCategory('hoodie'); setIsMegaMenuOpen(false); }} className="hover:text-indigo-600 cursor-pointer">Hoodies & Sweats</span>
-                  <span onClick={() => { onSelectCategory('accessory'); setIsMegaMenuOpen(false); }} className="hover:text-indigo-600 cursor-pointer">Casquettes & Caps</span>
-                  <span onClick={() => { onSelectCategory('mug'); setIsMegaMenuOpen(false); }} className="hover:text-indigo-600 cursor-pointer">Mugs Collector</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="font-extrabold text-slate-900 border-b border-slate-150 pb-1.5 mb-2 text-xs uppercase">🎨 Vibes Stylisées</p>
-                <div className="flex flex-col gap-1.5 text-xs text-slate-600">
-                  <span onClick={() => handleQuickSearch("retro")} className="hover:text-indigo-600 cursor-pointer">Vintage & Retro</span>
-                  <span onClick={() => handleQuickSearch("neon")} className="hover:text-indigo-600 cursor-pointer">Glow & Néons</span>
-                  <span onClick={() => handleQuickSearch("cyberpunk")} className="hover:text-indigo-600 cursor-pointer">Street & Cyberpunk</span>
-                  <span onClick={() => handleQuickSearch("cute")} className="hover:text-indigo-600 cursor-pointer">Cute & Kawaii</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="font-extrabold text-slate-900 border-b border-slate-150 pb-1.5 mb-2 text-xs uppercase">📦 Expédition Rapide</p>
-                <p className="text-[11px] text-slate-500 font-sans leading-relaxed">
-                  Grâce à notre maillage de centres d&apos;expédition Printful locaux, vos produits sont fabriqués et expédiés directement depuis l&apos;atelier le plus proche de votre client (Europe, USA, Asie).
-                </p>
-              </div>
-
-              <div className="bg-indigo-50 rounded-xl p-4 flex flex-col justify-between border border-indigo-100">
-                <div>
-                  <span className="bg-indigo-600 text-white font-bold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">POD direct</span>
-                  <p className="font-bold text-slate-900 text-xs mt-1.5">Zéro stock physique</p>
-                  <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">Payez la production uniquement après avoir vendu ! Connectez Printful dès aujourd&apos;hui.</p>
-                </div>
-                <button 
-                  onClick={() => { onOpenAdmin(); setIsMegaMenuOpen(false); }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold hover:shadow-lg transition-all rounded px-4 py-1.5 text-[10px] mt-2 block w-full text-center"
+              <Heart size={20} strokeWidth={1.8} />
+              {favoriteCount > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-white font-bold"
+                  style={{ fontSize: "9px", background: "var(--color-accent)" }}
                 >
-                  Configurer l&apos;API
+                  {favoriteCount}
+                </span>
+              )}
+            </button>
+
+            {/* Admin */}
+            <button
+              onClick={onOpenAdmin}
+              className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+              style={{
+                color: isAdminActive
+                  ? "var(--color-accent)"
+                  : "var(--color-ink2)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-surface2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+              aria-label="Admin Studio"
+              title={isAdminActive ? "Voir le store" : "Admin Studio"}
+            >
+              <User size={20} strokeWidth={1.8} />
+            </button>
+
+            {/* Cart */}
+            <button
+              onClick={onOpenCart}
+              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all duration-200"
+              style={{
+                background: "var(--color-accent)",
+                boxShadow: "var(--shadow-accent)",
+                fontFamily: "var(--font-sans)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow =
+                  "0 12px 40px rgba(255,92,53,.28)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "var(--shadow-accent)";
+              }}
+              aria-label={`Panier — ${totalQty} article(s)`}
+            >
+              <ShoppingCart size={17} strokeWidth={2} />
+              <span className="hidden sm:inline">Panier</span>
+              {totalQty > 0 && (
+                <span
+                  className="flex items-center justify-center rounded-full font-black text-white"
+                  style={{
+                    minWidth: 20,
+                    height: 20,
+                    padding: "0 5px",
+                    fontSize: "11px",
+                    background: "rgba(0,0,0,0.2)",
+                  }}
+                >
+                  {totalQty}
+                </span>
+              )}
+            </button>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 rounded-xl transition-all duration-150"
+              style={{ color: "var(--color-ink2)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-surface2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+              aria-label="Menu"
+            >
+              {mobileMenuOpen ? (
+                <X size={20} strokeWidth={2} />
+              ) : (
+                <Menu size={20} strokeWidth={2} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Category pills sub-nav */}
+        <div
+          className="border-t"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
+            {[
+              { label: "Tout voir", eventType: null, category: null },
+              { label: "⚡ Live 2026", eventType: "live", category: null },
+              { label: "🏆 Sport", eventType: "sport", category: null },
+              { label: "🎉 Festivals", eventType: "culture", category: null },
+              { label: "🍂 Saisons", eventType: "saisonnier", category: null },
+              { label: "—", divider: true },
+              { label: "T-Shirts", eventType: null, category: "tshirt" },
+              { label: "Hoodies", eventType: null, category: "hoodie" },
+              { label: "Accessoires", eventType: null, category: "accessory" },
+              { label: "Mugs", eventType: null, category: "mug" },
+            ].map((item, i) => {
+              if ((item as any).divider) {
+                return (
+                  <span key={i} className="text-gray-300 shrink-0">
+                    |
+                  </span>
+                );
+              }
+              const isActive = item.category
+                ? currentCategory === item.category
+                : item.eventType === null
+                  ? currentEventType === null && currentCategory === null
+                  : currentEventType === item.eventType;
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    onSelectCategory(item.category ?? null);
+                    onSelectEventType(item.eventType ?? null);
+                    onScrollToSection("catalog");
+                  }}
+                  className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150"
+                  style={{
+                    background: isActive
+                      ? "var(--color-accent)"
+                      : "transparent",
+                    color: isActive ? "white" : "var(--color-ink3)",
+                    border: `1.5px solid ${isActive ? "var(--color-accent)" : "transparent"}`,
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background =
+                        "var(--color-surface2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {item.label}
                 </button>
-              </div>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-20 lg:hidden animate-fade-in"
+          style={{
+            background: "rgba(26,25,22,.5)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="absolute top-0 left-0 right-0 animate-fade-up p-6 pt-4"
+            style={{
+              background: "var(--color-surface)",
+              borderBottom: "1px solid var(--color-border)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <span
+                className="font-black text-lg"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Menu
+              </span>
+              <button onClick={() => setMobileMenuOpen(false)}>
+                <X size={22} style={{ color: "var(--color-ink2)" }} />
+              </button>
             </div>
+            <nav className="flex flex-col gap-1">
+              {navLinks.map((link, i) => (
+                <button
+                  key={link.label}
+                  onClick={() => {
+                    link.action();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
+                  style={{
+                    color: "var(--color-ink)",
+                    animationDelay: `${i * 0.05}s`,
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--color-surface2)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  {link.label}
+                </button>
+              ))}
+              <div
+                className="h-px my-2"
+                style={{ background: "var(--color-border)" }}
+              />
+              <button
+                onClick={() => {
+                  onOpenAdmin();
+                  setMobileMenuOpen(false);
+                }}
+                className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
+                style={{
+                  color: "var(--color-ink)",
+                  fontFamily: "var(--font-sans)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--color-surface2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                {isAdminActive ? "← Voir le store" : "⚙️ Admin Studio"}
+              </button>
+            </nav>
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }
