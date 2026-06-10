@@ -66,7 +66,7 @@ export default function FilterPanel({
           </span>
           {activeCount > 0 && (
             <span
-              className="badge text-white"
+              className="badge text-gray-900"
               style={{ background: "var(--color-accent)", fontSize: "9px" }}
             >
               {activeCount}

@@ -243,7 +243,7 @@ export default function ProductModal({
                     {product.originalPrice.toFixed(2)} €
                   </span>
                   <span
-                    className="badge text-white"
+                    className="badge text-gray-900"
                     style={{ background: "var(--color-accent)" }}
                   >
                     -{discount}%
@@ -431,7 +431,7 @@ export default function ProductModal({
                   onAddToCart(product, selectedColor, selectedSize);
                   onClose();
                 }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm text-white transition-all duration-200"
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm text-gray-900 transition-all duration-200"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",

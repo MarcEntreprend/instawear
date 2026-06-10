@@ -496,7 +496,7 @@ export default function OrderModal({
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => sendOrder("whatsapp")}
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl font-semibold text-xs text-white transition-all duration-200 active:scale-95"
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl font-semibold text-xs text-gray-900 transition-all duration-200 active:scale-95"
                   style={{
                     background: "#25D366",
                     fontFamily: "var(--font-sans)",
@@ -519,7 +519,7 @@ export default function OrderModal({
 
                 <button
                   onClick={() => sendOrder("telegram")}
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl font-semibold text-xs text-white transition-all duration-200 active:scale-95"
+                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl font-semibold text-xs text-gray-900 transition-all duration-200 active:scale-95"
                   style={{
                     background: "#229ED9",
                     fontFamily: "var(--font-sans)",

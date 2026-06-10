@@ -72,7 +72,7 @@ export default function ProductCard({
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
           {product.isBestSeller && (
             <span
-              className="badge text-white"
+              className="badge text-gray-900"
               style={{ background: "var(--color-gold)" }}
             >
               ★ Best seller
@@ -80,7 +80,7 @@ export default function ProductCard({
           )}
           {product.isLimitedTime && (
             <span
-              className="badge text-white"
+              className="badge text-gray-900"
               style={{ background: "#EF4444" }}
             >
               Offre limitée
@@ -100,7 +100,7 @@ export default function ProductCard({
           )}
           {discount > 0 && (
             <span
-              className="badge text-white"
+              className="badge text-gray-900"
               style={{ background: "var(--color-accent)" }}
             >
               -{discount}%

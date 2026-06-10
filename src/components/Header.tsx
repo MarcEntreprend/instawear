@@ -144,7 +144,7 @@ export default function Header({
             aria-label="InstaWear — Accueil"
           >
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-white transition-transform duration-200 group-hover:scale-105"
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105"
               style={{
                 background: "var(--color-accent)",
                 boxShadow: "var(--shadow-accent)",
@@ -253,7 +253,7 @@ export default function Header({
               <Heart size={20} strokeWidth={1.8} />
               {favoriteCount > 0 && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-white font-bold"
+                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-gray-900 font-bold"
                   style={{ fontSize: "9px", background: "var(--color-accent)" }}
                 >
                   {favoriteCount}
@@ -285,7 +285,7 @@ export default function Header({
             {/* Cart */}
             <button
               onClick={onOpenCart}
-              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all duration-200"
+              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-gray-900 transition-all duration-200"
               style={{
                 background: "var(--color-accent)",
                 boxShadow: "var(--shadow-accent)",
@@ -306,7 +306,7 @@ export default function Header({
               <span className="hidden sm:inline">Panier</span>
               {totalQty > 0 && (
                 <span
-                  className="flex items-center justify-center rounded-full font-black text-white"
+                  className="flex items-center justify-center rounded-full font-black text-gray-900"
                   style={{
                     minWidth: 20,
                     height: 20,

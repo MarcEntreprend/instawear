@@ -68,7 +68,7 @@ export default function CartDrawer({
             </span>
             {cart.length > 0 && (
               <span
-                className="badge text-white"
+                className="badge text-gray-900"
                 style={{ background: "var(--color-accent)" }}
               >
                 {cart.reduce((a, b) => a + b.quantity, 0)}
@@ -114,7 +114,7 @@ export default function CartDrawer({
             </div>
             <button
               onClick={onClose}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-gray-900"
               style={{
                 background: "var(--color-accent)",
                 fontFamily: "var(--font-sans)",
@@ -314,7 +314,7 @@ export default function CartDrawer({
 
               <button
                 onClick={onCheckout}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-base text-white transition-all duration-200"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-base text-gray-900 transition-all duration-200"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",
