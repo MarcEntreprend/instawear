@@ -61,6 +61,18 @@ const CATEGORY_PILLS = [
   { label: "Mugs", eventType: null, category: "mug" },
 ];
 
+// liste des suggestions et l’état du placeholder
+const SEARCH_SUGGESTIONS = [
+  "T-shirt Ligue des Champions",
+  "Hoodie Halloween 2026",
+  "Mug Nouvel An",
+  "Casquette Olympics",
+  "T-shirt Rio Carnival",
+  "Hoodie Ugly Sweater Noël",
+  "T-shirt EDM Live",
+  "Accessoire Festival",
+];
+
 export default function Header({
   cart,
   favoriteCount,
@@ -80,6 +92,10 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [displayPlaceholder, setDisplayPlaceholder] = useState(
+    SEARCH_SUGGESTIONS[0],
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
@@ -93,6 +109,19 @@ export default function Header({
     setSearchVal(currentSearchTerm);
   }, [currentSearchTerm]);
 
+  // effet de défilement des suggestions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIdx((prev) => (prev + 1) % SEARCH_SUGGESTIONS.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    setDisplayPlaceholder(SEARCH_SUGGESTIONS[placeholderIdx]);
+  }, [placeholderIdx]);
+
+  // Logique de soumission de la recherche
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchVal);
@@ -241,11 +270,46 @@ export default function Header({
                   : "none",
               }}
             >
-              <Search
-                size={15}
-                strokeWidth={2}
-                style={{ color: "var(--color-ink4)", flexShrink: 0 }}
-              />
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  color: "var(--color-ink4)",
+                  flexShrink: 0,
+                  overflow: "visible",
+                }}
+              >
+                {/* Loupe */}
+                <circle cx="10.5" cy="10.5" r="5.5" />
+                <line x1="14.5" y1="14.5" x2="20" y2="20" />
+                {/* Étoile 1 */}
+                <path
+                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                  fill="currentColor"
+                  stroke="none"
+                  transform="translate(-13, -1) scale(0.8)"
+                />
+                {/* Étoile 2 */}
+                <path
+                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                  fill="currentColor"
+                  stroke="none"
+                  transform="translate(-8, 14) scale(0.6)"
+                />
+                {/* Étoile 3 */}
+                <path
+                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                  fill="currentColor"
+                  stroke="none"
+                  transform="translate(2, -8) scale(0.7)"
+                />
+              </svg>
               <input
                 ref={inputRef}
                 type="text"
@@ -253,8 +317,10 @@ export default function Header({
                 onChange={(e) => setSearchVal(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder="Rechercher un événement, un design..."
-                className="flex-1 bg-transparent border-none outline-none text-sm"
+                placeholder={
+                  searchFocused || searchVal ? "" : displayPlaceholder
+                }
+                className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300"
                 style={{
                   color: "var(--color-ink)",
                   fontFamily: "var(--font-sans)",
