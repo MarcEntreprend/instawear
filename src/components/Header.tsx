@@ -150,7 +150,7 @@ export default function Header({
 
       {/* Main header (visuel v2) */}
       <header
-        className="sticky top-0 z-30 w-full transition-all duration-300"
+        className="sticky top-0 z-30 w-full transition-all duration-300 relative"
         style={{
           background: isScrolled ? "rgba(250,250,248,0.92)" : "var(--color-bg)",
           backdropFilter: isScrolled ? "blur(20px) saturate(160%)" : "none",
@@ -425,46 +425,71 @@ export default function Header({
             })}
           </div>
         </div>
-      </header>
 
-      {/* Mobile menu overlay (visuel v2, logique v3) */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-20 lg:hidden animate-fade-in"
-          style={{
-            background: "rgba(26,25,22,.5)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={() => setMobileMenuOpen(false)}
-        >
+        {/* Mobile menu overlay (visuel v2, logique v3) */}
+        {mobileMenuOpen && (
           <div
-            className="absolute top-0 left-0 right-0 animate-fade-up p-6 pt-4"
+            className="absolute top-full left-0 right-0 z-20 lg:hidden animate-fade-in"
             style={{
-              background: "var(--color-surface)",
-              borderBottom: "1px solid var(--color-border)",
+              background: "rgba(26,25,22,.5)",
+              backdropFilter: "blur(4px)",
+              height: "calc(100vh - 100%)",
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <div className="flex items-center justify-between mb-6">
-              <span
-                className="font-black text-lg"
-                style={{ color: "var(--color-ink)" }}
-              >
-                Menu
-              </span>
-              <button onClick={() => setMobileMenuOpen(false)}>
-                <X size={22} style={{ color: "var(--color-ink2)" }} />
-              </button>
-            </div>
-            <nav className="flex flex-col gap-1">
-              {NAV_LINKS.map((link, i) => (
+            <div
+              className="animate-fade-up p-6 pt-4"
+              style={{
+                background: "var(--color-surface)",
+                borderBottom: "1px solid var(--color-border)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <span
+                  className="font-black text-lg"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  Menu
+                </span>
+                <button onClick={() => setMobileMenuOpen(false)}>
+                  <X size={22} style={{ color: "var(--color-ink2)" }} />
+                </button>
+              </div>
+              <nav className="flex flex-col gap-1">
+                {NAV_LINKS.map((link, i) => (
+                  <button
+                    key={link.label}
+                    onClick={() => handleNavLink(link)}
+                    className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
+                    style={{
+                      color: "var(--color-ink)",
+                      animationDelay: `${i * 0.05}s`,
+                      fontFamily: "var(--font-sans)",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "var(--color-surface2)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    {link.label}
+                  </button>
+                ))}
+                <div
+                  className="h-px my-2"
+                  style={{ background: "var(--color-border)" }}
+                />
                 <button
-                  key={link.label}
-                  onClick={() => handleNavLink(link)}
-                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
+                  onClick={() => {
+                    onOpenAdmin();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
                   style={{
                     color: "var(--color-ink)",
-                    animationDelay: `${i * 0.05}s`,
                     fontFamily: "var(--font-sans)",
                   }}
                   onMouseEnter={(e) =>
@@ -474,36 +499,13 @@ export default function Header({
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  {link.label}
+                  {isAdminActive ? "← Voir le store" : "⚙️ Admin Studio"}
                 </button>
-              ))}
-              <div
-                className="h-px my-2"
-                style={{ background: "var(--color-border)" }}
-              />
-              <button
-                onClick={() => {
-                  onOpenAdmin();
-                  setMobileMenuOpen(false);
-                }}
-                className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
-                style={{
-                  color: "var(--color-ink)",
-                  fontFamily: "var(--font-sans)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--color-surface2)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                {isAdminActive ? "← Voir le store" : "⚙️ Admin Studio"}
-              </button>
-            </nav>
+              </nav>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </header>
     </>
   );
 }
