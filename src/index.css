@@ -539,3 +539,61 @@ mais elles complètent proprement le système de design et peuvent servir plus t
     transform: scale(1.2) rotate(15deg);
   }
 }
+
+/* Contour arc-en-ciel animé pour la barre de recherche */
+.search-rainbow {
+  position: relative;
+}
+.search-rainbow::after {
+  --borderWidth: 2px;
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--borderWidth));
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    #ffaa56,
+    #fb8714,
+    #ee602d,
+    #ed4a43,
+    #ec4945,
+    #ef4444,
+    #e61e5f,
+    #c70d77,
+    #971188,
+    #781794,
+    #611e8d,
+    #530487,
+    #781794,
+    #971188,
+    #c70d77,
+    #e61e5f,
+    #ef4444,
+    #ec4945,
+    #ed4a43,
+    #fb8714,
+    #ffaa56
+  );
+  background-size: 200% 100%;
+  z-index: -1;
+  animation: rainbowBorder 3s linear infinite;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  padding: var(--borderWidth);
+}
+
+@keyframes rainbowBorder {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+/* Désactiver l'outline focus sur l'input de recherche */
+.search-input:focus-visible {
+  outline: none;
+}

@@ -156,6 +156,9 @@ export default function Header({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchVal);
+    if (searchVal.trim()) {
+      onScrollToSection("filters");
+    }
     inputRef.current?.blur();
   };
 
@@ -290,15 +293,13 @@ export default function Header({
           {/* Search — center (visuel v2) */}
           <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-auto">
             <div
-              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${!searchFocused ? "search-rainbow" : ""}`}
               style={{
                 background: searchFocused
                   ? "var(--color-surface)"
                   : "var(--color-surface2)",
-                border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "var(--color-border)"}`,
-                boxShadow: searchFocused
-                  ? "0 0 0 3px rgba(255,92,53,.1)"
-                  : "none",
+                border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "transparent"}`,
+                zIndex: searchFocused ? 1 : 0,
               }}
             >
               {/* icône de recherche animée */}
@@ -354,7 +355,7 @@ export default function Header({
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 placeholder={searchFocused || searchVal ? "" : typedText}
-                className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300"
+                className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input"
                 style={{
                   color: "var(--color-ink)",
                   fontFamily: "var(--font-sans)",
