@@ -1,3 +1,5 @@
+// App.tsx
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -38,36 +40,41 @@ import {
 import Header from "./components/Header";
 import { Product, CartItem, PrintfulSettings } from "./types";
 
-// Preset mockup Unsplash templates for simple creator setup
+// Preset mockup templates with placeholder images
+const PLACEHOLDER_IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+const LOGO_URL =
+  "https://static.vecteezy.com/system/resources/previews/007/434/967/non_2x/clothing-store-icon-style-vector.jpg";
+
 const MOCKUP_PRESETS = [
   {
     name: "T-Shirt Noir Minimaliste (Mockup Classique)",
-    url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "tshirt",
   },
   {
     name: "T-Shirt Blanc Studio (Mannequin Unisexe)",
-    url: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "tshirt",
   },
   {
     name: "Hoodie Noir Urbain (Style Cozy)",
-    url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "hoodie",
   },
   {
     name: "Hoodie Oversized Crème (Style Streetwear)",
-    url: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "hoodie",
   },
   {
     name: "Casquette Trucker Rétro (Vibe Vintage)",
-    url: "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "accessory",
   },
   {
     name: "Mug Festif Céramique (Format Standard)",
-    url: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop",
+    url: PLACEHOLDER_IMG,
     category: "mug",
   },
 ];
@@ -126,7 +133,7 @@ export default function App() {
   const [newDesignStyle, setNewDesignStyle] = useState<
     "cute" | "street" | "commute" | "cozy" | "retro"
   >("street");
-  const [newDesignImg, setNewDesignImg] = useState(MOCKUP_PRESETS[0].url);
+  const [newDesignImg, setNewDesignImg] = useState(PLACEHOLDER_IMG);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSavingDesign, setIsSavingDesign] = useState(false);
   const [toastMessage, setToastMessage] = useState<{
@@ -155,7 +162,6 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
-      // Simple daily countdown for "SuperDeals" urgency
       const hours = 23 - now.getUTCHours();
       const minutes = 59 - now.getUTCMinutes();
       const seconds = 59 - now.getUTCSeconds();
@@ -208,7 +214,7 @@ export default function App() {
   const generateAiDesignContent = async () => {
     if (!newDesignPrompt.trim()) {
       showToast(
-        "Veuillez dâabord saisir une idée ou un prompt pour lâIA.",
+        "Veuillez d’abord saisir une idée ou un prompt pour l’IA.",
         "error",
       );
       return;
@@ -237,7 +243,6 @@ export default function App() {
           "success",
         );
       } else {
-        // Fallback demo content if server is not configured with key
         if (data.demoFallback) {
           setNewDesignTitle(data.demoFallback.title);
           setNewDesignDesc(data.demoFallback.description);
@@ -273,7 +278,6 @@ export default function App() {
 
     setIsSavingDesign(true);
     try {
-      // Find suitable colors based on style or random selections
       const colors = ["#1E1E1E", "#FFFFFF"];
       const colorNames = ["Noir Intense", "Blanc Pur"];
       if (newDesignEventType === "live" || newDesignEventType === "culture") {
@@ -304,7 +308,6 @@ export default function App() {
           "🎉 Nouveau design enregistré dans votre catalogue d'impression !",
           "success",
         );
-        // Reset form
         setNewDesignPrompt("");
         setNewDesignTitle("");
         setNewDesignDesc("");
@@ -312,7 +315,6 @@ export default function App() {
 
         await fetchProducts();
 
-        // Auto trigger sync with Printful to simulate mockups linking
         if (printfulSettings.isConnected) {
           triggerPrintfulSync();
         }
@@ -474,7 +476,6 @@ export default function App() {
   const simulateCheckout = () => {
     if (cart.length === 0) return;
     setOrderCompleted(true);
-    // Auto sync orders to printful connection if connected
     setTimeout(() => {
       setCart([]);
       setOrderCompleted(false);
@@ -498,7 +499,7 @@ export default function App() {
     return targetDate.toLocaleDateString("fr-FR", options);
   };
 
-  // Hero Carousel banners content
+  // Hero Carousel banners content (using placeholder images)
   const heroBanners = [
     {
       title: "InstaWear Concept",
@@ -506,8 +507,7 @@ export default function App() {
       sub: "Boutique ultra-réactive de vêtements premium célébrant les énergies du sport, de la musique et des saisons avec des designs IA de pointe.",
       cta: "Découvrir la Collection",
       bgGradient: "from-white via-indigo-50 to-white",
-      image:
-        "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
+      image: PLACEHOLDER_IMG,
       tag: "⚡ EN COURS DE PRODUCTION",
     },
     {
@@ -516,8 +516,7 @@ export default function App() {
       sub: "Affichez votre couleur de stade. Des t-shirts confortables en pur coton biologique imprimés à la demande à la vitesse de l'éclair.",
       cta: "Acheter la collection Sport",
       bgGradient: "from-white via-blue-50 to-white",
-      image:
-        "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop",
+      image: PLACEHOLDER_IMG,
       tag: "🏆 SPORT VIBES",
     },
     {
@@ -526,35 +525,28 @@ export default function App() {
       sub: "Éveillez le fêtard en vous. Des graphismes néons vibrants inspirés de la samba créés par des intelligences artificielles génératives exclusives.",
       cta: "Explorer les designs",
       bgGradient: "from-white via-pink-50 to-white",
-      image:
-        "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=600&auto=format&fit=crop",
+      image: PLACEHOLDER_IMG,
       tag: "🎉 SELECTION CULTURE",
     },
   ];
 
-  // La fonction onScrollToSection
+  // Navigation functions
   const scrollToSection = (
     section: "catalog" | "about" | "testimonials" | "faq" | "contact",
   ) => {
-    // Pour l'instant, seule la section catalogue est dans le store view
     if (section === "catalog") {
       setActiveTab("store");
-      window.scrollTo({ top: 600, behavior: "smooth" }); // scroll vers la grille produits
+      window.scrollTo({ top: 600, behavior: "smooth" });
     } else {
-      // Les autres sections peuvent être ajoutées plus tard
       setActiveTab("store");
     }
   };
 
-  // fonction onOpenFavorites
   const handleOpenFavorites = () => {
-    // Filtre les produits likés
     setActiveTab("store");
-    // On pourrait créer une vue filtrée "favoris", pour l'instant on scrolle vers le catalogue
     window.scrollTo({ top: 600, behavior: "smooth" });
   };
 
-  // fonction pour basculer les favoris (toggle)
   const toggleFavorite = (productId: string) => {
     setFavorites((prev) =>
       prev.includes(productId)
@@ -612,12 +604,11 @@ export default function App() {
           className="flex-1 flex flex-col gap-8 pb-16"
           id="view-customer-storefront"
         >
-          {/* Dynamic Hero Carousel Banner (Inspiré AliExpress avec design premium) */}
-          <section className="relative w-full max-w-7xl mx-auto px-4 mt-6">
+          {/* Dynamic Hero Carousel Banner */}
+          <section className="relative section-container mt-6 px-4">
             <div
               className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 flex flex-col md:flex-row items-center justify-between min-h-90 md:min-h-105 transition-all duration-700 relative`}
             >
-              {/* Left Arrow */}
               <button
                 onClick={() =>
                   setBannerIndex(
@@ -631,7 +622,6 @@ export default function App() {
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              {/* Right Arrow */}
               <button
                 onClick={() =>
                   setBannerIndex((prev) => (prev + 1) % heroBanners.length)
@@ -642,7 +632,6 @@ export default function App() {
                 <ChevronRight className="w-5 h-5" />
               </button>
 
-              {/* Left text pane */}
               <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
                 <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
                   {heroBanners[bannerIndex].tag}
@@ -672,7 +661,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Central/Right visual float items */}
               <div className="relative flex-1 w-full md:w-auto h-64 md:h-full flex items-center justify-center p-8 overflow-hidden select-none">
                 <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
                 <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
@@ -683,7 +671,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Bottom bullets */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
                 {heroBanners.map((_, i) => (
                   <button
@@ -698,7 +685,7 @@ export default function App() {
 
           {/* Reassurance/Value Proposition Bar */}
           <section className="bg-white border-y border-gray-200 py-6 px-4">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-center">
+            <div className="section-container grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-center">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-2">
                 <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0 border border-violet-500/20">
                   <Truck className="w-5 h-5 text-violet-400" />
@@ -745,8 +732,7 @@ export default function App() {
           </section>
 
           {/* Core Today deals segment & countdown triggers */}
-          <section className="max-w-7xl mx-auto w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Countdown / Urgency Block (Left column - 4 cols width) */}
+          <section className="section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
               <div>
                 <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
@@ -791,7 +777,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* Quick Bundle Selection (Right column - 8 cols width) */}
+            {/* Quick Bundle Selection */}
             <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
                 <div>
@@ -820,7 +806,7 @@ export default function App() {
                   >
                     <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
                       <img
-                        src={item.image}
+                        src={item.image || PLACEHOLDER_IMG}
                         alt={item.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -851,7 +837,7 @@ export default function App() {
 
           {/* Active Filtering Criteria Breadcrumb */}
           {(searchTerm || selectedCategory || selectedEventType) && (
-            <section className="max-w-7xl mx-auto w-full px-4">
+            <section className="section-container w-full px-4">
               <div className="bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-gray-500">Filtres actifs :</span>
@@ -897,9 +883,8 @@ export default function App() {
             </section>
           )}
 
-          {/* Core eCommerce Products Listing - Grid of 2 lines x 5 columns style */}
-          <section className="max-w-7xl mx-auto w-full px-4">
-            {/* Segment Title */}
+          {/* Core eCommerce Products Listing */}
+          <section className="section-container w-full px-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-200 pb-3">
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
@@ -948,7 +933,6 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              // 2 lines x 5 columns layout feel for desktop, grid flex for responsive
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 {filteredProducts.map((product) => {
                   return (
@@ -957,7 +941,6 @@ export default function App() {
                       className="bg-white/60 border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5 transition-all text-left flex flex-col justify-between h-full relative"
                       id={`product-card-${product.id}`}
                     >
-                      {/* Product header tags and preview badge */}
                       <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
                         {product.isBestSeller && (
                           <span className="bg-amber-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow">
@@ -976,7 +959,6 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Primary representation image with mannequin */}
                       <div
                         onClick={() => {
                           setSelectedProduct(product);
@@ -985,7 +967,7 @@ export default function App() {
                         className="aspect-4/5 rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
                       >
                         <img
-                          src={product.image}
+                          src={product.image || PLACEHOLDER_IMG}
                           alt={product.title}
                           className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
                         />
@@ -997,10 +979,8 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Content panel */}
                       <div className="p-4 flex-1 flex flex-col justify-between">
                         <div>
-                          {/* Color Swatch Indicators Row */}
                           <div className="flex items-center gap-1 mb-2.5">
                             {product.colors.slice(0, 4).map((c, idx) => (
                               <span
@@ -1017,7 +997,6 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* Brand name and SEO optimized long title */}
                           <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
                             {product.brand}
                           </p>
@@ -1031,7 +1010,6 @@ export default function App() {
                             {product.title}
                           </h4>
 
-                          {/* Ratings and review block */}
                           <div className="flex items-center gap-1.5 mt-2 text-xs">
                             <div className="flex items-center text-amber-400 text-[11px]">
                               <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
@@ -1048,7 +1026,6 @@ export default function App() {
                             </span>
                           </div>
 
-                          {/* Optional promotion count down for conversions */}
                           {product.isLimitedTime && (
                             <div className="bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600">
                               <span className="font-bold flex items-center gap-1">
@@ -1061,7 +1038,6 @@ export default function App() {
                             </div>
                           )}
 
-                          {/* Prices mapping standard Amazon */}
                           <div className="flex items-baseline gap-2 mt-3 mb-1">
                             <span className="text-lg font-black text-gray-900 font-sans">
                               {product.price.toFixed(2)}{" "}
@@ -1076,7 +1052,6 @@ export default function App() {
                             )}
                           </div>
 
-                          {/* Custom Premium "Choice" delivery indicators */}
                           <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
                             <p className="text-(--color-accent) font-semibold flex items-center gap-1">
                               <CheckCircle className="w-3 h-3" /> Rejoindre
@@ -1094,7 +1069,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Big conversion add button */}
                         <button
                           onClick={() =>
                             addToCart(product, product.colors[0], "M")
@@ -1113,7 +1087,7 @@ export default function App() {
             )}
           </section>
 
-          {/* About Section - Premium Story (Intégration d'histoire de marque) */}
+          {/* About Section - Premium Story (visuel V2 avec max-w-4xl) */}
           <section className="bg-white border-t border-gray-200 mt-12 py-12 px-4">
             <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
               <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
@@ -1183,8 +1157,8 @@ export default function App() {
                 Gérer votre Boutique & API Printful
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Concevez de nouveaux design à la demande avec lâaide de Gemini,
-                liez les produits à l&apos;usine, et suivez la synchronisation.
+                Concevez de nouveaux design à la demande avec l’aide de Gemini,
+                liez les produits à l’usine, et suivez la synchronisation.
               </p>
             </div>
 
@@ -1200,7 +1174,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Block - Gemini Form & Product creation (8 cols) */}
+            {/* Left Block - Gemini Form & Product creation */}
             <div className="lg:col-span-8 flex flex-col gap-6">
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4 border-b border-gray-200 pb-3">
@@ -1210,7 +1184,6 @@ export default function App() {
                   </h3>
                 </div>
 
-                {/* Main Prompter */}
                 <div className="mb-4">
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                     1. Idée de design ou Prompt d&apos;inspiration :
@@ -1230,7 +1203,6 @@ export default function App() {
                   </p>
                 </div>
 
-                {/* Fast presets for styling and target criteria */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
@@ -1308,7 +1280,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Creation Form Details pane */}
                 <form
                   onSubmit={handleSaveDesign}
                   className="space-y-4 border-t border-gray-200 pt-5"
@@ -1379,7 +1350,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Mockup image preset mapping */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                       3. Sélectionner un visuel de Mockup (Base) :
@@ -1429,7 +1399,6 @@ export default function App() {
                 </form>
               </div>
 
-              {/* List of custom assets for easy management */}
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <h4 className="font-bold text-gray-900 text-sm mb-4">
                   Vos Designs Personnels
@@ -1451,7 +1420,7 @@ export default function App() {
                         >
                           <div className="flex items-center gap-3">
                             <img
-                              src={item.image}
+                              src={item.image || PLACEHOLDER_IMG}
                               alt={item.title}
                               className="w-10 h-10 object-cover rounded"
                             />
@@ -1488,9 +1457,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right Block - Printful/Printify credentials & guides (4 cols) */}
+            {/* Right Block - Printful credentials & guides */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              {/* API Integration parameters pane */}
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <Layers className="w-5 h-5 text-indigo-400" />
@@ -1613,7 +1581,6 @@ export default function App() {
                 </form>
               </div>
 
-              {/* Complete guide/step how zero budget printable works */}
               <div className="bg-white border border-gray-200 rounded-2xl p-6 text-xs text-gray-600">
                 <h4 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider flex items-center gap-1.5">
                   <Check className="w-4 h-4 text-(--color-accent)" />
@@ -1658,14 +1625,13 @@ export default function App() {
         </main>
       )}
 
-      {/* Product Detailed Sheet Sliding / Modal with conversions (AliExpress and Amazon elements) */}
+      {/* Product Detailed Sheet Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div
             className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
             id="modal-product-details"
           >
-            {/* Close trigger button */}
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900 w-9 h-9 rounded-full flex items-center justify-center transition-all z-10"
@@ -1675,10 +1641,8 @@ export default function App() {
             </button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
-              {/* Product Gallery & Photos block */}
               <div>
                 <div className="aspect-4/5 bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 relative">
-                  {/* Badge */}
                   {selectedProduct.isBestSeller && (
                     <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow">
                       BEST SELLER
@@ -1693,14 +1657,14 @@ export default function App() {
                   <img
                     src={
                       selectedProduct.gallery?.[activeGalleryIndex] ||
-                      selectedProduct.image
+                      selectedProduct.image ||
+                      PLACEHOLDER_IMG
                     }
                     alt={selectedProduct.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
 
-                {/* Sub thumbnails slider if gallery has components */}
                 {selectedProduct.gallery &&
                   selectedProduct.gallery.length > 1 && (
                     <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
@@ -1729,7 +1693,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Product Info, Custom forms and conversions */}
               <div className="flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] bg-gray-100 px-3 py-1 rounded text-gray-500 uppercase tracking-widest font-bold">
@@ -1740,7 +1703,6 @@ export default function App() {
                     {selectedProduct.title}
                   </h3>
 
-                  {/* Ratings */}
                   <div className="flex items-center gap-2 mt-3 text-xs">
                     <div className="flex items-center text-amber-400">
                       {[...Array(5)].map((_, i) => (
@@ -1758,7 +1720,6 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* Pricing Amazon elements */}
                   <div className="flex items-baseline gap-2 mt-4 p-4 bg-gray-50/60 rounded-xl border border-gray-200">
                     <div>
                       <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
@@ -1787,7 +1748,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Product small concept representation text */}
                   <div className="mt-5 text-xs text-gray-600 leading-relaxed space-y-2 font-sans border-b border-gray-200 pb-5">
                     <p className="font-bold text-gray-500 uppercase tracking-wider">
                       Fiche technique du vêtement :
@@ -1803,7 +1763,6 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Color pickers selection */}
                   <div className="mt-4">
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       Couleur :{" "}
@@ -1833,7 +1792,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Sizes picks */}
                   <div className="mt-4">
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -1901,7 +1859,6 @@ export default function App() {
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  {/* Shipping reassurance estimate for detail pane */}
                   <div className="p-3.5 bg-gray-50/60 rounded-xl border border-gray-200 text-xs text-gray-600 font-sans">
                     <p className="text-(--color-accent) font-black flex items-center gap-1 mb-1">
                       <Truck className="w-3.5 h-3.5 text-(--color-accent)" />{" "}
@@ -1959,7 +1916,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Slide-over eCommerce Shopping Cart drawer */}
+      {/* Slide-over Shopping Cart drawer */}
       {cartOpen && (
         <div
           className="fixed inset-y-0 right-0 z-55 w-full max-w-md bg-white border-l border-gray-200 shadow-2xl flex flex-col justify-between p-6 animate-in slide-in-from-right duration-300"
@@ -2030,7 +1987,7 @@ export default function App() {
                     >
                       <div className="w-16 h-20 bg-white rounded-lg overflow-hidden shrink-0">
                         <img
-                          src={item.product.image}
+                          src={item.product.image || PLACEHOLDER_IMG}
                           alt={item.product.title}
                           className="w-full h-full object-cover"
                         />
@@ -2061,7 +2018,6 @@ export default function App() {
                             {item.product.price.toFixed(2)} €
                           </span>
 
-                          {/* Qty edit */}
                           <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
                             <button
                               onClick={() => updateCartQty(idx, -1)}
@@ -2121,7 +2077,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Free delivery recommendation dynamic bar */}
               {cartTotal < 35 && (
                 <div className="p-3 bg-violet-950/40 border border-violet-800/40 rounded-xl text-[11px] text-violet-600">
                   <p className="font-semibold">
@@ -2155,15 +2110,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Global Brand Footer */}
+      {/* Global Brand Footer avec logo officiel */}
       <footer className="bg-gray-50 border-t border-gray-200 py-12 px-4 mt-auto">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Col 1 - Brand Identity info */}
+        <div className="section-container grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-1.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-lg text-gray-900">
-                I
-              </div>
+              <img
+                src={LOGO_URL}
+                alt="InstaWear Logo"
+                className="w-8 h-8 rounded-lg object-cover"
+              />
               <span className="font-black text-lg text-gray-900">
                 InstaWear
               </span>
@@ -2194,7 +2150,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Col 2 - Event collections */}
           <div>
             <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
               Événements
@@ -2247,7 +2202,6 @@ export default function App() {
             </ul>
           </div>
 
-          {/* Col 3 - Administration studio direct links */}
           <div>
             <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
               Créateur Hub
@@ -2288,7 +2242,6 @@ export default function App() {
             </ul>
           </div>
 
-          {/* Col 4 - Newsletter signing */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">
               Abonnement Newsletter
@@ -2328,8 +2281,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Outer legal constraints */}
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
+        <div className="section-container mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
           <p>
             © 2026 InstaWear Inc. Tous droits réservés. Propulsé par Cloud Run,
             Next.js commerce & l&apos;API Printful.

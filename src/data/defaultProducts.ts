@@ -1,9 +1,9 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+// src\data\defaultProducts.ts
 
 import { Product } from "../types";
+
+const IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 export const DEFAULT_PRODUCTS: Product[] = [
   {
@@ -11,18 +11,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "T-Shirt Rio Carnival Neon Edition 2026",
     brand: "INSTAWEAR",
     description:
-      "T-shirt premium en coton bio célébrant l'emblématique Carnaval de Rio avec un graphisme néon vibrant.",
+      "T-shirt premium en coton bio célébrant le Carnaval de Rio avec un graphisme néon vibrant.",
     fullDescription:
-      "• Coton 100% biologique peigné (180 g/m²)\n• Impression numérique HD haute durabilité (certifiée éco-responsable)\n• Coupe unisexe moderne avec coutures latérales doublées\n• Design exclusif représentant l'énergie pure de la samba en éclairs néons",
+      "• Coton 100% biologique peigné (180 g/m²)\n• Impression numérique HD haute durabilité certifiée éco-responsable\n• Coupe unisexe moderne avec coutures latérales doublées\n• Design exclusif représentant l'énergie pure de la samba en éclairs néons\n• Certifié OEKO-TEX® Standard 100",
     price: 29.99,
     originalPrice: 45.0,
-    image:
-      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG, IMG, IMG],
     colors: ["#00FFFF", "#FF00FF", "#1E1E1E", "#FFFFFF"],
     colorNames: [
       "Cyan Électrique",
@@ -47,17 +42,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "Hoodie Retro UCL Champions Finals 2026",
     brand: "INSTAWEAR",
     description:
-      "Sweat à capuche premium ultra-confort commémorant la légendaire finale de la Ligue des Champions.",
+      "Sweat à capuche premium ultra-confort commémorant la finale de la Ligue des Champions.",
     fullDescription:
       "• 85% coton bio peigné, 15% polyester recyclé (350 g/m²)\n• Intérieur gratté ultra doux pour une rétention de chaleur optimale\n• Capuche doublée avec cordon de serrage assorti et embouts métalliques\n• Poche kangourou spacieuse avec coutures renforcées\n• Graphisme vintage sérigraphié haute densité résistant au lavage",
     price: 54.99,
     originalPrice: 79.99,
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1534126511673-b6899657816a?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG, IMG],
     colors: ["#0F172A", "#475569", "#FFFFFF"],
     colorNames: ["Bleu Minuit", "Gris Athlétique", "Blanc Pur"],
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -66,7 +57,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
     isBestSeller: true,
     material: "polyester-recycle",
     inStock: true,
-    tags: ["UCL", "Champions", "Ligue des Champions", "Football", "Sport"],
+    tags: ["UCL", "Champions", "Football", "Sport", "Ligue des Champions"],
     eventType: "sport",
     category: "hoodie",
     style: "cozy",
@@ -76,17 +67,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "T-Shirt Oktoberfest Beer Garland 2026",
     brand: "INSTAWEAR",
     description:
-      "Design néo-traditionnel bavarois célébrant la bière et la camaraderie de l'Oktoberfest de Munich.",
+      "Design néo-traditionnel bavarois célébrant la bière et la camaraderie de Munich.",
     fullDescription:
       "• Coton 100% ringspun doux et léger (150 g/m²)\n• Encolure ras-du-cou côtelée de haute qualité\n• Impression numérique respirante idéale pour fêter activement\n• Illustration bavaroise revisitée avec des touches modernes",
     price: 24.99,
     originalPrice: 34.99,
-    image:
-      "https://images.unsplash.com/photo-1562157873-818bc0726f68?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1562157873-818bc0726f68?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG, IMG],
     colors: ["#D97706", "#065F46", "#1E1E1E"],
     colorNames: ["Caramel Bavarois", "Vert Forêt", "Noir Sombre"],
     sizes: ["S", "M", "L", "XL"],
@@ -105,17 +92,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "Hoodie Halloween Creepy Glow 2026",
     brand: "INSTAWEAR",
     description:
-      "Sweat à capuche au design fluorescent célébrant le grand frisson de la nuit d'Halloween.",
+      "Sweat à capuche au design fluorescent pour la grande nuit d'Halloween.",
     fullDescription:
-      "• Coupe confort avec emmanchures descendues (300 g/m²)\n• Impression phosphorescente de qualité studio (brille dans le noir)\n• Finitions bord-côte élastiques aux poignets et à la taille\n• Capuche ajustable double épaisseur pour un look streetwear mystérieux",
+      "• Coupe confort avec emmanchures descendues (300 g/m²)\n• Impression phosphorescente de qualité studio — brille dans le noir\n• Finitions bord-côte élastiques aux poignets et à la taille\n• Capuche ajustable double épaisseur pour un look streetwear mystérieux",
     price: 49.99,
     originalPrice: 69.99,
-    image:
-      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1543087903-1ac2ec7aa8c5?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG, IMG],
     colors: ["#EA580C", "#1E1E1E", "#4D7C0F"],
     colorNames: ["Orange Citrouille", "Noir Absolu", "Vert Toxique"],
     sizes: ["M", "L", "XL", "XXL"],
@@ -130,18 +113,15 @@ export const DEFAULT_PRODUCTS: Product[] = [
   },
   {
     id: "prod-coachella-tshirt",
-    title: "T-Shirt Summer Vibes Desert Mirage Coachella",
+    title: "T-Shirt Summer Desert Mirage Coachella",
     brand: "INSTAWEAR",
     description:
-      "Une explosion de couleurs pastel et de motifs boho-chic inspirés par la brise chaleureuse du désert de Californie.",
+      "Une explosion de couleurs pastel et de motifs boho-chic du désert californien.",
     fullDescription:
       "• Coton biologique brossé extrêmement doux\n• Design de type collage artistique de vagues mélodiques\n• Coupe fluide décontractée avec manches à revers",
     price: 27.99,
-    image:
-      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG],
     colors: ["#FEF08A", "#FEE2E2", "#ECFDF5"],
     colorNames: ["Sable Chaud", "Rose Crépuscule", "Menthe Fraîche"],
     sizes: ["S", "M", "L", "XL"],
@@ -159,16 +139,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "Casquette Trucker Olympics Vintage 2026",
     brand: "INSTAWEAR",
     description:
-      "Casquette de baseball rétro avec broderie dynamique aux couleurs olympiques légendaires.",
+      "Casquette de baseball rétro brodée aux couleurs olympiques légendaires.",
     fullDescription:
-      "• Couronne structurée à 5 panneaux à profil moyen\n• Visière pré-courbée avec dessous contrasté rétro\n• Filet arrière respirant en nid d'abeille haute durabilité\n• Fermeture plastique snapback réglable de style classique",
+      "• Couronne structurée à 5 panneaux à profil moyen\n• Visière pré-courbée avec dessous contrasté rétro\n• Filet arrière respirant en nid d'abeille haute durabilité\n• Fermeture plastique snapback réglable style classique",
     price: 19.99,
     originalPrice: 29.99,
-    image:
-      "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG],
     colors: ["#1E3A8A", "#B91C1C", "#15803D"],
     colorNames: ["Bleu Stadium", "Rouge Athlète", "Vert Olympique"],
     sizes: ["Unique (Réglable)"],
@@ -184,19 +161,16 @@ export const DEFAULT_PRODUCTS: Product[] = [
   },
   {
     id: "prod-new-year-mug",
-    title: "Mug de Fête Midnight Countdown 2026",
+    title: "Mug Céramique Midnight Countdown 2026",
     brand: "INSTAWEAR",
     description:
-      "Mug céramique thermo-réactif révélant un feu d'artifice doré majestueux lorsque la boisson chauffe.",
+      "Mug thermo-réactif révélant un feu d'artifice doré lorsque la boisson chauffe.",
     fullDescription:
-      "• Céramique haute intensité (325 ml)\n• Forme ergonomique confortable, anse large isolée thermiquement\n• Impression sensible à la température révélant un décompte festif magique",
+      "• Céramique haute intensité (325 ml)\n• Forme ergonomique, anse large isolée thermiquement\n• Impression sensible à la température révélant un décompte festif magique",
     price: 14.99,
     originalPrice: 19.99,
-    image:
-      "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG],
     colors: ["#000000", "#FFFFFF"],
     colorNames: ["Noir Minuit", "Blanc Pur"],
     sizes: ["Format Standard"],
@@ -214,16 +188,13 @@ export const DEFAULT_PRODUCTS: Product[] = [
     title: "T-Shirt Grand Prix Monaco Race Vibe",
     brand: "INSTAWEAR",
     description:
-      "Inspiré par le crissement des pneus sur les routes de la Principauté et l'héritage de la vitesse vintage.",
+      "Inspiré par le crissement des pneus sur les routes de la Principauté.",
     fullDescription:
       '• Coupe droite classique "Boxy" rétro style années 90\n• Encolure épaisse et surpiqûres à double aiguilles\n• Graphisme de voiture de course rétro avec filtres artistiques',
     price: 28.99,
     originalPrice: 38.99,
-    image:
-      "https://images.unsplash.com/photo-1503341504253-dff48121cfc8?q=80&w=600&auto=format&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1503341504253-dff48121cfc8?q=80&w=600&auto=format&fit=crop",
-    ],
+    image: IMG,
+    gallery: [IMG],
     colors: ["#DC2626", "#E2E8F0", "#1E1E1E"],
     colorNames: ["Rouge Racing", "Gris Asphalte", "Noir Pneu"],
     sizes: ["S", "M", "L", "XL"],
@@ -235,6 +206,52 @@ export const DEFAULT_PRODUCTS: Product[] = [
     eventType: "sport",
     category: "tshirt",
     style: "retro",
+  },
+  {
+    id: "prod-xmas-ugly-sweater",
+    title: 'Hoodie "Ugly Sweater" Noël Festif 2026',
+    brand: "INSTAWEAR",
+    description:
+      "L'incontournable ugly sweater de Noël revisité par l'IA pour un résultat unique.",
+    fullDescription:
+      "• Coton pelucheux extra-doux (280 g/m²)\n• Impression vibrante résistante au lavage\n• Coupe ample et confortable\n• Motifs de rennes et flocons générés par IA — chaque pièce est unique",
+    price: 44.99,
+    image: IMG,
+    gallery: [IMG],
+    colors: ["#DC2626", "#166534", "#1E3A8A"],
+    colorNames: ["Rouge Père Noël", "Vert Sapin", "Bleu Hiver"],
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    ratings: { score: 4.7, count: 88 },
+    boughtLastMonth: 210,
+    material: "coton-bio",
+    inStock: true,
+    tags: ["Noël", "Christmas", "Ugly Sweater", "Fêtes", "Hiver"],
+    eventType: "saisonnier",
+    category: "hoodie",
+    style: "cute",
+  },
+  {
+    id: "prod-live-dj-tshirt",
+    title: "T-Shirt Live Set EDM Drop 2026",
+    brand: "INSTAWEAR",
+    description:
+      "Pour les nuits sans sommeil et les bass drops qui font vibrer les murs.",
+    fullDescription:
+      "• Coton bio ringspun (160 g/m²)\n• Impression épaisse type sérigraphie\n• Graphisme visualiseur audio et ondes sonores générées par IA",
+    price: 26.99,
+    image: IMG,
+    gallery: [IMG],
+    colors: ["#1E1E1E", "#7C3AED", "#EC4899"],
+    colorNames: ["Noir Scène", "Violet Laser", "Pink Fluo"],
+    sizes: ["XS", "S", "M", "L", "XL"],
+    ratings: { score: 4.6, count: 156 },
+    boughtLastMonth: 340,
+    material: "coton-bio",
+    inStock: true,
+    tags: ["EDM", "Festival", "Techno", "Live", "Rave"],
+    eventType: "live",
+    category: "tshirt",
+    style: "street",
   },
 ];
 

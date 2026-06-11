@@ -1,11 +1,15 @@
+// src\data\staticData.ts
+
 import { Testimonial, FAQ } from "../types";
+
+const PLACEHOLDER_IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 export const TESTIMONIALS: Testimonial[] = [
   {
     id: "test-1",
     name: "Camille Rousseau",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=120&auto=format&fit=crop&crop=face",
+    avatar: PLACEHOLDER_IMG,
     location: "Paris, France",
     rating: 5,
     text: "J'ai reçu mon hoodie UCL en 5 jours. La qualité est vraiment bluffante — le tissu est épais, la broderie impeccable. J'étais sceptique sur le print-on-demand mais InstaWear m'a convaincue définitivement.",
@@ -15,8 +19,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "test-2",
     name: "Marco Ferreira",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120&auto=format&fit=crop&crop=face",
+    avatar: PLACEHOLDER_IMG,
     location: "Lyon, France",
     rating: 5,
     text: "Le t-shirt Rio Carnival est exactement comme sur les photos — les couleurs néon sont vibrantes et restent intactes après plusieurs lavages. Je l'ai porté à un festival et tout le monde me demandait où l'acheter.",
@@ -26,8 +29,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "test-3",
     name: "Sophie Marchetti",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=120&auto=format&fit=crop&crop=face",
+    avatar: PLACEHOLDER_IMG,
     location: "Bordeaux, France",
     rating: 4,
     text: "Commande via WhatsApp très simple et réactive. J'ai eu une réponse en moins de 2h et la casquette Olympics a été expédiée le lendemain. Le design est original, pas générique du tout.",
@@ -37,8 +39,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: "test-4",
     name: "Antoine Delbos",
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=120&auto=format&fit=crop&crop=face",
+    avatar: PLACEHOLDER_IMG,
     location: "Toulouse, France",
     rating: 5,
     text: "Le hoodie Halloween brille vraiment dans le noir ! Mes enfants ont adoré la soirée. Service client au top — ils ont géré un problème de taille en un seul échange Telegram. Je recommande à 200%.",

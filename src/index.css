@@ -215,13 +215,27 @@ body {
 }
 
 /* Product card hover lift */
-.card-lift {
+
+/* card lift v2 */
+/* .card-lift {
   transition:
     transform 0.3s var(--ease-out),
     box-shadow 0.3s var(--ease-out);
 }
 .card-lift:hover {
   transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+} */
+
+/* Fusion v2+ v3 : ajout de will-change et easing plus fluide, sans changer les valeurs de transformation */
+.card-lift {
+  transition:
+    transform 0.35s var(--ease-out-expo),
+    box-shadow 0.35s var(--ease-out-expo);
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-5px);
   box-shadow: var(--shadow-xl);
 }
 
@@ -395,4 +409,105 @@ p {
 .float-btn:hover {
   transform: scale(1.1) translateY(-2px);
   box-shadow: var(--shadow-xl);
+}
+
+/* les ajouts de la V3 qui n’existent pas dans la V2 */
+
+/* Variables de bordure arrondie (utilisées par ProductModal et d’autres) des boutons, images, cercle de logo...*/
+/* :root {
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
+  --radius-pill: 9999px;
+} */
+
+/* Classe de centrage .section-container (utilisée dans App.tsx) */
+.section-container {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+@media (min-width: 768px) {
+  .section-container {
+    padding-inline: 40px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .section-container {
+    padding-inline: 60px;
+  }
+}
+
+/* 🟡 Ajouts recommandés (utiles pour l’avenir, sans conflit)
+Ces variables et classes ne sont pas encore utilisées dans les composants fusionnés, 
+mais elles complètent proprement le système de design et peuvent servir plus tard. Aucune ne modifie un style existant. */
+
+:root {
+  /* Couleurs supplémentaires (gardent la palette V2) */
+  --color-accent-hover: #e64a2e; /* version foncée de l’accent */
+  --color-accent-soft: rgba(255, 92, 53, 0.1);
+  --color-accent-soft2: rgba(255, 92, 53, 0.06);
+  --color-success: #1f7a4c;
+  --color-success-bg: #edfaf3;
+  --color-gold-bg: #fdf5e0; /* fond doré léger */
+  --color-ink5: #d4ccc0; /* une teinte encore plus claire */
+
+  /* Z-index scale (si tu veux éviter les chiffres magiques) */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+  --z-grain: 60;
+}
+
+/* Classes d’animation supplémentaires (sans toucher aux existantes) */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-scale-in {
+  animation: scaleIn 0.4s var(--ease-spring) both;
+}
+.animate-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Délais supplémentaires (en plus des delay-1 à delay-5) */
+.delay-100 {
+  animation-delay: 0.1s;
+}
+.delay-150 {
+  animation-delay: 0.15s;
+}
+.delay-200 {
+  animation-delay: 0.2s;
+}
+.delay-250 {
+  animation-delay: 0.25s;
+}
+.delay-300 {
+  animation-delay: 0.3s;
+}
+.delay-400 {
+  animation-delay: 0.4s;
+}
+.delay-500 {
+  animation-delay: 0.5s;
 }

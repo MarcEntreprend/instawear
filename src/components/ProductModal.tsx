@@ -1,3 +1,5 @@
+// src/components/ProductModal.tsx
+
 import React, { useState } from "react";
 import {
   X,
@@ -9,8 +11,12 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  Check,
 } from "lucide-react";
 import { Product } from "../types";
+
+const IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 interface ProductModalProps {
   product: Product;
@@ -21,7 +27,10 @@ interface ProductModalProps {
   countdownStr: string;
 }
 
-const SIZE_GUIDE: Record<string, Record<string, string>> = {
+const SIZE_GUIDE: Record<
+  string,
+  { buste: string; longueur: string; épaules: string }
+> = {
   S: { buste: "48 cm", longueur: "69 cm", épaules: "43 cm" },
   M: { buste: "51 cm", longueur: "72 cm", épaules: "45 cm" },
   L: { buste: "54 cm", longueur: "74 cm", épaules: "47 cm" },
@@ -29,14 +38,7 @@ const SIZE_GUIDE: Record<string, Record<string, string>> = {
   XXL: { buste: "60 cm", longueur: "78 cm", épaules: "51 cm" },
 };
 
-const SIZE_SURCHARGE: Record<string, number> = {
-  XXL: 2,
-  XL: 0,
-  L: 0,
-  M: 0,
-  S: 0,
-  XS: 0,
-};
+const SIZE_SURCHARGE: Record<string, number> = { XXL: 2 };
 
 export default function ProductModal({
   product,
@@ -51,13 +53,14 @@ export default function ProductModal({
     product.sizes.includes("M") ? "M" : product.sizes[0],
   );
   const [galleryIdx, setGalleryIdx] = useState(0);
-  const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [added, setAdded] = useState(false);
 
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
-  const dynamicPrice = product.price + (SIZE_SURCHARGE[selectedSize] || 0);
+  const dynPrice = product.price + (SIZE_SURCHARGE[selectedSize] || 0);
 
   const prevImage = () =>
     setGalleryIdx(
@@ -68,6 +71,17 @@ export default function ProductModal({
   const nextImage = () =>
     setGalleryIdx((i) => (i + 1) % (product.gallery?.length || 1));
 
+  const handleAdd = () => {
+    onAddToCart(product, selectedColor, selectedSize);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  const handleBuyNow = () => {
+    onAddToCart(product, selectedColor, selectedSize);
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-fade-in"
@@ -77,15 +91,16 @@ export default function ProductModal({
       }}
     >
       <div
-        className="w-full md:max-w-3xl max-h-[95vh] overflow-y-auto rounded-t-3xl md:rounded-2xl animate-fade-up"
+        className="w-full md:max-w-3xl max-h-[95vh] overflow-y-auto rounded-t-3xl md:rounded-2xl animate-fade-up relative"
         style={{
           background: "var(--color-bg)",
           border: "1px solid var(--color-border)",
         }}
       >
+        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors"
+          className="absolute top-4 right-4 z-10 p-2 rounded-full transition-transform hover:scale-110"
           style={{
             background: "rgba(255,255,255,.8)",
             backdropFilter: "blur(8px)",
@@ -102,7 +117,7 @@ export default function ProductModal({
             style={{ background: "var(--color-surface2)" }}
           >
             <img
-              src={product.gallery?.[galleryIdx] || product.image}
+              src={product.gallery?.[galleryIdx] || product.image || IMG}
               alt={product.title}
               className="w-full h-full object-cover md:rounded-tl-2xl"
             />
@@ -143,31 +158,32 @@ export default function ProductModal({
                     />
                   ))}
                 </div>
+                {/* Thumbnails */}
+                <div
+                  className="flex gap-2 p-3"
+                  style={{ background: "var(--color-surface)" }}
+                >
+                  {product.gallery.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGalleryIdx(i)}
+                      className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors"
+                      style={{
+                        borderColor:
+                          galleryIdx === i
+                            ? "var(--color-accent)"
+                            : "transparent",
+                      }}
+                    >
+                      <img
+                        src={img || IMG}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
               </>
-            )}
-            {/* Thumbnails */}
-            {product.gallery && product.gallery.length > 1 && (
-              <div
-                className="flex gap-2 p-3"
-                style={{ background: "var(--color-surface)" }}
-              >
-                {product.gallery.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setGalleryIdx(i)}
-                    className="w-14 h-14 rounded-lg overflow-hidden transition-all"
-                    style={{
-                      border: `2px solid ${galleryIdx === i ? "var(--color-accent)" : "transparent"}`,
-                    }}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
             )}
           </div>
 
@@ -219,7 +235,7 @@ export default function ProductModal({
               </span>
             </div>
 
-            {/* Price with dynamic sizing */}
+            {/* Price */}
             <div
               className="flex items-baseline gap-3 p-3 rounded-xl"
               style={{ background: "var(--color-surface2)" }}
@@ -232,7 +248,7 @@ export default function ProductModal({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {dynamicPrice.toFixed(2)} €
+                {dynPrice.toFixed(2)} €
               </span>
               {product.originalPrice && (
                 <>
@@ -320,12 +336,12 @@ export default function ProductModal({
                   </span>
                 </p>
                 <button
-                  onClick={() => setShowSizeGuide(!showSizeGuide)}
+                  onClick={() => setShowGuide(!showGuide)}
                   className="text-xs font-semibold flex items-center gap-1"
                   style={{ color: "var(--color-accent)" }}
                 >
                   <Info size={11} strokeWidth={2} />
-                  Guide
+                  Guide des tailles
                 </button>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -349,7 +365,7 @@ export default function ProductModal({
                 ))}
               </div>
 
-              {showSizeGuide && SIZE_GUIDE[selectedSize] && (
+              {showGuide && SIZE_GUIDE[selectedSize] && (
                 <div
                   className="mt-3 p-3 rounded-xl text-xs animate-fade-up"
                   style={{
@@ -406,12 +422,11 @@ export default function ProductModal({
               </div>
             </div>
 
-            {/* CTA */}
+            {/* CTAs */}
             <div className="flex gap-2 pb-1">
+              {/* Favorite */}
               <button
-                onClick={() => {
-                  onToggleFavorite(product.id);
-                }}
+                onClick={() => onToggleFavorite(product.id)}
                 className="p-3 rounded-xl transition-all duration-150"
                 style={{
                   background: isFavorite ? "#FEF2F2" : "var(--color-surface2)",
@@ -426,29 +441,68 @@ export default function ProductModal({
                 />
               </button>
 
+              {/* Add to cart */}
               <button
-                onClick={() => {
-                  onAddToCart(product, selectedColor, selectedSize);
-                  onClose();
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm text-gray-900 transition-all duration-200"
+                onClick={handleAdd}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm transition-all duration-200"
                 style={{
-                  background: "var(--color-accent)",
-                  boxShadow: "var(--shadow-accent)",
+                  background: added
+                    ? "var(--color-emerald)"
+                    : "var(--color-accent)",
+                  boxShadow: added
+                    ? "0 6px 20px rgba(31,122,76,0.3)"
+                    : "var(--shadow-accent)",
+                  color: "white",
+                  fontFamily: "var(--font-sans)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!added) {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 12px 40px rgba(255,92,53,.32)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!added) {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-accent)";
+                  }
+                }}
+              >
+                {added ? (
+                  <>
+                    <Check size={15} strokeWidth={2.5} />
+                    Ajouté !
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart size={16} strokeWidth={2} />
+                    Ajouter — {dynPrice.toFixed(2)} €
+                  </>
+                )}
+              </button>
+
+              {/* Buy now */}
+              <button
+                onClick={handleBuyNow}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm text-white transition-all duration-200"
+                style={{
+                  background: "var(--color-gold)",
+                  boxShadow: "0 6px 20px rgba(201,134,10,0.3)",
                   fontFamily: "var(--font-sans)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-1px)";
                   e.currentTarget.style.boxShadow =
-                    "0 12px 40px rgba(255,92,53,.32)";
+                    "0 12px 30px rgba(201,134,10,0.4)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "var(--shadow-accent)";
+                  e.currentTarget.style.boxShadow =
+                    "0 6px 20px rgba(201,134,10,0.3)";
                 }}
               >
-                <ShoppingCart size={16} strokeWidth={2} />
-                Ajouter — {dynamicPrice.toFixed(2)} €
+                Acheter maintenant ⚡
               </button>
             </div>
           </div>

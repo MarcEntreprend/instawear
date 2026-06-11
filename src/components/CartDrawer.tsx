@@ -1,14 +1,11 @@
+// src/components/CartDrawer.tsx
+
 import React from "react";
-import {
-  X,
-  Trash2,
-  ShoppingBag,
-  Plus,
-  Minus,
-  ArrowRight,
-  Package,
-} from "lucide-react";
+import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
 import { CartItem } from "../types";
+
+const IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 interface CartDrawerProps {
   cart: CartItem[];
@@ -31,6 +28,7 @@ export default function CartDrawer({
   );
   const freeShipping = total >= 35;
   const remaining = Math.max(0, 35 - total);
+  const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
 
   return (
     <>
@@ -66,12 +64,12 @@ export default function CartDrawer({
             >
               Panier
             </span>
-            {cart.length > 0 && (
+            {cartCount > 0 && (
               <span
                 className="badge text-gray-900"
                 style={{ background: "var(--color-accent)" }}
               >
-                {cart.reduce((a, b) => a + b.quantity, 0)}
+                {cartCount}
               </span>
             )}
           </div>
@@ -175,7 +173,7 @@ export default function CartDrawer({
                     style={{ background: "var(--color-surface2)" }}
                   >
                     <img
-                      src={item.product.image}
+                      src={item.product.image || IMG}
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />

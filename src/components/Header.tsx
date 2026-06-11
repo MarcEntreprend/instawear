@@ -1,15 +1,8 @@
+// src\components\Header.tsx
+
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ShoppingCart,
-  Search,
-  Heart,
-  User,
-  X,
-  Menu,
-  ChevronDown,
-  Zap,
-} from "lucide-react";
-import { CartItem } from "../types";
+import { ShoppingCart, Search, Heart, User, X, Menu, Zap } from "lucide-react";
+import { CartItem, NavLink } from "../types";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -28,6 +21,39 @@ interface HeaderProps {
     section: "catalog" | "about" | "testimonials" | "faq" | "contact",
   ) => void;
 }
+
+// Définition structurée de la navigation (logique v3)
+const NAV_LINKS: NavLink[] = [
+  { label: "Collections", section: "catalog", eventType: null, category: null },
+  { label: "Sport", section: "catalog", eventType: "sport", category: null },
+  {
+    label: "Festivals",
+    section: "catalog",
+    eventType: "culture",
+    category: null,
+  },
+  {
+    label: "Saisons",
+    section: "catalog",
+    eventType: "saisonnier",
+    category: null,
+  },
+  { label: "À propos", section: "about", eventType: null, category: null },
+  { label: "FAQ", section: "faq", eventType: null, category: null },
+];
+
+const CATEGORY_PILLS = [
+  { label: "Tout voir", eventType: null, category: null },
+  { label: "⚡ Live 2026", eventType: "live", category: null },
+  { label: "🏆 Sport", eventType: "sport", category: null },
+  { label: "🎉 Festivals", eventType: "culture", category: null },
+  { label: "🍂 Saisons", eventType: "saisonnier", category: null },
+  { divider: true },
+  { label: "T-Shirts", eventType: null, category: "tshirt" },
+  { label: "Hoodies", eventType: null, category: "hoodie" },
+  { label: "Accessoires", eventType: null, category: "accessory" },
+  { label: "Mugs", eventType: null, category: "mug" },
+];
 
 export default function Header({
   cart,
@@ -49,7 +75,6 @@ export default function Header({
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
   useEffect(() => {
@@ -68,43 +93,29 @@ export default function Header({
     inputRef.current?.blur();
   };
 
-  const navLinks = [
-    {
-      label: "Collections",
-      action: () => {
-        onSelectCategory(null);
-        onSelectEventType(null);
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Sport",
-      action: () => {
-        onSelectEventType("sport");
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Festivals",
-      action: () => {
-        onSelectEventType("culture");
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Saisons",
-      action: () => {
-        onSelectEventType("saisonnier");
-        onScrollToSection("catalog");
-      },
-    },
-    { label: "À propos", action: () => onScrollToSection("about") },
-    { label: "FAQ", action: () => onScrollToSection("faq") },
-  ];
+  // Logique de navigation structurée (v3)
+  const handleNavLink = (link: NavLink) => {
+    if (link.eventType !== undefined) onSelectEventType(link.eventType);
+    if (link.category !== undefined) onSelectCategory(link.category);
+    onScrollToSection(link.section);
+    setMobileMenuOpen(false);
+  };
+
+  const handlePill = (pill: any) => {
+    onSelectCategory(pill.category ?? null);
+    onSelectEventType(pill.eventType ?? null);
+    onScrollToSection("catalog");
+  };
+
+  const isPillActive = (pill: any) => {
+    if (pill.category) return currentCategory === pill.category;
+    if (pill.eventType) return currentEventType === pill.eventType;
+    return currentEventType === null && currentCategory === null;
+  };
 
   return (
     <>
-      {/* Promo bar */}
+      {/* Promo bar (visuel v2) */}
       <div
         className="w-full py-2 px-4 text-center text-xs font-semibold"
         style={{
@@ -120,7 +131,7 @@ export default function Header({
         </span>
       </div>
 
-      {/* Main header */}
+      {/* Main header (visuel v2) */}
       <header
         className="sticky top-0 z-30 w-full transition-all duration-300"
         style={{
@@ -134,7 +145,7 @@ export default function Header({
         }}
       >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-          {/* Logo */}
+          {/* Logo (visuel v2) */}
           <button
             onClick={() => {
               onSelectCategory(null);
@@ -163,12 +174,12 @@ export default function Header({
             </span>
           </button>
 
-          {/* Nav links — desktop */}
+          {/* Nav links — desktop (logique v3, visuel v2) */}
           <nav className="hidden lg:flex items-center gap-1 ml-4">
-            {navLinks.map((link) => (
+            {NAV_LINKS.map((link) => (
               <button
                 key={link.label}
-                onClick={link.action}
+                onClick={() => handleNavLink(link)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
                 style={{
                   color: "var(--color-ink2)",
@@ -186,7 +197,7 @@ export default function Header({
             ))}
           </nav>
 
-          {/* Search — center */}
+          {/* Search — center (visuel v2) */}
           <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-auto">
             <div
               className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
@@ -235,7 +246,7 @@ export default function Header({
             </div>
           </form>
 
-          {/* Actions */}
+          {/* Actions (visuel v2) */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Favorites */}
             <button
@@ -342,64 +353,43 @@ export default function Header({
           </div>
         </div>
 
-        {/* Category pills sub-nav */}
+        {/* Category pills sub-nav (visuel v2, logique v3) */}
         <div
           className="border-t"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
-            {[
-              { label: "Tout voir", eventType: null, category: null },
-              { label: "⚡ Live 2026", eventType: "live", category: null },
-              { label: "🏆 Sport", eventType: "sport", category: null },
-              { label: "🎉 Festivals", eventType: "culture", category: null },
-              { label: "🍂 Saisons", eventType: "saisonnier", category: null },
-              { label: "—", divider: true },
-              { label: "T-Shirts", eventType: null, category: "tshirt" },
-              { label: "Hoodies", eventType: null, category: "hoodie" },
-              { label: "Accessoires", eventType: null, category: "accessory" },
-              { label: "Mugs", eventType: null, category: "mug" },
-            ].map((item, i) => {
-              if ((item as any).divider) {
+          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto scrollbar-none">
+            {CATEGORY_PILLS.map((pill: any, i) => {
+              if (pill.divider) {
                 return (
                   <span key={i} className="text-gray-300 shrink-0">
                     |
                   </span>
                 );
               }
-              const isActive = item.category
-                ? currentCategory === item.category
-                : item.eventType === null
-                  ? currentEventType === null && currentCategory === null
-                  : currentEventType === item.eventType;
+              const active = isPillActive(pill);
               return (
                 <button
                   key={i}
-                  onClick={() => {
-                    onSelectCategory(item.category ?? null);
-                    onSelectEventType(item.eventType ?? null);
-                    onScrollToSection("catalog");
-                  }}
+                  onClick={() => handlePill(pill)}
                   className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150"
                   style={{
-                    background: isActive
-                      ? "var(--color-accent)"
-                      : "transparent",
-                    color: isActive ? "white" : "var(--color-ink3)",
-                    border: `1.5px solid ${isActive ? "var(--color-accent)" : "transparent"}`,
+                    background: active ? "var(--color-accent)" : "transparent",
+                    color: active ? "white" : "var(--color-ink3)",
+                    border: `1.5px solid ${active ? "var(--color-accent)" : "transparent"}`,
                     fontFamily: "var(--font-sans)",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive)
+                    if (!active)
                       e.currentTarget.style.background =
                         "var(--color-surface2)";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive)
+                    if (!active)
                       e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  {item.label}
+                  {pill.label}
                 </button>
               );
             })}
@@ -407,7 +397,7 @@ export default function Header({
         </div>
       </header>
 
-      {/* Mobile menu overlay */}
+      {/* Mobile menu overlay (visuel v2, logique v3) */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-20 lg:hidden animate-fade-in"
@@ -437,13 +427,10 @@ export default function Header({
               </button>
             </div>
             <nav className="flex flex-col gap-1">
-              {navLinks.map((link, i) => (
+              {NAV_LINKS.map((link, i) => (
                 <button
                   key={link.label}
-                  onClick={() => {
-                    link.action();
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={() => handleNavLink(link)}
                   className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
                   style={{
                     color: "var(--color-ink)",

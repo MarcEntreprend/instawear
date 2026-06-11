@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface NavLink {
+  label: string;
+  section: "catalog" | "about" | "testimonials" | "faq" | "contact";
+  eventType: string | null;
+  category: string | null;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -16,10 +23,7 @@ export interface Product {
   colors: string[];
   colorNames?: string[];
   sizes: string[];
-  ratings: {
-    score: number;
-    count: number;
-  };
+  ratings: { score: number; count: number };
   boughtLastMonth: number;
   isBestSeller?: boolean;
   isLimitedTime?: boolean;
@@ -70,6 +74,7 @@ export interface FilterState {
   search: string;
   category: string | null;
   eventType: string | null;
+  style: string | null;
   material: string | null;
   priceMin: number;
   priceMax: number;
