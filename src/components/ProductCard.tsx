@@ -46,13 +46,13 @@ export default function ProductCard({
     >
       {/* Image */}
       <div
-        className="relative aspect-4/5 overflow-hidden bg-[var(--color-surface2)] flex-shrink-0"
+        className="relative aspect-4/5 overflow-hidden bg-(--color-surface2) shrink-0"
         onClick={() => onViewDetails(product)}
       >
         <img
           src={product.image || IMG}
           alt={`${product.title} — InstaWear`}
-          className="w-full h-full object-cover transition-transform duration-500 ease-[var(--ease-out-expo)]"
+          className="w-full h-full object-cover transition-transform duration-500 ease-(--ease-out-expo)"
           style={{ transform: hovered ? "scale(1.06)" : "scale(1)" }}
           loading="lazy"
         />
@@ -65,7 +65,7 @@ export default function ProductCard({
             opacity: hovered ? 1 : 0,
           }}
         >
-          <span className="bg-white/95 text-[var(--color-ink)] font-bold text-xs px-4 py-2 rounded-full shadow-md tracking-wider">
+          <span className="bg-white/95 text-(--color-ink) font-bold text-xs px-4 py-2 rounded-full shadow-md tracking-wider">
             Aperçu rapide
           </span>
         </div>
@@ -116,7 +116,7 @@ export default function ProductCard({
             e.stopPropagation();
             onToggleFavorite(product.id);
           }}
-          className="absolute top-3 right-3 w-[34px] h-[34px] rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 ease-[var(--ease-spring)] hover:scale-110"
+          className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 ease-(--ease-spring) hover:scale-110"
           style={{
             background: isFavorite
               ? "var(--color-accent)"
@@ -146,13 +146,13 @@ export default function ProductCard({
           {product.colors.slice(0, 5).map((c, i) => (
             <span
               key={i}
-              className="w-3 h-3 rounded-full border border-[var(--color-border)]"
+              className="w-3 h-3 rounded-full border border-(--color-border)"
               style={{ backgroundColor: c }}
               title={product.colorNames?.[i] || c}
             />
           ))}
           {product.colors.length > 5 && (
-            <span className="text-[10px] text-[var(--color-ink4)] font-bold">
+            <span className="text-[10px] text-(--color-ink4) font-bold">
               +{product.colors.length - 5}
             </span>
           )}
@@ -160,12 +160,12 @@ export default function ProductCard({
 
         {/* Brand + Title */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-ink4)] mb-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-(--color-ink4) mb-0.5">
             {product.brand}
           </p>
           <h3
             onClick={() => onViewDetails(product)}
-            className="text-sm font-semibold leading-snug cursor-pointer transition-colors duration-150 line-clamp-2 text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+            className="text-sm font-semibold leading-snug cursor-pointer transition-colors duration-150 line-clamp-2 text-(--color-ink) hover:text-(--color-accent)"
             style={{ fontFamily: "var(--font-sans)", minHeight: "2.5em" }}
           >
             {product.title}
@@ -173,7 +173,7 @@ export default function ProductCard({
         </div>
 
         {/* Ratings */}
-        <div className="flex items-center gap-1.5 text-xs text-[var(--color-ink3)]">
+        <div className="flex items-center gap-1.5 text-xs text-(--color-ink3)">
           <div className="flex items-center gap-0.5 text-amber-500">
             {[...Array(5)].map((_, i) => (
               <Star
@@ -186,12 +186,12 @@ export default function ProductCard({
               />
             ))}
           </div>
-          <span className="font-semibold text-[var(--color-ink2)]">
+          <span className="font-semibold text-(--color-ink2)">
             {product.ratings.score.toFixed(1)}
           </span>
           <span>({product.ratings.count})</span>
           <span>·</span>
-          <span className="text-[var(--color-accent)] font-semibold">
+          <span className="text-(--color-accent) font-semibold">
             {product.boughtLastMonth}+ ce mois
           </span>
         </div>
@@ -210,7 +210,7 @@ export default function ProductCard({
         {/* Price */}
         <div className="flex items-baseline gap-2 mt-auto pt-1">
           <span
-            className="text-lg font-black text-[var(--color-ink)] tabular-nums"
+            className="text-lg font-black text-(--color-ink) tabular-nums"
             style={{ fontFamily: "var(--font-sans)" }}
           >
             {product.price.toFixed(2)} €
