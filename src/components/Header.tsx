@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { ShoppingCart, Search, Heart, User, X, Menu, Zap } from "lucide-react";
-import { CartItem, NavLink } from "../types";
+import { CartItem, NavLink, Product } from "../types";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -26,6 +26,7 @@ interface HeaderProps {
       | "contact"
       | "filters",
   ) => void;
+  products: Product[];
   searchSuggestions?: string[];
 }
 
@@ -77,6 +78,7 @@ export default function Header({
   isAdminActive,
   onScrollToSection,
   searchSuggestions,
+  products,
 }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(currentSearchTerm);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -87,8 +89,25 @@ export default function Header({
   const [typedText, setTypedText] = useState("");
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<Product[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
+
+  // fonction pour mettre à jour les suggestions
+  const updateSuggestions = (term: string) => {
+    if (term.trim().length === 0) {
+      setFilteredSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const lowerTerm = term.toLowerCase();
+    const matches = products
+      .filter((p) => p.title.toLowerCase().includes(lowerTerm))
+      .slice(0, 8);
+    setFilteredSuggestions(matches);
+    setShowSuggestions(matches.length > 0);
+  };
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 16);
@@ -291,91 +310,166 @@ export default function Header({
           </nav>
 
           {/* Search — center (visuel v2) */}
-          <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-auto">
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${!searchFocused ? "search-rainbow" : ""}`}
-              style={{
-                background: searchFocused
-                  ? "var(--color-surface)"
-                  : "var(--color-surface2)",
-                border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "transparent"}`,
-                zIndex: searchFocused ? 1 : 0,
-              }}
-            >
-              {/* icône de recherche animée */}
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="flex-1 max-w-md mx-auto relative">
+            <form onSubmit={handleSubmit}>
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${!searchFocused ? "search-rainbow" : ""}`}
                 style={{
-                  color: "var(--color-ink4)",
-                  flexShrink: 0,
-                  overflow: "visible",
+                  background: searchFocused
+                    ? "var(--color-surface)"
+                    : "var(--color-surface2)",
+                  border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "transparent"}`,
+                  zIndex: searchFocused ? 1 : 0,
                 }}
               >
-                {/* Loupe */}
-                <circle cx="10.5" cy="10.5" r="5.5" />
-                <line x1="14.5" y1="14.5" x2="20" y2="20" />
-                {/* Étoiles animées */}
-                <g className="search-star search-star-1">
-                  <path
-                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                    fill="currentColor"
-                    stroke="none"
-                    transform="translate(-13, -1) scale(0.8)"
-                  />
-                </g>
-                <g className="search-star search-star-2">
-                  <path
-                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                    fill="currentColor"
-                    stroke="none"
-                    transform="translate(-8, 14) scale(0.6)"
-                  />
-                </g>
-                <g className="search-star search-star-3">
-                  <path
-                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                    fill="currentColor"
-                    stroke="none"
-                    transform="translate(2, -8) scale(0.7)"
-                  />
-                </g>
-              </svg>
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchVal}
-                onChange={(e) => setSearchVal(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                placeholder={searchFocused || searchVal ? "" : typedText}
-                className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input"
-                style={{
-                  color: "var(--color-ink)",
-                  fontFamily: "var(--font-sans)",
-                }}
-              />
-              {searchVal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchVal("");
-                    onSearch("");
+                {/* icône de recherche animée */}
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    color: "var(--color-ink4)",
+                    flexShrink: 0,
+                    overflow: "visible",
                   }}
-                  className="p-0.5 rounded transition-colors"
-                  style={{ color: "var(--color-ink4)" }}
                 >
-                  <X size={13} strokeWidth={2} />
-                </button>
-              )}
+                  {/* Loupe */}
+                  <circle cx="10.5" cy="10.5" r="5.5" />
+                  <line x1="14.5" y1="14.5" x2="20" y2="20" />
+                  {/* Étoiles animées */}
+                  <g className="search-star search-star-1">
+                    <path
+                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                      fill="currentColor"
+                      stroke="none"
+                      transform="translate(-13, -1) scale(0.8)"
+                    />
+                  </g>
+                  <g className="search-star search-star-2">
+                    <path
+                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                      fill="currentColor"
+                      stroke="none"
+                      transform="translate(-8, 14) scale(0.6)"
+                    />
+                  </g>
+                  <g className="search-star search-star-3">
+                    <path
+                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                      fill="currentColor"
+                      stroke="none"
+                      transform="translate(2, -8) scale(0.7)"
+                    />
+                  </g>
+                </svg>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchVal}
+                  onChange={(e) => {
+                    setSearchVal(e.target.value);
+                    updateSuggestions(e.target.value);
+                  }}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    if (searchVal.trim()) {
+                      updateSuggestions(searchVal);
+                    }
+                  }}
+                  onBlur={() => {
+                    setSearchFocused(false);
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  placeholder={searchFocused || searchVal ? "" : typedText}
+                  className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input"
+                  style={{
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                />
+                {searchVal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchVal("");
+                      onSearch("");
+                    }}
+                    className="p-0.5 rounded transition-colors"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
+                    <X size={13} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* affichage de la liste de suggestions */}
+          {showSuggestions && filteredSuggestions.length > 0 && (
+            <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+              {filteredSuggestions.map((p) => {
+                const index = p.title
+                  .toLowerCase()
+                  .indexOf(searchVal.toLowerCase());
+                const before = p.title.substring(0, index);
+                const match = p.title.substring(
+                  index,
+                  index + searchVal.length,
+                );
+                const after = p.title.substring(index + searchVal.length);
+                const categoryLabel =
+                  p.category === "tshirt"
+                    ? "T-Shirt"
+                    : p.category === "hoodie"
+                      ? "Hoodie"
+                      : p.category === "accessory"
+                        ? "Accessoire"
+                        : p.category === "mug"
+                          ? "Mug"
+                          : p.category;
+
+                return (
+                  <button
+                    key={p.id}
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between gap-2 text-sm border-b border-gray-100 last:border-0"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setSearchVal(p.title);
+                      onSearch(p.title);
+                      setShowSuggestions(false);
+                      inputRef.current?.blur();
+                    }}
+                  >
+                    <span
+                      className="truncate"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {before}
+                      <strong style={{ color: "var(--color-accent)" }}>
+                        {match}
+                      </strong>
+                      {after}
+                    </span>
+                    <span
+                      className="text-xs shrink-0 px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "var(--color-surface2)",
+                        color: "var(--color-ink3)",
+                        border: "1px solid var(--color-border)",
+                      }}
+                    >
+                      {categoryLabel}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </form>
+          )}
 
           {/* Actions (visuel v2) */}
           <div className="flex items-center gap-2 shrink-0">

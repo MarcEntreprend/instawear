@@ -611,6 +611,7 @@ export default function App() {
         isAdminActive={activeTab === "admin"}
         onScrollToSection={scrollToSection}
         searchSuggestions={productTitles}
+        products={products}
       />
 
       {/* Global Toast */}
