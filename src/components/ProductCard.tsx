@@ -216,7 +216,7 @@ export default function ProductCard({
             {product.price.toFixed(2)} €
           </span>
           {product.originalPrice && (
-            <span className="text-sm line-through text-[var(--color-ink4)] tabular-nums">
+            <span className="text-sm line-through text-(--color-ink4) tabular-nums">
               {product.originalPrice.toFixed(2)} €
             </span>
           )}
