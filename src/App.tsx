@@ -105,6 +105,9 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderCompleted, setOrderCompleted] = useState(false);
 
+  const [dealExpired, setDealExpired] = useState(false);
+  const [dealFadingOut, setDealFadingOut] = useState(false); // état de transition
+
   // Admin Studio States
   const [printfulSettings, setPrintfulSettings] = useState<PrintfulSettings>({
     apiKey: "",
@@ -145,7 +148,7 @@ export default function App() {
 
   // Frontpage Banner States
   const [bannerIndex, setBannerIndex] = useState(0);
-  const [countdownString, setCountdownString] = useState("04:38:55");
+  // const [countdownString, setCountdownString] = useState("04:38:55"); // -> compteur est une heure UTC inversée
 
   // Newsletter state
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -158,18 +161,51 @@ export default function App() {
   }, []);
 
   // Sync Promo Timer every second
+
+  // -> compteur est une heure UTC inversée (il compte ce qui reste avant minuit UTC).
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     const now = new Date();
+  //     const hours = 23 - now.getUTCHours();
+  //     const minutes = 59 - now.getUTCMinutes();
+  //     const seconds = 59 - now.getUTCSeconds();
+  //     setCountdownString(
+  //       `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+  //     );
+  //   }, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
+
+  // Compte à rebours de test — 10 secondes
+  const [countdownString, setCountdownString] = useState("00:00:10");
+  const [timeLeft, setTimeLeft] = useState(10);
+
+  // useEffect du compte à rebours
   useEffect(() => {
+    if (timeLeft <= 0) {
+      if (!dealFadingOut && !dealExpired) {
+        setDealFadingOut(true);
+        setTimeout(() => {
+          setDealExpired(true);
+          setDealFadingOut(false);
+        }, 900); // durée de l'animation CSS
+      }
+      return;
+    }
     const interval = setInterval(() => {
-      const now = new Date();
-      const hours = 23 - now.getUTCHours();
-      const minutes = 59 - now.getUTCMinutes();
-      const seconds = 59 - now.getUTCSeconds();
-      setCountdownString(
-        `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-      );
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeLeft, dealFadingOut, dealExpired]);
+
+  useEffect(() => {
+    const h = Math.floor(timeLeft / 3600);
+    const m = Math.floor((timeLeft % 3600) / 60);
+    const s = timeLeft % 60;
+    setCountdownString(
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
+    );
+  }, [timeLeft]);
 
   const showToast = (
     text: string,
@@ -784,108 +820,112 @@ export default function App() {
           </section>
 
           {/* Core Today deals segment & countdown triggers */}
-          <section className="section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
-              <div>
-                <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-                  🔥 SUPER DEAL DU JOUR
-                </span>
-                <h3 className="text-2xl font-black mt-3 leading-tight">
-                  Offre Spéciale Coupe d&apos;Europe
-                </h3>
-                <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-                  Profitez de prix réduits exclusifs sur notre collection de
-                  t-shirts et sweats de sport IA avant le coup d&apos;envoi du
-                  prochain grand match !
-                </p>
-              </div>
-
-              <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
-                <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-                  L&apos;offre se termine dans :
-                </p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                    {countdownString.split(":")[0]}
-                  </span>
-                  <span className="text-gray-500 font-bold">:</span>
-                  <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                    {countdownString.split(":")[1]}
-                  </span>
-                  <span className="text-gray-500 font-bold">:</span>
-                  <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                    {countdownString.split(":")[2]}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedEventType("sport");
-                }}
-                className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
-              >
-                Parcourir les offres sportives &rarr;
-              </button>
-            </div>
-
-            {/* Quick Bundle Selection */}
-            <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+          {(!dealExpired || dealFadingOut) && (
+            <section
+              className={`section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
+            >
+              <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
                 <div>
-                  <h3 className="text-lg font-black tracking-wide text-gray-900">
-                    🛍️ Packs Choice en Promo
+                  <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
+                    🔥 SUPER DEAL DU JOUR
+                  </span>
+                  <h3 className="text-2xl font-black mt-3 leading-tight">
+                    Offre Spéciale Coupe d&apos;Europe
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Complétez votre look et économisez sur les frais
-                    d&apos;impression !
+                  <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                    Profitez de prix réduits exclusifs sur notre collection de
+                    t-shirts et sweats de sport IA avant le coup d&apos;envoi du
+                    prochain grand match !
                   </p>
                 </div>
-                <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-                  DÈS 5.99€ L&apos;ACCESSOIRE
-                </span>
+
+                <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
+                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
+                    L&apos;offre se termine dans :
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
+                      {countdownString.split(":")[0]}
+                    </span>
+                    <span className="text-gray-500 font-bold">:</span>
+                    <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
+                      {countdownString.split(":")[1]}
+                    </span>
+                    <span className="text-gray-500 font-bold">:</span>
+                    <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
+                      {countdownString.split(":")[2]}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedEventType("sport");
+                  }}
+                  className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
+                >
+                  Parcourir les offres sportives &rarr;
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                {products.slice(0, 4).map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedProduct(item);
-                      setActiveGalleryIndex(0);
-                    }}
-                    className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
-                  >
-                    <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
-                      <img
-                        src={item.image || PLACEHOLDER_IMG}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                    <div className="mt-2 text-left">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase truncate">
-                        {item.brand}
-                      </p>
-                      <p className="text-xs text-gray-900 mt-0.5 font-bold truncate">
-                        {item.title}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-xs font-black text-gray-900">
-                          {item.price} €
-                        </span>
-                        {item.originalPrice && (
-                          <span className="text-[10px] text-gray-500 line-through">
-                            {item.originalPrice} €
+              {/* Quick Bundle Selection */}
+              <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+                  <div>
+                    <h3 className="text-lg font-black tracking-wide text-gray-900">
+                      🛍️ Packs Choice en Promo
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Complétez votre look et économisez sur les frais
+                      d&apos;impression !
+                    </p>
+                  </div>
+                  <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
+                    DÈS 5.99€ L&apos;ACCESSOIRE
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                  {products.slice(0, 4).map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setSelectedProduct(item);
+                        setActiveGalleryIndex(0);
+                      }}
+                      className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
+                    >
+                      <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
+                        <img
+                          src={item.image || PLACEHOLDER_IMG}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="mt-2 text-left">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase truncate">
+                          {item.brand}
+                        </p>
+                        <p className="text-xs text-gray-900 mt-0.5 font-bold truncate">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-xs font-black text-gray-900">
+                            {item.price} €
                           </span>
-                        )}
+                          {item.originalPrice && (
+                            <span className="text-[10px] text-gray-500 line-through">
+                              {item.originalPrice} €
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Active Filtering Criteria Breadcrumb */}
           {(searchTerm || selectedCategory || selectedEventType) && (
@@ -1005,11 +1045,14 @@ export default function App() {
                             Best Seller
                           </span>
                         )}
-                        {product.isLimitedTime && (
-                          <span className="bg-rose-500 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow animate-pulse">
-                            Limited Deal
-                          </span>
-                        )}
+                        {product.isLimitedTime &&
+                          (!dealExpired || dealFadingOut) && (
+                            <span
+                              className={`bg-rose-500 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
+                            >
+                              Limited Deal
+                            </span>
+                          )}
                         {product.eventType === "live" && (
                           <span className="bg-indigo-600 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow">
                             ★ LIVE 2206
@@ -1084,17 +1127,20 @@ export default function App() {
                             </span>
                           </div>
 
-                          {product.isLimitedTime && (
-                            <div className="bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600">
-                              <span className="font-bold flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-rose-400 shrink-0" />{" "}
-                                Fin de l&apos;offre
-                              </span>
-                              <span className="font-mono font-bold text-rose-600">
-                                {countdownString}
-                              </span>
-                            </div>
-                          )}
+                          {product.isLimitedTime &&
+                            (!dealExpired || dealFadingOut) && (
+                              <div
+                                className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
+                              >
+                                <span className="font-bold flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-rose-400 shrink-0" />{" "}
+                                  Fin de l&apos;offre
+                                </span>
+                                <span className="font-mono font-bold text-rose-600">
+                                  {countdownString}
+                                </span>
+                              </div>
+                            )}
 
                           <div className="flex items-baseline gap-2 mt-3 mb-1">
                             <span className="text-lg font-black text-gray-900 font-sans">
@@ -1709,11 +1755,14 @@ export default function App() {
                       BEST SELLER
                     </span>
                   )}
-                  {selectedProduct.isLimitedTime && (
-                    <span className="absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow animate-pulse">
-                      LIMITED time
-                    </span>
-                  )}
+                  {selectedProduct.isLimitedTime &&
+                    (!dealExpired || dealFadingOut) && (
+                      <span
+                        className={`absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
+                      >
+                        LIMITED time
+                      </span>
+                    )}
 
                   <img
                     src={

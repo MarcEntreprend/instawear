@@ -597,3 +597,21 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 .search-input:focus-visible {
   outline: none;
 }
+
+/* Animation de fondu pour la disparition des offres */
+.deal-fade-out {
+  animation: fadeOutScale 0.6s var(--ease-smooth) forwards;
+  transform-origin: top;
+  pointer-events: none;
+}
+
+@keyframes fadeOutScale {
+  0% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+}
