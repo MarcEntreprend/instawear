@@ -161,7 +161,7 @@ export default function Header({
         }}
       >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-          {/* Logo (visuel v2) */}
+          {/* Logo (visuel v2)  */}
           <button
             onClick={() => {
               onSelectCategory(null);
@@ -171,13 +171,25 @@ export default function Header({
             aria-label="InstaWear — Accueil"
           >
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105"
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105 relative overflow-hidden"
               style={{
                 background: "var(--color-accent)",
                 boxShadow: "var(--shadow-accent)",
               }}
             >
-              I
+              <img
+                src="/InstaWear-logo.png"
+                alt="InstaWear"
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.style.display = "none";
+                  (el.nextElementSibling as HTMLElement).style.display = "flex";
+                }}
+              />
+              <span className="hidden absolute inset-0 items-center justify-center">
+                I
+              </span>
             </div>
             <span
               className="font-black text-xl tracking-tight hidden sm:block"

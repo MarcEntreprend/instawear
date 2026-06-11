@@ -43,9 +43,7 @@ import { Product, CartItem, PrintfulSettings } from "./types";
 // Preset mockup templates with placeholder images
 const PLACEHOLDER_IMG =
   "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
-const LOGO_URL =
-  "https://static.vecteezy.com/system/resources/previews/007/434/967/non_2x/clothing-store-icon-style-vector.jpg";
-
+const LOGO_URL = "/InstaWear-logo.png";
 const MOCKUP_PRESETS = [
   {
     name: "T-Shirt Noir Minimaliste (Mockup Classique)",
