@@ -530,7 +530,7 @@ export default function App() {
     },
   ];
 
-  // Autoplay Hero Carousel
+  // Autoplay Hero Carousel - l'auto-slide
   useEffect(() => {
     const timer = setInterval(() => {
       setBannerIndex((prev) => (prev + 1) % heroBanners.length);
@@ -540,19 +540,35 @@ export default function App() {
 
   // Navigation functions
   const scrollToSection = (
-    section: "catalog" | "about" | "testimonials" | "faq" | "contact",
+    section:
+      | "catalog"
+      | "about"
+      | "testimonials"
+      | "faq"
+      | "contact"
+      | "filters",
   ) => {
-    if (section === "catalog") {
-      setActiveTab("store");
-      window.scrollTo({ top: 600, behavior: "smooth" });
-    } else {
-      setActiveTab("store");
-    }
+    setActiveTab("store");
+    setTimeout(() => {
+      const id =
+        section === "catalog"
+          ? "section-catalog"
+          : section === "filters"
+            ? "section-filters"
+            : null;
+      if (id) {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
   };
 
   const handleOpenFavorites = () => {
     setActiveTab("store");
-    window.scrollTo({ top: 600, behavior: "smooth" });
+    setTimeout(() => {
+      const el = document.getElementById("section-catalog");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   const toggleFavorite = (productId: string) => {
@@ -868,7 +884,10 @@ export default function App() {
 
           {/* Active Filtering Criteria Breadcrumb */}
           {(searchTerm || selectedCategory || selectedEventType) && (
-            <section className="section-container w-full px-4">
+            <section
+              id="section-filters"
+              className="section-container w-full px-4 scroll-mt-28"
+            >
               <div className="bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-gray-500">Filtres actifs :</span>
@@ -915,7 +934,10 @@ export default function App() {
           )}
 
           {/* Core eCommerce Products Listing */}
-          <section className="section-container w-full px-4">
+          <section
+            id="section-catalog"
+            className="section-container w-full px-4 scroll-mt-28"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-200 pb-3">
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">

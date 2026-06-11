@@ -18,7 +18,13 @@ interface HeaderProps {
   onOpenAdmin: () => void;
   isAdminActive: boolean;
   onScrollToSection: (
-    section: "catalog" | "about" | "testimonials" | "faq" | "contact",
+    section:
+      | "catalog"
+      | "about"
+      | "testimonials"
+      | "faq"
+      | "contact"
+      | "filters",
   ) => void;
 }
 
@@ -97,14 +103,24 @@ export default function Header({
   const handleNavLink = (link: NavLink) => {
     if (link.eventType !== undefined) onSelectEventType(link.eventType);
     if (link.category !== undefined) onSelectCategory(link.category);
-    onScrollToSection(link.section);
+    // Si un filtre événement ou catégorie est présent → scroll vers les filtres, sinon vers la cible naturelle
+    if (link.eventType || link.category) {
+      onScrollToSection("filters");
+    } else {
+      onScrollToSection(link.section);
+    }
     setMobileMenuOpen(false);
   };
 
   const handlePill = (pill: any) => {
     onSelectCategory(pill.category ?? null);
     onSelectEventType(pill.eventType ?? null);
-    onScrollToSection("catalog");
+    // Si un filtre est activé → scroll vers les filtres, sinon vers le catalogue
+    if (pill.eventType || pill.category) {
+      onScrollToSection("filters");
+    } else {
+      onScrollToSection("catalog");
+    }
   };
 
   const isPillActive = (pill: any) => {
