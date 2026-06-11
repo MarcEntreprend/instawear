@@ -16,8 +16,8 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error("localStorage error:", error);
+    } catch (err) {
+      console.warn("localStorage error:", err);
     }
   };
 

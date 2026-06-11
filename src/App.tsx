@@ -1,3 +1,5 @@
+// App.tsx
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -609,11 +611,11 @@ export default function App() {
       {/* Client Customer Main Storefront View */}
       {activeTab === "store" && (
         <main
-          className="flex-1 flex flex-col gap-8 pb-16"
+          className="flex-1 flex flex-col gap-12 pb-16"
           id="view-customer-storefront"
         >
           {/* Dynamic Hero Carousel Banner (Inspiré AliExpress avec design premium) */}
-          <section className="relative w-full max-w-7xl mx-auto px-4 mt-6">
+          <section className="relative section-container mt-6 px-4">
             <div
               className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 flex flex-col md:flex-row items-center justify-between min-h-90 md:min-h-105 transition-all duration-700 relative`}
             >
@@ -698,7 +700,7 @@ export default function App() {
 
           {/* Reassurance/Value Proposition Bar */}
           <section className="bg-white border-y border-gray-200 py-6 px-4">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-center">
+            <div className="section-container grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-center">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-2">
                 <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0 border border-violet-500/20">
                   <Truck className="w-5 h-5 text-violet-400" />
@@ -745,7 +747,7 @@ export default function App() {
           </section>
 
           {/* Core Today deals segment & countdown triggers */}
-          <section className="max-w-7xl mx-auto w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <section className="section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Countdown / Urgency Block (Left column - 4 cols width) */}
             <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
               <div>
@@ -816,7 +818,7 @@ export default function App() {
                       setSelectedProduct(item);
                       setActiveGalleryIndex(0);
                     }}
-                    className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
+                    className="group bg-gray-50 border border-gray-200 p-4 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
                   >
                     <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
                       <img
@@ -851,7 +853,7 @@ export default function App() {
 
           {/* Active Filtering Criteria Breadcrumb */}
           {(searchTerm || selectedCategory || selectedEventType) && (
-            <section className="max-w-7xl mx-auto w-full px-4">
+            <section className="section-container w-full px-4">
               <div className="bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-gray-500">Filtres actifs :</span>
@@ -898,7 +900,7 @@ export default function App() {
           )}
 
           {/* Core eCommerce Products Listing - Grid of 2 lines x 5 columns style */}
-          <section className="max-w-7xl mx-auto w-full px-4">
+          <section className="section-container w-full px-4">
             {/* Segment Title */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-200 pb-3">
               <div>
@@ -998,7 +1000,7 @@ export default function App() {
                       </div>
 
                       {/* Content panel */}
-                      <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div className="p-5 flex-1 flex flex-col justify-between">
                         <div>
                           {/* Color Swatch Indicators Row */}
                           <div className="flex items-center gap-1 mb-2.5">
@@ -1026,7 +1028,7 @@ export default function App() {
                               setSelectedProduct(product);
                               setActiveGalleryIndex(0);
                             }}
-                            className="text-xs md:text-sm font-bold text-gray-900 mt-1 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
+                            className="text-sm md:text-base font-bold text-gray-900 mt-1 leading-snug hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
                           >
                             {product.title}
                           </h4>
@@ -1099,7 +1101,7 @@ export default function App() {
                           onClick={() =>
                             addToCart(product, product.colors[0], "M")
                           }
-                          className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
+                          className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold py-3 px-4 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
                           id={`btn-add-cart-list-${product.id}`}
                         >
                           <Plus className="w-3.5 h-3.5 text-slate-950" />
@@ -1114,9 +1116,9 @@ export default function App() {
           </section>
 
           {/* About Section - Premium Story (Intégration d'histoire de marque) */}
-          <section className="bg-white border-t border-gray-200 mt-12 py-12 px-4">
-            <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
-              <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
+          <section className="bg-white border-t border-gray-200 mt-12 py-12">
+            <div className="section-container text-center flex flex-col items-center">
+              <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
                 🎨 NOTRE HISTOIRE
               </span>
               <h3 className="text-3xl font-black text-gray-900 leading-tight">
@@ -2157,7 +2159,7 @@ export default function App() {
 
       {/* Global Brand Footer */}
       <footer className="bg-gray-50 border-t border-gray-200 py-12 px-4 mt-auto">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="section-container grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1 - Brand Identity info */}
           <div className="space-y-4">
             <div className="flex items-center gap-1.5">
@@ -2329,7 +2331,7 @@ export default function App() {
         </div>
 
         {/* Outer legal constraints */}
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
+        <div className="section-container mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
           <p>
             © 2026 InstaWear Inc. Tous droits réservés. Propulsé par Cloud Run,
             Next.js commerce & l&apos;API Printful.

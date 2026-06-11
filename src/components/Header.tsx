@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ShoppingCart,
-  Search,
-  Heart,
-  User,
-  X,
-  Menu,
-  ChevronDown,
-  Zap,
-} from "lucide-react";
+import { ShoppingCart, Search, Heart, X, Menu, Zap, User } from "lucide-react";
 import { CartItem } from "../types";
+import { NavLink } from "../types";
+
+const LOGO_URL =
+  "https://static.vecteezy.com/system/resources/previews/007/434/967/non_2x/clothing-store-icon-style-vector.jpg";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -24,10 +19,43 @@ interface HeaderProps {
   currentCategory: string | null;
   onOpenAdmin: () => void;
   isAdminActive: boolean;
+  // onScrollToSection: (section: string) => void;
   onScrollToSection: (
     section: "catalog" | "about" | "testimonials" | "faq" | "contact",
   ) => void;
 }
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Collections", section: "catalog", eventType: null, category: null },
+  { label: "Sport", section: "catalog", eventType: "sport", category: null },
+  {
+    label: "Festivals",
+    section: "catalog",
+    eventType: "culture",
+    category: null,
+  },
+  {
+    label: "Saisons",
+    section: "catalog",
+    eventType: "saisonnier",
+    category: null,
+  },
+  { label: "À propos", section: "about", eventType: null, category: null },
+  { label: "FAQ", section: "faq", eventType: null, category: null },
+];
+
+const CATEGORY_PILLS = [
+  { label: "Tout", eventType: null, category: null },
+  { label: "⚡ Live", eventType: "live", category: null },
+  { label: "🏆 Sport", eventType: "sport", category: null },
+  { label: "🎉 Festivals", eventType: "culture", category: null },
+  { label: "🍂 Saisons", eventType: "saisonnier", category: null },
+  { divider: true },
+  { label: "T-Shirts", eventType: null, category: "tshirt" },
+  { label: "Hoodies", eventType: null, category: "hoodie" },
+  { label: "Accessoires", eventType: null, category: "accessory" },
+  { label: "Mugs", eventType: null, category: "mug" },
+];
 
 export default function Header({
   cart,
@@ -45,15 +73,14 @@ export default function Header({
   onScrollToSection,
 }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(currentSearchTerm);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 16);
+    const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -68,140 +95,185 @@ export default function Header({
     inputRef.current?.blur();
   };
 
-  const navLinks = [
-    {
-      label: "Collections",
-      action: () => {
-        onSelectCategory(null);
-        onSelectEventType(null);
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Sport",
-      action: () => {
-        onSelectEventType("sport");
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Festivals",
-      action: () => {
-        onSelectEventType("culture");
-        onScrollToSection("catalog");
-      },
-    },
-    {
-      label: "Saisons",
-      action: () => {
-        onSelectEventType("saisonnier");
-        onScrollToSection("catalog");
-      },
-    },
-    { label: "À propos", action: () => onScrollToSection("about") },
-    { label: "FAQ", action: () => onScrollToSection("faq") },
-  ];
+  const handleNavLink = (link: NavLink) => {
+    if (link.eventType !== undefined) onSelectEventType(link.eventType);
+    if (link.category !== undefined) onSelectCategory(link.category);
+    onScrollToSection(link.section);
+    setMobileOpen(false);
+  };
+
+  const handlePill = (pill: any) => {
+    onSelectCategory(pill.category ?? null);
+    onSelectEventType(pill.eventType ?? null);
+    onScrollToSection("catalog");
+  };
+
+  const isPillActive = (pill: any) => {
+    if (pill.category) return currentCategory === pill.category;
+    if (pill.eventType) return currentEventType === pill.eventType;
+    return currentEventType === null && currentCategory === null;
+  };
 
   return (
     <>
       {/* Promo bar */}
       <div
-        className="w-full py-2 px-4 text-center text-xs font-semibold"
         style={{
           background: "var(--color-accent)",
-          color: "white",
-          letterSpacing: "0.03em",
+          color: "#fff",
+          padding: "8px 16px",
+          textAlign: "center",
+          fontSize: "12px",
+          fontWeight: 600,
+          letterSpacing: "0.04em",
         }}
       >
-        <span className="inline-flex items-center gap-2">
-          <Zap size={12} strokeWidth={2.5} />
-          Livraison gratuite dès 35 € — Impression sous 24h, zéro stock gaspillé
-          <Zap size={12} strokeWidth={2.5} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Zap size={11} strokeWidth={2.5} />
+          Livraison gratuite dès 35 € — Impression sous 24h, zéro gaspillage
+          <Zap size={11} strokeWidth={2.5} />
         </span>
       </div>
 
       {/* Main header */}
       <header
-        className="sticky top-0 z-30 w-full transition-all duration-300"
         style={{
-          background: isScrolled ? "rgba(250,250,248,0.92)" : "var(--color-bg)",
-          backdropFilter: isScrolled ? "blur(20px) saturate(160%)" : "none",
-          WebkitBackdropFilter: isScrolled
-            ? "blur(20px) saturate(160%)"
-            : "none",
-          borderBottom: `1px solid ${isScrolled ? "var(--color-border)" : "transparent"}`,
-          boxShadow: isScrolled ? "var(--shadow-sm)" : "none",
+          position: "sticky",
+          top: 0,
+          zIndex: "var(--z-sticky)",
+          background: scrolled ? "rgba(250,248,245,0.94)" : "var(--color-bg)",
+          backdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
+          WebkitBackdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
+          borderBottom: `1px solid ${scrolled ? "var(--color-border)" : "transparent"}`,
+          boxShadow: scrolled ? "var(--shadow-sm)" : "none",
+          transition: "all 0.3s var(--ease-smooth)",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+        <div
+          className="section-container"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            paddingTop: 14,
+            paddingBottom: 14,
+          }}
+        >
           {/* Logo */}
           <button
             onClick={() => {
               onSelectCategory(null);
               onSelectEventType(null);
             }}
-            className="flex items-center gap-2 shrink-0 group"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexShrink: 0,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
             aria-label="InstaWear — Accueil"
           >
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105"
               style={{
-                background: "var(--color-accent)",
-                boxShadow: "var(--shadow-accent)",
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                overflow: "hidden",
+                border: "1.5px solid var(--color-border2)",
+                boxShadow: "var(--shadow-sm)",
+                flexShrink: 0,
               }}
             >
-              I
+              <img
+                src={LOGO_URL}
+                alt="InstaWear logo"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             </div>
             <span
-              className="font-black text-xl tracking-tight hidden sm:block"
               style={{
+                fontFamily: "var(--font-body)",
+                fontWeight: 800,
+                fontSize: 20,
+                letterSpacing: "-0.04em",
                 color: "var(--color-ink)",
-                fontFamily: "var(--font-sans)",
+                display: "none",
               }}
+              className="sm-show"
             >
               Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
             </span>
           </button>
 
-          {/* Nav links — desktop */}
-          <nav className="hidden lg:flex items-center gap-1 ml-4">
-            {navLinks.map((link) => (
+          {/* Desktop nav */}
+          <nav
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              marginLeft: 12,
+            }}
+            className="desktop-nav"
+          >
+            {NAV_LINKS.map((link) => (
               <button
                 key={link.label}
-                onClick={link.action}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                onClick={() => handleNavLink(link)}
                 style={{
-                  color: "var(--color-ink2)",
+                  padding: "7px 14px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "none",
                   background: "transparent",
+                  color: "var(--color-ink2)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 500,
+                  fontSize: 13.5,
+                  cursor: "pointer",
+                  transition: "background 0.18s, color 0.18s",
+                  whiteSpace: "nowrap",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--color-surface2)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--color-surface2)";
+                  e.currentTarget.style.color = "var(--color-ink)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--color-ink2)";
+                }}
               >
                 {link.label}
               </button>
             ))}
           </nav>
 
-          {/* Search — center */}
-          <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-auto">
+          {/* Search */}
+          <form
+            onSubmit={handleSubmit}
+            style={{ flex: 1, maxWidth: 400, marginInline: "auto" }}
+          >
             <div
-              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200"
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 14px",
+                borderRadius: "var(--radius-pill)",
                 background: searchFocused
                   ? "var(--color-surface)"
                   : "var(--color-surface2)",
                 border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "var(--color-border)"}`,
                 boxShadow: searchFocused
-                  ? "0 0 0 3px rgba(255,92,53,.1)"
+                  ? "0 0 0 3px var(--color-accent-soft)"
                   : "none",
+                transition: "all 0.2s",
               }}
             >
               <Search
-                size={15}
+                size={14}
                 strokeWidth={2}
                 style={{ color: "var(--color-ink4)", flexShrink: 0 }}
               />
@@ -212,11 +284,15 @@ export default function Header({
                 onChange={(e) => setSearchVal(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder="Rechercher un événement, un design..."
-                className="flex-1 bg-transparent border-none outline-none text-sm"
+                placeholder="Rechercher un design..."
                 style={{
+                  flex: 1,
+                  border: "none",
+                  background: "transparent",
+                  outline: "none",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13.5,
                   color: "var(--color-ink)",
-                  fontFamily: "var(--font-sans)",
                 }}
               />
               {searchVal && (
@@ -226,35 +302,72 @@ export default function Header({
                     setSearchVal("");
                     onSearch("");
                   }}
-                  className="p-0.5 rounded transition-colors"
-                  style={{ color: "var(--color-ink4)" }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-ink4)",
+                    padding: 2,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
                 >
-                  <X size={13} strokeWidth={2} />
+                  <X size={12} strokeWidth={2} />
                 </button>
               )}
             </div>
           </form>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              flexShrink: 0,
+            }}
+          >
             {/* Favorites */}
             <button
               onClick={onOpenFavorites}
-              className="relative p-2 rounded-xl transition-all duration-150"
-              style={{ color: "var(--color-ink2)" }}
+              style={{
+                position: "relative",
+                padding: 9,
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+                transition: "background 0.18s",
+              }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "var(--color-surface2)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "transparent")
               }
-              aria-label="Mes favoris"
+              aria-label={`Favoris — ${favoriteCount}`}
             >
-              <Heart size={20} strokeWidth={1.8} />
+              <Heart size={19} strokeWidth={1.8} />
               {favoriteCount > 0 && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-gray-900 font-bold"
-                  style={{ fontSize: "9px", background: "var(--color-accent)" }}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "var(--color-accent)",
+                    color: "#fff",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   {favoriteCount}
                 </span>
@@ -264,37 +377,60 @@ export default function Header({
             {/* Admin */}
             <button
               onClick={onOpenAdmin}
-              className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+              className="desktop-only"
               style={{
+                padding: 9,
+                borderRadius: "var(--radius-md)",
+                background: isAdminActive
+                  ? "var(--color-accent-soft)"
+                  : "transparent",
+                border: "none",
+                cursor: "pointer",
                 color: isAdminActive
                   ? "var(--color-accent)"
                   : "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+                transition: "background 0.18s",
               }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "var(--color-surface2)")
               }
               onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
+                (e.currentTarget.style.background = isAdminActive
+                  ? "var(--color-accent-soft)"
+                  : "transparent")
               }
-              aria-label="Admin Studio"
+              aria-label="Admin"
               title={isAdminActive ? "Voir le store" : "Admin Studio"}
             >
-              <User size={20} strokeWidth={1.8} />
+              <User size={19} strokeWidth={1.8} />
             </button>
 
             {/* Cart */}
             <button
               onClick={onOpenCart}
-              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-gray-900 transition-all duration-200"
               style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "9px 18px",
+                borderRadius: "var(--radius-pill)",
                 background: "var(--color-accent)",
+                border: "none",
+                color: "#fff",
+                fontFamily: "var(--font-body)",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
                 boxShadow: "var(--shadow-accent)",
-                fontFamily: "var(--font-sans)",
+                transition:
+                  "transform 0.25s var(--ease-spring), box-shadow 0.25s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 40px rgba(255,92,53,.28)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "var(--shadow-accent-lg)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
@@ -302,17 +438,18 @@ export default function Header({
               }}
               aria-label={`Panier — ${totalQty} article(s)`}
             >
-              <ShoppingCart size={17} strokeWidth={2} />
-              <span className="hidden sm:inline">Panier</span>
+              <ShoppingCart size={16} strokeWidth={2} />
+              <span className="cart-label">Panier</span>
               {totalQty > 0 && (
                 <span
-                  className="flex items-center justify-center rounded-full font-black text-gray-900"
                   style={{
-                    minWidth: 20,
-                    height: 20,
-                    padding: "0 5px",
-                    fontSize: "11px",
                     background: "rgba(0,0,0,0.2)",
+                    borderRadius: "var(--radius-pill)",
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    minWidth: 22,
+                    textAlign: "center",
                   }}
                 >
                   {totalQty}
@@ -320,20 +457,23 @@ export default function Header({
               )}
             </button>
 
-            {/* Mobile menu button */}
+            {/* Hamburger */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl transition-all duration-150"
-              style={{ color: "var(--color-ink2)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--color-surface2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="hamburger-btn"
+              style={{
+                padding: 9,
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "none",
+                alignItems: "center",
+              }}
               aria-label="Menu"
             >
-              {mobileMenuOpen ? (
+              {mobileOpen ? (
                 <X size={20} strokeWidth={2} />
               ) : (
                 <Menu size={20} strokeWidth={2} />
@@ -344,62 +484,71 @@ export default function Header({
 
         {/* Category pills sub-nav */}
         <div
-          className="border-t"
-          style={{ borderColor: "var(--color-border)" }}
+          style={{
+            borderTop: "1px solid var(--color-border)",
+          }}
         >
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
-            {[
-              { label: "Tout voir", eventType: null, category: null },
-              { label: "⚡ Live 2026", eventType: "live", category: null },
-              { label: "🏆 Sport", eventType: "sport", category: null },
-              { label: "🎉 Festivals", eventType: "culture", category: null },
-              { label: "🍂 Saisons", eventType: "saisonnier", category: null },
-              { label: "—", divider: true },
-              { label: "T-Shirts", eventType: null, category: "tshirt" },
-              { label: "Hoodies", eventType: null, category: "hoodie" },
-              { label: "Accessoires", eventType: null, category: "accessory" },
-              { label: "Mugs", eventType: null, category: "mug" },
-            ].map((item, i) => {
-              if ((item as any).divider) {
+          <div
+            className="section-container scrollbar-none"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              paddingTop: 8,
+              paddingBottom: 8,
+              overflowX: "auto",
+            }}
+          >
+            {CATEGORY_PILLS.map((pill: any, i) => {
+              if (pill.divider) {
                 return (
-                  <span key={i} className="text-gray-300 shrink-0">
+                  <span
+                    key={i}
+                    style={{
+                      color: "var(--color-border2)",
+                      flexShrink: 0,
+                      fontSize: 16,
+                      lineHeight: 1,
+                    }}
+                  >
                     |
                   </span>
                 );
               }
-              const isActive = item.category
-                ? currentCategory === item.category
-                : item.eventType === null
-                  ? currentEventType === null && currentCategory === null
-                  : currentEventType === item.eventType;
+              const active = isPillActive(pill);
               return (
                 <button
                   key={i}
-                  onClick={() => {
-                    onSelectCategory(item.category ?? null);
-                    onSelectEventType(item.eventType ?? null);
-                    onScrollToSection("catalog");
-                  }}
-                  className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150"
+                  onClick={() => handlePill(pill)}
                   style={{
-                    background: isActive
-                      ? "var(--color-accent)"
-                      : "transparent",
-                    color: isActive ? "white" : "var(--color-ink3)",
-                    border: `1.5px solid ${isActive ? "var(--color-accent)" : "transparent"}`,
-                    fontFamily: "var(--font-sans)",
+                    flexShrink: 0,
+                    padding: "5px 14px",
+                    borderRadius: "var(--radius-pill)",
+                    border: `1.5px solid ${active ? "var(--color-accent)" : "transparent"}`,
+                    background: active ? "var(--color-accent)" : "transparent",
+                    color: active ? "#fff" : "var(--color-ink3)",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: active ? 700 : 500,
+                    fontSize: 12.5,
+                    cursor: "pointer",
+                    transition: "all 0.18s var(--ease-smooth)",
+                    whiteSpace: "nowrap",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive)
+                    if (!active) {
                       e.currentTarget.style.background =
                         "var(--color-surface2)";
+                      e.currentTarget.style.color = "var(--color-ink2)";
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive)
+                    if (!active) {
                       e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--color-ink3)";
+                    }
                   }}
                 >
-                  {item.label}
+                  {pill.label}
                 </button>
               );
             })}
@@ -408,47 +557,79 @@ export default function Header({
       </header>
 
       {/* Mobile menu overlay */}
-      {mobileMenuOpen && (
+      {mobileOpen && (
         <div
-          className="fixed inset-0 z-20 lg:hidden animate-fade-in"
           style={{
-            background: "rgba(26,25,22,.5)",
+            position: "fixed",
+            inset: 0,
+            zIndex: "var(--z-modal)",
+            background: "rgba(26,20,10,0.5)",
             backdropFilter: "blur(4px)",
           }}
-          onClick={() => setMobileMenuOpen(false)}
+          className="animate-fade-in"
+          onClick={() => setMobileOpen(false)}
         >
           <div
-            className="absolute top-0 left-0 right-0 animate-fade-up p-6 pt-4"
             style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
               background: "var(--color-surface)",
               borderBottom: "1px solid var(--color-border)",
+              padding: "20px 24px",
             }}
+            className="animate-fade-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
               <span
-                className="font-black text-lg"
-                style={{ color: "var(--color-ink)" }}
+                style={{
+                  fontWeight: 800,
+                  fontSize: 18,
+                  color: "var(--color-ink)",
+                  letterSpacing: "-0.03em",
+                }}
               >
                 Menu
               </span>
-              <button onClick={() => setMobileMenuOpen(false)}>
-                <X size={22} style={{ color: "var(--color-ink2)" }} />
+              <button
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--color-ink2)",
+                }}
+              >
+                <X size={22} strokeWidth={2} />
               </button>
             </div>
-            <nav className="flex flex-col gap-1">
-              {navLinks.map((link, i) => (
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {NAV_LINKS.map((link, i) => (
                 <button
                   key={link.label}
-                  onClick={() => {
-                    link.action();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
+                  onClick={() => handleNavLink(link)}
+                  className={`animate-fade-up delay-${(i + 1) * 100 > 500 ? 500 : (i + 1) * 100}`}
                   style={{
+                    textAlign: "left",
+                    padding: "12px 16px",
+                    borderRadius: "var(--radius-md)",
+                    border: "none",
+                    background: "transparent",
                     color: "var(--color-ink)",
-                    animationDelay: `${i * 0.05}s`,
-                    fontFamily: "var(--font-sans)",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: 600,
+                    fontSize: 16,
+                    cursor: "pointer",
+                    transition: "background 0.18s",
                   }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background = "var(--color-surface2)")
@@ -460,33 +641,57 @@ export default function Header({
                   {link.label}
                 </button>
               ))}
-              <div
-                className="h-px my-2"
-                style={{ background: "var(--color-border)" }}
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "1px solid var(--color-border)",
+                  margin: "8px 0",
+                }}
               />
               <button
                 onClick={() => {
                   onOpenAdmin();
-                  setMobileMenuOpen(false);
+                  setMobileOpen(false);
                 }}
-                className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
                 style={{
+                  textAlign: "left",
+                  padding: "12px 16px",
+                  borderRadius: "var(--radius-md)",
+                  border: "none",
+                  background: "transparent",
                   color: "var(--color-ink)",
-                  fontFamily: "var(--font-sans)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 600,
+                  fontSize: 16,
+                  cursor: "pointer",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--color-surface2)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
               >
-                {isAdminActive ? "← Voir le store" : "⚙️ Admin Studio"}
+                {isAdminActive ? "← Retour au Store" : "⚙ Admin Studio"}
               </button>
             </nav>
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (min-width: 640px) {
+          .sm-show { display: inline !important; }
+        }
+        @media (min-width: 1024px) {
+          .desktop-nav { display: flex !important; }
+          .hamburger-btn { display: none !important; }
+          .desktop-only { display: flex !important; }
+          .cart-label { display: inline !important; }
+        }
+        @media (max-width: 1023px) {
+          .desktop-nav { display: none !important; }
+          .hamburger-btn { display: flex !important; }
+          .desktop-only { display: none !important; }
+        }
+        @media (max-width: 639px) {
+          .cart-label { display: none !important; }
+        }
+      `}</style>
     </>
   );
 }

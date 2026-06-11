@@ -2,6 +2,9 @@ import React from "react";
 import { Heart, Star, ShoppingCart, Clock } from "lucide-react";
 import { Product } from "../types";
 
+const IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+
 interface ProductCardProps {
   product: Product;
   isFavorite: boolean;
@@ -19,108 +22,199 @@ export default function ProductCard({
   onViewDetails,
   countdownStr,
 }: ProductCardProps) {
+  const [hovered, setHovered] = React.useState(false);
+
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
   return (
     <article
-      itemScope
-      itemType="https://schema.org/Product"
-      className="card-lift rounded-2xl overflow-hidden flex flex-col h-full"
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-xl)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        transition:
+          "transform 0.35s var(--ease-out-expo), box-shadow 0.35s var(--ease-out-expo)",
+        transform: hovered ? "translateY(-5px)" : "translateY(0)",
+        boxShadow: hovered ? "var(--shadow-xl)" : "var(--shadow-xs)",
+        cursor: "pointer",
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Schema.org hidden */}
-      <meta itemProp="name" content={product.title} />
-      <meta itemProp="brand" content={product.brand} />
-      <meta itemProp="image" content={product.image} />
-      <div
-        itemProp="offers"
-        itemScope
-        itemType="https://schema.org/Offer"
-        style={{ display: "none" }}
-      >
-        <meta itemProp="price" content={String(product.price)} />
-        <meta itemProp="priceCurrency" content="EUR" />
-        <meta
-          itemProp="availability"
-          content={
-            product.inStock !== false
-              ? "https://schema.org/InStock"
-              : "https://schema.org/OutOfStock"
-          }
-        />
-      </div>
-
       {/* Image */}
       <div
-        className="relative aspect-4/5 overflow-hidden cursor-pointer"
-        style={{ background: "var(--color-surface2)" }}
+        style={{
+          position: "relative",
+          aspectRatio: "4/5",
+          overflow: "hidden",
+          background: "var(--color-surface2)",
+          flexShrink: 0,
+        }}
         onClick={() => onViewDetails(product)}
       >
         <img
-          src={product.image}
+          src={product.image || IMG}
           alt={`${product.title} — InstaWear`}
-          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transition: "transform 0.5s var(--ease-out-expo)",
+            transform: hovered ? "scale(1.06)" : "scale(1)",
+          }}
           loading="lazy"
         />
 
-        {/* Overlaid badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+        {/* Quick-view overlay */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(26,20,10,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 0.3s",
+          }}
+        >
+          <span
+            style={{
+              background: "rgba(255,255,255,0.95)",
+              color: "var(--color-ink)",
+              fontFamily: "var(--font-body)",
+              fontWeight: 700,
+              fontSize: 12,
+              padding: "8px 18px",
+              borderRadius: "var(--radius-pill)",
+              boxShadow: "var(--shadow-md)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Aperçu rapide
+          </span>
+        </div>
+
+        {/* Badges top-left */}
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+          }}
+        >
           {product.isBestSeller && (
             <span
-              className="badge text-gray-900"
-              style={{ background: "var(--color-gold)" }}
+              style={{
+                background: "var(--color-gold-bg)",
+                color: "var(--color-gold)",
+                border: "1px solid rgba(201,134,10,0.2)",
+                borderRadius: "var(--radius-pill)",
+                padding: "3px 9px",
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
             >
               ★ Best seller
             </span>
           )}
           {product.isLimitedTime && (
             <span
-              className="badge text-gray-900"
-              style={{ background: "#EF4444" }}
+              style={{
+                background: "#fef2f2",
+                color: "#dc2626",
+                border: "1px solid rgba(220,38,38,0.18)",
+                borderRadius: "var(--radius-pill)",
+                padding: "3px 9px",
+                fontSize: 9,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
             >
               Offre limitée
             </span>
           )}
+          {discount > 0 && !product.isLimitedTime && (
+            <span
+              style={{
+                background: "var(--color-accent)",
+                color: "#fff",
+                borderRadius: "var(--radius-pill)",
+                padding: "3px 9px",
+                fontSize: 9,
+                fontWeight: 800,
+              }}
+            >
+              -{discount}%
+            </span>
+          )}
           {product.inStock === false && (
             <span
-              className="badge"
               style={{
                 background: "var(--color-surface)",
                 color: "var(--color-ink3)",
-                border: "1px solid var(--color-border)",
+                border: "1px solid var(--color-border2)",
+                borderRadius: "var(--radius-pill)",
+                padding: "3px 9px",
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
               }}
             >
               Sur commande
-            </span>
-          )}
-          {discount > 0 && (
-            <span
-              className="badge text-gray-900"
-              style={{ background: "var(--color-accent)" }}
-            >
-              -{discount}%
             </span>
           )}
         </div>
 
         {/* Heart button */}
         <button
-          className={`btn-heart ${isFavorite ? "active" : ""}`}
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(product.id);
           }}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: isFavorite
+              ? "var(--color-accent)"
+              : "rgba(255,255,255,0.9)",
+            backdropFilter: "blur(8px)",
+            border: `1px solid ${isFavorite ? "transparent" : "var(--color-border)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "var(--shadow-sm)",
+            transition: "transform 0.25s var(--ease-spring), background 0.2s",
+            zIndex: 2,
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.transform = "scale(1.12)")
+          }
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           aria-label={
             isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
           }
         >
           <Heart
-            size={15}
+            size={14}
             strokeWidth={2}
             style={{
               color: isFavorite ? "white" : "var(--color-ink2)",
@@ -131,19 +225,40 @@ export default function ProductCard({
       </div>
 
       {/* Content */}
-      <div className="p-4 flex flex-col flex-1 gap-2">
-        {/* Colors */}
-        <div className="flex items-center gap-1.5">
+      <div
+        style={{
+          padding: "16px 16px 18px",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          gap: 10,
+        }}
+      >
+        {/* Color swatches */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {product.colors.slice(0, 5).map((c, i) => (
             <span
               key={i}
-              className="w-3 h-3 rounded-full border"
-              style={{ backgroundColor: c, borderColor: "var(--color-border)" }}
               title={product.colorNames?.[i] || c}
+              style={{
+                width: 11,
+                height: 11,
+                borderRadius: "50%",
+                background: c,
+                border: "1px solid var(--color-border2)",
+                display: "block",
+                flexShrink: 0,
+              }}
             />
           ))}
           {product.colors.length > 5 && (
-            <span style={{ fontSize: "10px", color: "var(--color-ink4)" }}>
+            <span
+              style={{
+                fontSize: 9,
+                color: "var(--color-ink4)",
+                fontWeight: 700,
+              }}
+            >
               +{product.colors.length - 5}
             </span>
           )}
@@ -152,18 +267,33 @@ export default function ProductCard({
         {/* Brand + Title */}
         <div>
           <p
-            className="text-xs font-bold uppercase tracking-widest mb-0.5"
-            style={{ color: "var(--color-ink4)" }}
+            style={{
+              fontSize: 10,
+              fontWeight: 800,
+              color: "var(--color-ink4)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 4,
+            }}
           >
             {product.brand}
           </p>
           <h3
             onClick={() => onViewDetails(product)}
-            className="text-sm font-semibold leading-snug cursor-pointer transition-colors duration-150 line-clamp-2"
             style={{
+              fontFamily: "var(--font-body)",
+              fontWeight: 700,
+              fontSize: 13.5,
               color: "var(--color-ink)",
-              fontFamily: "var(--font-sans)",
-              minHeight: "2.5em",
+              lineHeight: 1.35,
+              letterSpacing: "-0.01em",
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              minHeight: "2.7em",
+              cursor: "pointer",
+              transition: "color 0.18s",
             }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.color = "var(--color-accent)")
@@ -178,55 +308,84 @@ export default function ProductCard({
 
         {/* Ratings */}
         <div
-          className="flex items-center gap-1.5 text-xs"
-          style={{ color: "var(--color-ink3)" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+          }}
         >
-          <div
-            className="flex items-center gap-0.5"
-            style={{ color: "#F59E0B" }}
-          >
+          <div style={{ display: "flex", gap: 1 }}>
             {[...Array(5)].map((_, i) => (
               <Star
                 key={i}
                 size={10}
                 strokeWidth={0}
                 fill={
-                  i < Math.round(product.ratings.score) ? "#F59E0B" : "#E5E7EB"
+                  i < Math.round(product.ratings.score) ? "#f59e0b" : "#e5e7eb"
                 }
               />
             ))}
           </div>
           <span
-            className="font-semibold"
-            style={{ color: "var(--color-ink2)" }}
+            style={{
+              fontWeight: 700,
+              color: "var(--color-ink2)",
+              fontSize: 11.5,
+            }}
           >
             {product.ratings.score.toFixed(1)}
           </span>
-          <span>({product.ratings.count})</span>
-          <span>·</span>
-          <span style={{ color: "var(--color-accent)", fontWeight: 600 }}>
-            {product.boughtLastMonth}+ ce mois
+          <span style={{ color: "var(--color-ink4)", fontSize: 11 }}>
+            ({product.ratings.count})
+          </span>
+          <span
+            style={{
+              color: "var(--color-accent)",
+              fontWeight: 600,
+              fontSize: 11,
+            }}
+          >
+            · {product.boughtLastMonth}+ ce mois
           </span>
         </div>
 
         {/* Countdown for limited */}
         {product.isLimitedTime && (
           <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold"
-            style={{ background: "#FEF2F2", color: "#DC2626" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 10px",
+              borderRadius: "var(--radius-sm)",
+              background: "#fef2f2",
+              border: "1px solid rgba(220,38,38,0.12)",
+            }}
           >
-            <Clock size={11} strokeWidth={2.5} />
-            <span>Fin dans {countdownStr}</span>
+            <Clock
+              size={10}
+              strokeWidth={2.5}
+              style={{ color: "#dc2626", flexShrink: 0 }}
+            />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#dc2626" }}>
+              Fin dans {countdownStr}
+            </span>
           </div>
         )}
 
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
         {/* Price */}
-        <div className="flex items-baseline gap-2 mt-auto pt-1">
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span
-            className="text-lg font-black"
             style={{
+              fontFamily: "var(--font-body)",
+              fontWeight: 800,
+              fontSize: 19,
               color: "var(--color-ink)",
-              fontFamily: "var(--font-sans)",
+              letterSpacing: "-0.02em",
               fontVariantNumeric: "tabular-nums",
             }}
           >
@@ -234,8 +393,12 @@ export default function ProductCard({
           </span>
           {product.originalPrice && (
             <span
-              className="text-sm line-through"
-              style={{ color: "var(--color-ink4)" }}
+              style={{
+                fontSize: 12,
+                color: "var(--color-ink4)",
+                textDecoration: "line-through",
+                fontVariantNumeric: "tabular-nums",
+              }}
             >
               {product.originalPrice.toFixed(2)} €
             </span>
@@ -244,26 +407,40 @@ export default function ProductCard({
 
         {/* Add to cart */}
         <button
-          onClick={() => onAddToCart(product)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddToCart(product);
+          }}
           style={{
-            background: "var(--color-accent-bg)",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            padding: "10px 16px",
+            borderRadius: "var(--radius-md)",
+            border: "1.5px solid rgba(232,76,30,0.2)",
+            background: "var(--color-accent-soft2)",
             color: "var(--color-accent)",
-            border: "1.5px solid rgba(255,92,53,.2)",
-            fontFamily: "var(--font-sans)",
+            fontFamily: "var(--font-body)",
+            fontWeight: 700,
+            fontSize: 12.5,
+            cursor: "pointer",
+            transition:
+              "background 0.2s, color 0.2s, transform 0.2s var(--ease-spring)",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--color-accent)";
-            e.currentTarget.style.color = "white";
+            e.currentTarget.style.color = "#fff";
             e.currentTarget.style.transform = "translateY(-1px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--color-accent-bg)";
+            e.currentTarget.style.background = "var(--color-accent-soft2)";
             e.currentTarget.style.color = "var(--color-accent)";
             e.currentTarget.style.transform = "translateY(0)";
           }}
         >
-          <ShoppingCart size={14} strokeWidth={2} />
+          <ShoppingCart size={13} strokeWidth={2} />
           Ajouter au panier
         </button>
       </div>
