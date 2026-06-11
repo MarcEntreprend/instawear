@@ -540,7 +540,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [heroBanners.length]);
 
-  // Navigation functions
   const scrollToSection = (
     section:
       | "catalog"
@@ -552,17 +551,17 @@ export default function App() {
   ) => {
     setActiveTab("store");
     setTimeout(() => {
-      const id =
-        section === "catalog"
-          ? "section-catalog"
-          : section === "filters"
-            ? "section-filters"
-            : null;
+      const idMap: Record<string, string> = {
+        catalog: "section-catalog",
+        about: "section-about",
+        filters: "section-filters",
+      };
+      const id = idMap[section];
       if (id) {
         const el = document.getElementById(id);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 100);
+    }, 200); // délai augmenté à 200ms
   };
 
   const handleOpenFavorites = () => {
@@ -1143,7 +1142,10 @@ export default function App() {
           </section>
 
           {/* About Section - Premium Story (visuel V2 avec max-w-4xl) */}
-          <section className="bg-white border-t border-gray-200 mt-12 py-12 px-4">
+          <section
+            id="section-about"
+            className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
+          >
             <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
               <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
                 🎨 NOTRE HISTOIRE

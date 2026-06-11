@@ -101,9 +101,10 @@ export default function Header({
 
   // Logique de navigation structurée (v3)
   const handleNavLink = (link: NavLink) => {
-    if (link.eventType !== undefined) onSelectEventType(link.eventType);
-    if (link.category !== undefined) onSelectCategory(link.category);
-    // Si un filtre événement ou catégorie est présent → scroll vers les filtres, sinon vers la cible naturelle
+    // Ne mettre à jour les filtres que si le lien en porte explicitement
+    if (link.eventType != null) onSelectEventType(link.eventType);
+    if (link.category != null) onSelectCategory(link.category);
+    // Scroll vers la section appropriée
     if (link.eventType || link.category) {
       onScrollToSection("filters");
     } else {
@@ -166,6 +167,7 @@ export default function Header({
             onClick={() => {
               onSelectCategory(null);
               onSelectEventType(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="flex items-center gap-2 shrink-0 group"
             aria-label="InstaWear — Accueil"
