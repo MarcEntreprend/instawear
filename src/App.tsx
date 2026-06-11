@@ -530,6 +530,14 @@ export default function App() {
     },
   ];
 
+  // Autoplay Hero Carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBannerIndex((prev) => (prev + 1) % heroBanners.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [heroBanners.length]);
+
   // Navigation functions
   const scrollToSection = (
     section: "catalog" | "about" | "testimonials" | "faq" | "contact",
@@ -609,6 +617,7 @@ export default function App() {
             <div
               className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 flex flex-col md:flex-row items-center justify-between min-h-90 md:min-h-105 transition-all duration-700 relative`}
             >
+              {/* Bouton flèche gauche */}
               <button
                 onClick={() =>
                   setBannerIndex(
@@ -622,6 +631,19 @@ export default function App() {
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
+              {/* Zone tactile gauche (mobile friendly) */}
+              <button
+                onClick={() =>
+                  setBannerIndex(
+                    (prev) =>
+                      (prev - 1 + heroBanners.length) % heroBanners.length,
+                  )
+                }
+                className="absolute inset-y-0 left-0 w-[30%] md:w-[25%] z-5 bg-transparent cursor-pointer focus:outline-none"
+                aria-label="Diapositive précédente"
+              />
+
+              {/* Bouton flèche droite */}
               <button
                 onClick={() =>
                   setBannerIndex((prev) => (prev + 1) % heroBanners.length)
@@ -631,6 +653,15 @@ export default function App() {
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
+
+              {/* Zone tactile droite (mobile friendly) */}
+              <button
+                onClick={() =>
+                  setBannerIndex((prev) => (prev + 1) % heroBanners.length)
+                }
+                className="absolute inset-y-0 right-0 w-[30%] md:w-[25%] z-5 bg-transparent cursor-pointer focus:outline-none"
+                aria-label="Diapositive suivante"
+              />
 
               <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
                 <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
