@@ -580,6 +580,8 @@ export default function App() {
     );
   };
 
+  const productTitles = products.map((p) => p.title);
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
@@ -608,6 +610,7 @@ export default function App() {
         }
         isAdminActive={activeTab === "admin"}
         onScrollToSection={scrollToSection}
+        searchSuggestions={productTitles}
       />
 
       {/* Global Toast */}

@@ -511,3 +511,31 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 .delay-500 {
   animation-delay: 0.5s;
 }
+
+/* animations des étoiles */
+/* Étoiles de la barre de recherche */
+.search-star {
+  transform-origin: center;
+  animation: starPulse 2s ease-in-out infinite;
+}
+.search-star-1 {
+  animation-delay: 0s;
+}
+.search-star-2 {
+  animation-delay: 0.6s;
+}
+.search-star-3 {
+  animation-delay: 1.2s;
+}
+
+@keyframes starPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(15deg);
+  }
+}

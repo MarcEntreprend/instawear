@@ -26,6 +26,7 @@ interface HeaderProps {
       | "contact"
       | "filters",
   ) => void;
+  searchSuggestions?: string[];
 }
 
 // Définition structurée de la navigation (logique v3)
@@ -61,18 +62,6 @@ const CATEGORY_PILLS = [
   { label: "Mugs", eventType: null, category: "mug" },
 ];
 
-// liste des suggestions et l’état du placeholder
-const SEARCH_SUGGESTIONS = [
-  "T-shirt Ligue des Champions",
-  "Hoodie Halloween 2026",
-  "Mug Nouvel An",
-  "Casquette Olympics",
-  "T-shirt Rio Carnival",
-  "Hoodie Ugly Sweater Noël",
-  "T-shirt EDM Live",
-  "Accessoire Festival",
-];
-
 export default function Header({
   cart,
   favoriteCount,
@@ -87,15 +76,17 @@ export default function Header({
   onOpenAdmin,
   isAdminActive,
   onScrollToSection,
+  searchSuggestions,
 }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(currentSearchTerm);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [placeholderIdx, setPlaceholderIdx] = useState(0);
-  const [displayPlaceholder, setDisplayPlaceholder] = useState(
-    SEARCH_SUGGESTIONS[0],
-  );
+  // États pour l'animation de frappe
+  const [currentSuggestion, setCurrentSuggestion] = useState("");
+  const [typedText, setTypedText] = useState("");
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
@@ -109,17 +100,57 @@ export default function Header({
     setSearchVal(currentSearchTerm);
   }, [currentSearchTerm]);
 
-  // effet de défilement des suggestions
+  // Effet de frappe pour le placeholder
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIdx((prev) => (prev + 1) % SEARCH_SUGGESTIONS.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    const suggestionsList =
+      searchSuggestions && searchSuggestions.length > 0
+        ? searchSuggestions
+        : ["T-shirt Ligue des Champions", "Hoodie Halloween 2026"];
 
-  useEffect(() => {
-    setDisplayPlaceholder(SEARCH_SUGGESTIONS[placeholderIdx]);
-  }, [placeholderIdx]);
+    if (!currentSuggestion) {
+      const randomSuggestion =
+        suggestionsList[Math.floor(Math.random() * suggestionsList.length)];
+      setCurrentSuggestion(randomSuggestion);
+      return;
+    }
+
+    let timeout: NodeJS.Timeout;
+
+    if (!isDeleting && charIndex < currentSuggestion.length) {
+      timeout = setTimeout(
+        () => {
+          setTypedText(currentSuggestion.substring(0, charIndex + 1));
+          setCharIndex(charIndex + 1);
+        },
+        60 + Math.random() * 40,
+      );
+    } else if (isDeleting && charIndex > 0) {
+      timeout = setTimeout(() => {
+        setTypedText(currentSuggestion.substring(0, charIndex - 1));
+        setCharIndex(charIndex - 1);
+      }, 30);
+    } else {
+      timeout = setTimeout(
+        () => {
+          if (!isDeleting) {
+            setIsDeleting(true);
+          } else {
+            setIsDeleting(false);
+            const newSuggestion =
+              suggestionsList[
+                Math.floor(Math.random() * suggestionsList.length)
+              ];
+            setCurrentSuggestion(newSuggestion);
+            setCharIndex(0);
+            setTypedText("");
+          }
+        },
+        isDeleting ? 800 : 2000,
+      );
+    }
+
+    return () => clearTimeout(timeout);
+  }, [charIndex, isDeleting, currentSuggestion, searchSuggestions]);
 
   // Logique de soumission de la recherche
   const handleSubmit = (e: React.FormEvent) => {
@@ -179,7 +210,7 @@ export default function Header({
 
       {/* Main header (visuel v2) */}
       <header
-        className="sticky top-0 z-30 w-full transition-all duration-300 relative"
+        className="sticky top-0 z-30 w-full transition-all duration-300"
         style={{
           background: isScrolled ? "rgba(250,250,248,0.92)" : "var(--color-bg)",
           backdropFilter: isScrolled ? "blur(20px) saturate(160%)" : "none",
@@ -270,6 +301,7 @@ export default function Header({
                   : "none",
               }}
             >
+              {/* icône de recherche animée */}
               <svg
                 width="18"
                 height="18"
@@ -288,27 +320,31 @@ export default function Header({
                 {/* Loupe */}
                 <circle cx="10.5" cy="10.5" r="5.5" />
                 <line x1="14.5" y1="14.5" x2="20" y2="20" />
-                {/* Étoile 1 */}
-                <path
-                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                  fill="currentColor"
-                  stroke="none"
-                  transform="translate(-13, -1) scale(0.8)"
-                />
-                {/* Étoile 2 */}
-                <path
-                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                  fill="currentColor"
-                  stroke="none"
-                  transform="translate(-8, 14) scale(0.6)"
-                />
-                {/* Étoile 3 */}
-                <path
-                  d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                  fill="currentColor"
-                  stroke="none"
-                  transform="translate(2, -8) scale(0.7)"
-                />
+                {/* Étoiles animées */}
+                <g className="search-star search-star-1">
+                  <path
+                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                    fill="currentColor"
+                    stroke="none"
+                    transform="translate(-13, -1) scale(0.8)"
+                  />
+                </g>
+                <g className="search-star search-star-2">
+                  <path
+                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                    fill="currentColor"
+                    stroke="none"
+                    transform="translate(-8, 14) scale(0.6)"
+                  />
+                </g>
+                <g className="search-star search-star-3">
+                  <path
+                    d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                    fill="currentColor"
+                    stroke="none"
+                    transform="translate(2, -8) scale(0.7)"
+                  />
+                </g>
               </svg>
               <input
                 ref={inputRef}
@@ -317,9 +353,7 @@ export default function Header({
                 onChange={(e) => setSearchVal(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder={
-                  searchFocused || searchVal ? "" : displayPlaceholder
-                }
+                placeholder={searchFocused || searchVal ? "" : typedText}
                 className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300"
                 style={{
                   color: "var(--color-ink)",
