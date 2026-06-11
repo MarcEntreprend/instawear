@@ -326,7 +326,7 @@ export default function Header({
             {/* Cart */}
             <button
               onClick={onOpenCart}
-              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-gray-900 transition-all duration-200"
+              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all duration-200"
               style={{
                 background: "var(--color-accent)",
                 boxShadow: "var(--shadow-accent)",

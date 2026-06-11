@@ -702,7 +702,7 @@ export default function App() {
                       setSelectedCategory(null);
                     }
                   }}
-                  className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-sans font-black text-xs px-6 py-3.5 rounded-full shadow-lg shadow-indigo-500/10 hover:shadow-cyan-500/25 transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
+                  className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full shadow-lg shadow-indigo-500/10 hover:shadow-cyan-500/25 transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
                 >
                   <span>{heroBanners[bannerIndex].cta}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -1127,10 +1127,10 @@ export default function App() {
                           onClick={() =>
                             addToCart(product, product.colors[0], "M")
                           }
-                          className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
+                          className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
                           id={`btn-add-cart-list-${product.id}`}
                         >
-                          <Plus className="w-3.5 h-3.5 text-slate-950" />
+                          <Plus className="w-3.5 h-3.5 text-white" />
                           Ajouter au panier
                         </button>
                       </div>
@@ -1147,7 +1147,7 @@ export default function App() {
             className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
           >
             <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
-              <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
+              <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
                 🎨 NOTRE HISTOIRE
               </span>
               <h3 className="text-3xl font-black text-gray-900 leading-tight">
@@ -2029,7 +2029,21 @@ export default function App() {
                     setCartOpen(false);
                     setActiveTab("store");
                   }}
-                  className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-gray-900 font-bold text-xs px-4 py-2 rounded-lg"
+                  className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
+                  style={{
+                    background: "transparent",
+                    color: "var(--color-accent)",
+                    border: "1.5px solid var(--color-accent)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--color-accent)";
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "var(--color-accent)";
+                  }}
                 >
                   Continuer mes achats
                 </button>
