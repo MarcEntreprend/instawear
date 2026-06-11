@@ -31,19 +31,19 @@ interface HeaderProps {
 // Définition structurée de la navigation (logique v3)
 const NAV_LINKS: NavLink[] = [
   { label: "Collections", section: "catalog", eventType: null, category: null },
-  { label: "Sport", section: "catalog", eventType: "sport", category: null },
-  {
-    label: "Festivals",
-    section: "catalog",
-    eventType: "culture",
-    category: null,
-  },
-  {
-    label: "Saisons",
-    section: "catalog",
-    eventType: "saisonnier",
-    category: null,
-  },
+  // { label: "Sport", section: "catalog", eventType: "sport", category: null },
+  // {
+  //   label: "Festivals",
+  //   section: "catalog",
+  //   eventType: "culture",
+  //   category: null,
+  // },
+  // {
+  //   label: "Saisons",
+  //   section: "catalog",
+  //   eventType: "saisonnier",
+  //   category: null,
+  // },
   { label: "À propos", section: "about", eventType: null, category: null },
   { label: "FAQ", section: "faq", eventType: null, category: null },
 ];
