@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import Header from "./components/Header";
 import { Product, CartItem, PrintfulSettings } from "./types";
+import { DEFAULT_PRODUCTS } from "./data/defaultProducts";
 
 // Preset mockup templates with placeholder images
 const PLACEHOLDER_IMG =
@@ -187,10 +188,13 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
+      } else {
+        // Réponse non-ok → fallback
+        setProducts(DEFAULT_PRODUCTS);
       }
     } catch (err) {
-      console.error("Failed to load products:", err);
-      showToast("Impossible de charger les produits du serveur.", "error");
+      console.warn("API indisponible, chargement des produits mockés :", err);
+      setProducts(DEFAULT_PRODUCTS);
     } finally {
       setLoadingProducts(false);
     }
