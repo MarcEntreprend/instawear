@@ -615,3 +615,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
     transform: scaleY(0);
   }
 }
+/* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
+* {
+  outline: 1px solid red !important;
+}
