@@ -77,6 +77,8 @@ const MOCKUP_PRESETS = [
     category: "mug",
   },
 ];
+// ── Hero badges visibility switch ──
+const SHOW_HERO_BADGES = false; // passer à true pour réactiver tag + title
 
 export default function App() {
   // Store States
@@ -721,12 +723,16 @@ export default function App() {
               />
 
               <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
-                <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
-                  {heroBanners[bannerIndex].tag}
-                </span>
-                <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                  {heroBanners[bannerIndex].title}
-                </p>
+                {SHOW_HERO_BADGES && (
+                  <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                    {heroBanners[bannerIndex].tag}
+                  </span>
+                )}
+                {SHOW_HERO_BADGES && (
+                  <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                    {heroBanners[bannerIndex].title}
+                  </p>
+                )}
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg">
                   {heroBanners[bannerIndex].headline}
                 </h1>
