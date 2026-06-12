@@ -743,19 +743,19 @@ export default function App() {
               <div className="hidden md:flex items-center min-h-90 md:min-h-105">
                 <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
                   {SHOW_HERO_BADGES && (
-                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4 btn-glow-white">
                       {heroBanners[bannerIndex].tag}
                     </span>
                   )}
                   {SHOW_HERO_BADGES && (
-                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5 text-glow-white">
                       {heroBanners[bannerIndex].title}
                     </p>
                   )}
-                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg">
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg text-glow-white-strong">
                     {heroBanners[bannerIndex].headline}
                   </h1>
-                  <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans">
+                  <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans text-glow-white">
                     {heroBanners[bannerIndex].sub}
                   </p>
                   <button
@@ -768,7 +768,7 @@ export default function App() {
                         setSelectedCategory(null);
                       }
                     }}
-                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full shadow-lg shadow-indigo-500/10 hover:shadow-cyan-500/25 transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
+                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
                   >
                     <span>{heroBanners[bannerIndex].cta}</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -799,19 +799,19 @@ export default function App() {
                 {/* Texte superposé à gauche */}
                 <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
                   {SHOW_HERO_BADGES && (
-                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
+                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start btn-glow-white">
                       {heroBanners[bannerIndex].tag}
                     </span>
                   )}
                   {SHOW_HERO_BADGES && (
-                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5 text-glow-white">
                       {heroBanners[bannerIndex].title}
                     </p>
                   )}
-                  <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%]">
+                  <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%] text-glow-white-strong">
                     {heroBanners[bannerIndex].headline}
                   </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%]">
+                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%] text-glow-white">
                     {heroBanners[bannerIndex].sub}
                   </p>
                   {/* Button CTA */}
@@ -825,7 +825,7 @@ export default function App() {
                         setSelectedCategory(null);
                       }
                     }}
-                    className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full shadow-lg uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
+                    className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full btn-glow-white uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
                   >
                     <span>{heroBanners[bannerIndex].cta}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
