@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles,
   ShieldCheck,
@@ -570,13 +570,28 @@ export default function App() {
     },
   ];
 
+  // timing pour le slide auto du carroussel :
+  const [autoPlayPaused, setAutoPlayPaused] = useState(false);
+  const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Autoplay Hero Carousel - l'auto-slide
   useEffect(() => {
+    if (autoPlayPaused) return;
     const timer = setInterval(() => {
       setBannerIndex((prev) => (prev + 1) % heroBanners.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [heroBanners.length]);
+  }, [heroBanners.length, autoPlayPaused]);
+
+  // fonction pauseAutoPlay
+  const pauseAutoPlay = (duration = 8000) => {
+    setAutoPlayPaused(true);
+    if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
+    autoPlayTimeoutRef.current = setTimeout(
+      () => setAutoPlayPaused(false),
+      duration,
+    );
+  };
 
   const scrollToSection = (
     section:
@@ -672,46 +687,54 @@ export default function App() {
           id="view-customer-storefront"
         >
           {/* Dynamic Hero Carousel Banner */}
-          <section className="relative section-container mt-6 px-4">
+          <section
+            className="relative section-container mt-6 px-4"
+            onMouseEnter={() => setAutoPlayPaused(true)}
+            onMouseLeave={() => setAutoPlayPaused(false)}
+          >
             <div
               className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 relative min-h-90 md:min-h-105 transition-all duration-700`}
             >
               {/* Boutons de navigation */}
               <button
-                onClick={() =>
+                onClick={() => {
+                  pauseAutoPlay();
                   setBannerIndex(
                     (prev) =>
                       (prev - 1 + heroBanners.length) % heroBanners.length,
-                  )
-                }
+                  );
+                }}
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
-                onClick={() =>
-                  setBannerIndex((prev) => (prev + 1) % heroBanners.length)
-                }
+                onClick={() => {
+                  pauseAutoPlay();
+                  setBannerIndex((prev) => (prev + 1) % heroBanners.length);
+                }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
               {/* Zones tactiles */}
               <button
-                onClick={() =>
+                onClick={() => {
+                  pauseAutoPlay();
                   setBannerIndex(
                     (prev) =>
                       (prev - 1 + heroBanners.length) % heroBanners.length,
-                  )
-                }
-                className="absolute inset-y-0 left-0 w-[30%] md:w-[25%] z-10 bg-transparent cursor-pointer"
+                  );
+                }}
+                className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-[44px] z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive précédente"
               />
               <button
-                onClick={() =>
-                  setBannerIndex((prev) => (prev + 1) % heroBanners.length)
-                }
-                className="absolute inset-y-0 right-0 w-[30%] md:w-[25%] z-10 bg-transparent cursor-pointer"
+                onClick={() => {
+                  pauseAutoPlay();
+                  setBannerIndex((prev) => (prev + 1) % heroBanners.length);
+                }}
+                className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-[44px] z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive suivante"
               />
 
@@ -731,7 +754,7 @@ export default function App() {
                   <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg">
                     {heroBanners[bannerIndex].headline}
                   </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-16 leading-relaxed font-sans max-w-[65%]">
+                  <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans">
                     {heroBanners[bannerIndex].sub}
                   </p>
                   <button
@@ -770,7 +793,7 @@ export default function App() {
                     alt={heroBanners[bannerIndex].headline}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
+                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/70 to-white"></div>
                 </div>
                 {/* Texte superposé à gauche */}
                 <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
@@ -814,7 +837,10 @@ export default function App() {
                 {heroBanners.map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => setBannerIndex(i)}
+                    onClick={() => {
+                      pauseAutoPlay();
+                      setBannerIndex(i);
+                    }}
                     className={`h-1.5 rounded-full transition-all ${bannerIndex === i ? "w-6 bg-white" : "w-1.5 bg-slate-600"}`}
                   ></button>
                 ))}
