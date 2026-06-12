@@ -252,7 +252,7 @@ export default function Header({
           boxShadow: isScrolled ? "var(--shadow-sm)" : "none",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+        <div className="w-full px-4 py-3 flex items-center gap-3">
           {/* Logo (visuel v2)  */}
           <button
             onClick={() => {
@@ -319,7 +319,7 @@ export default function Header({
           </nav>
 
           {/* Search — center (visuel v2) */}
-          <div className="flex-1 max-w-md mx-auto relative">
+          <div className="flex-1 min-w-0 mx-auto relative">
             <form onSubmit={handleSubmit}>
               <div
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${!searchFocused ? "search-rainbow" : ""}`}
