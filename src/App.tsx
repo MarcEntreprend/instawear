@@ -1017,11 +1017,10 @@ export default function App() {
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                   <Sparkles className="w-6 h-6 text-(--color-accent) animate-pulse" />
-                  Tous nos Designs à la Demande
+                  Collection
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Impression haut de gamme Direct-To-Consumer depuis des
-                  ateliers locaux.
+                  T-Shirts, Hoodies & Accessoires Événementiels
                 </p>
               </div>
               <div className="text-xs font-semibold text-gray-500">
