@@ -825,7 +825,7 @@ export default function App() {
                         setSelectedCategory(null);
                       }
                     }}
-                    className="absolute bottom-8 right-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full shadow-lg uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
+                    className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full shadow-lg uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
                   >
                     <span>{heroBanners[bannerIndex].cta}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
