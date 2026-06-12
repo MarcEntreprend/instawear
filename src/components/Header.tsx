@@ -319,10 +319,12 @@ export default function Header({
           </nav>
 
           {/* Search — center (visuel v2) */}
-          <div className="flex-1 min-w-0 mx-auto relative">
+          <div
+            className={`flex-1 min-w-0 mx-auto relative ${!searchFocused ? "search-rainbow" : ""}`}
+          >
             <form onSubmit={handleSubmit}>
               <div
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 overflow-hidden ${!searchFocused ? "search-rainbow" : ""}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 overflow-hidden"
                 style={{
                   background: searchFocused
                     ? "var(--color-surface)"

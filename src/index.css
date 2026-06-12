@@ -544,7 +544,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 .search-rainbow {
   position: relative;
 }
-.search-rainbow::after {
+.search-rainbow::before {
   --borderWidth: 2px;
   content: "";
   position: absolute;
@@ -592,7 +592,6 @@ mais elles complètent proprement le système de design et peuvent servir plus t
     background-position: 200% 0%;
   }
 }
-
 /* Désactiver l'outline focus sur l'input de recherche */
 .search-input:focus-visible {
   outline: none;
@@ -616,6 +615,6 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   }
 }
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
-* {
+/* * {
   outline: 1px solid red !important;
-}
+} */
