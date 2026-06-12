@@ -80,6 +80,9 @@ const MOCKUP_PRESETS = [
 // ── Hero badges visibility switch ──
 const SHOW_HERO_BADGES = false; // passer à true pour réactiver tag + title
 
+// ── Product delivery info visibility switch ──
+const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes
+
 export default function App() {
   // Store States
   const [products, setProducts] = useState<Product[]>([]);
@@ -1186,21 +1189,23 @@ export default function App() {
                             )}
                           </div>
 
-                          <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
-                            <p className="text-(--color-accent) font-semibold flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" /> Rejoindre
-                              Choice
-                            </p>
-                            <p>
-                              Livraison estimée pour{" "}
-                              <span className="text-gray-900 font-semibold">
-                                {getDeliverEstimateString(4)}
-                              </span>
-                            </p>
-                            {/* <p className="text-gray-500">
-                              Livraison suivie et sécurisée depuis l&apos;UE
-                            </p> */}
-                          </div>
+                          {SHOW_PRODUCT_DELIVERY_INFO && (
+                            <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
+                              <p className="text-(--color-accent) font-semibold flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" /> Rejoindre
+                                Choice
+                              </p>
+                              <p>
+                                Livraison estimée pour{" "}
+                                <span className="text-gray-900 font-semibold">
+                                  {getDeliverEstimateString(4)}
+                                </span>
+                              </p>
+                              <p className="text-gray-500">
+                                Livraison suivie et sécurisée depuis l&apos;UE
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         <button
