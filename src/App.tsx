@@ -1217,7 +1217,7 @@ export default function App() {
                 croyons en la mode circulaire et réactive. C&apos;est le
                 Print-on-Demand du futur.
               </p>
-              <div className="flex gap-12 mt-8 text-center bg-gray-50/60 p-6 rounded-2xl border border-gray-200">
+              <div className="flex gap-4 sm:gap-8 md:gap-12 mt-8 text-center bg-gray-50/60 p-4 sm:p-6 rounded-2xl border border-gray-200">
                 <div>
                   <p className="text-3xl font-black text-(--color-accent) font-sans">
                     100%
