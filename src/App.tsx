@@ -1054,8 +1054,9 @@ export default function App() {
                             </span>
                           )}
                         {product.eventType === "live" && (
-                          <span className="bg-indigo-600 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow">
-                            ★ LIVE 2206
+                          <span className="bg-indigo-600 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
+                            ★ LIVE 2026{" "}
+                            <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
                           </span>
                         )}
                       </div>

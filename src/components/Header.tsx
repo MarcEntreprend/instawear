@@ -52,7 +52,16 @@ const NAV_LINKS: NavLink[] = [
 
 const CATEGORY_PILLS = [
   { label: "Tout voir", eventType: null, category: null },
-  { label: "⚡ Live 2026", eventType: "live", category: null },
+  {
+    label: (
+      <>
+        Live 2026{" "}
+        <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
+      </>
+    ),
+    eventType: "live",
+    category: null,
+  },
   { label: "🏆 Sport", eventType: "sport", category: null },
   { label: "🎉 Festivals", eventType: "culture", category: null },
   { label: "🍂 Saisons", eventType: "saisonnier", category: null },

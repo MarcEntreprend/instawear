@@ -18,7 +18,15 @@ const CATEGORIES = [
 ];
 
 const EVENT_TYPES = [
-  { id: "live", label: "⚡ Live 2026" },
+  {
+    id: "live",
+    label: (
+      <>
+        Live 2026{" "}
+        <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
+      </>
+    ),
+  },
   { id: "sport", label: "🏆 Sport" },
   { id: "culture", label: "🎉 Festival & Culture" },
   { id: "saisonnier", label: "🍂 Saisons & Fêtes" },
