@@ -397,7 +397,7 @@ export default function Header({
                     setTimeout(() => setShowSuggestions(false), 200);
                   }}
                   placeholder={searchFocused || searchVal ? "" : typedText}
-                  className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input truncate"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
                   style={{
                     color: "var(--color-ink)",
                     fontFamily: "var(--font-sans)",
