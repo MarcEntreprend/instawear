@@ -322,7 +322,7 @@ export default function Header({
           <div className="flex-1 min-w-0 mx-auto relative">
             <form onSubmit={handleSubmit}>
               <div
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${!searchFocused ? "search-rainbow" : ""}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 overflow-hidden ${!searchFocused ? "search-rainbow" : ""}`}
                 style={{
                   background: searchFocused
                     ? "var(--color-surface)"
@@ -395,7 +395,7 @@ export default function Header({
                     setTimeout(() => setShowSuggestions(false), 200);
                   }}
                   placeholder={searchFocused || searchVal ? "" : typedText}
-                  className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input"
+                  className="flex-1 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input truncate"
                   style={{
                     color: "var(--color-ink)",
                     fontFamily: "var(--font-sans)",
