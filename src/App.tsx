@@ -543,27 +543,27 @@ export default function App() {
   const heroBanners = [
     {
       title: "InstaWear Concept",
-      headline: "Wear the Moment. Live the Event.",
-      sub: "Boutique ultra-réactive de vêtements premium célébrant les énergies du sport, de la musique et des saisons avec des designs IA de pointe.",
-      cta: "Découvrir la Collection",
+      headline: "Wear the Moment. Grab the Energy.",
+      sub: "Up to 40% off AI-powered drops for sports, music & seasons. Premium, fast, reactive.",
+      cta: "Découvrir",
       bgGradient: "from-white via-indigo-50 to-white",
       image: PLACEHOLDER_IMG,
       tag: "⚡ EN COURS DE PRODUCTION",
     },
     {
       title: "UEFA Champions League Finals",
-      headline: "Portez la Légende de la Finale 2026",
-      sub: "Affichez votre couleur de stade. Des t-shirts confortables en pur coton biologique imprimés à la demande à la vitesse de l'éclair.",
-      cta: "Acheter la collection Sport",
+      headline: "Wear the Final. Own the Stadium.",
+      sub: "Up to 40% off organic cotton shirts printed at lightning speed. Your color, your legend.",
+      cta: "Découvrir",
       bgGradient: "from-white via-blue-50 to-white",
       image: PLACEHOLDER_IMG,
       tag: "🏆 SPORT VIBES",
     },
     {
       title: "Rio Carnival Glow Edition",
-      headline: "L'Énergie Pure du Plus Beau Carnaval",
-      sub: "Éveillez le fêtard en vous. Des graphismes néons vibrants inspirés de la samba créés par des intelligences artificielles génératives exclusives.",
-      cta: "Explorer les designs",
+      headline: "Wear the Samba. Live the Glow.",
+      sub: "Up to 40% off neon AI art that dances like Rio. Pure carnival energy, no waiting.",
+      cta: "Explorer",
       bgGradient: "from-white via-pink-50 to-white",
       image: PLACEHOLDER_IMG,
       tag: "🎉 SELECTION CULTURE",
@@ -674,9 +674,9 @@ export default function App() {
           {/* Dynamic Hero Carousel Banner */}
           <section className="relative section-container mt-6 px-4">
             <div
-              className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 flex flex-col md:flex-row items-center justify-between min-h-90 md:min-h-105 transition-all duration-700 relative`}
+              className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 relative min-h-90 md:min-h-105 transition-all duration-700`}
             >
-              {/* Bouton flèche gauche */}
+              {/* Boutons de navigation */}
               <button
                 onClick={() =>
                   setBannerIndex(
@@ -684,13 +684,19 @@ export default function App() {
                       (prev - 1 + heroBanners.length) % heroBanners.length,
                   )
                 }
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-10 hover:text-(--color-accent)"
-                id="btn-hero-prev"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-
-              {/* Zone tactile gauche (mobile friendly) */}
+              <button
+                onClick={() =>
+                  setBannerIndex((prev) => (prev + 1) % heroBanners.length)
+                }
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              {/* Zones tactiles */}
               <button
                 onClick={() =>
                   setBannerIndex(
@@ -698,74 +704,113 @@ export default function App() {
                       (prev - 1 + heroBanners.length) % heroBanners.length,
                   )
                 }
-                className="absolute inset-y-0 left-0 w-[30%] md:w-[25%] z-5 bg-transparent cursor-pointer focus:outline-none"
+                className="absolute inset-y-0 left-0 w-[30%] md:w-[25%] z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive précédente"
               />
-
-              {/* Bouton flèche droite */}
               <button
                 onClick={() =>
                   setBannerIndex((prev) => (prev + 1) % heroBanners.length)
                 }
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-10 hover:text-(--color-accent)"
-                id="btn-hero-next"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-
-              {/* Zone tactile droite (mobile friendly) */}
-              <button
-                onClick={() =>
-                  setBannerIndex((prev) => (prev + 1) % heroBanners.length)
-                }
-                className="absolute inset-y-0 right-0 w-[30%] md:w-[25%] z-5 bg-transparent cursor-pointer focus:outline-none"
+                className="absolute inset-y-0 right-0 w-[30%] md:w-[25%] z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive suivante"
               />
 
-              <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
-                {SHOW_HERO_BADGES && (
-                  <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
-                    {heroBanners[bannerIndex].tag}
-                  </span>
-                )}
-                {SHOW_HERO_BADGES && (
-                  <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                    {heroBanners[bannerIndex].title}
+              {/* Desktop : layout côte à côte */}
+              <div className="hidden md:flex items-center min-h-90 md:min-h-105">
+                <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
+                  {SHOW_HERO_BADGES && (
+                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                      {heroBanners[bannerIndex].tag}
+                    </span>
+                  )}
+                  {SHOW_HERO_BADGES && (
+                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                      {heroBanners[bannerIndex].title}
+                    </p>
+                  )}
+                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg">
+                    {heroBanners[bannerIndex].headline}
+                  </h1>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-16 leading-relaxed font-sans max-w-[65%]">
+                    {heroBanners[bannerIndex].sub}
                   </p>
-                )}
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg">
-                  {heroBanners[bannerIndex].headline}
-                </h1>
-                <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans">
-                  {heroBanners[bannerIndex].sub}
-                </p>
-                <button
-                  onClick={() => {
-                    if (bannerIndex === 1) setSelectedEventType("sport");
-                    else if (bannerIndex === 2) setSelectedEventType("culture");
-                    else {
-                      setSelectedEventType(null);
-                      setSelectedCategory(null);
-                    }
-                  }}
-                  className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full shadow-lg shadow-indigo-500/10 hover:shadow-cyan-500/25 transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
-                >
-                  <span>{heroBanners[bannerIndex].cta}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </button>
+                  <button
+                    onClick={() => {
+                      if (bannerIndex === 1) setSelectedEventType("sport");
+                      else if (bannerIndex === 2)
+                        setSelectedEventType("culture");
+                      else {
+                        setSelectedEventType(null);
+                        setSelectedCategory(null);
+                      }
+                    }}
+                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full shadow-lg shadow-indigo-500/10 hover:shadow-cyan-500/25 transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
+                  >
+                    <span>{heroBanners[bannerIndex].cta}</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+                <div className="relative flex-1 h-full flex items-center justify-center p-8 overflow-hidden select-none">
+                  <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
+                  <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
+                  <img
+                    src={heroBanners[bannerIndex].image}
+                    alt={heroBanners[bannerIndex].headline}
+                    className="absolute z-2 max-h-[85%] w-auto max-w-[85%] object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
+                  />
+                </div>
               </div>
 
-              <div className="relative flex-1 w-full md:w-auto h-64 md:h-full flex items-center justify-center p-8 overflow-hidden select-none">
-                <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
-                <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
-                <img
-                  src={heroBanners[bannerIndex].image}
-                  alt={heroBanners[bannerIndex].title}
-                  className="absolute z-2 max-h-[85%] w-auto max-w-[85%] object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
-                />
+              {/* Mobile : image en arrière-plan, texte superposé */}
+              <div className="flex md:hidden relative min-h-90">
+                {/* Image à droite avec fondu à gauche */}
+                <div className="absolute inset-y-0 right-0 w-3/5 overflow-hidden">
+                  <img
+                    src={heroBanners[bannerIndex].image}
+                    alt={heroBanners[bannerIndex].headline}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/70 to-white"></div>
+                </div>
+                {/* Texte superposé à gauche */}
+                <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
+                  {SHOW_HERO_BADGES && (
+                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
+                      {heroBanners[bannerIndex].tag}
+                    </span>
+                  )}
+                  {SHOW_HERO_BADGES && (
+                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                      {heroBanners[bannerIndex].title}
+                    </p>
+                  )}
+                  <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%]">
+                    {heroBanners[bannerIndex].headline}
+                  </h1>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%]">
+                    {heroBanners[bannerIndex].sub}
+                  </p>
+                  {/* Button CTA */}
+                  <button
+                    onClick={() => {
+                      if (bannerIndex === 1) setSelectedEventType("sport");
+                      else if (bannerIndex === 2)
+                        setSelectedEventType("culture");
+                      else {
+                        setSelectedEventType(null);
+                        setSelectedCategory(null);
+                      }
+                    }}
+                    className="absolute bottom-8 right-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full shadow-lg uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
+                  >
+                    <span>{heroBanners[bannerIndex].cta}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              {/* Slider index */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
                 {heroBanners.map((_, i) => (
                   <button
                     key={i}
