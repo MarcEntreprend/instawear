@@ -1083,8 +1083,8 @@ export default function App() {
                             </span>
                           )}
                         {product.eventType === "live" && (
-                          <span className="bg-indigo-600 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
-                            ★ LIVE 2026{" "}
+                          <span className="bg-white text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
+                            LIVE 2026{" "}
                             <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
                           </span>
                         )}
@@ -1128,9 +1128,9 @@ export default function App() {
                             )}
                           </div>
 
-                          <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
+                          {/* <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
                             {product.brand}
-                          </p>
+                          </p> */}
                           <h4
                             onClick={() => {
                               setSelectedProduct(product);
@@ -1192,14 +1192,14 @@ export default function App() {
                               Choice
                             </p>
                             <p>
-                              Livraison gratuite estimée pour{" "}
+                              Livraison estimée pour{" "}
                               <span className="text-gray-900 font-semibold">
                                 {getDeliverEstimateString(4)}
                               </span>
                             </p>
-                            <p className="text-gray-500">
+                            {/* <p className="text-gray-500">
                               Livraison suivie et sécurisée depuis l&apos;UE
-                            </p>
+                            </p> */}
                           </div>
                         </div>
 
