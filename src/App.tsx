@@ -155,6 +155,7 @@ export default function App() {
   // Newsletter state
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+  const [validEmail, setValidEmail] = useState(false);
 
   // Load products & settings on mount
   useEffect(() => {
@@ -2460,7 +2461,14 @@ export default function App() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (newsletterEmail) setNewsletterSubscribed(true);
+                  if (newsletterEmail) {
+                    setNewsletterSubscribed(true);
+                    setTimeout(() => {
+                      setNewsletterSubscribed(false);
+                      setNewsletterEmail("");
+                      setValidEmail(false);
+                    }, 5000);
+                  }
                 }}
                 className="flex items-center gap-1"
               >
@@ -2468,13 +2476,28 @@ export default function App() {
                   type="email"
                   placeholder="votre-email@adresse.com"
                   value={newsletterEmail}
-                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  onChange={(e) => {
+                    setNewsletterEmail(e.target.value);
+                    setValidEmail(
+                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value),
+                    );
+                  }}
                   className="bg-white border border-gray-200 rounded p-2 text-xs text-gray-900 flex-1 focus:border-cyan-400 focus:outline-none"
                   required
                 />
                 <button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-500 text-gray-900 p-2 rounded transition-colors"
+                  className="p-2 rounded transition-all duration-200"
+                  style={{
+                    background: validEmail
+                      ? "var(--color-accent)"
+                      : "transparent",
+                    color: validEmail ? "white" : "var(--color-accent)",
+                    border: validEmail
+                      ? "1.5px solid var(--color-accent)"
+                      : "1.5px solid var(--color-accent)",
+                    fontFamily: "var(--font-sans)",
+                  }}
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
