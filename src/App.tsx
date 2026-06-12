@@ -756,7 +756,7 @@ export default function App() {
                   <img
                     src={heroBanners[bannerIndex].image}
                     alt={heroBanners[bannerIndex].headline}
-                    className="absolute z-2 max-h-[85%] w-auto max-w-[85%] object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
+                    className="absolute inset-0 z-2 w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
                   />
                 </div>
               </div>
@@ -770,7 +770,7 @@ export default function App() {
                     alt={heroBanners[bannerIndex].headline}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/70 to-white"></div>
+                  <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
                 </div>
                 {/* Texte superposé à gauche */}
                 <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
