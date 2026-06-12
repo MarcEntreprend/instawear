@@ -726,7 +726,7 @@ export default function App() {
                       (prev - 1 + heroBanners.length) % heroBanners.length,
                   );
                 }}
-                className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-[44px] z-10 bg-transparent cursor-pointer"
+                className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive précédente"
               />
               <button
@@ -734,7 +734,7 @@ export default function App() {
                   pauseAutoPlay();
                   setBannerIndex((prev) => (prev + 1) % heroBanners.length);
                 }}
-                className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-[44px] z-10 bg-transparent cursor-pointer"
+                className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
                 aria-label="Diapositive suivante"
               />
 
@@ -793,7 +793,7 @@ export default function App() {
                     alt={heroBanners[bannerIndex].headline}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/70 to-white"></div>
+                  <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
                 </div>
                 {/* Texte superposé à gauche */}
                 <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
