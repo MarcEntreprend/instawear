@@ -5,7 +5,7 @@ import { Heart, Star, ShoppingCart, Clock } from "lucide-react";
 import { Product } from "../types";
 
 const IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+  "https://i5.walmartimages.com/seo/Haiti-Haitian-Flag-Coat-of-Arms-Red-Men-Zipper-T-shirt-Summer-Casual-Short-Sleeve-T-shirt-Top_4abff044-fb73-40b5-b666-b1d93754eb3b.c531c430d04c42d5dc091756c19ffccc.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF";
 
 interface ProductCardProps {
   product: Product;
