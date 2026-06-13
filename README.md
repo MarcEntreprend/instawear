@@ -10,3 +10,14 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
    `npm install`
 2. Run the app :
    `npm run dev`
+
+<!--  -->
+
+`npx vite --host`
+
+# IPv4 Address
+
+`192.168.15.2 `
+
+Local: http://localhost:5173/
+➜ Network: http://192.168.15.2:5173/
