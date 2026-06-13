@@ -1,24 +1,32 @@
 import React, { useState } from "react";
 import { X, Mail, Lock, User, ArrowRight } from "lucide-react";
 
+interface StoredUser {
+  email: string;
+  password: string;
+  name: string;
+}
+
 interface AuthModalProps {
   onClose: () => void;
-  onLoginSuccess: () => void;
-  onSignUpSuccess: () => void;
+  onLoginSuccess: (isAdmin: boolean, userName?: string) => void;
+  onSignUpSuccess: (userName: string) => void;
+  users: Record<string, StoredUser>;
+  onSaveUser: (email: string, user: StoredUser) => void;
 }
 
 export default function AuthModal({
   onClose,
   onLoginSuccess,
   onSignUpSuccess,
+  users,
+  onSaveUser,
 }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "signup">("login");
 
-  // Login fields
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // Signup fields
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirm, setSignupConfirm] = useState("");
@@ -26,21 +34,41 @@ export default function AuthModal({
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginEmail === "Admin" && loginPassword === "789456") {
-      onLoginSuccess();
+      onLoginSuccess(true);
+      return;
+    }
+    const stored = users[loginEmail.toLowerCase()];
+    if (stored && stored.password === loginPassword) {
+      onLoginSuccess(false, stored.name || loginEmail);
     } else {
-      alert("Identifiants incorrects. Essayez Admin / 789456");
+      alert("Identifiants incorrects.");
     }
   };
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupEmail || !signupPassword || signupPassword !== signupConfirm) {
+    const email = signupEmail.trim();
+    if (!email || !signupPassword || signupPassword !== signupConfirm) {
       alert(
         "Veuillez remplir tous les champs et vérifier la correspondance des mots de passe.",
       );
       return;
     }
-    onSignUpSuccess();
+    if (email.toLowerCase() === "admin") {
+      alert("Ce nom d'utilisateur est réservé.");
+      return;
+    }
+    if (users[email.toLowerCase()]) {
+      alert("Un compte existe déjà avec cet email.");
+      return;
+    }
+    const newUser: StoredUser = {
+      email,
+      password: signupPassword,
+      name: email.split("@")[0],
+    };
+    onSaveUser(email.toLowerCase(), newUser);
+    onSignUpSuccess(newUser.name);
   };
 
   return (
@@ -76,7 +104,6 @@ export default function AuthModal({
                   type="text"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="Admin"
                   className="bg-transparent flex-1 outline-none text-sm"
                 />
               </div>
@@ -91,14 +118,13 @@ export default function AuthModal({
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="789456"
                   className="bg-transparent flex-1 outline-none text-sm"
                 />
               </div>
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-(--color-accent) text-white font-bold text-sm flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
               style={{ background: "var(--color-accent)" }}
             >
               Se connecter <ArrowRight size={15} />
@@ -107,9 +133,9 @@ export default function AuthModal({
               Pas encore de compte ?{" "}
               <button
                 type="button"
-                className="text-(--color-accent) font-semibold underline"
-                onClick={() => setMode("signup")}
+                className="font-semibold underline"
                 style={{ color: "var(--color-accent)" }}
+                onClick={() => setMode("signup")}
               >
                 S'inscrire
               </button>
@@ -124,10 +150,9 @@ export default function AuthModal({
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
                 <Mail size={14} className="text-gray-400" />
                 <input
-                  type="email"
+                  type="text"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
-                  placeholder="vous@example.com"
                   className="bg-transparent flex-1 outline-none text-sm"
                 />
               </div>
@@ -142,14 +167,13 @@ export default function AuthModal({
                   type="password"
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
-                  placeholder="••••••"
                   className="bg-transparent flex-1 outline-none text-sm"
                 />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Confirmer le mot de passe
+                Confirmer
               </label>
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
                 <Lock size={14} className="text-gray-400" />
@@ -157,14 +181,13 @@ export default function AuthModal({
                   type="password"
                   value={signupConfirm}
                   onChange={(e) => setSignupConfirm(e.target.value)}
-                  placeholder="••••••"
                   className="bg-transparent flex-1 outline-none text-sm"
                 />
               </div>
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-(--color-accent) text-white font-bold text-sm flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
               style={{ background: "var(--color-accent)" }}
             >
               Créer un compte <User size={15} />
@@ -173,9 +196,9 @@ export default function AuthModal({
               Déjà un compte ?{" "}
               <button
                 type="button"
-                className="text-(--color-accent) font-semibold underline"
-                onClick={() => setMode("login")}
+                className="font-semibold underline"
                 style={{ color: "var(--color-accent)" }}
+                onClick={() => setMode("login")}
               >
                 Se connecter
               </button>

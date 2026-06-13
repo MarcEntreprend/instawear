@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenFavorites: () => void;
   onOpenAuth: () => void;
   isAdminLoggedIn: boolean;
+  isUserLoggedIn: boolean;
   onLogout: () => void;
   onOpenProfile: () => void;
   onSearch: (term: string) => void;
@@ -87,6 +88,7 @@ export default function Header({
   currentCategory,
   onOpenAuth,
   isAdminLoggedIn,
+  isUserLoggedIn,
   onLogout,
   onOpenProfile,
   onScrollToSection,
@@ -532,20 +534,24 @@ export default function Header({
               )}
             </button>
 
-            {/* Admin */}
-            {isAdminLoggedIn ? (
+            {/* User / Admin */}
+            {isAdminLoggedIn || isUserLoggedIn ? (
               <button
                 onClick={onOpenProfile}
                 className="hidden md:flex p-2 rounded-xl transition-all duration-150"
-                style={{ color: "var(--color-accent)" }}
+                style={{
+                  color: isAdminLoggedIn
+                    ? "var(--color-accent)"
+                    : "var(--color-ink2)",
+                }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "var(--color-surface2)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = "transparent")
                 }
-                aria-label="Déconnexion"
-                title="Se déconnecter"
+                aria-label="Mon profil"
+                title="Mon profil"
               >
                 <User size={20} strokeWidth={1.8} />
               </button>
@@ -728,7 +734,7 @@ export default function Header({
                 />
                 <button
                   onClick={() => {
-                    if (isAdminLoggedIn) {
+                    if (isAdminLoggedIn || isUserLoggedIn) {
                       onLogout();
                     } else {
                       onOpenAuth();
@@ -737,9 +743,10 @@ export default function Header({
                   }}
                   className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
                   style={{
-                    color: isAdminLoggedIn
-                      ? "var(--color-accent)"
-                      : "var(--color-ink)",
+                    color:
+                      isAdminLoggedIn || isUserLoggedIn
+                        ? "var(--color-accent)"
+                        : "var(--color-ink)",
                     fontFamily: "var(--font-sans)",
                   }}
                   onMouseEnter={(e) =>
@@ -749,7 +756,7 @@ export default function Header({
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  {isAdminLoggedIn
+                  {isAdminLoggedIn || isUserLoggedIn
                     ? "🚪 Se déconnecter"
                     : "⚙️ Connexion / Inscription"}
                 </button>
