@@ -1144,7 +1144,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div className="px-3 pt-2 pb-3 flex-1 flex flex-col justify-between">
                         <div>
                           {/* <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
                             {product.brand}
@@ -1154,7 +1154,7 @@ export default function App() {
                               setSelectedProduct(product);
                               setActiveGalleryIndex(0);
                             }}
-                            className="text-xs md:text-sm font-bold text-gray-900 mt-1 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
+                            className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
                           >
                             {product.title}
                           </h4>
@@ -1190,7 +1190,7 @@ export default function App() {
                               </div>
                             )}
 
-                          <div className="flex items-baseline gap-2 mt-3 mb-1">
+                          <div className="flex items-baseline gap-2 mt-2 mb-0.5">
                             <span className="text-lg font-black text-gray-900 font-sans">
                               {product.price.toFixed(2)}{" "}
                               <span className="text-[11px] font-medium text-gray-500">
