@@ -408,6 +408,14 @@ export default function Header({
                     setSearchFocused(false);
                     setTimeout(() => setShowSuggestions(false), 200);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setSearchVal("");
+                      onSearch("");
+                      setShowSuggestions(false);
+                      inputRef.current?.blur();
+                    }
+                  }}
                   placeholder={searchFocused || searchVal ? "" : typedText}
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
                   style={{
