@@ -1115,7 +1115,7 @@ export default function App() {
                           </span>
                         </div>
                         {/* Pilule couleurs sur l'image */}
-                        <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
+                        <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
                           {product.colors.length <= 3 ? (
                             product.colors.map((c, idx) => (
                               <span
