@@ -40,6 +40,7 @@ import {
 import Header from "./components/Header";
 import { DEFAULT_PRODUCTS } from "./data/defaultProducts";
 import { FAQS } from "./data/staticData";
+import AuthModal from "./components/AuthModal";
 import { Product, CartItem, PrintfulSettings } from "./types";
 
 // Preset mockup templates with placeholder images
@@ -88,6 +89,11 @@ export default function App() {
   // Store States
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+
+  // Auth, Admin & Profile States
+  const [showAuthModal, setShowAuthModal] = useState(false); // AuthModal States
+  const [isAdmin, setIsAdmin] = useState(false); // état isAdmin et la déconnexion
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Selection/Filtering States
   const [searchTerm, setSearchTerm] = useState("");
@@ -666,10 +672,13 @@ export default function App() {
         }}
         currentEventType={selectedEventType}
         currentCategory={selectedCategory}
-        onOpenAdmin={() =>
-          setActiveTab(activeTab === "store" ? "admin" : "store")
-        }
-        isAdminActive={activeTab === "admin"}
+        onOpenAuth={() => setShowAuthModal(true)}
+        isAdminLoggedIn={isAdmin}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onLogout={() => {
+          setIsAdmin(false);
+          setActiveTab("store");
+        }}
         onScrollToSection={scrollToSection}
         searchSuggestions={productTitles}
         products={products}
@@ -2486,7 +2495,13 @@ export default function App() {
             <ul className="space-y-2.5 text-xs text-gray-500">
               <li>
                 <button
-                  onClick={() => setActiveTab("admin")}
+                  onClick={() => {
+                    if (isAdmin) {
+                      setActiveTab("admin");
+                    } else {
+                      setShowAuthModal(true);
+                    }
+                  }}
                   className="hover:text-(--color-accent) transition-colors"
                 >
                   Formulaire de design POD
@@ -2494,7 +2509,13 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("admin")}
+                  onClick={() => {
+                    if (isAdmin) {
+                      setActiveTab("admin");
+                    } else {
+                      setShowAuthModal(true);
+                    }
+                  }}
                   className="hover:text-(--color-accent) transition-colors"
                 >
                   Configuration API Printful
@@ -2502,7 +2523,13 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("admin")}
+                  onClick={() => {
+                    if (isAdmin) {
+                      setActiveTab("admin");
+                    } else {
+                      setShowAuthModal(true);
+                    }
+                  }}
                   className="hover:text-(--color-accent) transition-colors"
                 >
                   Zéro Budget guide
@@ -2510,7 +2537,13 @@ export default function App() {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab("admin")}
+                  onClick={() => {
+                    if (isAdmin) {
+                      setActiveTab("admin");
+                    } else {
+                      setShowAuthModal(true);
+                    }
+                  }}
                   className="hover:text-(--color-accent) transition-colors"
                 >
                   Générateur Gemini AI
@@ -2600,6 +2633,79 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={() => {
+            setIsAdmin(true);
+            setActiveTab("admin");
+            setShowAuthModal(false);
+          }}
+          onSignUpSuccess={() => {
+            showToast("Inscription réussie ! Bienvenue, User.");
+            setShowAuthModal(false);
+          }}
+        />
+      )}
+
+      {showProfileModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowProfileModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-fade-up"
+            style={{ border: "1px solid var(--color-border)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowProfileModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-500"
+            >
+              <X size={18} />
+            </button>
+            <div className="flex flex-col items-center text-center gap-4">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-xl"
+                style={{ background: "var(--color-accent)" }}
+              >
+                A
+              </div>
+              <div>
+                <p className="font-bold text-gray-900">Admin</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Connecté en tant qu'administrateur
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAdmin(false);
+                  setActiveTab("store");
+                  setShowProfileModal(false);
+                }}
+                className="w-full py-2.5 rounded-xl font-bold text-sm transition-all duration-200"
+                style={{
+                  background: "transparent",
+                  color: "var(--color-accent)",
+                  border: "1.5px solid var(--color-accent)",
+                  fontFamily: "var(--font-sans)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--color-accent)";
+                  e.currentTarget.style.color = "white";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--color-accent)";
+                }}
+              >
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

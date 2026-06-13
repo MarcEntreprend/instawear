@@ -9,14 +9,16 @@ interface HeaderProps {
   favoriteCount: number;
   onOpenCart: () => void;
   onOpenFavorites: () => void;
+  onOpenAuth: () => void;
+  isAdminLoggedIn: boolean;
+  onLogout: () => void;
+  onOpenProfile: () => void;
   onSearch: (term: string) => void;
   currentSearchTerm: string;
   onSelectCategory: (cat: string | null) => void;
   onSelectEventType: (type: string | null) => void;
   currentEventType: string | null;
   currentCategory: string | null;
-  onOpenAdmin: () => void;
-  isAdminActive: boolean;
   onScrollToSection: (
     section:
       | "catalog"
@@ -83,8 +85,10 @@ export default function Header({
   onSelectEventType,
   currentEventType,
   currentCategory,
-  onOpenAdmin,
-  isAdminActive,
+  onOpenAuth,
+  isAdminLoggedIn,
+  onLogout,
+  onOpenProfile,
   onScrollToSection,
   searchSuggestions,
   products,
@@ -529,25 +533,39 @@ export default function Header({
             </button>
 
             {/* Admin */}
-            <button
-              onClick={onOpenAdmin}
-              className="hidden md:flex p-2 rounded-xl transition-all duration-150"
-              style={{
-                color: isAdminActive
-                  ? "var(--color-accent)"
-                  : "var(--color-ink2)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--color-surface2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-              aria-label="Admin Studio"
-              title={isAdminActive ? "Voir le store" : "Admin Studio"}
-            >
-              <User size={20} strokeWidth={1.8} />
-            </button>
+            {isAdminLoggedIn ? (
+              <button
+                onClick={onOpenProfile}
+                className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+                style={{ color: "var(--color-accent)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--color-surface2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+                aria-label="Déconnexion"
+                title="Se déconnecter"
+              >
+                <User size={20} strokeWidth={1.8} />
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+                style={{ color: "var(--color-ink2)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--color-surface2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+                aria-label="Connexion / Inscription"
+                title="Connexion / Inscription"
+              >
+                <User size={20} strokeWidth={1.8} />
+              </button>
+            )}
 
             {/* Cart */}
             <button
@@ -710,12 +728,18 @@ export default function Header({
                 />
                 <button
                   onClick={() => {
-                    onOpenAdmin();
+                    if (isAdminLoggedIn) {
+                      onLogout();
+                    } else {
+                      onOpenAuth();
+                    }
                     setMobileMenuOpen(false);
                   }}
                   className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
                   style={{
-                    color: "var(--color-ink)",
+                    color: isAdminLoggedIn
+                      ? "var(--color-accent)"
+                      : "var(--color-ink)",
                     fontFamily: "var(--font-sans)",
                   }}
                   onMouseEnter={(e) =>
@@ -725,7 +749,9 @@ export default function Header({
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  {isAdminActive ? "← Voir le store" : "⚙️ Admin Studio"}
+                  {isAdminLoggedIn
+                    ? "🚪 Se déconnecter"
+                    : "⚙️ Connexion / Inscription"}
                 </button>
               </nav>
             </div>
