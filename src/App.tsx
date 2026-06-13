@@ -1114,26 +1114,38 @@ export default function App() {
                             Aperçu rapide
                           </span>
                         </div>
-                      </div>
-
-                      <div className="p-4 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-1 mb-2.5">
-                            {product.colors.slice(0, 4).map((c, idx) => (
+                        {/* Pilule couleurs sur l'image */}
+                        <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
+                          {product.colors.length <= 3 ? (
+                            product.colors.map((c, idx) => (
                               <span
                                 key={idx}
                                 className="w-3 h-3 rounded-full border border-gray-200 block"
                                 style={{ backgroundColor: c }}
-                                title={product.colorNames?.[idx] || ""}
-                              ></span>
-                            ))}
-                            {product.colors.length > 4 && (
-                              <span className="text-[9px] text-gray-500 font-bold ml-1">
-                                +{product.colors.length - 4} autres coloris
-                              </span>
-                            )}
-                          </div>
+                                title={product.colorNames?.[idx] || c}
+                              />
+                            ))
+                          ) : (
+                            <>
+                              {product.colors.slice(0, 2).map((c, idx) => (
+                                <span
+                                  key={idx}
+                                  className="w-3 h-3 rounded-full border border-gray-200 block"
+                                  style={{ backgroundColor: c }}
+                                  title={product.colorNames?.[idx] || c}
+                                />
+                              ))}
+                              <span
+                                className="color-wheel"
+                                title={`+${product.colors.length - 2} couleurs`}
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
 
+                      <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div>
                           {/* <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
                             {product.brand}
                           </p> */}

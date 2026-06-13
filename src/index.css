@@ -628,7 +628,29 @@ mais elles complètent proprement le système de design et peuvent servir plus t
     transform: scaleY(0);
   }
 }
+
+/* ------------------------- */
+
+/* Cercle multicolore pour les produits avec +4 couleurs */
+.color-wheel {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ef4444 0% 16.66%,
+    #f97316 16.66% 33.33%,
+    #e8a020 33.33% 50%,
+    #22c55e 50% 66.66%,
+    #3b82f6 66.66% 83.33%,
+    #8b5cf6 83.33% 100%
+  );
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ------------------------- */
+
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
-/* * {
+* {
   outline: 1px solid red !important;
-} */
+}
