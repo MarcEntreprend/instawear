@@ -2407,7 +2407,9 @@ export default function App() {
 
       {/* Global Brand Footer avec logo officiel */}
       <footer className="bg-gray-50 border-t border-gray-200 py-12 px-4 mt-auto">
-        <div className="section-container grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div
+          className={`section-container grid grid-cols-1 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"} gap-8`}
+        >
           <div className="space-y-4">
             <div className="flex items-center gap-1.5">
               <img
@@ -2497,15 +2499,15 @@ export default function App() {
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-              Créateur Hub
-            </h4>
-            <ul className="space-y-2.5 text-xs text-gray-500">
-              <li>
-                <button
-                  onClick={() => {
-                    if (isAdmin) {
+          {isAdmin && (
+            <div>
+              <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
+                Créateur Hub
+              </h4>
+              <ul className="space-y-2.5 text-xs text-gray-500">
+                <li>
+                  <button
+                    onClick={() => {
                       setActiveTab("admin");
                       setTimeout(() => {
                         document
@@ -2515,19 +2517,15 @@ export default function App() {
                             block: "start",
                           });
                       }, 100);
-                    } else {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Formulaire de design POD
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    if (isAdmin) {
+                    }}
+                    className="hover:text-(--color-accent) transition-colors"
+                  >
+                    Formulaire de design POD
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => {
                       setActiveTab("admin");
                       setTimeout(() => {
                         document
@@ -2537,19 +2535,15 @@ export default function App() {
                             block: "start",
                           });
                       }, 100);
-                    } else {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Configuration API Printful
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    if (isAdmin) {
+                    }}
+                    className="hover:text-(--color-accent) transition-colors"
+                  >
+                    Configuration API Printful
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => {
                       setActiveTab("admin");
                       setTimeout(() => {
                         document
@@ -2559,19 +2553,15 @@ export default function App() {
                             block: "start",
                           });
                       }, 100);
-                    } else {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Zéro Budget guide
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    if (isAdmin) {
+                    }}
+                    className="hover:text-(--color-accent) transition-colors"
+                  >
+                    Zéro Budget guide
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => {
                       setActiveTab("admin");
                       setTimeout(() => {
                         document
@@ -2581,17 +2571,15 @@ export default function App() {
                             block: "start",
                           });
                       }, 100);
-                    } else {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Générateur Gemini AI
-                </button>
-              </li>
-            </ul>
-          </div>
+                    }}
+                    className="hover:text-(--color-accent) transition-colors"
+                  >
+                    Générateur Gemini AI
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-3">
             <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">
