@@ -1022,11 +1022,14 @@ export default function App() {
                   <Sparkles className="w-6 h-6 text-(--color-accent) animate-pulse" />
                   Collection
                 </h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  T-Shirts, Hoodies & Accessoires Événementiels
+                <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                  <span>T-Shirts, Hoodies & Accessoires Événementiels</span>
+                  <span className="sm:hidden text-gray-400 font-medium ml-auto">
+                    ({filteredProducts.length})
+                  </span>
                 </p>
               </div>
-              <div className="text-xs font-semibold text-gray-500">
+              <div className="text-xs font-semibold text-gray-500 hidden sm:block">
                 Affichage de{" "}
                 <span className="text-gray-900 font-bold">
                   {filteredProducts.length}
@@ -1156,7 +1159,7 @@ export default function App() {
                             </span>
                             <span className="text-[10px] text-gray-600">|</span>
                             <span className="text-[10px] text-(--color-accent) font-sans tracking-wide">
-                              {product.boughtLastMonth}+ achetés ce mois-ci
+                              {product.boughtLastMonth}+ achetés
                             </span>
                           </div>
 
