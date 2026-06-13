@@ -651,6 +651,6 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 /* ------------------------- */
 
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
-* {
+/* * {
   outline: 1px solid red !important;
-}
+} */
