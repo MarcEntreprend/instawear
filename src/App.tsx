@@ -1101,7 +1101,7 @@ export default function App() {
                           setSelectedProduct(product);
                           setActiveGalleryIndex(0);
                         }}
-                        className="aspect-4/5 rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
+                        className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
                       >
                         <img
                           src={product.image || PLACEHOLDER_IMG}
