@@ -180,6 +180,17 @@ export default function Header({
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, currentSuggestion, searchSuggestions]);
 
+  // écouteur pour la touche Échap
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
   // Logique de soumission de la recherche
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,6 +399,7 @@ export default function Header({
                   }}
                   onFocus={() => {
                     setSearchFocused(true);
+                    setMobileMenuOpen(false);
                     if (searchVal.trim()) {
                       updateSuggestions(searchVal);
                     }
