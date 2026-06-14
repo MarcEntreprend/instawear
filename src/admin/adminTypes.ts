@@ -1,3 +1,5 @@
+//src\admin\adminTypes.ts
+
 // ─── Extended Product type for admin (all fields from spec §2.1) ───────────
 export interface AdminProduct {
   id: string;
@@ -17,6 +19,9 @@ export interface AdminProduct {
   colorNames?: string[];
   sizes: string[];
   sizeSurcharge?: Record<string, number>;
+  // Stores per-size measurements. Keys must match entries in sizes[].
+  // Example: { "M": { "bust": 51, "length": 72 }, "L": { "bust": 54, "length": 74 } }
+  sizeGuide?: Record<string, { bust: number; length: number }>;
   category: "tshirt" | "hoodie" | "accessory" | "mug";
   eventType: "live" | "sport" | "culture" | "saisonnier";
   style: "cute" | "street" | "commute" | "cozy" | "retro";
@@ -45,6 +50,14 @@ export interface Customer {
   name?: string;
   registrationDate: string;
   lastLoginDate?: string;
+}
+
+// Payload for creating a customer. passwordHash is required during creation
+// but is never stored in the Customer type returned by the API.
+export interface CreateCustomerPayload {
+  email: string;
+  passwordHash: string;
+  name?: string;
 }
 
 // ─── Favourite (§2.3) ─────────────────────────────────────────────────────
@@ -135,6 +148,21 @@ export interface SyncLog {
   duration?: number; // ms
 }
 
+// ─── API Connection (multi-provider support: POD + affiliation) ──────────
+export interface ApiConnection {
+  id: string;
+  name: string;
+  type: "pod" | "affiliate";
+  service: string;
+  baseUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  enabled: boolean;
+  lastSyncAt?: string; // ISO datetime
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Admin User (§2.9) ────────────────────────────────────────────────────
 export type AdminRole = "super_admin" | "editor";
 
@@ -144,6 +172,14 @@ export interface AdminUser {
   role: AdminRole;
   createdAt: string;
   lastLoginDate?: string;
+}
+
+// Payload for creating an admin user. passwordHash is required during creation
+// but is never stored in the AdminUser type returned by the API.
+export interface CreateAdminUserPayload {
+  email: string;
+  passwordHash: string;
+  role: AdminRole;
 }
 
 // ─── Store Settings (§2.10) ───────────────────────────────────────────────
@@ -197,4 +233,29 @@ export type SortDirection = "asc" | "desc";
 export interface SortState<T extends string = string> {
   field: T;
   direction: SortDirection;
+}
+
+export interface ProductFilterState {
+  /** Recherche textuelle (title, brand, tags, style, description) */
+  search: string;
+  /** Filtre par catégorie (null = toutes) */
+  category: string | null;
+  /** Filtre par type d'événement (null = tous) */
+  eventType: string | null;
+  /** Filtre par style (null = tous) */
+  style: string | null;
+  /** Filtre par matériau (null = tous) */
+  material: string | null;
+  /** Prix minimum (inclus) */
+  priceMin: number;
+  /** Prix maximum (inclus) */
+  priceMax: number;
+  /** Afficher uniquement les produits en stock */
+  inStockOnly: boolean;
+  /** Filtre par taille (le produit doit contenir cette taille) */
+  size: string | null;
+  /** Filtre par couleur (le produit doit contenir cette couleur) */
+  color: string | null;
+  /** Afficher aussi les produits inactifs (isActive = false) */
+  showInactive: boolean;
 }
