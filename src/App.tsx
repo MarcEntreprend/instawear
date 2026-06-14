@@ -42,7 +42,8 @@ import { DEFAULT_PRODUCTS } from "./data/defaultProducts";
 import { FAQS } from "./data/staticData";
 import AuthModal from "./components/AuthModal";
 import ProfileModal from "./components/ProfileModal";
-import AdminDashboard from "./components/AdminDashboard";
+import AdminDashboard from "./admin/AdminDashboard";
+import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { Product, CartItem, PrintfulSettings } from "./types";
 
@@ -129,6 +130,9 @@ export default function App() {
   const [dealFadingOut, setDealFadingOut] = useState(false); // état de transition
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null); // état pour l'accordéon
+
+  // afficher AdminDashboardNew en plein écran lorsqu'il est actif
+  const [showNewAdmin, setShowNewAdmin] = useState(false);
 
   // Admin Studio States
   const [printfulSettings, setPrintfulSettings] = useState<PrintfulSettings>({
@@ -1421,8 +1425,8 @@ export default function App() {
         </main>
       )}
 
-      {/* Admin Creator Dashboard Screen */}
-      {activeTab === "admin" && (
+      {/* Admin Creator Dashboard Screen 1 */}
+      {/* {activeTab === "admin" && (
         <AdminDashboard
           products={products}
           fetchProducts={fetchProducts}
@@ -1459,6 +1463,11 @@ export default function App() {
           MOCKUP_PRESETS={MOCKUP_PRESETS}
           PLACEHOLDER_IMG={PLACEHOLDER_IMG}
         />
+      )} */}
+
+      {/* Admin Creator Dashboard Screen 2 */}
+      {activeTab === "admin" && (
+        <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
       )}
 
       {/* Product Detailed Sheet Modal */}
@@ -2217,6 +2226,13 @@ export default function App() {
             <a href="#" className="hover:underline">
               CGU Créateurs
             </a>
+            <span>•</span>
+            <button
+              onClick={() => setShowNewAdmin(true)}
+              className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
+            >
+              Menu Admin (Bêta)
+            </button>
           </div>
         </div>
       </footer>
@@ -2258,6 +2274,11 @@ export default function App() {
             setActiveTab("store");
           }}
         />
+      )}
+
+      {/*  rendu du nouveau Admin en dehors du flux normal */}
+      {showNewAdmin && (
+        <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
       )}
     </div>
   );
