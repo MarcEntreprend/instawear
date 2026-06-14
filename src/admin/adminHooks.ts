@@ -1,3 +1,5 @@
+// src\admin\adminHooks.ts
+
 import { useState, useEffect, useCallback } from "react";
 import {
   AdminProduct,
@@ -7,6 +9,7 @@ import {
   PodSettings,
   SyncLog,
   AdminUser,
+  CreateAdminUserPayload,
   StoreSettings,
   DashboardStats,
   Favourite,
@@ -287,7 +290,7 @@ export function useAdminUsers() {
   const [saving, setSaving] = useState(false);
 
   const createUser = useCallback(
-    async (d: Omit<AdminUser, "id" | "createdAt">) => {
+    async (d: CreateAdminUserPayload) => {
       setSaving(true);
       try {
         await adminUserApi.create(d);
