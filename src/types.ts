@@ -23,6 +23,15 @@ export interface Product {
   colors: string[];
   colorNames?: string[];
   sizes: string[];
+  // Price surcharge per size. Keys must match entries in sizes[].
+  // Example: { "XXL": 2.00 }
+  sizeSurcharge?: Record<string, number>;
+  // Active deal promotion. Overrides price when active and dealEndsAt is in the future.
+  dealActive?: boolean;
+  // ISO datetime when the deal expires. Required if dealActive is true.
+  dealEndsAt?: string;
+  // Special price during the deal. Falls back to price if not set.
+  dealPrice?: number;
   ratings: { score: number; count: number };
   boughtLastMonth: number;
   isBestSeller?: boolean;
@@ -79,6 +88,10 @@ export interface FilterState {
   priceMin: number;
   priceMax: number;
   inStockOnly: boolean;
+  // Filters by size: the product must include this size in its sizes[] array
+  size: string | null;
+  // Filters by color: the product must include this hex color in its colors[] array
+  color: string | null;
 }
 
 export interface DesignInput {
