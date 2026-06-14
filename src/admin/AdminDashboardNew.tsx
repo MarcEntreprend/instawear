@@ -10,6 +10,7 @@ import {
   WifiOff,
   TrendingUp,
   Activity,
+  ChevronRight,
 } from "lucide-react";
 import AdminSidebar, { AdminSection } from "./AdminSidebar";
 import ProductsPage from "./ProductsPage.tsx";
@@ -180,6 +181,71 @@ function DashboardHome({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      {/* Quick actions */}
+      <div
+        style={{
+          background: "var(--color-surface2)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 18,
+          padding: "20px 22px",
+        }}
+      >
+        <h3
+          style={{
+            fontWeight: 700,
+            fontSize: 14,
+            color: "var(--color-ink)",
+            marginBottom: 14,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Actions rapides
+        </h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          {[
+            { label: "+ Nouveau produit", section: "products" as AdminSection },
+            { label: "Voir les commandes", section: "orders" as AdminSection },
+            {
+              label: "Gérer les clients",
+              section: "customers" as AdminSection,
+            },
+            {
+              label: "Configurer Printful",
+              section: "settings" as AdminSection,
+            },
+          ].map((a) => (
+            <button
+              key={a.section}
+              onClick={() => onNavigate(a.section)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                border: "1.5px solid var(--color-border2)",
+                background: "var(--color-surface)",
+                color: "var(--color-ink2)",
+                fontFamily: "var(--font-body)",
+                fontWeight: 600,
+                fontSize: 12.5,
+                cursor: "pointer",
+                transition: "background 0.18s, border-color 0.18s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--color-accent)";
+                e.currentTarget.style.color = "white";
+                e.currentTarget.style.borderColor = "var(--color-accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--color-surface)";
+                e.currentTarget.style.color = "var(--color-ink2)";
+                e.currentTarget.style.borderColor = "var(--color-border2)";
+              }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Header */}
       <div>
         <h1
@@ -193,6 +259,7 @@ function DashboardHome({
         >
           Bonjour 👋
         </h1>
+
         <p style={{ fontSize: 13.5, color: "var(--color-ink3)" }}>
           Voici un aperçu de votre boutique InstaWear aujourd'hui.
         </p>
@@ -479,71 +546,6 @@ function DashboardHome({
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div
-        style={{
-          background: "var(--color-surface2)",
-          border: "1px solid var(--color-border)",
-          borderRadius: 18,
-          padding: "20px 22px",
-        }}
-      >
-        <h3
-          style={{
-            fontWeight: 700,
-            fontSize: 14,
-            color: "var(--color-ink)",
-            marginBottom: 14,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Actions rapides
-        </h3>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {[
-            { label: "+ Nouveau produit", section: "products" as AdminSection },
-            { label: "Voir les commandes", section: "orders" as AdminSection },
-            {
-              label: "Gérer les clients",
-              section: "customers" as AdminSection,
-            },
-            {
-              label: "Configurer Printful",
-              section: "settings" as AdminSection,
-            },
-          ].map((a) => (
-            <button
-              key={a.section}
-              onClick={() => onNavigate(a.section)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 10,
-                border: "1.5px solid var(--color-border2)",
-                background: "var(--color-surface)",
-                color: "var(--color-ink2)",
-                fontFamily: "var(--font-body)",
-                fontWeight: 600,
-                fontSize: 12.5,
-                cursor: "pointer",
-                transition: "background 0.18s, border-color 0.18s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--color-accent)";
-                e.currentTarget.style.color = "white";
-                e.currentTarget.style.borderColor = "var(--color-accent)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--color-surface)";
-                e.currentTarget.style.color = "var(--color-ink2)";
-                e.currentTarget.style.borderColor = "var(--color-border2)";
-              }}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <style>{`
         @media (max-width: 768px) {
           .admin-two-col { grid-template-columns: 1fr !important; }
@@ -557,12 +559,18 @@ function DashboardHome({
 export default function AdminDashboard({
   onReturnToStore,
 }: AdminDashboardProps) {
-  const [section, setSection] = useState<AdminSection>("dashboard");
+  const [navStack, setNavStack] = useState<AdminSection[]>(["dashboard"]);
+  const section = navStack[navStack.length - 1];
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const navigate = useCallback((s: AdminSection) => {
-    setSection(s);
+    setNavStack((prev) => [...prev, s]);
     setMobileNavOpen(false);
+  }, []);
+
+  // Go back to previous section (or do nothing if at root)
+  const goBack = useCallback(() => {
+    setNavStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
   const SECTION_TITLES: Record<AdminSection, string> = {
@@ -671,17 +679,80 @@ export default function AdminDashboard({
             <Menu size={17} strokeWidth={2} />
           </button>
 
-          <h2
-            style={{
-              fontWeight: 800,
-              fontSize: 17,
-              color: "var(--color-ink)",
-              letterSpacing: "-0.03em",
-              flex: 1,
-            }}
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}
           >
-            {SECTION_TITLES[section]}
-          </h2>
+            {navStack.length > 1 && (
+              <button
+                onClick={goBack}
+                style={{
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 8,
+                  padding: "5px 8px",
+                  cursor: "pointer",
+                  color: "var(--color-ink2)",
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <ArrowLeft size={14} strokeWidth={2} />
+              </button>
+            )}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                color: "var(--color-ink3)",
+                flexWrap: "wrap",
+              }}
+            >
+              {navStack.map((s, i) => (
+                <React.Fragment key={s}>
+                  {i > 0 && (
+                    <ChevronRight
+                      size={12}
+                      strokeWidth={2}
+                      style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+                    />
+                  )}
+                  {i === navStack.length - 1 ? (
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: "var(--color-ink)",
+                        fontSize: 15,
+                      }}
+                    >
+                      {SECTION_TITLES[s]}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setNavStack((prev) => prev.slice(0, i + 1))
+                      }
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--color-ink3)",
+                        fontWeight: 500,
+                        fontSize: 13,
+                        textDecoration: "underline",
+                        textUnderlineOffset: 3,
+                        padding: 0,
+                      }}
+                    >
+                      {SECTION_TITLES[s]}
+                    </button>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
 
           <button
             onClick={onReturnToStore}
