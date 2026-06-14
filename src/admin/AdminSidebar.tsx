@@ -1,3 +1,5 @@
+// src\admin\AdminSidebar.tsx
+
 import React from "react";
 import {
   LayoutDashboard,

@@ -1,3 +1,5 @@
+// src\admin\adminMocks.ts
+
 import {
   AdminProduct,
   Customer,

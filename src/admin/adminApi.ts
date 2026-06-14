@@ -1,3 +1,5 @@
+// src\admin\adminApi.ts
+
 /**
  * adminApi.ts
  * Simulated API layer. Each function mirrors the shape it would have
