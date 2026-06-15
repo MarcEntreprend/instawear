@@ -29,6 +29,7 @@ interface HeaderProps {
       | "contact"
       | "filters",
   ) => void;
+  onOpenTracking: () => void;
   products: Product[];
   searchSuggestions?: string[];
 }
@@ -92,6 +93,7 @@ export default function Header({
   onLogout,
   onOpenProfile,
   onScrollToSection,
+  onOpenTracking,
   searchSuggestions,
   products,
 }: HeaderProps) {
@@ -333,6 +335,23 @@ export default function Header({
                 {link.label}
               </button>
             ))}
+            {/* Suivi de commande — desktop */}
+            <button
+              onClick={onOpenTracking}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+              style={{
+                color: "var(--color-ink2)",
+                background: "transparent",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-surface2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              📦 Suivi
+            </button>
           </nav>
 
           {/* Search — center (visuel v2) */}
@@ -728,6 +747,30 @@ export default function Header({
                     {link.label}
                   </button>
                 ))}
+                {/* Suivi de commande — mobile */}
+                <button
+                  onClick={() => {
+                    onOpenTracking();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
+                  style={{
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--color-surface2)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  📦 Suivi de commande
+                </button>
+                <div
+                  className="h-px my-2"
+                  style={{ background: "var(--color-border)" }}
+                />
                 <div
                   className="h-px my-2"
                   style={{ background: "var(--color-border)" }}

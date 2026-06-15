@@ -34,6 +34,9 @@ import {
 // ─── Utility ──────────────────────────────────────────────────────────────
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
+const PLACEHOLDER_IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+
 // ─── Products ─────────────────────────────────────────────────────────────
 export const productApi = {
   async list(): Promise<AdminProduct[]> {
@@ -166,10 +169,53 @@ export const customerApi = {
 };
 
 // ─── Orders ───────────────────────────────────────────────────────────────
+//  fonction orderApi.list()
 export const orderApi = {
   async list(): Promise<Order[]> {
     await delay();
-    return MOCK_ORDERS;
+    // Fusionne les commandes mockées avec les commandes locales (passées par le checkout)
+    const localOrders: Order[] = [];
+    try {
+      const stored = localStorage.getItem("instawear-orders");
+      if (stored) {
+        const raw = JSON.parse(stored);
+        localOrders.push(
+          ...raw.map((o: any) => ({
+            id: o.id,
+            clientId: o.clientEmail || o.clientPhone || "guest",
+            clientName: o.clientName,
+            clientEmail: o.clientEmail || null,
+            createdAt: o.createdAt,
+            status: o.status as OrderStatus,
+            totalAmount: o.totalAmount,
+            shippingCost: o.shippingCost,
+            shippingAddress: {
+              fullName: o.clientName,
+              address: o.address || "Non renseignée",
+              city: "",
+              zip: "",
+              country: "FR",
+              phone: o.clientPhone,
+            },
+            notes: o.message || "",
+            items: (o.items || []).map((item: any) => ({
+              id: item.productId,
+              orderId: o.id,
+              productId: item.productId,
+              productTitle: item.title,
+              productImage: PLACEHOLDER_IMG,
+              selectedColor: item.selectedColor,
+              selectedSize: item.selectedSize,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
+          })),
+        );
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    return [...localOrders, ...MOCK_ORDERS];
   },
 
   async get(id: string): Promise<Order | null> {

@@ -41,6 +41,8 @@ import Header from "./components/Header";
 import { MOCK_PRODUCTS } from "./data/mockDatabase";
 import { FAQS } from "./data/staticData";
 import AuthModal from "./components/AuthModal";
+import CheckoutModal from "./components/CheckoutModal";
+import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
@@ -123,6 +125,10 @@ export default function App() {
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
+
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [trackingOpen, setTrackingOpen] = useState(false);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderCompleted, setOrderCompleted] = useState(false);
 
@@ -556,19 +562,19 @@ export default function App() {
     0,
   );
 
-  const simulateCheckout = () => {
-    if (cart.length === 0) return;
-    setOrderCompleted(true);
-    setTimeout(() => {
-      setCart([]);
-      setOrderCompleted(false);
-      setCartOpen(false);
-      showToast(
-        "🚀 Commande reçue ! Envoyée automatiquement en production à l'atelier d'impression Printful !",
-        "success",
-      );
-    }, 4000);
-  };
+  // const simulateCheckout = () => {
+  //   if (cart.length === 0) return;
+  //   setOrderCompleted(true);
+  //   setTimeout(() => {
+  //     setCart([]);
+  //     setOrderCompleted(false);
+  //     setCartOpen(false);
+  //     showToast(
+  //       "🚀 Commande reçue ! Envoyée automatiquement en production à l'atelier d'impression Printful !",
+  //       "success",
+  //     );
+  //   }, 4000);
+  // };
 
   // Helper date generators for delivery estimates
   const getDeliverEstimateString = (daysOffset: number) => {
@@ -712,6 +718,7 @@ export default function App() {
           setActiveTab("store");
         }}
         onScrollToSection={scrollToSection}
+        onOpenTracking={() => setTrackingOpen(true)}
         searchSuggestions={productTitles}
         products={products}
       />
@@ -1996,11 +2003,14 @@ export default function App() {
               )}
 
               <button
-                onClick={simulateCheckout}
+                onClick={() => {
+                  setCartOpen(false);
+                  setCheckoutOpen(true);
+                }}
                 className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-sm p-4 rounded-xl uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1.5 select-none"
                 id="btn-fast-checkout"
               >
-                Passer la commande ⚡
+                Passer la commande
               </button>
 
               <p className="text-[10px] text-gray-500 text-center leading-relaxed">
@@ -2320,6 +2330,28 @@ export default function App() {
       {/*  rendu du nouveau Admin en dehors du flux normal */}
       {showNewAdmin && (
         <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+      )}
+
+      {/* Checkout Modal (WhatsApp/Telegram/Email) */}
+      {checkoutOpen && (
+        <CheckoutModal
+          cart={cart}
+          cartTotal={cartTotal}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={() => {
+            setCart([]);
+            setOrderCompleted(false);
+            showToast(
+              "🚀 Commande transmise ! Vérifiez votre messagerie.",
+              "success",
+            );
+          }}
+        />
+      )}
+
+      {/* OrderTrackingModal Modal */}
+      {trackingOpen && (
+        <OrderTrackingModal onClose={() => setTrackingOpen(false)} />
       )}
     </div>
   );
