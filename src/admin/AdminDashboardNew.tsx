@@ -18,6 +18,10 @@ import AdminSidebar, { AdminSection } from "./AdminSidebar";
 import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
 import OrdersPage from "./OrdersPage";
+import PromotionsPage from "./PromotionsPage";
+import ReportsPage from "./ReportsPage";
+import IntegrationsPage from "./IntegrationsPage";
+import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useDashboard } from "./adminHooks";
@@ -577,11 +581,15 @@ export default function AdminDashboard({
 
   const SECTION_TITLES: Record<AdminSection, string> = {
     dashboard: "Tableau de bord",
+    orders: "Commandes",
     products: "Produits",
     customers: "Clients",
-    orders: "Commandes",
+    promotions: "Promotions & Deals",
+    reports: "Rapports",
+    integrations: "Intégrations",
     settings: "Paramètres",
-    "admin-users": "Administrateurs",
+    "admin-users": "Sécurité",
+    help: "Aide & Support",
   };
 
   return (
@@ -799,8 +807,12 @@ export default function AdminDashboard({
           {section === "products" && <ProductsPage />}
           {section === "customers" && <CustomersPage />}
           {section === "orders" && <OrdersPage />}
+          {section === "promotions" && <PromotionsPage />}
+          {section === "reports" && <ReportsPage />}
+          {section === "integrations" && <IntegrationsPage />}
           {section === "settings" && <SettingsPage />}
           {section === "admin-users" && <AdminUsersPage />}
+          {section === "help" && <HelpPage />}
         </div>
       </div>
 

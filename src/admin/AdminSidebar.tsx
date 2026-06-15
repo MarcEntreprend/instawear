@@ -1,40 +1,52 @@
-// src\admin\AdminSidebar.tsx
+// src/admin/AdminSidebar.tsx
 
 import React from "react";
 import {
   LayoutDashboard,
+  ShoppingBag,
   Package,
   Users,
-  ShoppingBag,
+  Tag,
+  BarChart3,
+  Link2,
   Settings,
   Shield,
   X,
+  HelpCircle,
   ChevronRight,
   Zap,
 } from "lucide-react";
 
 export type AdminSection =
   | "dashboard"
+  | "orders"
   | "products"
   | "customers"
-  | "orders"
+  | "promotions"
+  | "reports"
+  | "integrations"
   | "settings"
-  | "admin-users";
+  | "admin-users"
+  | "help";
 
 interface NavItem {
   id: AdminSection;
   label: string;
   icon: React.FC<{ size?: number; strokeWidth?: number }>;
-  badge?: string | number;
+  separator?: boolean; // small bar above the item
 }
 
-const NAV_ITEMS: NavItem[] = [
+const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+  { id: "orders", label: "Commandes", icon: ShoppingBag },
   { id: "products", label: "Produits", icon: Package },
   { id: "customers", label: "Clients", icon: Users },
-  { id: "orders", label: "Commandes", icon: ShoppingBag },
+  { id: "promotions", label: "Promotions & Deals", icon: Tag },
+  { id: "reports", label: "Rapports", icon: BarChart3 },
+  "separator",
+  { id: "integrations", label: "Intégrations", icon: Link2 },
   { id: "settings", label: "Paramètres", icon: Settings },
-  { id: "admin-users", label: "Administrateurs", icon: Shield },
+  { id: "admin-users", label: "Sécurité", icon: Shield },
 ];
 
 const LOGO_URL = "/InstaWear-logo-settings.png";
@@ -207,7 +219,19 @@ export default function AdminSidebar({
         >
           Navigation
         </p>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.map((item, i) => {
+          if (item === "separator") {
+            return (
+              <div
+                key={`sep-${i}`}
+                style={{
+                  height: 1,
+                  background: "rgba(255,255,255,0.08)",
+                  margin: "8px 10px",
+                }}
+              />
+            );
+          }
           const isActive = active === item.id;
           const Icon = item.icon;
           return (
@@ -271,43 +295,51 @@ export default function AdminSidebar({
                   style={{ color: "rgba(255,255,255,0.3)" }}
                 />
               )}
-              {item.badge !== undefined && (
-                <span
-                  style={{
-                    background: "var(--color-accent)",
-                    color: "white",
-                    borderRadius: 999,
-                    padding: "1px 7px",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {item.badge}
-                </span>
-              )}
             </button>
           );
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer avec bouton Help */}
       <div
         style={{
-          padding: "14px 20px",
+          padding: "10px 14px",
           borderTop: "1px solid rgba(255,255,255,0.07)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
         <p
           style={{
-            fontSize: 10,
+            fontSize: 9,
             color: "rgba(255,255,255,0.25)",
-            lineHeight: 1.6,
+            lineHeight: 1.4,
+            flex: 1,
+            margin: 0,
           }}
         >
           InstaWear Admin v1.0
           <br />© 2026 — Tous droits réservés
         </p>
+        <button
+          onClick={() => onNavigate("help")}
+          title="Aide & Support"
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "none",
+            borderRadius: 8,
+            width: 28,
+            height: 28,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "rgba(255,255,255,0.5)",
+          }}
+        >
+          <HelpCircle size={16} strokeWidth={2} />
+        </button>
       </div>
     </aside>
   );
