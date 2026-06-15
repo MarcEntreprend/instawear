@@ -213,11 +213,11 @@ export default function ProductCard({
             className="text-lg font-black text-(--color-ink) tabular-nums"
             style={{ fontFamily: "var(--font-sans)" }}
           >
-            {product.price.toFixed(2)} €
+            {product.price.toFixed(2)} $
           </span>
           {product.originalPrice && (
             <span className="text-sm line-through text-(--color-ink4) tabular-nums">
-              {product.originalPrice.toFixed(2)} €
+              {product.originalPrice.toFixed(2)} $
             </span>
           )}
         </div>

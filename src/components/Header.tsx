@@ -251,7 +251,7 @@ export default function Header({
       >
         <span className="inline-flex items-center gap-2">
           <Zap size={12} strokeWidth={2.5} />
-          Livraison gratuite dès 35 € — Impression sous 24h, zéro stock gaspillé
+          Livraison gratuite dès 35 $ — Impression sous 24h, zéro stock gaspillé
           <Zap size={12} strokeWidth={2.5} />
         </span>
       </div>

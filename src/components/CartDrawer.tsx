@@ -138,7 +138,7 @@ export default function CartDrawer({
                   style={{ color: "var(--color-accent)" }}
                 >
                   Plus que{" "}
-                  <span className="font-black">{remaining.toFixed(2)} €</span>{" "}
+                  <span className="font-black">{remaining.toFixed(2)} $</span>{" "}
                   pour la livraison gratuite
                 </p>
                 <div
@@ -218,7 +218,7 @@ export default function CartDrawer({
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {(item.product.price * item.quantity).toFixed(2)} €
+                        {(item.product.price * item.quantity).toFixed(2)} $
                       </span>
                       <div className="flex items-center gap-1">
                         <button
@@ -284,7 +284,7 @@ export default function CartDrawer({
                 >
                   <span>Sous-total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {total.toFixed(2)} €
+                    {total.toFixed(2)} $
                   </span>
                 </div>
                 <div
@@ -294,7 +294,7 @@ export default function CartDrawer({
                   }}
                 >
                   <span>Livraison</span>
-                  <span>{freeShipping ? "Gratuite" : "4,99 €"}</span>
+                  <span>{freeShipping ? "Gratuite" : "4,99 $"}</span>
                 </div>
                 <div
                   className="flex justify-between pt-2 font-black text-base"
@@ -305,7 +305,7 @@ export default function CartDrawer({
                 >
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {(total + (freeShipping ? 0 : 4.99)).toFixed(2)} €
+                    {(total + (freeShipping ? 0 : 4.99)).toFixed(2)} $
                   </span>
                 </div>
               </div>

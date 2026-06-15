@@ -22,7 +22,7 @@ import { StoreSettings, SyncLog } from "./adminTypes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
-  value.toFixed(2).replace(".", ",") + " €";
+  value.toFixed(2).replace(".", ",") + " $";
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString("fr-FR", {
@@ -369,7 +369,7 @@ export default function SettingsPage() {
                 className="input-base"
                 style={{ width: "100%", cursor: "pointer" }}
               >
-                <option value="EUR">EUR (€)</option>
+                <option value="EUR">EUR ($)</option>
                 <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
               </select>

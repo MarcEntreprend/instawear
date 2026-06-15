@@ -65,9 +65,9 @@ export default function OrderModal({
       "📦 Articles :",
       ...cart.map(
         (item) =>
-          `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} €`,
+          `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} $`,
       ),
-      `  TOTAL : ${cartTotal.toFixed(2)} €`,
+      `  TOTAL : ${cartTotal.toFixed(2)} $`,
       "",
       "👤 Coordonnées :",
       `  Nom : ${form.name}`,
@@ -253,7 +253,7 @@ export default function OrderModal({
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {(item.product.price * item.quantity).toFixed(2)} €
+                    {(item.product.price * item.quantity).toFixed(2)} $
                   </span>
                 </div>
               ))}
@@ -274,7 +274,7 @@ export default function OrderModal({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {cartTotal.toFixed(2)} €
+                  {cartTotal.toFixed(2)} $
                 </span>
               </div>
             </div>

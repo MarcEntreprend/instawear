@@ -60,7 +60,7 @@ export const FAQS: FAQ[] = [
     id: "faq-2",
     question: "Comment puis-je personnaliser un design ou ajouter du texte ?",
     answer:
-      "Oui, nous acceptons les personnalisations : ajout d'un prénom, d'une date, d'un numéro ou d'un message court. Mentionnez votre demande dans le champ \"Message\" lors de la commande, ou contactez-nous directement par WhatsApp ou Telegram. Des frais de personnalisation (3–5€) peuvent s'appliquer.",
+      "Oui, nous acceptons les personnalisations : ajout d'un prénom, d'une date, d'un numéro ou d'un message court. Mentionnez votre demande dans le champ \"Message\" lors de la commande, ou contactez-nous directement par WhatsApp ou Telegram. Des frais de personnalisation (3–5$) peuvent s'appliquer.",
     category: "produit",
   },
   {

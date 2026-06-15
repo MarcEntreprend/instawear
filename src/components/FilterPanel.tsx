@@ -224,7 +224,7 @@ export default function FilterPanel({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {filters.priceMin.toFixed(0)} € — {filters.priceMax.toFixed(0)} €
+            {filters.priceMin.toFixed(0)} $ — {filters.priceMax.toFixed(0)} $
           </span>
         </div>
         <div className="flex flex-col gap-3">

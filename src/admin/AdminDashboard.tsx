@@ -256,7 +256,7 @@ export default function AdminDashboard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold tracking-wider text-gray-500 mb-1">
-                    Prix de vente souhaité (€) :
+                    Prix de vente souhaité ($) :
                   </label>
                   <input
                     type="number"
@@ -266,7 +266,7 @@ export default function AdminDashboard({
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs text-gray-900"
                   />
                   <p className="text-[10px] text-gray-500 mt-1">
-                    Coût d&apos;impression usine moyen : ~12.50€.
+                    Coût d&apos;impression usine moyen : ~12.50$.
                   </p>
                 </div>
                 <div>
@@ -511,7 +511,7 @@ export default function AdminDashboard({
           <div className="bg-white border border-gray-200 rounded-2xl p-6 text-xs text-gray-600">
             <h4 className="font-extrabold text-gray-900 text-sm mb-3 uppercase tracking-wider flex items-center gap-1.5">
               <Check className="w-4 h-4 text-(--color-accent)" />
-              Guide de Lancement 0€ Budget
+              Guide de Lancement 0$ Budget
             </h4>
             <ol className="space-y-4 list-decimal list-inside leading-relaxed text-gray-500">
               <li>

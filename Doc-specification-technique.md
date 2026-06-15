@@ -216,7 +216,7 @@ Stockés sous forme de clé‑valeur ou dans une table de configuration.
 - Le prix unitaire final est `price` (ou `dealPrice` si un deal actif est en cours et que `dealEndsAt` n’est pas dépassée).
 - On y ajoute la surcharge de taille `sizeSurcharge[size]` si définie.
 - Les taxes ne sont pas gérées pour le moment.
-- La livraison est gratuite si le sous‑total est ≥ `freeShippingThreshold`. Sinon, les frais forfaitaires définis dans le paramètre `shippingCost` (par défaut 4,99 €) s’appliquent.
+- La livraison est gratuite si le sous‑total est ≥ `freeShippingThreshold`. Sinon, les frais forfaitaires définis dans le paramètre `shippingCost` (par défaut 4,99 $) s’appliquent.
 
 ### 4.2 Gestion des deals
 

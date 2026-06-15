@@ -633,7 +633,7 @@ export default function ProductsPage() {
                       color: "var(--color-ink)",
                     }}
                   >
-                    {p.price.toFixed(2)} €
+                    {p.price.toFixed(2)} $
                     {discount && (
                       <span
                         style={{

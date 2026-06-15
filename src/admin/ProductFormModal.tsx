@@ -337,7 +337,7 @@ export default function ProductFormModal({
             }}
           >
             <div>
-              <label style={labelStyle}>Prix (€) *</label>
+              <label style={labelStyle}>Prix ($) *</label>
               <input
                 type="number"
                 value={form.price}
@@ -349,7 +349,7 @@ export default function ProductFormModal({
               />
             </div>
             <div>
-              <label style={labelStyle}>Prix barré (€)</label>
+              <label style={labelStyle}>Prix barré ($)</label>
               <input
                 type="number"
                 value={form.originalPrice || ""}
@@ -378,7 +378,7 @@ export default function ProductFormModal({
             {form.dealActive && (
               <>
                 <div>
-                  <label style={labelStyle}>Prix deal (€)</label>
+                  <label style={labelStyle}>Prix deal ($)</label>
                   <input
                     type="number"
                     value={form.dealPrice || ""}

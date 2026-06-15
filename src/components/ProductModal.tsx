@@ -248,7 +248,7 @@ export default function ProductModal({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {dynPrice.toFixed(2)} €
+                {dynPrice.toFixed(2)} $
               </span>
               {product.originalPrice && (
                 <>
@@ -256,7 +256,7 @@ export default function ProductModal({
                     className="text-sm line-through"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    {product.originalPrice.toFixed(2)} €
+                    {product.originalPrice.toFixed(2)} $
                   </span>
                   <span
                     className="badge text-gray-900"
@@ -271,7 +271,7 @@ export default function ProductModal({
                   className="text-xs"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  (+{SIZE_SURCHARGE[selectedSize]} € taille {selectedSize})
+                  (+{SIZE_SURCHARGE[selectedSize]} $ taille {selectedSize})
                 </span>
               )}
             </div>
@@ -410,7 +410,7 @@ export default function ProductModal({
               >
                 <Truck size={13} strokeWidth={2} />
                 <span className="font-semibold">
-                  Livraison gratuite dès 35 €
+                  Livraison gratuite dès 35 $
                 </span>
               </div>
               <div
@@ -477,7 +477,7 @@ export default function ProductModal({
                 ) : (
                   <>
                     <ShoppingCart size={16} strokeWidth={2} />
-                    Ajouter — {dynPrice.toFixed(2)} €
+                    Ajouter — {dynPrice.toFixed(2)} $
                   </>
                 )}
               </button>

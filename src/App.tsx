@@ -959,7 +959,7 @@ export default function App() {
                     </p>
                   </div>
                   <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-                    DÈS 5.99€ L&apos;ACCESSOIRE
+                    DÈS 5.99$ L&apos;ACCESSOIRE
                   </span>
                 </div>
 
@@ -989,11 +989,11 @@ export default function App() {
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-xs font-black text-gray-900">
-                            {item.price} €
+                            {item.price} $
                           </span>
                           {item.originalPrice && (
                             <span className="text-[10px] text-gray-500 line-through">
-                              {item.originalPrice} €
+                              {item.originalPrice} $
                             </span>
                           )}
                         </div>
@@ -1253,12 +1253,12 @@ export default function App() {
                             <span className="text-lg font-black text-gray-900 font-sans">
                               {product.price.toFixed(2)}{" "}
                               <span className="text-[11px] font-medium text-gray-500">
-                                €
+                                $
                               </span>
                             </span>
                             {product.originalPrice && (
                               <span className="text-xs text-gray-500 line-through">
-                                {product.originalPrice.toFixed(2)} €
+                                {product.originalPrice.toFixed(2)} $
                               </span>
                             )}
                           </div>
@@ -1365,7 +1365,7 @@ export default function App() {
                 </div>
                 <div className="text-center sm:text-left">
                   <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-                    📦 Free Delivery over 35€
+                    📦 Free Delivery over 35$
                   </p>
                   <p className="text-xs text-gray-500 mt-1 leading-relaxed">
                     Livraison suivie gratuite sur tous les vêtements Choice.
@@ -1615,13 +1615,13 @@ export default function App() {
                         Prix de l&apos;événement
                       </p>
                       <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
-                        {selectedProduct.price.toFixed(2)} €
+                        {selectedProduct.price.toFixed(2)} $
                       </p>
                     </div>
                     {selectedProduct.originalPrice && (
                       <div className="text-xs text-gray-500 leading-normal pl-2 border-l border-gray-200">
                         <p className="line-through">
-                          {selectedProduct.originalPrice.toFixed(2)} €
+                          {selectedProduct.originalPrice.toFixed(2)} $
                         </p>
                         <p className="text-rose-400 font-semibold">
                           -
@@ -1756,7 +1756,7 @@ export default function App() {
                     <p>
                       Frais d&apos;expédition :{" "}
                       <span className="text-emerald-600 font-bold">
-                        GRATUIT dès 35€ d&apos;achat !
+                        GRATUIT dès 35$ d&apos;achat !
                       </span>
                     </p>
                     <p className="text-gray-500 mt-1">
@@ -1918,7 +1918,7 @@ export default function App() {
 
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs font-black text-gray-900">
-                            {item.product.price.toFixed(2)} €
+                            {item.product.price.toFixed(2)} $
                           </span>
 
                           <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
@@ -1960,12 +1960,12 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <span>Sous-total articles :</span>
                   <span className="font-bold text-gray-900">
-                    {cartTotal.toFixed(2)} €
+                    {cartTotal.toFixed(2)} $
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-(--color-accent) font-medium">
                   <span>Livraison Choice suivie :</span>
-                  <span>{cartTotal >= 35 ? "GRATUITE" : "4.99 €"}</span>
+                  <span>{cartTotal >= 35 ? "GRATUITE" : "4.99 $"}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-gray-200 pt-2.5 text-sm">
                   <span className="font-extrabold text-gray-900">
@@ -1975,7 +1975,7 @@ export default function App() {
                     {cartTotal >= 35
                       ? cartTotal.toFixed(2)
                       : (cartTotal + 4.99).toFixed(2)}{" "}
-                    €
+                    $
                   </span>
                 </div>
               </div>
@@ -1988,7 +1988,7 @@ export default function App() {
                   <p className="mt-0.5">
                     Ajoutez encore{" "}
                     <strong className="text-gray-900">
-                      {(35 - cartTotal).toFixed(2)} €
+                      {(35 - cartTotal).toFixed(2)} $
                     </strong>{" "}
                     d&apos;articles pour débloquer la livraison gratuite !
                   </p>

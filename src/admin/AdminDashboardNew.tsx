@@ -297,7 +297,7 @@ function DashboardHome({
         <StatCard
           icon={<TrendingUp size={17} strokeWidth={2} />}
           label="CA estimé"
-          value={`${stats.revenueEstimate.toFixed(0)} €`}
+          value={`${stats.revenueEstimate.toFixed(0)} $`}
           sub="toutes commandes"
         />
         <StatCard
@@ -409,7 +409,7 @@ function DashboardHome({
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {order.totalAmount.toFixed(2)} €
+                    {order.totalAmount.toFixed(2)} $
                   </span>
                   <OrderStatusBadge status={order.status} />
                 </div>
@@ -528,7 +528,7 @@ function DashboardHome({
                       marginTop: 1,
                     }}
                   >
-                    {p.price.toFixed(2)} €
+                    {p.price.toFixed(2)} $
                   </p>
                 </div>
                 <span

@@ -451,7 +451,7 @@ export default function ProductFormPanel({
           }}
         >
           <div>
-            <label style={labelStyle}>Prix (€) *</label>
+            <label style={labelStyle}>Prix ($) *</label>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input
                 type="number"
@@ -463,12 +463,12 @@ export default function ProductFormPanel({
                 required
               />
               <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
-                €
+                $
               </span>
             </div>
           </div>
           <div>
-            <label style={labelStyle}>Prix barré (€)</label>
+            <label style={labelStyle}>Prix barré ($)</label>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input
                 type="number"
@@ -484,7 +484,7 @@ export default function ProductFormPanel({
                 min={0}
               />
               <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
-                €
+                $
               </span>
             </div>
           </div>
@@ -502,7 +502,7 @@ export default function ProductFormPanel({
           {form.dealActive && (
             <>
               <div>
-                <label style={labelStyle}>Prix deal (€)</label>
+                <label style={labelStyle}>Prix deal ($)</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input
                     type="number"
@@ -518,7 +518,7 @@ export default function ProductFormPanel({
                     min={0}
                   />
                   <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
-                    €
+                    $
                   </span>
                 </div>
               </div>

@@ -514,7 +514,7 @@ function FavouritesList({ items }: { items: Favourite[] }) {
               </td>
               <td style={tdStyle}>
                 {fav.product?.price != null
-                  ? `${fav.product.price.toFixed(2)} €`
+                  ? `${fav.product.price.toFixed(2)} $`
                   : "—"}
               </td>
               <td
@@ -605,7 +605,7 @@ function CartList({ items }: { items: AdminCartItem[] }) {
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {((item.product?.price ?? 0) * item.quantity).toFixed(2)} €
+                {((item.product?.price ?? 0) * item.quantity).toFixed(2)} $
               </td>
             </tr>
           ))}
@@ -614,7 +614,7 @@ function CartList({ items }: { items: AdminCartItem[] }) {
       <div style={totalRowStyle}>
         <span>Total panier :</span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {total.toFixed(2)} €
+          {total.toFixed(2)} $
         </span>
       </div>
     </div>
@@ -661,7 +661,7 @@ function OrdersList({ orders }: { orders: Order[] }) {
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {order.totalAmount.toFixed(2)} €
+                {order.totalAmount.toFixed(2)} $
               </td>
               <td style={{ ...tdStyle, textAlign: "center" }}>
                 <OrderStatusBadge status={order.status} />

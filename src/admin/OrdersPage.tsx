@@ -72,7 +72,7 @@ const iconBtn: React.CSSProperties = {
 
 // ─── Format currency ───────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
-  value.toFixed(2).replace(".", ",") + " €";
+  value.toFixed(2).replace(".", ",") + " $";
 
 export default function OrdersPage() {
   const {
