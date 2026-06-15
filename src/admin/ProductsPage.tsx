@@ -13,10 +13,10 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
-  Filter,
 } from "lucide-react";
 import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
+import ProductFormPanel from "./ProductFormPanel";
 
 const IMG =
   "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
@@ -24,7 +24,6 @@ const IMG =
 const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
 const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
 const STYLES = ["cute", "street", "commute", "cozy", "retro"];
-const SIZES_LIST = ["XS", "S", "M", "L", "XL", "XXL"];
 
 const BADGE_STYLE: Record<string, React.CSSProperties> = {
   bestseller: { background: "#fde68a", color: "#92400e" },
@@ -61,8 +60,19 @@ function Badge({
 }
 
 export default function ProductsPage() {
-  const { products: allProducts, loading } = useProducts();
+  const {
+    products: allProducts,
+    loading,
+    saving,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    bulkDelete,
+    bulkSetActive,
+    duplicateProduct,
+  } = useProducts();
 
+  // List state
   const [filters, setFilters] = useState<ProductFilterState>({
     search: "",
     category: null,
@@ -76,9 +86,19 @@ export default function ProductsPage() {
     color: null,
     showInactive: true,
   });
-
   const [sortKey, setSortKey] = useState<keyof AdminProduct>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Product form navigation
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // The product being edited (if any)
+  const editingProduct = useMemo(() => {
+    if (!editingProductId || !allProducts) return null;
+    return allProducts.find((p) => p.id === editingProductId) ?? null;
+  }, [editingProductId, allProducts]);
 
   // ── Filter & sort ──────────────────────────────────────────────────────
   const products = useMemo(() => {
@@ -142,9 +162,7 @@ export default function ProductsPage() {
     );
   };
 
-  // ── Actions ─────────────────────────────────────────────────────────────
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-
+  // ── Selection ──────────────────────────────────────────────────────────
   const toggleSelect = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -157,26 +175,75 @@ export default function ProductsPage() {
     else setSelected(new Set(products.map((p) => p.id)));
   };
 
-  // ── Quick filter counters ───────────────────────────────────────────────
-  const categoryCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    CATEGORIES.forEach((c) => {
-      map[c] =
-        allProducts?.filter((p: AdminProduct) => p.category === c).length ?? 0;
-    });
-    return map;
-  }, [allProducts]);
+  // ── Actions ────────────────────────────────────────────────────────────
+  const handleCreateNew = () => {
+    setIsCreating(true);
+    setEditingProductId(null);
+  };
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  const handleEdit = (product: AdminProduct) => {
+    setEditingProductId(product.id);
+    setIsCreating(false);
+  };
+
+  const handleBackToList = () => {
+    setIsCreating(false);
+    setEditingProductId(null);
+  };
+
+  const handleSaveProduct = async (
+    data: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
+  ) => {
+    if (editingProductId) {
+      await updateProduct(editingProductId, data);
+    } else {
+      await createProduct(data);
+    }
+    handleBackToList();
+  };
+
+  const handleDuplicate = async (id: string) => {
+    await duplicateProduct(id);
+  };
+
+  const handleToggleActive = async (id: string, active: boolean) => {
+    await bulkSetActive([id], active);
+  };
+
+  const handleBulkActivate = async (active: boolean) => {
+    if (selected.size === 0) return;
+    await bulkSetActive(Array.from(selected), active);
+    setSelected(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Supprimer ${selected.size} produit(s) ?`)) return;
+    await bulkDelete(Array.from(selected));
+    setSelected(new Set());
+  };
+
+  const handleDeleteSingle = async (id: string) => {
+    if (!window.confirm("Supprimer définitivement ce produit ?")) return;
+    await deleteProduct(id);
+  };
+
+  // ── Render form panel if editing or creating ──────────────────────────
+  if (isCreating || editingProductId) {
+    return (
+      <ProductFormPanel
+        product={isCreating ? null : editingProduct}
+        onBack={handleBackToList}
+        onSave={handleSaveProduct}
+      />
+    );
+  }
+
+  // ── List view ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 200,
-        }}
+        style={{ display: "flex", justifyContent: "center", minHeight: 200 }}
       >
         <div
           className="animate-spin"
@@ -206,21 +273,16 @@ export default function ProductsPage() {
       >
         <div>
           <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              marginBottom: 2,
-            }}
+            style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}
           >
             Produits
           </h2>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            {products.length} produit{products.length !== 1 ? "s" : ""} trouvé
-            {products.length !== 1 ? "s" : ""}
+            {products.length} produit{products.length !== 1 ? "s" : ""}
           </p>
         </div>
         <button
+          onClick={handleCreateNew}
           style={{
             display: "flex",
             alignItems: "center",
@@ -270,7 +332,7 @@ export default function ProductsPage() {
           <Search
             size={14}
             strokeWidth={2}
-            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+            style={{ color: "var(--color-ink4)" }}
           />
           <input
             type="text"
@@ -408,9 +470,14 @@ export default function ProductsPage() {
           <span>
             {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
           </span>
-          <button style={quickBtn}>Activer</button>
-          <button style={quickBtn}>Désactiver</button>
+          <button onClick={() => handleBulkActivate(true)} style={quickBtn}>
+            Activer
+          </button>
+          <button onClick={() => handleBulkActivate(false)} style={quickBtn}>
+            Désactiver
+          </button>
           <button
+            onClick={handleBulkDelete}
             style={{
               ...quickBtn,
               color: "#ef4444",
@@ -638,15 +705,24 @@ export default function ProductsPage() {
                         justifyContent: "center",
                       }}
                     >
-                      <button title="Modifier" style={iconBtn}>
+                      <button
+                        title="Modifier"
+                        style={iconBtn}
+                        onClick={() => handleEdit(p)}
+                      >
                         <Edit3 size={14} strokeWidth={2} />
                       </button>
-                      <button title="Dupliquer" style={iconBtn}>
+                      <button
+                        title="Dupliquer"
+                        style={iconBtn}
+                        onClick={() => handleDuplicate(p.id)}
+                      >
                         <Copy size={14} strokeWidth={2} />
                       </button>
                       <button
                         title={p.isActive ? "Désactiver" : "Activer"}
                         style={iconBtn}
+                        onClick={() => handleToggleActive(p.id, !p.isActive)}
                       >
                         {p.isActive ? (
                           <EyeOff size={14} strokeWidth={2} />
@@ -657,6 +733,7 @@ export default function ProductsPage() {
                       <button
                         title="Supprimer"
                         style={{ ...iconBtn, color: "#ef4444" }}
+                        onClick={() => handleDeleteSingle(p.id)}
                       >
                         <Trash2 size={14} strokeWidth={2} />
                       </button>

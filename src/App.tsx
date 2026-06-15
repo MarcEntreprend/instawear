@@ -252,15 +252,33 @@ export default function App() {
         const data = await res.json();
         setProducts(data);
       } else {
-        // API responded with non-ok status → fallback to centralized mock data
-        setProducts(MOCK_PRODUCTS);
+        mergeLocalProducts();
       }
     } catch (err) {
       console.warn("API indisponible, chargement des produits mockés :", err);
-      setProducts(MOCK_PRODUCTS);
+      mergeLocalProducts();
     } finally {
       setLoadingProducts(false);
     }
+  };
+
+  // Merge MOCK_PRODUCTS with admin custom products stored in localStorage.
+  const mergeLocalProducts = () => {
+    const base = [...MOCK_PRODUCTS];
+    try {
+      const stored = localStorage.getItem("admin_products");
+      if (stored) {
+        const adminProducts = JSON.parse(stored) as typeof MOCK_PRODUCTS;
+        adminProducts.forEach((ap) => {
+          const idx = base.findIndex((p) => p.id === ap.id);
+          if (idx > -1) base[idx] = ap;
+          else base.push(ap);
+        });
+      }
+    } catch (e) {
+      console.warn("Could not merge admin products", e);
+    }
+    setProducts(base);
   };
 
   const fetchSettings = async () => {
@@ -1517,20 +1535,28 @@ export default function App() {
                     )}
 
                   <img
-                    src={
-                      selectedProduct.gallery?.[activeGalleryIndex] ||
-                      selectedProduct.image ||
-                      PLACEHOLDER_IMG
-                    }
+                    src={(() => {
+                      // Fusionne l'image principale + la galerie en un seul tableau
+                      const allImages = [
+                        selectedProduct.image || PLACEHOLDER_IMG,
+                        ...(selectedProduct.gallery || []),
+                      ];
+                      return allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
+                    })()}
                     alt={selectedProduct.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
 
-                {selectedProduct.gallery &&
-                  selectedProduct.gallery.length > 1 && (
+                {(() => {
+                  const allImages = [
+                    selectedProduct.image || PLACEHOLDER_IMG,
+                    ...(selectedProduct.gallery || []),
+                  ];
+                  if (allImages.length <= 1) return null;
+                  return (
                     <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
-                      {selectedProduct.gallery.map((img, idx) => (
+                      {allImages.map((img, idx) => (
                         <div
                           key={idx}
                           onClick={() => setActiveGalleryIndex(idx)}
@@ -1544,7 +1570,8 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  );
+                })()}
 
                 <div className="mt-4 p-3 bg-gray-50/40 border border-gray-200 rounded-xl flex items-center gap-2.5 text-xs text-gray-500">
                   <ShieldCheck className="w-4 h-4 text-(--color-accent)" />
