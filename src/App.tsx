@@ -38,7 +38,7 @@ import {
   Facebook,
 } from "lucide-react";
 import Header from "./components/Header";
-import { DEFAULT_PRODUCTS } from "./data/defaultProducts";
+import { MOCK_PRODUCTS } from "./data/mockDatabase";
 import { FAQS } from "./data/staticData";
 import AuthModal from "./components/AuthModal";
 import ProfileModal from "./components/ProfileModal";
@@ -252,12 +252,12 @@ export default function App() {
         const data = await res.json();
         setProducts(data);
       } else {
-        // Réponse non-ok → fallback
-        setProducts(DEFAULT_PRODUCTS);
+        // API responded with non-ok status → fallback to centralized mock data
+        setProducts(MOCK_PRODUCTS);
       }
     } catch (err) {
       console.warn("API indisponible, chargement des produits mockés :", err);
-      setProducts(DEFAULT_PRODUCTS);
+      setProducts(MOCK_PRODUCTS);
     } finally {
       setLoadingProducts(false);
     }
@@ -1087,7 +1087,21 @@ export default function App() {
                     setSelectedCategory(null);
                     setSelectedEventType(null);
                   }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-gray-900 font-bold text-xs px-5 py-2 rounded-lg"
+                  className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
+                  style={{
+                    background: "transparent",
+                    color: "var(--color-accent)",
+                    border: "1.5px solid var(--color-accent)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--color-accent)";
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "var(--color-accent)";
+                  }}
                 >
                   Réinitialiser le Store
                 </button>
@@ -1754,7 +1768,7 @@ export default function App() {
                       className="flex-1 bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg hover:shadow-amber-400/20"
                       id="btn-modal-fast-buy"
                     >
-                      Acheter maintenant ⚡
+                      Acheter maintenant
                     </button>
                   </div>
                 </div>

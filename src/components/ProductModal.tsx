@@ -502,7 +502,7 @@ export default function ProductModal({
                     "0 6px 20px rgba(201,134,10,0.3)";
                 }}
               >
-                Acheter maintenant ⚡
+                Acheter maintenant
               </button>
             </div>
           </div>

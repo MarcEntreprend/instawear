@@ -24,6 +24,7 @@ Local: http://localhost:5173/
 
 # structure arborescente
 
+```
 instawear/
 ├── public/
 │ ├── InstaWear-logo-wh-middle-no-BG.png
@@ -59,6 +60,7 @@ instawear/
 │ │ └── ProfileModal.tsx
 │ ├── data/
 │ │ ├── defaultProducts.ts
+│ │ ├── mockDatabase.ts
 │ │ └── staticData.ts
 │ └── hooks/
 │ └── useLocalStorage.ts
@@ -66,3 +68,4 @@ instawear/
 ├── package.json
 ├── vite.config.ts
 └── tsconfig.json
+```
