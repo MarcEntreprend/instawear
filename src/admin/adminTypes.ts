@@ -205,6 +205,21 @@ export interface DashboardStats {
   recentProducts: AdminProduct[];
 }
 
+// ─── Hero Promotion (links a product to a hero carousel slot) ────────────
+export interface HeroPromotion {
+  id: string;
+  productId: string;
+  title?: string; // override product title (optional)
+  headline?: string;
+  sub?: string;
+  cta?: string;
+  bgGradient?: string;
+  tag?: string;
+  image?: string;
+  order: number;
+  showTag?: boolean; // whether to display the tag/badge
+  showTitle?: boolean; // whether to display the product title
+}
 // ─── Shared filter / sort types ───────────────────────────────────────────
 export interface ProductFilters {
   search: string;

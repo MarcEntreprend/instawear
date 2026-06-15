@@ -48,10 +48,52 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { Product, CartItem, PrintfulSettings } from "./types";
+import type { HeroPromotion } from "./admin/adminTypes";
 
 // Preset mockup templates with placeholder images
 const PLACEHOLDER_IMG =
   "https://i5.walmartimages.com/seo/Haiti-Haitian-Flag-Coat-of-Arms-Red-Men-Zipper-T-shirt-Summer-Casual-Short-Sleeve-T-shirt-Top_4abff044-fb73-40b5-b666-b1d93754eb3b.c531c430d04c42d5dc091756c19ffccc.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF";
+
+// Default static banners used as fallback if no promotions are configured
+const DEFAULT_HERO_BANNERS = [
+  {
+    title: "InstaWear Concept",
+    headline: "Wear the Moment. Grab the Energy.",
+    sub: "Up to 40% off AI-powered drops for sports, music & seasons. Premium, fast, reactive.",
+    cta: "Découvrir",
+    bgGradient: "from-white via-indigo-50 to-white",
+    image: PLACEHOLDER_IMG,
+    tag: "⚡ EN COURS DE PRODUCTION",
+    productId: null as string | null,
+    showTag: true,
+    showTitle: true,
+  },
+  {
+    title: "UEFA Champions League Finals",
+    headline: "Wear the Final. Own the Stadium.",
+    sub: "Up to 40% off organic cotton shirts printed at lightning speed. Your color, your legend.",
+    cta: "Découvrir",
+    bgGradient: "from-white via-blue-50 to-white",
+    image: PLACEHOLDER_IMG,
+    tag: "🏆 SPORT VIBES",
+    productId: null as string | null,
+    showTag: true,
+    showTitle: true,
+  },
+  {
+    title: "Rio Carnival Glow Edition",
+    headline: "Wear the Samba. Live the Glow.",
+    sub: "Up to 40% off neon AI art that dances like Rio. Pure carnival energy, no waiting.",
+    cta: "Explorer",
+    bgGradient: "from-white via-pink-50 to-white",
+    image: PLACEHOLDER_IMG,
+    tag: "🎉 SELECTION CULTURE",
+    productId: null as string | null,
+    showTag: true,
+    showTitle: true,
+  },
+];
+
 const LOGO_URL = "/InstaWear-logo.png";
 const MOCKUP_PRESETS = [
   {
@@ -85,8 +127,6 @@ const MOCKUP_PRESETS = [
     category: "mug",
   },
 ];
-// ── Hero badges visibility switch ──
-const SHOW_HERO_BADGES = false; // passer à true pour réactiver tag + title
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes
@@ -128,6 +168,16 @@ export default function App() {
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [trackingOpen, setTrackingOpen] = useState(false);
+
+  // state pour les promotions
+  const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>(() => {
+    try {
+      const stored = localStorage.getItem("admin_hero_promotions");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderCompleted, setOrderCompleted] = useState(false);
@@ -187,11 +237,30 @@ export default function App() {
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [validEmail, setValidEmail] = useState(false);
 
-  // Load products & settings on mount
+  // effet pour rafraîchir les promotions en revenant de l'admins
   useEffect(() => {
     fetchProducts();
     fetchSettings();
+    // Refresh promotions from localStorage on mount
+    try {
+      const stored = localStorage.getItem("admin_hero_promotions");
+      if (stored) setHeroPromotions(JSON.parse(stored));
+    } catch (e) {
+      /* ignore */
+    }
   }, []);
+
+  // Refresh promotions when returning from admin to store
+  useEffect(() => {
+    if (activeTab === "store") {
+      try {
+        const stored = localStorage.getItem("admin_hero_promotions");
+        if (stored) setHeroPromotions(JSON.parse(stored));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [activeTab]);
 
   // Sync Promo Timer every second
 
@@ -588,36 +657,29 @@ export default function App() {
     return targetDate.toLocaleDateString("fr-FR", options);
   };
 
-  // Hero Carousel banners content (using placeholder images)
-  const heroBanners = [
-    {
-      title: "InstaWear Concept",
-      headline: "Wear the Moment. Grab the Energy.",
-      sub: "Up to 40% off AI-powered drops for sports, music & seasons. Premium, fast, reactive.",
-      cta: "Découvrir",
-      bgGradient: "from-white via-indigo-50 to-white",
-      image: PLACEHOLDER_IMG,
-      tag: "⚡ EN COURS DE PRODUCTION",
-    },
-    {
-      title: "UEFA Champions League Finals",
-      headline: "Wear the Final. Own the Stadium.",
-      sub: "Up to 40% off organic cotton shirts printed at lightning speed. Your color, your legend.",
-      cta: "Découvrir",
-      bgGradient: "from-white via-blue-50 to-white",
-      image: PLACEHOLDER_IMG,
-      tag: "🏆 SPORT VIBES",
-    },
-    {
-      title: "Rio Carnival Glow Edition",
-      headline: "Wear the Samba. Live the Glow.",
-      sub: "Up to 40% off neon AI art that dances like Rio. Pure carnival energy, no waiting.",
-      cta: "Explorer",
-      bgGradient: "from-white via-pink-50 to-white",
-      image: PLACEHOLDER_IMG,
-      tag: "🎉 SELECTION CULTURE",
-    },
-  ];
+  // Hero Carousel banners content (dynamic from promotions or static fallback)
+  const heroBanners = React.useMemo(() => {
+    if (heroPromotions.length === 0) {
+      return DEFAULT_HERO_BANNERS;
+    }
+    return [...heroPromotions]
+      .sort((a, b) => a.order - b.order)
+      .map((promo) => {
+        const product = products.find((p) => p.id === promo.productId);
+        return {
+          title: promo.title || product?.title || promo.headline || "Promotion",
+          headline: promo.headline || product?.title || "",
+          sub: promo.sub || product?.description || "",
+          cta: promo.cta || "Découvrir",
+          bgGradient: promo.bgGradient || "from-white via-indigo-50 to-white",
+          image: promo.image || product?.image || PLACEHOLDER_IMG,
+          tag: promo.tag || "⚡ PROMOTION",
+          productId: promo.productId,
+          showTag: promo.showTag !== false,
+          showTitle: promo.showTitle !== false,
+        };
+      });
+  }, [heroPromotions, products]);
 
   // timing pour le slide auto du carroussel :
   const [autoPlayPaused, setAutoPlayPaused] = useState(false);
@@ -797,16 +859,18 @@ export default function App() {
               {/* Desktop : layout côte à côte */}
               <div className="hidden md:flex items-center min-h-90 md:min-h-105">
                 <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
-                  {SHOW_HERO_BADGES && (
-                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4 btn-glow-white">
-                      {heroBanners[bannerIndex].tag}
-                    </span>
-                  )}
-                  {SHOW_HERO_BADGES && (
-                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5 text-glow-white">
-                      {heroBanners[bannerIndex].title}
-                    </p>
-                  )}
+                  {heroBanners[bannerIndex].showTag &&
+                    heroBanners[bannerIndex].tag && (
+                      <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                        {heroBanners[bannerIndex].tag}
+                      </span>
+                    )}
+                  {heroBanners[bannerIndex].showTitle &&
+                    heroBanners[bannerIndex].title && (
+                      <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                        {heroBanners[bannerIndex].title}
+                      </p>
+                    )}
                   <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg text-glow-white-strong">
                     {heroBanners[bannerIndex].headline}
                   </h1>
@@ -815,12 +879,23 @@ export default function App() {
                   </p>
                   <button
                     onClick={() => {
-                      if (bannerIndex === 1) setSelectedEventType("sport");
-                      else if (bannerIndex === 2)
-                        setSelectedEventType("culture");
-                      else {
-                        setSelectedEventType(null);
-                        setSelectedCategory(null);
+                      const banner = heroBanners[bannerIndex];
+                      if (banner.productId) {
+                        const target = products.find(
+                          (p) => p.id === banner.productId,
+                        );
+                        if (target) {
+                          setSelectedProduct(target);
+                          setActiveGalleryIndex(0);
+                        }
+                      } else {
+                        if (bannerIndex === 1) setSelectedEventType("sport");
+                        else if (bannerIndex === 2)
+                          setSelectedEventType("culture");
+                        else {
+                          setSelectedEventType(null);
+                          setSelectedCategory(null);
+                        }
                       }
                     }}
                     className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
@@ -853,16 +928,18 @@ export default function App() {
                 </div>
                 {/* Texte superposé à gauche */}
                 <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
-                  {SHOW_HERO_BADGES && (
-                    <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start btn-glow-white">
-                      {heroBanners[bannerIndex].tag}
-                    </span>
-                  )}
-                  {SHOW_HERO_BADGES && (
-                    <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5 text-glow-white">
-                      {heroBanners[bannerIndex].title}
-                    </p>
-                  )}
+                  {heroBanners[bannerIndex].showTag &&
+                    heroBanners[bannerIndex].tag && (
+                      <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
+                        {heroBanners[bannerIndex].tag}
+                      </span>
+                    )}
+                  {heroBanners[bannerIndex].showTitle &&
+                    heroBanners[bannerIndex].title && (
+                      <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                        {heroBanners[bannerIndex].title}
+                      </p>
+                    )}
                   <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%] text-glow-white-strong">
                     {heroBanners[bannerIndex].headline}
                   </h1>
@@ -872,18 +949,29 @@ export default function App() {
                   {/* Button CTA */}
                   <button
                     onClick={() => {
-                      if (bannerIndex === 1) setSelectedEventType("sport");
-                      else if (bannerIndex === 2)
-                        setSelectedEventType("culture");
-                      else {
-                        setSelectedEventType(null);
-                        setSelectedCategory(null);
+                      const banner = heroBanners[bannerIndex];
+                      if (banner.productId) {
+                        const target = products.find(
+                          (p) => p.id === banner.productId,
+                        );
+                        if (target) {
+                          setSelectedProduct(target);
+                          setActiveGalleryIndex(0);
+                        }
+                      } else {
+                        if (bannerIndex === 1) setSelectedEventType("sport");
+                        else if (bannerIndex === 2)
+                          setSelectedEventType("culture");
+                        else {
+                          setSelectedEventType(null);
+                          setSelectedCategory(null);
+                        }
                       }
                     }}
-                    className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-5 py-3 rounded-full btn-glow-white uppercase tracking-wider flex items-center gap-2 z-10 whitespace-nowrap"
+                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
                   >
                     <span>{heroBanners[bannerIndex].cta}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
               </div>
