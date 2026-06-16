@@ -721,7 +721,7 @@ export default function AdminDashboard({
               }}
             >
               {navStack.map((s, i) => (
-                <React.Fragment key={s}>
+                <React.Fragment key={`${s}-${i}`}>
                   {i > 0 && (
                     <ChevronRight
                       size={12}

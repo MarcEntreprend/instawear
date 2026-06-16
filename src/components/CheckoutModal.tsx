@@ -116,7 +116,7 @@ export default function CheckoutModal({
     try {
       await orderApi.create({
         id: newOrderId,
-        clientId: "guest",
+        clientId: null, // commande invité => pas de client_id
         clientName: name,
         clientEmail: email || null,
         createdAt: now.toISOString(),

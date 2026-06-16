@@ -22,13 +22,16 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
 Local: http://localhost:5173/
 ➜ Network: http://192.168.15.2:5173/
 
-# structure arborescente
+# Structure arborescente
 
 ```
 instawear/
+├── assets/
+│   └── .aistudio
 ├── data/
 │   ├── products.json
 │   └── settings.json
+├── node_modules/
 ├── public/
 │   ├── InstaWear-logo-settings.png
 │   ├── InstaWear-logo-wh-middle-no-BG.png
@@ -40,15 +43,18 @@ instawear/
 │   │   ├── AdminSidebar.tsx
 │   │   ├── AdminUsersPage.tsx
 │   │   ├── CustomersPage.tsx
+│   │   ├── HelpPage.tsx
+│   │   ├── IntegrationsPage.tsx
 │   │   ├── OrdersPage.tsx
-│   │   ├── ProductFormModal.tsx
 │   │   ├── ProductFormPanel.tsx
 │   │   ├── ProductsPage.tsx
+│   │   ├── PromotionsPage.tsx
+│   │   ├── ReportsPage.tsx
 │   │   ├── SettingsPage.tsx
-│   │   ├── adminApi.ts
 │   │   ├── adminHooks.ts
-│   │   ├── adminMocks.ts
 │   │   └── adminTypes.ts
+│   ├── api/
+│   │   └── supabaseApi.ts
 │   ├── components/
 │   │   ├── AuthModal.tsx
 │   │   ├── CartDrawer.tsx
@@ -63,23 +69,26 @@ instawear/
 │   │   └── TagInput.tsx
 │   ├── data/
 │   │   ├── defaultProducts.ts
-│   │   ├── mockDatabase.ts
 │   │   └── staticData.ts
 │   ├── hooks/
 │   │   └── useLocalStorage.ts
+│   ├── lib/
+│   │   └── supabaseClient.ts
 │   ├── App.tsx
 │   ├── index.css
 │   ├── main.tsx
 │   ├── types.ts
 │   └── vite-env.d.ts
+├── .env
 ├── .env.example
 ├── .gitignore
+├── AGENT.md
 ├── Doc-specification-technique.md
-├── README.md
 ├── index.html
 ├── metadata.json
 ├── package-lock.json
 ├── package.json
+├── README.md
 ├── server.ts
 ├── tsconfig.json
 └── vite.config.ts

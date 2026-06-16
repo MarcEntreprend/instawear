@@ -1,7 +1,10 @@
+// src\admin\PromotionsPage.tsx
+
 import React, { useState, useMemo } from "react";
 import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
 import type { HeroPromotion } from "./adminTypes";
-import { MOCK_PRODUCTS } from "../data/mockDatabase";
+import { productApi } from "../api/supabaseApi";
+import type { AdminProduct } from "./adminTypes";
 
 const STORAGE_KEY = "admin_hero_promotions";
 
@@ -30,23 +33,12 @@ export default function PromotionsPage() {
     showTitle: true,
   });
 
-  // Merge all products (mock + local) for the product selector
-  const allProducts = useMemo(() => {
-    const base = [...MOCK_PRODUCTS];
-    try {
-      const stored = localStorage.getItem("admin_products");
-      if (stored) {
-        const localProducts = JSON.parse(stored);
-        localProducts.forEach((ap: any) => {
-          const idx = base.findIndex((p) => p.id === ap.id);
-          if (idx > -1) base[idx] = ap;
-          else base.push(ap);
-        });
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    return base;
+  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
+  useEffect(() => {
+    productApi
+      .list()
+      .then(setAllProducts)
+      .catch(() => setAllProducts([]));
   }, []);
 
   const persist = (newPromos: HeroPromotion[]) => {
@@ -541,3 +533,6 @@ const arrowBtn: React.CSSProperties = {
   color: "var(--color-ink4)",
   display: "flex",
 };
+function useEffect(arg0: () => void, arg1: never[]) {
+  throw new Error("Function not implemented.");
+}

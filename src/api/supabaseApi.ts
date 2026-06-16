@@ -403,8 +403,21 @@ export const podApi = {
       .from("pod_settings")
       .select("*")
       .limit(1)
-      .single();
-    if (error || !data) throw error || new Error("No settings");
+      .maybeSingle(); // ne jette pas d'erreur si aucune ligne
+    if (error) throw error;
+    // Si aucune ligne, retourner les valeurs par défaut
+    if (!data) {
+      return {
+        id: "pod-main",
+        apiKey: "",
+        storeId: undefined,
+        storeName: "InstaWear Boutique",
+        isConnected: false,
+        lastSyncAt: undefined,
+        productsSyncedCount: 0,
+        syncStatus: "idle",
+      };
+    }
     return {
       id: data.id,
       apiKey: data.api_key,

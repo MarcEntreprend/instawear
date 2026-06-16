@@ -38,7 +38,6 @@ import {
   Facebook,
 } from "lucide-react";
 import Header from "./components/Header";
-import { MOCK_PRODUCTS } from "./data/mockDatabase";
 import { FAQS } from "./data/staticData";
 import AuthModal from "./components/AuthModal";
 import CheckoutModal from "./components/CheckoutModal";
@@ -369,41 +368,18 @@ export default function App() {
     }, 4500);
   };
 
+  // Récupère les produits depuis Supabase (base de données réelle)
   const fetchProducts = async () => {
     setLoadingProducts(true);
     try {
-      const res = await fetch("/api/products");
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(data);
-      } else {
-        mergeLocalProducts();
-      }
+      const data = await productApi.list();
+      setProducts(data);
     } catch (err) {
-      console.warn("API indisponible, chargement des produits mockés :", err);
-      mergeLocalProducts();
+      console.warn("Erreur chargement produits Supabase, fallback vide :", err);
+      setProducts([]);
     } finally {
       setLoadingProducts(false);
     }
-  };
-
-  // Merge MOCK_PRODUCTS with admin custom products stored in localStorage.
-  const mergeLocalProducts = () => {
-    const base = [...MOCK_PRODUCTS];
-    try {
-      const stored = localStorage.getItem("admin_products");
-      if (stored) {
-        const adminProducts = JSON.parse(stored) as typeof MOCK_PRODUCTS;
-        adminProducts.forEach((ap) => {
-          const idx = base.findIndex((p) => p.id === ap.id);
-          if (idx > -1) base[idx] = ap;
-          else base.push(ap);
-        });
-      }
-    } catch (e) {
-      console.warn("Could not merge admin products", e);
-    }
-    setProducts(base);
   };
 
   const fetchSettings = async () => {
