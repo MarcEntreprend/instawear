@@ -23,7 +23,7 @@ import {
   adminUserApi,
   storeSettingsApi,
   dashboardApi,
-} from "./adminApi";
+} from "../api/supabaseApi";
 
 // ─── Generic async hook ───────────────────────────────────────────────────
 function useAsync<T>(

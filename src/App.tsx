@@ -46,8 +46,9 @@ import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
-import { useLocalStorage } from "./hooks/useLocalStorage";
 import { Product, CartItem, PrintfulSettings } from "./types";
+import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
+import { productApi } from "./api/supabaseApi"; // Récupération des produits depuis Supabase
 import type { HeroPromotion } from "./admin/adminTypes";
 
 // Preset mockup templates with placeholder images
@@ -141,9 +142,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false); // état isAdmin et la déconnexion
   const [isUser, setIsUser] = useState(false); // état isUser pour les comptes simples
   const [userName, setUserName] = useState("");
-  const [users, setUsers] = useLocalStorage<
-    Record<string, { email: string; password: string; name: string }>
-  >("instawear-users", {});
+
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Selection/Filtering States
@@ -249,6 +248,57 @@ export default function App() {
       /* ignore */
     }
   }, []);
+
+  // Écouter les changements de session Supabase (authentification)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        // Vérifier si l'utilisateur connecté est admin
+        supabase
+          .from("admin_users")
+          .select("role")
+          .eq("email", session.user.email)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setIsAdmin(true);
+              setIsUser(false);
+            } else {
+              setIsUser(true);
+              setIsAdmin(false);
+            }
+          });
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user?.email) {
+          supabase
+            .from("admin_users")
+            .select("role")
+            .eq("email", session.user.email)
+            .single()
+            .then(({ data }) => {
+              if (data) {
+                setIsAdmin(true);
+                setIsUser(false);
+              } else {
+                setIsUser(true);
+                setIsAdmin(false);
+              }
+            });
+        } else {
+          setIsAdmin(false);
+          setIsUser(false);
+        }
+      },
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []); // Se lance au montage une seule fois
 
   // Refresh promotions when returning from admin to store
   useEffect(() => {
@@ -2379,8 +2429,6 @@ export default function App() {
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
-          users={users}
-          onSaveUser={(email, user) => setUsers({ ...users, [email]: user })}
           onLoginSuccess={(isAdminLogin, name) => {
             if (isAdminLogin) {
               setIsAdmin(true);

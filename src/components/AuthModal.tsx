@@ -1,210 +1,147 @@
+/**
+ * AuthModal.tsx - Authentification via Supabase Auth (remplace l'ancien système localStorage)
+ */
 import React, { useState } from "react";
-import { X, Mail, Lock, User, ArrowRight } from "lucide-react";
-
-interface StoredUser {
-  email: string;
-  password: string;
-  name: string;
-}
+import { supabase } from "../lib/supabaseClient";
+import { X } from "lucide-react";
 
 interface AuthModalProps {
   onClose: () => void;
-  onLoginSuccess: (isAdmin: boolean, userName?: string) => void;
-  onSignUpSuccess: (userName: string) => void;
-  users: Record<string, StoredUser>;
-  onSaveUser: (email: string, user: StoredUser) => void;
+  onLoginSuccess: (isAdmin: boolean, name?: string) => void;
+  onSignUpSuccess: (name: string) => void;
 }
 
 export default function AuthModal({
   onClose,
   onLoginSuccess,
   onSignUpSuccess,
-  users,
-  onSaveUser,
 }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirm, setSignupConfirm] = useState("");
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginEmail === "Admin" && loginPassword === "789456") {
-      onLoginSuccess(true);
-      return;
-    }
-    const stored = users[loginEmail.toLowerCase()];
-    if (stored && stored.password === loginPassword) {
-      onLoginSuccess(false, stored.name || loginEmail);
-    } else {
-      alert("Identifiants incorrects.");
-    }
-  };
+    setError("");
+    setLoading(true);
 
-  const handleSignUp = (e: React.FormEvent) => {
-    e.preventDefault();
-    const email = signupEmail.trim();
-    if (!email || !signupPassword || signupPassword !== signupConfirm) {
-      alert(
-        "Veuillez remplir tous les champs et vérifier la correspondance des mots de passe.",
-      );
-      return;
+    try {
+      if (mode === "signup") {
+        // Inscription via Supabase Auth
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (signUpError) throw signUpError;
+
+        // Optionnel : créer une entrée dans la table "customers"
+        if (data.user) {
+          const { error: insertError } = await supabase
+            .from("customers")
+            .insert({ email, name });
+          if (insertError) console.warn("Erreur création client:", insertError);
+        }
+
+        onSignUpSuccess(name || email);
+      } else {
+        // Connexion via Supabase Auth
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+        if (signInError) throw signInError;
+        if (!data.user) throw new Error("Aucun utilisateur trouvé");
+
+        // Vérifier si l'utilisateur est un administrateur
+        const { data: adminData } = await supabase
+          .from("admin_users")
+          .select("role")
+          .eq("email", email)
+          .single();
+
+        const isAdmin = !!adminData;
+        onLoginSuccess(isAdmin, name || email);
+      }
+    } catch (err: any) {
+      setError(err.message || "Erreur d'authentification");
+    } finally {
+      setLoading(false);
     }
-    if (email.toLowerCase() === "admin") {
-      alert("Ce nom d'utilisateur est réservé.");
-      return;
-    }
-    if (users[email.toLowerCase()]) {
-      alert("Un compte existe déjà avec cet email.");
-      return;
-    }
-    const newUser: StoredUser = {
-      email,
-      password: signupPassword,
-      name: email.split("@")[0],
-    };
-    onSaveUser(email.toLowerCase(), newUser);
-    onSignUpSuccess(newUser.name);
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative animate-fade-up"
-        style={{ border: "1px solid var(--color-border)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-500"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
         >
-          <X size={18} />
+          <X size={20} />
         </button>
-
-        <h2 className="text-xl font-black text-gray-900 mb-4">
+        <h2 className="text-xl font-bold mb-4">
           {mode === "login" ? "Connexion" : "Inscription"}
         </h2>
-
-        {mode === "login" ? (
-          <form onSubmit={handleLogin} className="space-y-4">
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "signup" && (
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Email
-              </label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                <Mail size={14} className="text-gray-400" />
-                <input
-                  type="text"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="bg-transparent flex-1 outline-none text-sm"
-                />
-              </div>
+              <label className="block text-xs font-bold mb-1">Nom</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-2 border rounded-lg text-sm"
+                required
+              />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Mot de passe
-              </label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                <Lock size={14} className="text-gray-400" />
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="bg-transparent flex-1 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
-              style={{ background: "var(--color-accent)" }}
-            >
-              Se connecter <ArrowRight size={15} />
-            </button>
-            <p className="text-xs text-center text-gray-500">
-              Pas encore de compte ?{" "}
-              <button
-                type="button"
-                className="font-semibold underline"
-                style={{ color: "var(--color-accent)" }}
-                onClick={() => setMode("signup")}
-              >
-                S'inscrire
-              </button>
-            </p>
-          </form>
-        ) : (
-          <form onSubmit={handleSignUp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Email
-              </label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                <Mail size={14} className="text-gray-400" />
-                <input
-                  type="text"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  className="bg-transparent flex-1 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Mot de passe
-              </label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                <Lock size={14} className="text-gray-400" />
-                <input
-                  type="password"
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  className="bg-transparent flex-1 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Confirmer
-              </label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                <Lock size={14} className="text-gray-400" />
-                <input
-                  type="password"
-                  value={signupConfirm}
-                  onChange={(e) => setSignupConfirm(e.target.value)}
-                  className="bg-transparent flex-1 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
-              style={{ background: "var(--color-accent)" }}
-            >
-              Créer un compte <User size={15} />
-            </button>
-            <p className="text-xs text-center text-gray-500">
-              Déjà un compte ?{" "}
-              <button
-                type="button"
-                className="font-semibold underline"
-                style={{ color: "var(--color-accent)" }}
-                onClick={() => setMode("login")}
-              >
-                Se connecter
-              </button>
-            </p>
-          </form>
-        )}
+          )}
+          <div>
+            <label className="block text-xs font-bold mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2 border rounded-lg text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1">Mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border rounded-lg text-sm"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+          >
+            {loading
+              ? "Chargement..."
+              : mode === "login"
+                ? "Se connecter"
+                : "S'inscrire"}
+          </button>
+        </form>
+        <button
+          onClick={() => {
+            setMode(mode === "login" ? "signup" : "login");
+            setError("");
+          }}
+          className="mt-3 text-sm text-orange-500 hover:underline"
+        >
+          {mode === "login"
+            ? "Créer un compte"
+            : "Déjà un compte ? Se connecter"}
+        </button>
       </div>
     </div>
   );

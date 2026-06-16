@@ -10,6 +10,7 @@ import {
   Truck,
   MapPin,
 } from "lucide-react";
+import { orderApi } from "../api/supabaseApi";
 
 interface TrackedOrder {
   id: string;
@@ -51,27 +52,49 @@ export default function OrderTrackingModal({
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [error, setError] = useState("");
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     setError("");
     setOrder(null);
     const code = input.trim();
     if (!code) return;
 
-    // Cherche dans le localStorage (commandes passées via le checkout)
     try {
-      const stored = localStorage.getItem("instawear-orders");
-      if (stored) {
-        const orders: TrackedOrder[] = JSON.parse(stored);
-        const found = orders.find((o) => o.id === code);
-        if (found) {
-          setOrder(found);
-          return;
-        }
+      // orderApi est déjà importé en haut du fichier
+      const found = await orderApi.get(code);
+      if (found) {
+        // Convertir l'objet Order (Supabase) en TrackedOrder (format du composant)
+        const tracked: TrackedOrder = {
+          id: found.id,
+          clientName: found.clientName || found.shippingAddress?.fullName || "",
+          clientEmail: found.clientEmail || null,
+          clientPhone: found.shippingAddress?.phone || "",
+          createdAt: found.createdAt,
+          status: found.status,
+          totalAmount: found.totalAmount,
+          shippingCost: found.shippingCost,
+          address: found.shippingAddress
+            ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
+            : null,
+          message: found.notes || null,
+          items: found.items.map((item) => ({
+            productId: item.productId,
+            title: item.productTitle || item.productId,
+            selectedColor: item.selectedColor,
+            selectedSize: item.selectedSize,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+        };
+        setOrder(tracked);
+      } else {
+        setError(
+          "Aucune commande trouvée avec ce code. Vérifiez votre référence.",
+        );
       }
-    } catch (e) {
-      // ignore
+    } catch (err) {
+      setError("Erreur lors de la recherche de la commande.");
+      console.error(err);
     }
-    setError("Aucune commande trouvée avec ce code. Vérifiez votre référence.");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
