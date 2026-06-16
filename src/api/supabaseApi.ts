@@ -139,16 +139,28 @@ export const productApi = {
     const { data, error } = await supabase
       .from("products")
       .update({
-        ...updates,
         is_active: updates.isActive,
+        title: updates.title,
+        brand: updates.brand,
+        description: updates.description,
         full_description: updates.fullDescription,
+        image: updates.image,
+        gallery: updates.gallery,
+        mockup_preset: updates.mockupPreset,
+        price: updates.price,
         original_price: updates.originalPrice,
         in_stock: updates.inStock,
         stock_quantity: updates.stockQuantity,
+        colors: updates.colors,
         color_names: updates.colorNames,
+        sizes: updates.sizes,
         size_surcharge: updates.sizeSurcharge,
         size_guide: updates.sizeGuide,
+        category: updates.category,
         event_type: updates.eventType,
+        style: updates.style,
+        material: updates.material,
+        tags: updates.tags,
         is_best_seller: updates.isBestSeller,
         is_limited_time: updates.isLimitedTime,
         deal_active: updates.dealActive,
@@ -558,6 +570,31 @@ export const dashboardApi = {
       recentOrders: orders.slice(0, 5),
       recentProducts: products.slice(0, 4),
     };
+  },
+
+  async getOrdersByDay(
+    days: number,
+  ): Promise<{ date: string; count: number }[]> {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const { data, error } = await supabase
+      .from("orders")
+      .select("created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((o: any) => {
+      const day = o.created_at.split("T")[0]; // extraire YYYY-MM-DD
+      counts[day] = (counts[day] || 0) + 1;
+    });
+    // Remplir tous les jours sur la période, même sans commande
+    const result: { date: string; count: number }[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      const key = d.toISOString().split("T")[0];
+      result.push({ date: key, count: counts[key] || 0 });
+    }
+    return result;
   },
 };
 
