@@ -54,46 +54,6 @@ import type { HeroPromotion } from "./admin/adminTypes";
 const PLACEHOLDER_IMG =
   "https://i5.walmartimages.com/seo/Haiti-Haitian-Flag-Coat-of-Arms-Red-Men-Zipper-T-shirt-Summer-Casual-Short-Sleeve-T-shirt-Top_4abff044-fb73-40b5-b666-b1d93754eb3b.c531c430d04c42d5dc091756c19ffccc.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF";
 
-// Default static banners used as fallback if no promotions are configured
-const DEFAULT_HERO_BANNERS = [
-  {
-    title: "InstaWear Concept",
-    headline: "Wear the Moment. Grab the Energy.",
-    sub: "Up to 40% off AI-powered drops for sports, music & seasons. Premium, fast, reactive.",
-    cta: "Découvrir",
-    bgGradient: "from-white via-indigo-50 to-white",
-    image: PLACEHOLDER_IMG,
-    tag: "⚡ EN COURS DE PRODUCTION",
-    productId: null as string | null,
-    showTag: true,
-    showTitle: true,
-  },
-  {
-    title: "UEFA Champions League Finals",
-    headline: "Wear the Final. Own the Stadium.",
-    sub: "Up to 40% off organic cotton shirts printed at lightning speed. Your color, your legend.",
-    cta: "Découvrir",
-    bgGradient: "from-white via-blue-50 to-white",
-    image: PLACEHOLDER_IMG,
-    tag: "🏆 SPORT VIBES",
-    productId: null as string | null,
-    showTag: true,
-    showTitle: true,
-  },
-  {
-    title: "Rio Carnival Glow Edition",
-    headline: "Wear the Samba. Live the Glow.",
-    sub: "Up to 40% off neon AI art that dances like Rio. Pure carnival energy, no waiting.",
-    cta: "Explorer",
-    bgGradient: "from-white via-pink-50 to-white",
-    image: PLACEHOLDER_IMG,
-    tag: "🎉 SELECTION CULTURE",
-    productId: null as string | null,
-    showTag: true,
-    showTitle: true,
-  },
-];
-
 const LOGO_URL = "/InstaWear-logo.png";
 const MOCKUP_PRESETS = [
   {
@@ -168,14 +128,8 @@ export default function App() {
   const [trackingOpen, setTrackingOpen] = useState(false);
 
   // state pour les promotions
-  const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>(() => {
-    try {
-      const stored = localStorage.getItem("admin_hero_promotions");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderCompleted, setOrderCompleted] = useState(false);
@@ -239,11 +193,11 @@ export default function App() {
   useEffect(() => {
     fetchProducts();
     fetchSettings();
-    // Charger les promotions depuis Supabase
     heroPromotionsApi
       .list()
       .then(setHeroPromotions)
-      .catch(() => setHeroPromotions([]));
+      .catch(() => setHeroPromotions([]))
+      .finally(() => setPromotionsLoading(false));
   }, []);
 
   // Écouter les changements de session Supabase (authentification)
@@ -296,18 +250,6 @@ export default function App() {
       authListener?.subscription.unsubscribe();
     };
   }, []); // Se lance au montage une seule fois
-
-  // Refresh promotions when returning from admin to store
-  useEffect(() => {
-    if (activeTab === "store") {
-      try {
-        const stored = localStorage.getItem("admin_hero_promotions");
-        if (stored) setHeroPromotions(JSON.parse(stored));
-      } catch (e) {
-        /* ignore */
-      }
-    }
-  }, [activeTab]);
 
   // Sync Promo Timer every second
 
@@ -681,11 +623,8 @@ export default function App() {
     return targetDate.toLocaleDateString("fr-FR", options);
   };
 
-  // Hero Carousel banners content (dynamic from promotions or static fallback)
+  // Hero Carousel banners content
   const heroBanners = React.useMemo(() => {
-    if (heroPromotions.length === 0) {
-      return DEFAULT_HERO_BANNERS;
-    }
     return [...heroPromotions]
       .sort((a, b) => a.order - b.order)
       .map((promo) => {
@@ -829,192 +768,194 @@ export default function App() {
           id="view-customer-storefront"
         >
           {/* Dynamic Hero Carousel Banner */}
-          <section
-            className="relative section-container mt-6 px-4"
-            onMouseEnter={() => setAutoPlayPaused(true)}
-            onMouseLeave={() => setAutoPlayPaused(false)}
-          >
-            <div
-              className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 relative min-h-90 md:min-h-105 transition-all duration-700`}
+          {!promotionsLoading && heroBanners.length > 0 && (
+            <section
+              className="relative section-container mt-6 px-4"
+              onMouseEnter={() => setAutoPlayPaused(true)}
+              onMouseLeave={() => setAutoPlayPaused(false)}
             >
-              {/* Boutons de navigation */}
-              <button
-                onClick={() => {
-                  pauseAutoPlay();
-                  setBannerIndex(
-                    (prev) =>
-                      (prev - 1 + heroBanners.length) % heroBanners.length,
-                  );
-                }}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+              <div
+                className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 relative min-h-90 md:min-h-105 transition-all duration-700`}
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => {
-                  pauseAutoPlay();
-                  setBannerIndex((prev) => (prev + 1) % heroBanners.length);
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              {/* Zones tactiles */}
-              <button
-                onClick={() => {
-                  pauseAutoPlay();
-                  setBannerIndex(
-                    (prev) =>
-                      (prev - 1 + heroBanners.length) % heroBanners.length,
-                  );
-                }}
-                className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-                aria-label="Diapositive précédente"
-              />
-              <button
-                onClick={() => {
-                  pauseAutoPlay();
-                  setBannerIndex((prev) => (prev + 1) % heroBanners.length);
-                }}
-                className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-                aria-label="Diapositive suivante"
-              />
+                {/* Boutons de navigation */}
+                <button
+                  onClick={() => {
+                    pauseAutoPlay();
+                    setBannerIndex(
+                      (prev) =>
+                        (prev - 1 + heroBanners.length) % heroBanners.length,
+                    );
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    pauseAutoPlay();
+                    setBannerIndex((prev) => (prev + 1) % heroBanners.length);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                {/* Zones tactiles */}
+                <button
+                  onClick={() => {
+                    pauseAutoPlay();
+                    setBannerIndex(
+                      (prev) =>
+                        (prev - 1 + heroBanners.length) % heroBanners.length,
+                    );
+                  }}
+                  className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
+                  aria-label="Diapositive précédente"
+                />
+                <button
+                  onClick={() => {
+                    pauseAutoPlay();
+                    setBannerIndex((prev) => (prev + 1) % heroBanners.length);
+                  }}
+                  className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
+                  aria-label="Diapositive suivante"
+                />
 
-              {/* Desktop : layout côte à côte */}
-              <div className="hidden md:flex items-center min-h-90 md:min-h-105">
-                <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
-                  {heroBanners[bannerIndex].showTag &&
-                    heroBanners[bannerIndex].tag && (
-                      <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
-                        {heroBanners[bannerIndex].tag}
-                      </span>
-                    )}
-                  {heroBanners[bannerIndex].showTitle &&
-                    heroBanners[bannerIndex].title && (
-                      <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                        {heroBanners[bannerIndex].title}
-                      </p>
-                    )}
-                  <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg text-glow-white-strong">
-                    {heroBanners[bannerIndex].headline}
-                  </h1>
-                  <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans text-glow-white">
-                    {heroBanners[bannerIndex].sub}
-                  </p>
-                  <button
-                    onClick={() => {
-                      const banner = heroBanners[bannerIndex];
-                      if (banner.productId) {
-                        const target = products.find(
-                          (p) => p.id === banner.productId,
-                        );
-                        if (target) {
-                          setSelectedProduct(target);
-                          setActiveGalleryIndex(0);
+                {/* Desktop : layout côte à côte */}
+                <div className="hidden md:flex items-center min-h-90 md:min-h-105">
+                  <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
+                    {heroBanners[bannerIndex].showTag &&
+                      heroBanners[bannerIndex].tag && (
+                        <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+                          {heroBanners[bannerIndex].tag}
+                        </span>
+                      )}
+                    {heroBanners[bannerIndex].showTitle &&
+                      heroBanners[bannerIndex].title && (
+                        <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                          {heroBanners[bannerIndex].title}
+                        </p>
+                      )}
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg text-glow-white-strong">
+                      {heroBanners[bannerIndex].headline}
+                    </h1>
+                    <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans text-glow-white">
+                      {heroBanners[bannerIndex].sub}
+                    </p>
+                    <button
+                      onClick={() => {
+                        const banner = heroBanners[bannerIndex];
+                        if (banner.productId) {
+                          const target = products.find(
+                            (p) => p.id === banner.productId,
+                          );
+                          if (target) {
+                            setSelectedProduct(target);
+                            setActiveGalleryIndex(0);
+                          }
+                        } else {
+                          if (bannerIndex === 1) setSelectedEventType("sport");
+                          else if (bannerIndex === 2)
+                            setSelectedEventType("culture");
+                          else {
+                            setSelectedEventType(null);
+                            setSelectedCategory(null);
+                          }
                         }
-                      } else {
-                        if (bannerIndex === 1) setSelectedEventType("sport");
-                        else if (bannerIndex === 2)
-                          setSelectedEventType("culture");
-                        else {
-                          setSelectedEventType(null);
-                          setSelectedCategory(null);
-                        }
-                      }
-                    }}
-                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
-                  >
-                    <span>{heroBanners[bannerIndex].cta}</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                      }}
+                      className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
+                    >
+                      <span>{heroBanners[bannerIndex].cta}</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                  <div className="relative flex-1 h-full flex items-center justify-center p-8 overflow-hidden select-none">
+                    <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
+                    <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
+                    <img
+                      src={heroBanners[bannerIndex].image}
+                      alt={heroBanners[bannerIndex].headline}
+                      className="absolute inset-0 z-2 w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
+                    />
+                  </div>
                 </div>
-                <div className="relative flex-1 h-full flex items-center justify-center p-8 overflow-hidden select-none">
-                  <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
-                  <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
-                  <img
-                    src={heroBanners[bannerIndex].image}
-                    alt={heroBanners[bannerIndex].headline}
-                    className="absolute inset-0 z-2 w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
-                  />
+
+                {/* Mobile : image en arrière-plan, texte superposé */}
+                <div className="flex md:hidden relative min-h-90">
+                  {/* Image à droite avec fondu à gauche */}
+                  <div className="absolute inset-y-0 right-0 w-3/5 overflow-hidden">
+                    <img
+                      src={heroBanners[bannerIndex].image}
+                      alt={heroBanners[bannerIndex].headline}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
+                  </div>
+                  {/* Texte superposé à gauche */}
+                  <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
+                    {heroBanners[bannerIndex].showTag &&
+                      heroBanners[bannerIndex].tag && (
+                        <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
+                          {heroBanners[bannerIndex].tag}
+                        </span>
+                      )}
+                    {heroBanners[bannerIndex].showTitle &&
+                      heroBanners[bannerIndex].title && (
+                        <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
+                          {heroBanners[bannerIndex].title}
+                        </p>
+                      )}
+                    <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%] text-glow-white-strong">
+                      {heroBanners[bannerIndex].headline}
+                    </h1>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%] text-glow-white">
+                      {heroBanners[bannerIndex].sub}
+                    </p>
+                    {/* Button CTA */}
+                    <button
+                      onClick={() => {
+                        const banner = heroBanners[bannerIndex];
+                        if (banner.productId) {
+                          const target = products.find(
+                            (p) => p.id === banner.productId,
+                          );
+                          if (target) {
+                            setSelectedProduct(target);
+                            setActiveGalleryIndex(0);
+                          }
+                        } else {
+                          if (bannerIndex === 1) setSelectedEventType("sport");
+                          else if (bannerIndex === 2)
+                            setSelectedEventType("culture");
+                          else {
+                            setSelectedEventType(null);
+                            setSelectedCategory(null);
+                          }
+                        }
+                      }}
+                      className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
+                    >
+                      <span>{heroBanners[bannerIndex].cta}</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Slider index */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+                  {heroBanners.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        pauseAutoPlay();
+                        setBannerIndex(i);
+                      }}
+                      className={`h-1.5 rounded-full transition-all ${bannerIndex === i ? "w-6 bg-white" : "w-1.5 bg-slate-600"}`}
+                    ></button>
+                  ))}
                 </div>
               </div>
-
-              {/* Mobile : image en arrière-plan, texte superposé */}
-              <div className="flex md:hidden relative min-h-90">
-                {/* Image à droite avec fondu à gauche */}
-                <div className="absolute inset-y-0 right-0 w-3/5 overflow-hidden">
-                  <img
-                    src={heroBanners[bannerIndex].image}
-                    alt={heroBanners[bannerIndex].headline}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
-                </div>
-                {/* Texte superposé à gauche */}
-                <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
-                  {heroBanners[bannerIndex].showTag &&
-                    heroBanners[bannerIndex].tag && (
-                      <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
-                        {heroBanners[bannerIndex].tag}
-                      </span>
-                    )}
-                  {heroBanners[bannerIndex].showTitle &&
-                    heroBanners[bannerIndex].title && (
-                      <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                        {heroBanners[bannerIndex].title}
-                      </p>
-                    )}
-                  <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%] text-glow-white-strong">
-                    {heroBanners[bannerIndex].headline}
-                  </h1>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%] text-glow-white">
-                    {heroBanners[bannerIndex].sub}
-                  </p>
-                  {/* Button CTA */}
-                  <button
-                    onClick={() => {
-                      const banner = heroBanners[bannerIndex];
-                      if (banner.productId) {
-                        const target = products.find(
-                          (p) => p.id === banner.productId,
-                        );
-                        if (target) {
-                          setSelectedProduct(target);
-                          setActiveGalleryIndex(0);
-                        }
-                      } else {
-                        if (bannerIndex === 1) setSelectedEventType("sport");
-                        else if (bannerIndex === 2)
-                          setSelectedEventType("culture");
-                        else {
-                          setSelectedEventType(null);
-                          setSelectedCategory(null);
-                        }
-                      }
-                    }}
-                    className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
-                  >
-                    <span>{heroBanners[bannerIndex].cta}</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Slider index */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-                {heroBanners.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      pauseAutoPlay();
-                      setBannerIndex(i);
-                    }}
-                    className={`h-1.5 rounded-full transition-all ${bannerIndex === i ? "w-6 bg-white" : "w-1.5 bg-slate-600"}`}
-                  ></button>
-                ))}
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Core Today deals segment & countdown triggers */}
           {(!dealExpired || dealFadingOut) && (
