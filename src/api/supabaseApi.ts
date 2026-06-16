@@ -13,6 +13,7 @@ import type {
   DashboardStats,
   Favourite,
   AdminCartItem,
+  HeroPromotion,
 } from "../admin/adminTypes";
 
 // ─── Helpers de mapping ──────────────────────────────────────────────────
@@ -79,6 +80,22 @@ const mapOrder = (row: any): Order => ({
   externalOrderId: row.external_order_id,
   notes: row.notes,
   items: [], // à remplir séparément
+});
+
+//  fonction helper
+const mapHeroPromotion = (row: any): HeroPromotion => ({
+  id: row.id,
+  productId: row.product_id,
+  title: row.title,
+  headline: row.headline,
+  sub: row.sub,
+  cta: row.cta,
+  bgGradient: row.bg_gradient,
+  tag: row.tag,
+  image: row.image,
+  order: row.order,
+  showTag: row.show_tag,
+  showTitle: row.show_title,
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -646,5 +663,77 @@ export const adminUserApi = {
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from("admin_users").delete().eq("id", id);
     if (error) throw error;
+  },
+};
+// ─── Hero Promotions ───────────────────────────────────────────────────
+export const heroPromotionsApi = {
+  async list(): Promise<HeroPromotion[]> {
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .select("*")
+      .order("order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(mapHeroPromotion);
+  },
+  async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .insert({
+        product_id: promo.productId,
+        title: promo.title,
+        headline: promo.headline,
+        sub: promo.sub,
+        cta: promo.cta,
+        bg_gradient: promo.bgGradient,
+        tag: promo.tag,
+        image: promo.image,
+        order: promo.order,
+        show_tag: promo.showTag,
+        show_title: promo.showTitle,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return mapHeroPromotion(data);
+  },
+  async update(
+    id: string,
+    promo: Partial<HeroPromotion>,
+  ): Promise<HeroPromotion> {
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .update({
+        product_id: promo.productId,
+        title: promo.title,
+        headline: promo.headline,
+        sub: promo.sub,
+        cta: promo.cta,
+        bg_gradient: promo.bgGradient,
+        tag: promo.tag,
+        image: promo.image,
+        order: promo.order,
+        show_tag: promo.showTag,
+        show_title: promo.showTitle,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapHeroPromotion(data);
+  },
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("hero_promotions")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+  async reorder(ids: string[]): Promise<void> {
+    for (let i = 0; i < ids.length; i++) {
+      await supabase
+        .from("hero_promotions")
+        .update({ order: i })
+        .eq("id", ids[i]);
+    }
   },
 };

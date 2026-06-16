@@ -47,7 +47,7 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
-import { productApi } from "./api/supabaseApi"; // Récupération des produits depuis Supabase
+import { productApi, heroPromotionsApi } from "./api/supabaseApi";
 import type { HeroPromotion } from "./admin/adminTypes";
 
 // Preset mockup templates with placeholder images
@@ -235,17 +235,15 @@ export default function App() {
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [validEmail, setValidEmail] = useState(false);
 
-  // effet pour rafraîchir les promotions en revenant de l'admins
+  // les promotions
   useEffect(() => {
     fetchProducts();
     fetchSettings();
-    // Refresh promotions from localStorage on mount
-    try {
-      const stored = localStorage.getItem("admin_hero_promotions");
-      if (stored) setHeroPromotions(JSON.parse(stored));
-    } catch (e) {
-      /* ignore */
-    }
+    // Charger les promotions depuis Supabase
+    heroPromotionsApi
+      .list()
+      .then(setHeroPromotions)
+      .catch(() => setHeroPromotions([]));
   }, []);
 
   // Écouter les changements de session Supabase (authentification)
