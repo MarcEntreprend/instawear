@@ -17,7 +17,6 @@ import {
   X,
 } from "lucide-react";
 import { usePod, useStoreSettings } from "./adminHooks";
-import { MOCK_API_CONNECTIONS } from "../data/mockDatabase";
 import { StoreSettings, SyncLog } from "./adminTypes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -107,9 +106,9 @@ export default function SettingsPage() {
   const [apiConnections, setApiConnections] = useState<ApiConnection[]>(() => {
     try {
       const stored = localStorage.getItem("admin_api_connections");
-      return stored ? JSON.parse(stored) : MOCK_API_CONNECTIONS;
+      return stored ? JSON.parse(stored) : [];
     } catch {
-      return MOCK_API_CONNECTIONS;
+      return [];
     }
   });
   const [showApiModal, setShowApiModal] = useState(false);

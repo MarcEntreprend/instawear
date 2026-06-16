@@ -12,6 +12,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import type { CartItem } from "../types";
+import { orderApi } from "../api/supabaseApi";
 
 interface CheckoutModalProps {
   cart: CartItem[];
@@ -84,7 +85,7 @@ export default function CheckoutModal({
     return text;
   };
 
-  const handleSend = (channel: "whatsapp" | "telegram" | "email") => {
+  const handleSend = async (channel: "whatsapp" | "telegram" | "email") => {
     if (!name.trim() || !phone.trim()) {
       alert("Veuillez remplir votre nom et votre téléphone.");
       return;
@@ -97,6 +98,7 @@ export default function CheckoutModal({
     const newOrderId = `ORD-${year}-${seq}`;
     setOrderId(newOrderId);
 
+    // Construction du message texte pour WhatsApp/Telegram/Email
     const text = buildOrderText(newOrderId);
     const encoded = encodeURIComponent(text);
 
@@ -110,35 +112,43 @@ export default function CheckoutModal({
       url = `mailto:${EMAIL_ADDRESS}?subject=${subject}&body=${encoded}`;
     }
 
-    // Sauvegarde la commande dans localStorage pour l'admin
+    // Sauvegarde la commande dans Supabase (base de données réelle)
     try {
-      const stored = localStorage.getItem("instawear-orders");
-      const orders = stored ? JSON.parse(stored) : [];
-      orders.push({
+      await orderApi.create({
         id: newOrderId,
+        clientId: null, // commande invité => pas de client_id
         clientName: name,
         clientEmail: email || null,
-        clientPhone: phone,
         createdAt: now.toISOString(),
         status: "pending",
         totalAmount: total,
         shippingCost,
-        address: reception === "livraison" ? address : null,
-        message,
-        items: cart.map((item) => ({
+        shippingAddress: {
+          fullName: name,
+          address: reception === "livraison" ? address : "Non renseignée",
+          city: "",
+          zip: "",
+          country: "FR",
+          phone,
+        },
+        notes: message,
+        items: cart.map((item, idx) => ({
+          id: `item-${newOrderId}-${idx}`,
+          orderId: newOrderId,
           productId: item.product.id,
-          title: item.product.title,
+          productTitle: item.product.title,
+          productImage: item.product.image || PLACEHOLDER_IMG,
           selectedColor: item.selectedColor,
           selectedSize: item.selectedSize,
           quantity: item.quantity,
           unitPrice: item.product.price,
         })),
-      });
-      localStorage.setItem("instawear-orders", JSON.stringify(orders));
+      } as any); // Le typage exact viendra de l'import réel
     } catch (e) {
-      console.warn("Impossible de sauvegarder la commande localement", e);
+      console.warn("Impossible de sauvegarder la commande dans Supabase", e);
     }
 
+    // Ouvre le lien de communication (WhatsApp, Telegram, Email)
     window.open(url, "_blank");
     setSent(true);
     onSuccess(); // vide le panier immédiatement, mais la modale reste ouverte

@@ -178,7 +178,7 @@ export interface AdminUser {
 // but is never stored in the AdminUser type returned by the API.
 export interface CreateAdminUserPayload {
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   role: AdminRole;
 }
 
