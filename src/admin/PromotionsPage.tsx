@@ -1,6 +1,6 @@
 // src\admin\PromotionsPage.tsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
 import type { HeroPromotion } from "./adminTypes";
 import { productApi } from "../api/supabaseApi";
@@ -533,6 +533,3 @@ const arrowBtn: React.CSSProperties = {
   color: "var(--color-ink4)",
   display: "flex",
 };
-function useEffect(arg0: () => void, arg1: never[]) {
-  throw new Error("Function not implemented.");
-}
