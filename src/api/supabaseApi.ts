@@ -13,6 +13,7 @@ import type {
   DashboardStats,
   Favourite,
   AdminCartItem,
+  ApiConnection,
   HeroPromotion,
 } from "../admin/adminTypes";
 
@@ -735,5 +736,101 @@ export const heroPromotionsApi = {
         .update({ order: i })
         .eq("id", ids[i]);
     }
+  },
+};
+
+export const apiConnectionsApi = {
+  async list(): Promise<ApiConnection[]> {
+    const { data, error } = await supabase
+      .from("api_connections")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      service: row.service,
+      baseUrl: row.base_url,
+      apiKey: row.api_key,
+      apiSecret: row.api_secret,
+      enabled: row.enabled,
+      lastSyncAt: row.last_sync_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+  async create(
+    api: Omit<ApiConnection, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ApiConnection> {
+    const { data, error } = await supabase
+      .from("api_connections")
+      .insert({
+        name: api.name,
+        type: api.type,
+        service: api.service,
+        base_url: api.baseUrl,
+        api_key: api.apiKey,
+        api_secret: api.apiSecret,
+        enabled: api.enabled ?? true,
+        last_sync_at: api.lastSyncAt,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      service: data.service,
+      baseUrl: data.base_url,
+      apiKey: data.api_key,
+      apiSecret: data.api_secret,
+      enabled: data.enabled,
+      lastSyncAt: data.last_sync_at,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+  async update(
+    id: string,
+    updates: Partial<ApiConnection>,
+  ): Promise<ApiConnection> {
+    const { data, error } = await supabase
+      .from("api_connections")
+      .update({
+        name: updates.name,
+        type: updates.type,
+        service: updates.service,
+        base_url: updates.baseUrl,
+        api_key: updates.apiKey,
+        api_secret: updates.apiSecret,
+        enabled: updates.enabled,
+        last_sync_at: updates.lastSyncAt,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      service: data.service,
+      baseUrl: data.base_url,
+      apiKey: data.api_key,
+      apiSecret: data.api_secret,
+      enabled: data.enabled,
+      lastSyncAt: data.last_sync_at,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("api_connections")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   },
 };

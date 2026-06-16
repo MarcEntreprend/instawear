@@ -1,6 +1,6 @@
 // src/admin/SettingsPage.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Store,
   Truck,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { usePod, useStoreSettings } from "./adminHooks";
 import { StoreSettings, SyncLog } from "./adminTypes";
+import { apiConnectionsApi } from "../api/supabaseApi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
@@ -102,15 +103,10 @@ export default function SettingsPage() {
     globalCountdownEnd: "",
   });
 
-  // States pour la gestion des API
-  const [apiConnections, setApiConnections] = useState<ApiConnection[]>(() => {
-    try {
-      const stored = localStorage.getItem("admin_api_connections");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  //
+  const [apiConnections, setApiConnections] = useState<ApiConnection[]>([]);
+  const [apiLoading, setApiLoading] = useState(true);
+
   const [showApiModal, setShowApiModal] = useState(false);
   const [editingApi, setEditingApi] = useState<ApiConnection | null>(null);
   const [apiForm, setApiForm] = useState<
@@ -123,6 +119,15 @@ export default function SettingsPage() {
     apiKey: "",
     apiSecret: "",
   });
+
+  //Charger les connexions depuis Supabase au montage
+  useEffect(() => {
+    apiConnectionsApi
+      .list()
+      .then(setApiConnections)
+      .catch(console.error)
+      .finally(() => setApiLoading(false));
+  }, []);
 
   // Effets
   React.useEffect(() => {
@@ -159,10 +164,6 @@ export default function SettingsPage() {
   };
 
   // Handlers API
-  const persistApiConnections = (connections: ApiConnection[]) => {
-    setApiConnections(connections);
-    localStorage.setItem("admin_api_connections", JSON.stringify(connections));
-  };
 
   const handleAddApi = () => {
     setEditingApi(null);
@@ -190,47 +191,49 @@ export default function SettingsPage() {
     setShowApiModal(true);
   };
 
-  const handleSaveApi = (e: React.FormEvent) => {
+  const handleSaveApi = async (e: React.FormEvent) => {
     e.preventDefault();
-    const now = new Date().toISOString();
-    if (editingApi) {
-      const updated = apiConnections.map((a) =>
-        a.id === editingApi.id ? { ...a, ...apiForm, updatedAt: now } : a,
-      );
-      persistApiConnections(updated);
-    } else {
-      const newApi: ApiConnection = {
-        ...apiForm,
-        id: `api-${Date.now()}`,
-        enabled: true,
-        createdAt: now,
-        updatedAt: now,
-      };
-      persistApiConnections([...apiConnections, newApi]);
+    try {
+      if (editingApi) {
+        const updated = await apiConnectionsApi.update(editingApi.id, apiForm);
+        setApiConnections((prev) =>
+          prev.map((a) => (a.id === updated.id ? updated : a)),
+        );
+      } else {
+        const created = await apiConnectionsApi.create(apiForm as any);
+        setApiConnections((prev) => [...prev, created]);
+      }
+      setShowApiModal(false);
+    } catch (err) {
+      console.error("Erreur sauvegarde API connection", err);
     }
-    setShowApiModal(false);
   };
 
-  const handleDeleteApi = (id: string) => {
+  const handleDeleteApi = async (id: string) => {
     if (window.confirm("Supprimer définitivement cette connexion API ?")) {
-      persistApiConnections(apiConnections.filter((a) => a.id !== id));
+      await apiConnectionsApi.delete(id);
+      setApiConnections((prev) => prev.filter((a) => a.id !== id));
     }
   };
 
-  const handleToggleApi = (id: string) => {
-    const updated = apiConnections.map((a) =>
-      a.id === id
-        ? { ...a, enabled: !a.enabled, updatedAt: new Date().toISOString() }
-        : a,
+  const handleToggleApi = async (id: string) => {
+    const api = apiConnections.find((a) => a.id === id);
+    if (!api) return;
+    const updated = await apiConnectionsApi.update(id, {
+      enabled: !api.enabled,
+    });
+    setApiConnections((prev) =>
+      prev.map((a) => (a.id === updated.id ? updated : a)),
     );
-    persistApiConnections(updated);
   };
 
   const handleSyncApi = async (id: string) => {
-    const updated = apiConnections.map((a) =>
-      a.id === id ? { ...a, lastSyncAt: new Date().toISOString() } : a,
+    const updated = await apiConnectionsApi.update(id, {
+      lastSyncAt: new Date().toISOString(),
+    });
+    setApiConnections((prev) =>
+      prev.map((a) => (a.id === updated.id ? updated : a)),
     );
-    persistApiConnections(updated);
   };
 
   const isPodConnected = podSettings?.isConnected ?? false;
@@ -627,7 +630,22 @@ export default function SettingsPage() {
         </div>
 
         <div style={{ padding: "0 0 8px" }}>
-          {apiConnections.length === 0 ? (
+          {apiLoading ? (
+            <div
+              style={{ display: "flex", justifyContent: "center", padding: 40 }}
+            >
+              <div
+                className="animate-spin"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  border: "3px solid var(--color-border)",
+                  borderTopColor: "var(--color-accent)",
+                }}
+              />
+            </div>
+          ) : apiConnections.length === 0 ? (
             <div
               style={{
                 padding: 24,
