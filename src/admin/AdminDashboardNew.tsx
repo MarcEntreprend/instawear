@@ -765,7 +765,11 @@ export default function AdminDashboard({
           </div>
 
           <button
-            onClick={onReturnToStore}
+            onClick={() => {
+              onReturnToStore();
+              // Force un rechargement complet pour rafraîchir les données depuis Supabase
+              window.location.reload();
+            }}
             style={{
               display: "flex",
               alignItems: "center",
