@@ -1,120 +1,249 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
-import type { HeroPromotion, AdminProduct } from "./adminTypes";
-import { productApi, heroPromotionsApi } from "../api/supabaseApi";
+// src/admin/ProductsPage.tsx
 
-export default function PromotionsPage() {
-  const [promotions, setPromotions] = useState<HeroPromotion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
+import React, { useState, useMemo } from "react";
+import {
+  Search,
+  Plus,
+  Edit3,
+  Copy,
+  Eye,
+  EyeOff,
+  Trash2,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Package,
+} from "lucide-react";
+import { useProducts } from "./adminHooks";
+import { AdminProduct, ProductFilterState } from "./adminTypes";
+import ProductFormPanel from "./ProductFormPanel";
 
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Partial<HeroPromotion>>({
-    productId: "",
-    title: "",
-    headline: "",
-    sub: "",
-    cta: "Découvrir",
-    bgGradient: "from-white via-indigo-50 to-white",
-    tag: "⚡ PROMOTION",
-    order: 0,
-    showTag: true,
-    showTitle: true,
+const IMG =
+  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+
+const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
+const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
+const STYLES = ["cute", "street", "commute", "cozy", "retro"];
+
+const BADGE_STYLE: Record<string, React.CSSProperties> = {
+  bestseller: { background: "#fde68a", color: "#92400e" },
+  live: { background: "#ede9fe", color: "#5b21b6" },
+  limited: { background: "#fee2e2", color: "#991b1b" },
+  inactive: { background: "#f3f4f6", color: "#6b7280" },
+  outofstock: { background: "#fff7ed", color: "#c2410c" },
+  deal: { background: "#d1fae5", color: "#065f46" },
+};
+
+function Badge({
+  label,
+  style,
+}: {
+  label: string;
+  style: React.CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 8px",
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        ...style,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+export default function ProductsPage() {
+  const {
+    products: allProducts,
+    loading,
+    saving,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    bulkDelete,
+    bulkSetActive,
+    duplicateProduct,
+  } = useProducts();
+
+  // List state
+  const [filters, setFilters] = useState<ProductFilterState>({
+    search: "",
+    category: null,
+    eventType: null,
+    style: null,
+    material: null,
+    priceMin: 0,
+    priceMax: 200,
+    inStockOnly: false,
+    size: null,
+    color: null,
+    showInactive: true,
   });
+  const [sortKey, setSortKey] = useState<keyof AdminProduct>("title");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Charger les promotions et les produits depuis Supabase
-  useEffect(() => {
-    Promise.all([heroPromotionsApi.list(), productApi.list()])
-      .then(([promos, prods]) => {
-        setPromotions(promos);
-        setAllProducts(prods);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  // Product form navigation
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  // Persister dans Supabase ET rafraîchir l'état local
-  const refresh = async () => {
-    try {
-      const promos = await heroPromotionsApi.list();
-      setPromotions(promos);
-    } catch (e) {
-      console.error(e);
+  // The product being edited (if any)
+  const editingProduct = useMemo(() => {
+    if (!editingProductId || !allProducts) return null;
+    return allProducts.find((p) => p.id === editingProductId) ?? null;
+  }, [editingProductId, allProducts]);
+
+  // ── Filter & sort ──────────────────────────────────────────────────────
+  const products = useMemo(() => {
+    if (!allProducts) return [];
+    let list = [...allProducts];
+
+    if (!filters.showInactive) list = list.filter((p) => p.isActive);
+
+    if (filters.search) {
+      const s = filters.search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(s) ||
+          p.brand.toLowerCase().includes(s) ||
+          p.tags.some((t: string) => t.toLowerCase().includes(s)),
+      );
     }
-  };
+    if (filters.category)
+      list = list.filter((p) => p.category === filters.category);
+    if (filters.eventType)
+      list = list.filter((p) => p.eventType === filters.eventType);
+    if (filters.style) list = list.filter((p) => p.style === filters.style);
+    if (filters.material)
+      list = list.filter((p) => p.material === filters.material);
+    if (filters.priceMin > 0)
+      list = list.filter((p) => p.price >= filters.priceMin);
+    if (filters.priceMax < 200)
+      list = list.filter((p) => p.price <= filters.priceMax);
+    if (filters.inStockOnly) list = list.filter((p) => p.inStock);
+    if (filters.size)
+      list = list.filter((p) => p.sizes.includes(filters.size!));
+    if (filters.color)
+      list = list.filter((p) => p.colors.includes(filters.color!));
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.productId) return;
-
-    try {
-      if (editingId) {
-        await heroPromotionsApi.update(editingId, form);
-      } else {
-        await heroPromotionsApi.create({
-          ...form,
-          productId: form.productId!,
-          order: promotions.length,
-        } as HeroPromotion);
-      }
-      await refresh();
-      resetForm();
-    } catch (err) {
-      console.error("Erreur sauvegarde promotion", err);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Supprimer cette promotion du carrousel ?")) {
-      await heroPromotionsApi.delete(id);
-      await refresh();
-    }
-  };
-
-  const move = async (index: number, direction: -1 | 1) => {
-    const list = [...promotions];
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= list.length) return;
-    [list[index], list[newIndex]] = [list[newIndex], list[index]];
-    const reordered = list.map((p, i) => ({ ...p, order: i }));
-    setPromotions(reordered);
-    try {
-      await heroPromotionsApi.reorder(reordered.map((p) => p.id));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleEdit = (promo: HeroPromotion) => {
-    setForm(promo);
-    setEditingId(promo.id);
-    setShowForm(true);
-  };
-
-  const resetForm = () => {
-    setForm({
-      productId: "",
-      title: "",
-      headline: "",
-      sub: "",
-      cta: "Découvrir",
-      bgGradient: "from-white via-indigo-50 to-white",
-      tag: "⚡ PROMOTION",
-      order: promotions.length,
-      showTag: true,
-      showTitle: true,
+    list.sort((a, b) => {
+      const va = a[sortKey];
+      const vb = b[sortKey];
+      if (typeof va === "string" && typeof vb === "string")
+        return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      if (typeof va === "number" && typeof vb === "number")
+        return sortDir === "asc" ? va - vb : vb - va;
+      return 0;
     });
-    setEditingId(null);
-    setShowForm(false);
+    return list;
+  }, [allProducts, filters, sortKey, sortDir]);
+
+  const toggleSort = (key: keyof AdminProduct) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
-  const getProductById = (id: string) => allProducts.find((p) => p.id === id);
+  const sortIcon = (key: keyof AdminProduct) => {
+    if (sortKey !== key) return null;
+    return sortDir === "asc" ? (
+      <ChevronUp size={11} />
+    ) : (
+      <ChevronDown size={11} />
+    );
+  };
 
+  // ── Selection ──────────────────────────────────────────────────────────
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleAll = () => {
+    if (selected.size === products.length) setSelected(new Set());
+    else setSelected(new Set(products.map((p) => p.id)));
+  };
+
+  // ── Actions ────────────────────────────────────────────────────────────
+  const handleCreateNew = () => {
+    setIsCreating(true);
+    setEditingProductId(null);
+  };
+
+  const handleEdit = (product: AdminProduct) => {
+    setEditingProductId(product.id);
+    setIsCreating(false);
+  };
+
+  const handleBackToList = () => {
+    setIsCreating(false);
+    setEditingProductId(null);
+  };
+
+  const handleSaveProduct = async (
+    data: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
+  ) => {
+    if (editingProductId) {
+      await updateProduct(editingProductId, data);
+    } else {
+      await createProduct(data);
+    }
+    handleBackToList();
+  };
+
+  const handleDuplicate = async (id: string) => {
+    await duplicateProduct(id);
+  };
+
+  const handleToggleActive = async (id: string, active: boolean) => {
+    await bulkSetActive([id], active);
+  };
+
+  const handleBulkActivate = async (active: boolean) => {
+    if (selected.size === 0) return;
+    await bulkSetActive(Array.from(selected), active);
+    setSelected(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Supprimer ${selected.size} produit(s) ?`)) return;
+    await bulkDelete(Array.from(selected));
+    setSelected(new Set());
+  };
+
+  const handleDeleteSingle = async (id: string) => {
+    if (!window.confirm("Supprimer définitivement ce produit ?")) return;
+    await deleteProduct(id);
+  };
+
+  // ── Render form panel if editing or creating ──────────────────────────
+  if (isCreating || editingProductId) {
+    return (
+      <ProductFormPanel
+        product={isCreating ? null : editingProduct}
+        onBack={handleBackToList}
+        onSave={handleSaveProduct}
+      />
+    );
+  }
+
+  // ── List view ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div
-        style={{ display: "flex", justifyContent: "center", paddingTop: 60 }}
+        style={{ display: "flex", justifyContent: "center", minHeight: 200 }}
       >
         <div
           className="animate-spin"
@@ -136,339 +265,498 @@ export default function PromotionsPage() {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
         }}
       >
         <div>
           <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              marginBottom: 4,
-            }}
+            style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}
           >
-            Promotions & Deals
+            Produits
           </h2>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            Gérez les produits affichés dans le carrousel Hero de la boutique.
+            {products.length} produit{products.length !== 1 ? "s" : ""}
           </p>
         </div>
         <button
-          onClick={() => {
-            setShowForm(true);
-            setEditingId(null);
-            setForm({
-              productId: "",
-              title: "",
-              headline: "",
-              sub: "",
-              cta: "Découvrir",
-              bgGradient: "from-white via-indigo-50 to-white",
-              tag: "⚡ PROMOTION",
-              order: promotions.length,
-              showTag: true,
-              showTitle: true,
-            });
+          onClick={handleCreateNew}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 20px",
+            borderRadius: 12,
+            border: "none",
+            background: "var(--color-accent)",
+            color: "white",
+            fontFamily: "var(--font-body)",
+            fontWeight: 700,
+            fontSize: 13.5,
+            cursor: "pointer",
+            boxShadow: "var(--shadow-accent)",
           }}
-          style={primaryBtn}
         >
           <Plus size={15} strokeWidth={2.5} />
-          Nouvelle promotion
+          Nouveau produit
         </button>
       </div>
 
-      {/* Formulaire */}
-      {showForm && (
-        <div style={cardStyle}>
-          <h3
+      {/* Filter bar */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+          padding: "14px 16px",
+          borderRadius: 16,
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 12px",
+            borderRadius: 10,
+            background: "var(--color-surface2)",
+            border: "1px solid var(--color-border)",
+            flex: "1 1 200px",
+          }}
+        >
+          <Search
+            size={14}
+            strokeWidth={2}
+            style={{ color: "var(--color-ink4)" }}
+          />
+          <input
+            type="text"
+            placeholder="Rechercher…"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             style={{
-              fontWeight: 700,
-              fontSize: 15,
+              border: "none",
+              background: "transparent",
+              outline: "none",
+              flex: 1,
+              fontSize: 13,
               color: "var(--color-ink)",
-              marginBottom: 16,
+              fontFamily: "var(--font-body)",
+            }}
+          />
+          {filters.search && (
+            <button
+              onClick={() => setFilters({ ...filters, search: "" })}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--color-ink4)",
+                padding: 0,
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {(["category", "eventType", "style"] as const).map((key) => {
+          const options =
+            key === "category"
+              ? CATEGORIES
+              : key === "eventType"
+                ? EVENT_TYPES
+                : STYLES;
+          const label =
+            key === "category"
+              ? "Catégorie"
+              : key === "eventType"
+                ? "Événement"
+                : "Style";
+          return (
+            <select
+              key={key}
+              value={filters[key] ?? ""}
+              onChange={(e) =>
+                setFilters({ ...filters, [key]: e.target.value || null })
+              }
+              style={{
+                padding: "7px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface2)",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--color-ink2)",
+                cursor: "pointer",
+              }}
+            >
+              <option value="">{label}</option>
+              {options.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          );
+        })}
+
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--color-ink3)",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={filters.inStockOnly}
+            onChange={(e) =>
+              setFilters({ ...filters, inStockOnly: e.target.checked })
+            }
+            style={{ accentColor: "var(--color-accent)" }}
+          />
+          En stock uniquement
+        </label>
+
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--color-ink3)",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={filters.showInactive}
+            onChange={(e) =>
+              setFilters({ ...filters, showInactive: e.target.checked })
+            }
+            style={{ accentColor: "var(--color-accent)" }}
+          />
+          Voir les inactifs
+        </label>
+      </div>
+
+      {/* Bulk actions */}
+      {selected.size > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "10px 16px",
+            borderRadius: 12,
+            background: "var(--color-accent-soft2)",
+            border: "1px solid var(--color-accent)",
+            color: "var(--color-accent)",
+            fontSize: 12.5,
+            fontWeight: 600,
+            alignItems: "center",
+          }}
+        >
+          <span>
+            {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
+          </span>
+          <button onClick={() => handleBulkActivate(true)} style={quickBtn}>
+            Activer
+          </button>
+          <button onClick={() => handleBulkActivate(false)} style={quickBtn}>
+            Désactiver
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            style={{
+              ...quickBtn,
+              color: "#ef4444",
+              borderColor: "#fecaca",
+              background: "#fef2f2",
             }}
           >
-            {editingId ? "Modifier la promotion" : "Nouvelle promotion"}
-          </h3>
-          <form
-            onSubmit={handleSave}
-            style={{ display: "flex", flexDirection: "column", gap: 14 }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Produit à promouvoir *</label>
-                <select
-                  value={form.productId}
-                  onChange={(e) =>
-                    setForm({ ...form, productId: e.target.value })
-                  }
-                  style={inputStyle}
-                  required
-                >
-                  <option value="">-- Sélectionner un produit --</option>
-                  {allProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Titre (override)</label>
-                <input
-                  type="text"
-                  value={form.title || ""}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  style={inputStyle}
-                  placeholder="Laisse vide pour utiliser le titre du produit"
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Tag (badge)</label>
-                <input
-                  type="text"
-                  value={form.tag || ""}
-                  onChange={(e) => setForm({ ...form, tag: e.target.value })}
-                  style={inputStyle}
-                  placeholder="⚡ PROMOTION"
-                />
-              </div>
-              <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
-                <label
-                  style={{
-                    ...labelStyle,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 0,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.showTag !== false}
-                    onChange={(e) =>
-                      setForm({ ...form, showTag: e.target.checked })
-                    }
-                  />
-                  Afficher le badge
-                </label>
-                <label
-                  style={{
-                    ...labelStyle,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 0,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.showTitle !== false}
-                    onChange={(e) =>
-                      setForm({ ...form, showTitle: e.target.checked })
-                    }
-                  />
-                  Afficher le titre du produit
-                </label>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Accroche (headline)</label>
-              <input
-                type="text"
-                value={form.headline || ""}
-                onChange={(e) => setForm({ ...form, headline: e.target.value })}
-                style={inputStyle}
-                placeholder="Phrase d'accroche percutante"
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Sous-texte</label>
-              <input
-                type="text"
-                value={form.sub || ""}
-                onChange={(e) => setForm({ ...form, sub: e.target.value })}
-                style={inputStyle}
-                placeholder="Description courte"
-              />
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Texte du bouton (CTA)</label>
-                <input
-                  type="text"
-                  value={form.cta || ""}
-                  onChange={(e) => setForm({ ...form, cta: e.target.value })}
-                  style={inputStyle}
-                  placeholder="Découvrir"
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Dégradé de fond</label>
-                <input
-                  type="text"
-                  value={form.bgGradient || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, bgGradient: e.target.value })
-                  }
-                  style={inputStyle}
-                  placeholder="from-white via-indigo-50 to-white"
-                />
-              </div>
-            </div>
-            <div
-              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
-            >
-              <button type="button" onClick={resetForm} style={secondaryBtn}>
-                Annuler
-              </button>
-              <button type="submit" style={primaryBtn}>
-                <Save size={15} strokeWidth={2} />
-                {editingId ? "Mettre à jour" : "Créer"}
-              </button>
-            </div>
-          </form>
+            Supprimer
+          </button>
         </div>
       )}
 
-      {/* Liste des promotions */}
-      <div style={cardStyle}>
-        <h3
-          style={{
-            fontWeight: 700,
-            fontSize: 15,
-            color: "var(--color-ink)",
-            marginBottom: 16,
-          }}
+      {/* Table */}
+      <div
+        style={{
+          overflowX: "auto",
+          borderRadius: 16,
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
+      >
+        <table
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
         >
-          Promotions actives ({promotions.length})
-        </h3>
-        {promotions.length === 0 ? (
-          <p
+          <thead
             style={{
-              fontSize: 13,
-              color: "var(--color-ink4)",
-              textAlign: "center",
-              padding: 20,
+              background: "var(--color-surface2)",
+              fontWeight: 700,
+              color: "var(--color-ink2)",
             }}
           >
-            Aucune promotion. Créez-en une pour qu'elle apparaisse dans le
-            carrousel.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {promotions
-              .sort((a, b) => a.order - b.order)
-              .map((promo, idx) => {
-                const product = getProductById(promo.productId);
-                return (
-                  <div
-                    key={promo.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 14,
-                      padding: "12px 0",
-                      borderBottom: "1px solid var(--color-border)",
-                    }}
-                  >
+            <tr>
+              <th style={{ padding: "12px 14px", textAlign: "left" }}>
+                <input
+                  type="checkbox"
+                  checked={
+                    selected.size === products.length && products.length > 0
+                  }
+                  onChange={toggleAll}
+                  style={{ accentColor: "var(--color-accent)" }}
+                />
+              </th>
+              <th style={{ padding: "12px 14px", textAlign: "left" }}>Image</th>
+              <th
+                style={{
+                  padding: "12px 14px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSort("title")}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  Titre {sortIcon("title")}
+                </div>
+              </th>
+              <th
+                style={{
+                  padding: "12px 14px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSort("price")}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  Prix {sortIcon("price")}
+                </div>
+              </th>
+              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+                Stock
+              </th>
+              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+                Badges
+              </th>
+              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p) => {
+              const discount =
+                p.originalPrice && p.originalPrice > p.price
+                  ? Math.round(
+                      ((p.originalPrice - p.price) / p.originalPrice) * 100,
+                    )
+                  : null;
+              return (
+                <tr
+                  key={p.id}
+                  style={{
+                    borderBottom: "1px solid var(--color-border)",
+                    opacity: p.isActive ? 1 : 0.55,
+                  }}
+                >
+                  <td style={{ padding: "10px 14px" }}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(p.id)}
+                      onChange={() => toggleSelect(p.id)}
+                      style={{ accentColor: "var(--color-accent)" }}
+                    />
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
                     <div
                       style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <button
-                        onClick={() => move(idx, -1)}
-                        style={arrowBtn}
-                        disabled={idx === 0}
-                      >
-                        <ArrowUp size={12} />
-                      </button>
-                      <button
-                        onClick={() => move(idx, 1)}
-                        style={arrowBtn}
-                        disabled={idx === promotions.length - 1}
-                      >
-                        <ArrowDown size={12} />
-                      </button>
-                    </div>
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
+                        width: 40,
+                        height: 40,
                         borderRadius: 10,
                         overflow: "hidden",
                         background: "var(--color-surface2)",
-                        flexShrink: 0,
                       }}
                     >
                       <img
-                        src={product?.image || promo.image || ""}
-                        alt=""
+                        src={p.image || IMG}
+                        alt={p.title}
                         style={{
                           width: "100%",
                           height: "100%",
                           objectFit: "cover",
+                          display: "block",
                         }}
                       />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 600,
+                      color: "var(--color-ink)",
+                      maxWidth: 220,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.title}
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--color-ink4)",
+                        fontWeight: 400,
+                        marginTop: 2,
+                      }}
+                    >
+                      {p.brand}
+                    </div>
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontVariantNumeric: "tabular-nums",
+                      fontWeight: 700,
+                      color: "var(--color-ink)",
+                    }}
+                  >
+                    {p.price.toFixed(2)} $
+                    {discount && (
+                      <span
                         style={{
-                          fontWeight: 700,
-                          fontSize: 14,
-                          color: "var(--color-ink)",
-                        }}
-                      >
-                        {promo.headline || product?.title || "Sans produit"}
-                      </p>
-                      <p style={{ fontSize: 12, color: "var(--color-ink3)" }}>
-                        {promo.sub || product?.description?.slice(0, 80)}
-                      </p>
-                      <p
-                        style={{
+                          marginLeft: 6,
                           fontSize: 11,
                           color: "var(--color-accent)",
-                          marginTop: 2,
+                          fontWeight: 600,
                         }}
                       >
-                        <Tag
-                          size={12}
-                          style={{ verticalAlign: "middle", marginRight: 4 }}
+                        -{discount}%
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                    {p.inStock ? (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "var(--color-success)",
+                        }}
+                      >
+                        En stock
+                      </span>
+                    ) : (
+                      <Badge
+                        label="Sur commande"
+                        style={BADGE_STYLE.outofstock}
+                      />
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 4,
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {p.isBestSeller && (
+                        <Badge
+                          label="Best seller"
+                          style={BADGE_STYLE.bestseller}
                         />
-                        {product ? product.title : "Produit introuvable"}
-                      </p>
+                      )}
+                      {p.eventType === "live" && (
+                        <Badge label="Live" style={BADGE_STYLE.live} />
+                      )}
+                      {(p.isLimitedTime || p.dealActive) && (
+                        <Badge
+                          label="Offre limitée"
+                          style={BADGE_STYLE.limited}
+                        />
+                      )}
+                      {p.dealActive && (
+                        <Badge label="Deal" style={BADGE_STYLE.deal} />
+                      )}
+                      {!p.isActive && (
+                        <Badge label="Inactif" style={BADGE_STYLE.inactive} />
+                      )}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => handleEdit(promo)} style={iconBtn}>
-                        Modifier
+                  </td>
+                  <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 6,
+                        justifyContent: "center",
+                      }}
+                    >
+                      <button
+                        title="Modifier"
+                        style={iconBtn}
+                        onClick={() => handleEdit(p)}
+                      >
+                        <Edit3 size={14} strokeWidth={2} />
                       </button>
                       <button
-                        onClick={() => handleDelete(promo.id)}
-                        style={{ ...iconBtn, color: "#ef4444" }}
+                        title="Dupliquer"
+                        style={iconBtn}
+                        onClick={() => handleDuplicate(p.id)}
                       >
-                        <Trash2 size={14} />
+                        <Copy size={14} strokeWidth={2} />
+                      </button>
+                      <button
+                        title={p.isActive ? "Désactiver" : "Activer"}
+                        style={iconBtn}
+                        onClick={() => handleToggleActive(p.id, !p.isActive)}
+                      >
+                        {p.isActive ? (
+                          <EyeOff size={14} strokeWidth={2} />
+                        ) : (
+                          <Eye size={14} strokeWidth={2} />
+                        )}
+                      </button>
+                      <button
+                        title="Supprimer"
+                        style={{ ...iconBtn, color: "#ef4444" }}
+                        onClick={() => handleDeleteSingle(p.id)}
+                      >
+                        <Trash2 size={14} strokeWidth={2} />
                       </button>
                     </div>
-                  </div>
-                );
-              })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {products.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: 32,
+              color: "var(--color-ink4)",
+            }}
+          >
+            <Package
+              size={28}
+              style={{ margin: "0 auto 10px", opacity: 0.5 }}
+            />
+            Aucun produit trouvé.
           </div>
         )}
       </div>
@@ -476,76 +764,24 @@ export default function PromotionsPage() {
   );
 }
 
-const cardStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 16,
-  padding: 20,
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--color-ink2)",
-  display: "block",
-  marginBottom: 4,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 13,
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-body)",
-  outline: "none",
-};
-
-const primaryBtn: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "8px 16px",
-  borderRadius: 10,
-  border: "none",
-  background: "var(--color-accent)",
-  color: "white",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
-  fontFamily: "var(--font-body)",
-};
-
-const secondaryBtn: React.CSSProperties = {
-  padding: "8px 16px",
-  borderRadius: 10,
-  border: "1.5px solid var(--color-border2)",
-  background: "var(--color-surface)",
-  color: "var(--color-ink2)",
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: "pointer",
-};
-
 const iconBtn: React.CSSProperties = {
   background: "var(--color-surface2)",
   border: "1px solid var(--color-border)",
   borderRadius: 8,
-  padding: "6px 10px",
+  padding: 6,
   cursor: "pointer",
   color: "var(--color-ink2)",
-  fontSize: 12,
-  fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
 };
 
-const arrowBtn: React.CSSProperties = {
+const quickBtn: React.CSSProperties = {
+  padding: "4px 12px",
+  borderRadius: 8,
+  border: "1px solid var(--color-accent)",
   background: "transparent",
-  border: "1px solid var(--color-border)",
-  borderRadius: 4,
-  padding: 2,
+  color: "var(--color-accent)",
+  fontWeight: 600,
+  fontSize: 12,
   cursor: "pointer",
-  color: "var(--color-ink4)",
-  display: "flex",
 };

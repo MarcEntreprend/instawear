@@ -1,22 +1,12 @@
-// src\admin\PromotionsPage.tsx
-
 import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
-import type { HeroPromotion } from "./adminTypes";
-import { productApi } from "../api/supabaseApi";
-import type { AdminProduct } from "./adminTypes";
-
-const STORAGE_KEY = "admin_hero_promotions";
+import type { HeroPromotion, AdminProduct } from "./adminTypes";
+import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 
 export default function PromotionsPage() {
-  const [promotions, setPromotions] = useState<HeroPromotion[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [promotions, setPromotions] = useState<HeroPromotion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,60 +23,67 @@ export default function PromotionsPage() {
     showTitle: true,
   });
 
-  const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
+  // Charger les promotions et les produits depuis Supabase
   useEffect(() => {
-    productApi
-      .list()
-      .then(setAllProducts)
-      .catch(() => setAllProducts([]));
+    Promise.all([heroPromotionsApi.list(), productApi.list()])
+      .then(([promos, prods]) => {
+        setPromotions(promos);
+        setAllProducts(prods);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const persist = (newPromos: HeroPromotion[]) => {
-    setPromotions(newPromos);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newPromos));
+  // Persister dans Supabase ET rafraîchir l'état local
+  const refresh = async () => {
+    try {
+      const promos = await heroPromotionsApi.list();
+      setPromotions(promos);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.productId) return;
 
-    if (editingId) {
-      const updated = promotions.map((p) =>
-        p.id === editingId
-          ? ({
-              ...form,
-              id: editingId,
-              productId: form.productId!,
-              order: p.order,
-            } as HeroPromotion)
-          : p,
-      );
-      persist(updated);
-    } else {
-      const newPromo: HeroPromotion = {
-        ...form,
-        id: `promo-${Date.now()}`,
-        productId: form.productId!,
-        order: promotions.length,
-      } as HeroPromotion;
-      persist([...promotions, newPromo]);
+    try {
+      if (editingId) {
+        await heroPromotionsApi.update(editingId, form);
+      } else {
+        await heroPromotionsApi.create({
+          ...form,
+          productId: form.productId!,
+          order: promotions.length,
+        } as HeroPromotion);
+      }
+      await refresh();
+      resetForm();
+    } catch (err) {
+      console.error("Erreur sauvegarde promotion", err);
     }
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Supprimer cette promotion du carrousel ?")) {
-      persist(promotions.filter((p) => p.id !== id));
+      await heroPromotionsApi.delete(id);
+      await refresh();
     }
   };
 
-  const move = (index: number, direction: -1 | 1) => {
+  const move = async (index: number, direction: -1 | 1) => {
     const list = [...promotions];
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= list.length) return;
     [list[index], list[newIndex]] = [list[newIndex], list[index]];
     const reordered = list.map((p, i) => ({ ...p, order: i }));
-    persist(reordered);
+    setPromotions(reordered);
+    try {
+      await heroPromotionsApi.reorder(reordered.map((p) => p.id));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleEdit = (promo: HeroPromotion) => {
@@ -114,8 +111,28 @@ export default function PromotionsPage() {
 
   const getProductById = (id: string) => allProducts.find((p) => p.id === id);
 
+  if (loading) {
+    return (
+      <div
+        style={{ display: "flex", justifyContent: "center", paddingTop: 60 }}
+      >
+        <div
+          className="animate-spin"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "3px solid var(--color-border)",
+            borderTopColor: "var(--color-accent)",
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -162,6 +179,7 @@ export default function PromotionsPage() {
         </button>
       </div>
 
+      {/* Formulaire */}
       {showForm && (
         <div style={cardStyle}>
           <h3
@@ -327,6 +345,7 @@ export default function PromotionsPage() {
         </div>
       )}
 
+      {/* Liste des promotions */}
       <div style={cardStyle}>
         <h3
           style={{
@@ -431,10 +450,7 @@ export default function PromotionsPage() {
                       >
                         <Tag
                           size={12}
-                          style={{
-                            verticalAlign: "middle",
-                            marginRight: 4,
-                          }}
+                          style={{ verticalAlign: "middle", marginRight: 4 }}
                         />
                         {product ? product.title : "Produit introuvable"}
                       </p>
