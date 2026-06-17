@@ -525,23 +525,23 @@ export const podApi = {
     return this.getSettings();
   },
   async sync(): Promise<{ settings: PodSettings; log: SyncLog }> {
-    // Simule une synchronisation (pourra être améliorée plus tard)
+    const start = Date.now();
+    // Appeler l’Edge Function Supabase qui proxyfie Printful
+    const { data: result, error: fnError } =
+      await supabase.functions.invoke("sync-printful");
+    if (fnError) throw new Error(fnError.message);
+    if (result?.error) throw new Error(result.error);
+
+    // Rafraîchir les paramètres après synchro
     const settings = await this.getSettings();
-    const updated = await this.saveSettings({
-      ...settings,
-      syncStatus: "synced",
-      lastSyncAt: new Date().toISOString(),
-      productsSyncedCount: (await productApi.list()).length,
-      isConnected: settings.apiKey.length > 5,
-    });
     const log: SyncLog = {
       id: `log-${Date.now()}`,
       syncDate: new Date().toISOString(),
       status: "success",
-      message: `${updated.productsSyncedCount} produits synchronisés.`,
-      duration: 1200,
+      message: `${result.syncedCount} produits synchronisés avec Printful.`,
+      duration: Date.now() - start,
     };
-    // Insérer le log dans la table sync_logs (optionnel)
+    // Insérer le log dans la base (optionnel, déjà fait par la fonction, mais pour cohérence)
     await supabase.from("sync_logs").insert({
       id: log.id,
       sync_date: log.syncDate,
@@ -549,7 +549,7 @@ export const podApi = {
       message: log.message,
       duration: log.duration,
     });
-    return { settings: updated, log };
+    return { settings, log };
   },
   async getSyncLogs(): Promise<SyncLog[]> {
     const { data, error } = await supabase
