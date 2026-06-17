@@ -253,6 +253,24 @@ export const customerApi = {
       lastLoginDate: data.last_login_date,
     };
   },
+  // ── Favoris ──────────────────────────────────────────────────────────
+  async addFavourite(clientId: string, productId: string): Promise<void> {
+    const { error } = await supabase
+      .from("favourites")
+      .upsert(
+        { client_id: clientId, product_id: productId },
+        { onConflict: "client_id, product_id" },
+      );
+    if (error) throw error;
+  },
+  async removeFavourite(clientId: string, productId: string): Promise<void> {
+    const { error } = await supabase
+      .from("favourites")
+      .delete()
+      .eq("client_id", clientId)
+      .eq("product_id", productId);
+    if (error) throw error;
+  },
   async getFavourites(clientId: string): Promise<Favourite[]> {
     // Récupérer les favoris d'un client depuis Supabase
     const { data, error } = await supabase
@@ -267,6 +285,35 @@ export const customerApi = {
       createdAt: fav.created_at,
       // On ne joint pas le produit complet ici pour simplifier
     }));
+  },
+  // ── Panier ───────────────────────────────────────────────────────────
+  async clearCart(clientId: string): Promise<void> {
+    const { error } = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("client_id", clientId);
+    if (error) throw error;
+  },
+  async addCartItem(
+    clientId: string,
+    item: {
+      productId: string;
+      selectedColor: string;
+      selectedSize: string;
+      quantity: number;
+    },
+  ): Promise<void> {
+    const { error } = await supabase.from("cart_items").upsert(
+      {
+        client_id: clientId,
+        product_id: item.productId,
+        selected_color: item.selectedColor,
+        selected_size: item.selectedSize,
+        quantity: item.quantity,
+      },
+      { onConflict: "client_id, product_id, selected_color, selected_size" },
+    );
+    if (error) throw error;
   },
   async getCart(clientId: string): Promise<AdminCartItem[]> {
     const { data, error } = await supabase

@@ -47,8 +47,8 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
-import { productApi, heroPromotionsApi } from "./api/supabaseApi";
-import type { HeroPromotion } from "./admin/adminTypes";
+import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
+import type { HeroPromotion, Favourite } from "./admin/adminTypes";
 
 // Preset mockup templates with placeholder images
 const PLACEHOLDER_IMG =
@@ -127,11 +127,75 @@ export default function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [trackingOpen, setTrackingOpen] = useState(false);
 
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
   // state pour les promotions
   const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Charger le panier de l'utilisateur connecté depuis Supabase
+  useEffect(() => {
+    const loadCart = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.email) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", user.email)
+          .single();
+        if (customer) {
+          const cartItems = await customerApi.getCart(customer.id);
+          setCart(
+            cartItems
+              .map((item) => {
+                const product = products.find((p) => p.id === item.productId);
+                if (!product) return null;
+                return {
+                  product,
+                  selectedColor: item.selectedColor,
+                  selectedSize: item.selectedSize,
+                  quantity: item.quantity,
+                };
+              })
+              .filter((ci): ci is CartItem => ci !== null),
+          );
+        }
+      }
+    };
+    loadCart();
+  }, [isAdmin, isUser, products]); // recharge quand l'état de connexion change ou les produits sont prêts
+
+  // Sauvegarder le panier dans Supabase à chaque modification (si connecté)
+  useEffect(() => {
+    const syncCart = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.email) return;
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", user.email)
+        .single();
+      if (!customer) return;
+      // Remplacement complet : on vide puis on réinsère
+      await customerApi.clearCart(customer.id);
+      for (const item of cart) {
+        await customerApi.addCartItem(customer.id, {
+          productId: item.product.id,
+          selectedColor: item.selectedColor,
+          selectedSize: item.selectedSize,
+          quantity: item.quantity,
+        });
+      }
+    };
+    syncCart();
+  }, [cart, isAdmin, isUser]);
+
   const [orderCompleted, setOrderCompleted] = useState(false);
 
   const [dealExpired, setDealExpired] = useState(false);
@@ -153,6 +217,26 @@ export default function App() {
 
   // Favoris
   const [favorites, setFavorites] = useState<string[]>([]);
+  // Charger les favoris de l'utilisateur connecté
+  useEffect(() => {
+    const loadFavorites = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.email) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", user.email)
+          .single();
+        if (customer) {
+          const favs = await customerApi.getFavourites(customer.id);
+          setFavorites(favs.map((f: Favourite) => f.productId));
+        }
+      }
+    };
+    loadFavorites();
+  }, [isAdmin, isUser]); // se recharge quand l'état de connexion change
 
   // New design creation details
   const [newDesignPrompt, setNewDesignPrompt] = useState("");
@@ -543,7 +627,13 @@ export default function App() {
       ? product.eventType === selectedEventType
       : true;
 
-    return matchesSearch && matchesCategory && matchesEventType;
+    // logique de filtrage dans le calcul des filteredProducts
+    const matchesFavorites = showFavoritesOnly
+      ? favorites.includes(product.id)
+      : true;
+    return (
+      matchesSearch && matchesCategory && matchesEventType && matchesFavorites
+    );
   });
 
   // Shopping cart managers
@@ -693,6 +783,7 @@ export default function App() {
   };
 
   const handleOpenFavorites = () => {
+    setShowFavoritesOnly(true);
     setActiveTab("store");
     setTimeout(() => {
       const el = document.getElementById("section-catalog");
@@ -700,12 +791,42 @@ export default function App() {
     }, 100);
   };
 
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId],
-    );
+  const toggleFavorite = async (productId: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) {
+      // Pas connecté : on bascule juste en local (perdu au rechargement)
+      setFavorites((prev) =>
+        prev.includes(productId)
+          ? prev.filter((id) => id !== productId)
+          : [...prev, productId],
+      );
+      return;
+    }
+
+    // Récupérer le client_id
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("email", user.email)
+      .single();
+
+    const clientId = customer?.id;
+    if (!clientId) return;
+
+    const isFav = favorites.includes(productId);
+    try {
+      if (isFav) {
+        await customerApi.removeFavourite(clientId, productId);
+        setFavorites((prev) => prev.filter((id) => id !== productId));
+      } else {
+        await customerApi.addFavourite(clientId, productId);
+        setFavorites((prev) => [...prev, productId]);
+      }
+    } catch (e) {
+      console.warn("Erreur sauvegarde favori", e);
+    }
   };
 
   const productTitles = products.map((p) => p.title);
@@ -724,10 +845,12 @@ export default function App() {
         }}
         currentSearchTerm={searchTerm}
         onSelectCategory={(cat) => {
+          setShowFavoritesOnly(false);
           setSelectedCategory(cat);
           setActiveTab("store");
         }}
         onSelectEventType={(type) => {
+          setShowFavoritesOnly(false);
           setSelectedEventType(type);
           setActiveTab("store");
         }}

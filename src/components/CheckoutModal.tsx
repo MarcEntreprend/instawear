@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { orderApi } from "../api/supabaseApi";
+import { supabase } from "../lib/supabaseClient";
 
 interface CheckoutModalProps {
   cart: CartItem[];
@@ -91,10 +92,43 @@ export default function CheckoutModal({
       return;
     }
 
+    // 🔍 Détecter l'utilisateur connecté pour lier la commande à son compte
+    let clientId: string | null = null;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.email) {
+        // Chercher le client par email dans la table customers
+        const { data: existingCustomer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", user.email)
+          .single();
+        if (existingCustomer) {
+          clientId = existingCustomer.id;
+        } else {
+          // Au cas où l'utilisateur n'aurait pas de ligne customers (ne devrait pas arriver)
+          const { data: newCustomer } = await supabase
+            .from("customers")
+            .insert({
+              email: user.email,
+              name: user.user_metadata?.full_name || name,
+            })
+            .select("id")
+            .single();
+          clientId = newCustomer?.id ?? null;
+        }
+      }
+    } catch (e) {
+      // En cas d'erreur, on reste en mode invité
+      console.warn("Impossible de lier l'utilisateur à la commande", e);
+    }
+
     // Génère un ID de commande unique (ex: ORD-2026-XXXX)
     const now = new Date();
     const year = now.getFullYear();
-    const seq = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+    const seq = Math.floor(Math.random() * 9000) + 1000;
     const newOrderId = `ORD-${year}-${seq}`;
     setOrderId(newOrderId);
 
@@ -112,11 +146,11 @@ export default function CheckoutModal({
       url = `mailto:${EMAIL_ADDRESS}?subject=${subject}&body=${encoded}`;
     }
 
-    // Sauvegarde la commande dans Supabase (base de données réelle)
+    // Sauvegarde la commande dans Supabase
     try {
       await orderApi.create({
         id: newOrderId,
-        clientId: null, // commande invité => pas de client_id
+        clientId: clientId, // null si invité, id du customer si connecté
         clientName: name,
         clientEmail: email || null,
         createdAt: now.toISOString(),
@@ -143,15 +177,14 @@ export default function CheckoutModal({
           quantity: item.quantity,
           unitPrice: item.product.price,
         })),
-      } as any); // Le typage exact viendra de l'import réel
+      } as any);
     } catch (e) {
       console.warn("Impossible de sauvegarder la commande dans Supabase", e);
     }
 
-    // Ouvre le lien de communication (WhatsApp, Telegram, Email)
     window.open(url, "_blank");
     setSent(true);
-    onSuccess(); // vide le panier immédiatement, mais la modale reste ouverte
+    onSuccess();
   };
 
   const inputStyle: React.CSSProperties = {
