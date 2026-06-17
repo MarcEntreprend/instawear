@@ -676,7 +676,7 @@ export const adminUserApi = {
     }));
   },
   async create(
-    admin: Omit<AdminUser, "id" | "createdAt"> & { passwordHash: string },
+    admin: Omit<AdminUser, "id" | "createdAt"> & { passwordHash?: string },
   ): Promise<AdminUser> {
     // Créer d'abord un utilisateur auth via Supabase (si nécessaire)
     // Pour simplifier, nous faisons l'insertion directe dans admin_users (le mot de passe doit être géré via Auth).
@@ -685,7 +685,7 @@ export const adminUserApi = {
       .insert({
         email: admin.email,
         role: admin.role,
-        password_hash: admin.passwordHash, // temporaire, à terme géré par Auth
+        password_hash: admin.passwordHash ?? null,
       })
       .select()
       .single();
