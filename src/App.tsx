@@ -206,6 +206,21 @@ export default function App() {
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
   const [showNewAdmin, setShowNewAdmin] = useState(false);
 
+  //
+  useEffect(() => {
+    if (showNewAdmin) {
+      setShowProfileModal(false);
+      setShowFavoritesOnly(false);
+    }
+  }, [showNewAdmin]);
+
+  // Forcer le retour au store si un non‑admin essaie d’accéder à l’admin
+  useEffect(() => {
+    if (activeTab === "admin" && !isAdmin) {
+      setActiveTab("store");
+    }
+  }, [activeTab, isAdmin]);
+
   // Admin Studio States
   const [printfulSettings, setPrintfulSettings] = useState<PrintfulSettings>({
     apiKey: "",
@@ -350,6 +365,14 @@ export default function App() {
   //   }, 1000);
   //   return () => clearInterval(interval);
   // }, []);
+
+  // Fermer le profil et réinitialiser quand on passe en admin
+  useEffect(() => {
+    if (activeTab === "admin") {
+      setShowProfileModal(false);
+      setShowFavoritesOnly(false);
+    }
+  }, [activeTab]);
 
   // Compte à rebours de test — 10 secondes
   const [countdownString, setCountdownString] = useState("00:00:10");
@@ -859,7 +882,9 @@ export default function App() {
         onOpenAuth={() => setShowAuthModal(true)}
         isAdminLoggedIn={isAdmin}
         isUserLoggedIn={isUser}
-        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenProfile={() => {
+          if (activeTab === "store") setShowProfileModal(true);
+        }}
         onLogout={() => {
           setIsAdmin(false);
           setIsUser(false);
@@ -2454,12 +2479,14 @@ export default function App() {
               CGU Créateurs
             </a>
             <span>•</span>
-            <button
-              onClick={() => setShowNewAdmin(true)}
-              className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
-            >
-              Menu Admin (Bêta)
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowNewAdmin(true)}
+                className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
+              >
+                Menu Admin (Bêta)
+              </button>
+            )}
           </div>
         </div>
       </footer>
@@ -2487,7 +2514,7 @@ export default function App() {
         />
       )}
 
-      {showProfileModal && (
+      {showProfileModal && activeTab === "store" && (
         <ProfileModal
           isAdmin={isAdmin}
           userName={userName}
@@ -2502,7 +2529,8 @@ export default function App() {
       )}
 
       {/*  rendu du nouveau Admin en dehors du flux normal */}
-      {showNewAdmin && (
+      {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
+      {showNewAdmin && isAdmin && (
         <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
       )}
 

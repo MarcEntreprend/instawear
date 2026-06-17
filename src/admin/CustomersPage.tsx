@@ -1,5 +1,4 @@
 // src/admin/CustomersPage.tsx
-
 import React, { useState, useMemo } from "react";
 import {
   Search,
@@ -371,7 +370,6 @@ function CustomerDetailPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      {/* Back + customer info */}
       <div
         style={{
           display: "flex",
@@ -431,7 +429,6 @@ function CustomerDetailPanel({
         </div>
       </div>
 
-      {/* Tabs */}
       <div
         style={{
           display: "flex",
@@ -468,7 +465,6 @@ function CustomerDetailPanel({
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === "favorites" && <FavouritesList items={favourites} />}
       {activeTab === "cart" && <CartList items={cart} />}
       {activeTab === "orders" && <OrdersList orders={orders} />}

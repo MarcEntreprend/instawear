@@ -1,3 +1,5 @@
+// src\components\AuthModal.tsx
+
 /**
  * AuthModal.tsx - Authentification via Supabase Auth (remplace l'ancien système localStorage)
  */
