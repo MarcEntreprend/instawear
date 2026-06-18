@@ -40,7 +40,9 @@ instawear/
 │   ├── admin/
 │   │   ├── AdminDashboard.tsx
 │   │   ├── AdminDashboardNew.tsx
+│   │   ├── adminHooks.ts
 │   │   ├── AdminSidebar.tsx
+│   │   ├── adminTypes.ts
 │   │   ├── AdminUsersPage.tsx
 │   │   ├── CustomersPage.tsx
 │   │   ├── HelpPage.tsx
@@ -50,9 +52,7 @@ instawear/
 │   │   ├── ProductsPage.tsx
 │   │   ├── PromotionsPage.tsx
 │   │   ├── ReportsPage.tsx
-│   │   ├── SettingsPage.tsx
-│   │   ├── adminHooks.ts
-│   │   └── adminTypes.ts
+│   │   └── SettingsPage.tsx
 │   ├── api/
 │   │   └── supabaseApi.ts
 │   ├── components/
@@ -79,11 +79,29 @@ instawear/
 │   ├── main.tsx
 │   ├── types.ts
 │   └── vite-env.d.ts
+├── supabase/
+│   ├── .temp/
+│   │   ├── cli-latest
+│   │   ├── gotrue-version
+│   │   ├── linked-project.json
+│   │   ├── pooler-url
+│   │   ├── postgres-version
+│   │   ├── project-ref
+│   │   ├── rest-version
+│   │   ├── storage-migration
+│   │   └── storage-version
+│   ├── functions/
+│   │   └── sync-printful/
+│   │       ├── .npmrc
+│   │       ├── deno.json
+│   │       └── index.ts
+│   └── config.toml
 ├── .env
 ├── .env.example
 ├── .gitignore
 ├── AGENT.md
 ├── Doc-specification-technique.md
+├── et --soft HEAD~1
 ├── index.html
 ├── metadata.json
 ├── package-lock.json
