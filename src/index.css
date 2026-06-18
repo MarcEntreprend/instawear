@@ -44,6 +44,304 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ════════════════════════════════════════════════════════════════
+   DARK MODE — "Ethereal Coral"
+   Activé via [data-theme="dark"] sur <html> (déjà posé par App.tsx)
+   Repose entièrement sur les CSS variables déjà utilisées partout
+   dans Header.tsx / App.tsx → aucun changement de composant requis.
+   ════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] {
+  /* ── Surfaces : noir profond chaud, pas un gris neutre ── */
+  --color-bg: #121110;
+  --color-surface: #1c1b19;
+  --color-surface2: #252422;
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border2: rgba(255, 255, 255, 0.15);
+
+  --color-ink: #e8e6e1;
+  --color-ink2: #b8b5ae;
+  --color-ink3: #807d76;
+  --color-ink4: #5a5753;
+
+  /* ── Accent : le corail devient lumineux, pas juste plus clair ── */
+  --color-accent: #ff6b45;
+  --color-accent2: #ffa07d;
+  --color-accent-bg: rgba(255, 107, 69, 0.12);
+  --color-accent-hover: #ff8159;
+  --color-accent-soft: rgba(255, 107, 69, 0.16);
+  --color-accent-soft2: rgba(255, 107, 69, 0.08);
+
+  --color-gold: #f0b13d;
+  --color-gold-bg: rgba(240, 177, 61, 0.1);
+  --color-emerald: #2fb87a;
+  --color-success: #4ade80;
+  --color-success-bg: rgba(74, 222, 128, 0.15);
+  --color-ink5: #2a2826;
+
+  /* ── Ombres : teinte chaude + glow d'accent, jamais de noir plat ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 24px 70px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-accent:
+    0 8px 32px rgba(255, 107, 69, 0.32), 0 2px 10px rgba(255, 107, 69, 0.18);
+}
+
+[data-theme="dark"] {
+  /* … autres variables … */
+  --color-header-scrolled: rgba(28, 27, 25, 0.92); /* noir chaud translucide */
+}
+
+/* ── Fond global : mesh radial très subtil (glow ambiant, pas un dégradé criard) ── */
+[data-theme="dark"] body {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(
+      ellipse 70% 50% at 15% -10%,
+      rgba(255, 107, 69, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 100% 10%,
+      rgba(255, 160, 125, 0.045),
+      transparent 60%
+    );
+  background-attachment: fixed;
+}
+
+/* ── Grain overlay plus présent en sombre (sinon invisible sur noir) ── */
+[data-theme="dark"] .grain-overlay {
+  opacity: 0.035;
+}
+
+/* ── Glass panels : verre dépoli sombre, hairline blanche fine ── */
+[data-theme="dark"] .glass {
+  background: rgba(20, 19, 18, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    var(--shadow-md);
+}
+
+/* ── Double-bezel : l'inner highlight blanc plein devient une lueur fine ── */
+[data-theme="dark"] .bezel-outer {
+  background: var(--color-surface2);
+  border: 1px solid var(--color-border);
+}
+[data-theme="dark"] .bezel-inner {
+  background: var(--color-surface);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Sticky header : le voile au scroll passe en noir translucide ── */
+[data-theme="dark"] header[style*="position: sticky"],
+[data-theme="dark"] header {
+  color-scheme: dark;
+}
+
+/* ── Heart button flottant sur images produit ── */
+[data-theme="dark"] .btn-heart {
+  background: rgba(20, 19, 18, 0.78);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .btn-heart:hover {
+  background: rgba(28, 26, 24, 0.92);
+}
+
+/* ── Inputs / range / scrollbar : cohérence sombre ── */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+[data-theme="dark"] input[type="range"] {
+  background: var(--color-border2);
+}
+
+/* ── Anneau de focus : légèrement plus doux sur fond noir ── */
+[data-theme="dark"] :focus-visible {
+  outline-color: var(--color-accent2);
+}
+
+/* ── Skeleton loader : shimmer adapté au sombre ── */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface2) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    var(--color-surface2) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* ── Cartes produit / sections en dur dans App.tsx (bg-white, border-gray-200…)
+     Ces classes Tailwind statiques ne lisent pas les variables : on les
+     neutralise proprement en dark mode pour qu'elles suivent le thème. ── */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-white\/60,
+[data-theme="dark"] .bg-white\/40,
+[data-theme="dark"] .bg-white\/20,
+[data-theme="dark"] .bg-gray-50\/60,
+[data-theme="dark"] .bg-gray-50\/40,
+[data-theme="dark"] .bg-gray-50\/20 {
+  background-color: var(--color-surface) !important;
+}
+
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-200\/60 {
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .text-gray-900 {
+  color: var(--color-ink) !important;
+}
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-500 {
+  color: var(--color-ink3) !important;
+}
+
+[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--color-surface2) !important;
+}
+
+/* Carte produit & bento : remonter légèrement les surfaces imbriquées
+   pour garder une hiérarchie de profondeur visible sur fond noir */
+[data-theme="dark"] .bg-gray-50\/60.border.border-gray-200.rounded-2xl,
+[data-theme="dark"] [class*="bg-gray-50"][class*="rounded-2xl"] {
+  background-color: var(--color-surface2) !important;
+}
+
+/* Images produit en sombre : aucun voile, juste un fond de fallback discret */
+[data-theme="dark"] img {
+  filter: none;
+}
+
+/* Pilule "Aperçu rapide" en sombre */
+[data-theme="dark"] [class*="bg-white/90"] {
+  background-color: rgba(20, 19, 18, 0.88) !important;
+}
+[data-theme="dark"] [class*="bg-white/90"] span,
+[data-theme="dark"]
+  [class*="text-gray-900"][class*="font-bold"][class*="text-xs"] {
+  color: var(--color-ink) !important;
+}
+[data-theme="dark"] [class*="bg-white/90"] .text-\(--color-accent\) {
+  color: var(--color-accent) !important;
+}
+[data-theme="dark"] [class*="border-gray-200"][class*="shadow-xl"] {
+  border-color: var(--color-border) !important;
+}
+
+/* Footer */
+[data-theme="dark"] footer.bg-gray-50 {
+  background-color: var(--color-bg) !important;
+}
+
+/* Modals (product sheet, cart drawer) : fond translucide sombre au lieu du voile clair */
+[data-theme="dark"] .bg-gray-50\/80.backdrop-blur-md {
+  background-color: rgba(10, 9, 8, 0.82) !important;
+}
+
+/* Sidebar admin en mode sombre */
+[data-theme="dark"] .admin-sidebar-desktop {
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+
+[data-theme="dark"] .admin-sidebar-desktop button,
+[data-theme="dark"] .admin-sidebar-desktop a {
+  color: var(--color-ink2);
+}
+
+[data-theme="dark"] .admin-sidebar-desktop .active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* Suggestions de recherche en mode sombre */
+[data-theme="dark"] .search-rainbow + div,
+[data-theme="dark"] div[class*="absolute top-full"] {
+  background-color: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] div[class*="absolute top-full"] button {
+  color: var(--color-ink2) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] div[class*="absolute top-full"] button:hover {
+  background-color: var(--color-surface2) !important;
+  color: var(--color-ink) !important;
+}
+
+[data-theme="dark"] div[class*="absolute top-full"] strong {
+  color: var(--color-accent) !important;
+}
+
+[data-theme="dark"]
+  div[class*="absolute top-full"]
+  span[class*="rounded-full"] {
+  background-color: var(--color-surface2) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-ink3) !important;
+}
+
+/* Toast notification en mode sombre */
+[data-theme="dark"] .fixed.bottom-6.right-6 {
+  background-color: var(--color-surface) !important;
+  border-left-color: var(--color-accent) !important;
+}
+[data-theme="dark"] .fixed.bottom-6.right-6 .text-gray-900 {
+  color: var(--color-ink) !important;
+}
+[data-theme="dark"] .fixed.bottom-6.right-6 .text-gray-600 {
+  color: var(--color-ink2) !important;
+}
+
+/* ── Toggle thème animé ─────────────────────────────────────── */
+.theme-toggle-icon {
+  transition:
+    transform 0.4s var(--ease-spring),
+    opacity 0.3s ease;
+}
+
+.theme-toggle-icon.enter {
+  animation: themeIconEnter 0.4s var(--ease-spring) forwards;
+}
+
+.theme-toggle-icon.exit {
+  animation: themeIconExit 0.3s ease forwards;
+}
+
+@keyframes themeIconEnter {
+  0% {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes themeIconExit {
+  0% {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.6);
+  }
+}
+
 /* ── Base ───────────────────────────────────────────────────── */
 *,
 *::before,

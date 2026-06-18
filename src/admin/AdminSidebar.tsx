@@ -33,7 +33,6 @@ interface NavItem {
   id: AdminSection;
   label: string;
   icon: React.FC<{ size?: number; strokeWidth?: number }>;
-  separator?: boolean; // small bar above the item
 }
 
 const NAV_ITEMS: (NavItem | "separator")[] = [
@@ -64,11 +63,21 @@ export default function AdminSidebar({
   onClose,
   mobile = false,
 }: AdminSidebarProps) {
+  // Couleurs adaptatives selon le thème (clair / sombre)
+  const bg = "var(--color-surface2)";
+  const textMuted = "var(--color-ink3)";
+  const textDim = "var(--color-ink4)";
+  const borderColor = "var(--color-border)";
+  const activeBg = "var(--color-accent-soft)";
+  const activeText = "var(--color-accent)";
+  const hoverBg = "var(--color-surface)";
+  const hoverText = "var(--color-ink)";
+
   return (
     <aside
       style={{
         width: mobile ? "100%" : 240,
-        background: "var(--color-ink)",
+        background: bg,
         display: "flex",
         flexDirection: "column",
         height: "100%",
@@ -80,7 +89,7 @@ export default function AdminSidebar({
       <div
         style={{
           padding: "20px 20px 16px",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          borderBottom: `1px solid ${borderColor}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -95,7 +104,7 @@ export default function AdminSidebar({
               borderRadius: 10,
               overflow: "hidden",
               flexShrink: 0,
-              border: "1.5px solid rgba(255,255,255,0.15)",
+              border: `1.5px solid ${borderColor}`,
             }}
           >
             <img
@@ -114,7 +123,7 @@ export default function AdminSidebar({
               style={{
                 fontWeight: 800,
                 fontSize: 14,
-                color: "white",
+                color: "var(--color-ink)",
                 letterSpacing: "-0.02em",
                 lineHeight: 1,
               }}
@@ -124,7 +133,7 @@ export default function AdminSidebar({
             <p
               style={{
                 fontSize: 10,
-                color: "rgba(255,255,255,0.4)",
+                color: textMuted,
                 marginTop: 2,
                 fontWeight: 500,
                 letterSpacing: "0.06em",
@@ -139,12 +148,12 @@ export default function AdminSidebar({
           <button
             onClick={onClose}
             style={{
-              background: "rgba(255,255,255,0.08)",
+              background: "var(--color-surface)",
               border: "none",
               borderRadius: 8,
               padding: 6,
               cursor: "pointer",
-              color: "rgba(255,255,255,0.6)",
+              color: textMuted,
               display: "flex",
               alignItems: "center",
             }}
@@ -160,8 +169,8 @@ export default function AdminSidebar({
           padding: "10px 14px",
           margin: "12px 12px 0",
           borderRadius: 10,
-          background: "rgba(232,76,30,0.12)",
-          border: "1px solid rgba(232,76,30,0.2)",
+          background: "var(--color-accent-soft)",
+          border: `1px solid var(--color-accent-soft2)`,
           display: "flex",
           alignItems: "center",
           gap: 8,
@@ -174,7 +183,7 @@ export default function AdminSidebar({
             borderRadius: "50%",
             background: "var(--color-accent)",
             flexShrink: 0,
-            boxShadow: "0 0 0 3px rgba(232,76,30,0.25)",
+            boxShadow: "0 0 0 3px rgba(255,92,53,0.25)",
             animation: "pulse-ring 1.8s ease-out infinite",
           }}
         />
@@ -211,7 +220,7 @@ export default function AdminSidebar({
           style={{
             fontSize: 9,
             fontWeight: 700,
-            color: "rgba(255,255,255,0.28)",
+            color: textDim,
             letterSpacing: "0.14em",
             textTransform: "uppercase",
             padding: "6px 10px 4px",
@@ -226,7 +235,7 @@ export default function AdminSidebar({
                 key={`sep-${i}`}
                 style={{
                   height: 1,
-                  background: "rgba(255,255,255,0.08)",
+                  background: borderColor,
                   margin: "8px 10px",
                 }}
               />
@@ -249,8 +258,8 @@ export default function AdminSidebar({
                 padding: "9px 12px",
                 borderRadius: 10,
                 border: "none",
-                background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
-                color: isActive ? "white" : "rgba(255,255,255,0.5)",
+                background: isActive ? activeBg : "transparent",
+                color: isActive ? activeText : textMuted,
                 cursor: "pointer",
                 fontFamily: "var(--font-body)",
                 fontWeight: isActive ? 700 : 500,
@@ -261,14 +270,14 @@ export default function AdminSidebar({
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.85)";
+                  e.currentTarget.style.background = hoverBg;
+                  e.currentTarget.style.color = hoverText;
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+                  e.currentTarget.style.color = textMuted;
                 }
               }}
             >
@@ -292,7 +301,7 @@ export default function AdminSidebar({
                 <ChevronRight
                   size={13}
                   strokeWidth={2}
-                  style={{ color: "rgba(255,255,255,0.3)" }}
+                  style={{ color: "var(--color-ink4)" }}
                 />
               )}
             </button>
@@ -304,7 +313,7 @@ export default function AdminSidebar({
       <div
         style={{
           padding: "10px 14px",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
+          borderTop: `1px solid ${borderColor}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -313,7 +322,7 @@ export default function AdminSidebar({
         <p
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.25)",
+            color: textDim,
             lineHeight: 1.4,
             flex: 1,
             margin: 0,
@@ -326,7 +335,7 @@ export default function AdminSidebar({
           onClick={() => onNavigate("help")}
           title="Aide & Support"
           style={{
-            background: "rgba(255,255,255,0.08)",
+            background: "var(--color-surface)",
             border: "none",
             borderRadius: 8,
             width: 28,
@@ -335,7 +344,7 @@ export default function AdminSidebar({
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            color: "rgba(255,255,255,0.5)",
+            color: textMuted,
           }}
         >
           <HelpCircle size={16} strokeWidth={2} />

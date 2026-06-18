@@ -496,11 +496,13 @@ export default function ReportsPage() {
                 padding: "12px 20px",
                 background: integration.connected
                   ? "var(--color-success-bg)"
-                  : "#fef2f2",
+                  : "var(--color-accent-bg)",
                 borderRadius: 12,
-                border: integration.connected
-                  ? "1px solid #bbf7d0"
-                  : "1px solid #fecaca",
+                border: `1px solid ${
+                  integration.connected
+                    ? "var(--color-success)"
+                    : "var(--color-accent-soft)"
+                }`,
                 minWidth: 180,
               }}
             >
@@ -514,7 +516,7 @@ export default function ReportsPage() {
                 <WifiOff
                   size={16}
                   strokeWidth={2}
-                  style={{ color: "#ef4444" }}
+                  style={{ color: "var(--color-accent)" }}
                 />
               )}
               <div>
@@ -522,7 +524,7 @@ export default function ReportsPage() {
                   style={{
                     fontWeight: 700,
                     fontSize: 13,
-                    color: "var(--color-ink)",
+                    color: "var(--color-ink3)",
                   }}
                 >
                   {integration.name}
@@ -532,7 +534,7 @@ export default function ReportsPage() {
                     fontSize: 11,
                     color: integration.connected
                       ? "var(--color-success)"
-                      : "#ef4444",
+                      : "var(--color-accent)",
                   }}
                 >
                   {integration.connected ? "Connecté" : "Déconnecté"}

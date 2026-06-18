@@ -1,7 +1,17 @@
 // src\components\Header.tsx
 
 import React, { useState, useEffect, useRef } from "react";
-import { ShoppingCart, Search, Heart, User, X, Menu, Zap } from "lucide-react";
+import {
+  ShoppingCart,
+  Search,
+  Heart,
+  User,
+  X,
+  Menu,
+  Zap,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
 
 interface HeaderProps {
@@ -32,6 +42,8 @@ interface HeaderProps {
   onOpenTracking: () => void;
   products: Product[];
   searchSuggestions?: string[];
+  darkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 // Définition structurée de la navigation (logique v3)
@@ -96,6 +108,8 @@ export default function Header({
   onOpenTracking,
   searchSuggestions,
   products,
+  darkMode,
+  onToggleDarkMode,
 }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(currentSearchTerm);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -262,7 +276,9 @@ export default function Header({
       <header
         className="sticky top-0 z-30 w-full transition-all duration-300"
         style={{
-          background: isScrolled ? "rgba(250,250,248,0.92)" : "var(--color-bg)",
+          background: isScrolled
+            ? "var(--color-header-scrolled, rgba(250,250,248,0.92))"
+            : "var(--color-bg)",
           backdropFilter: isScrolled ? "blur(20px) saturate(160%)" : "none",
           WebkitBackdropFilter: isScrolled
             ? "blur(20px) saturate(160%)"
@@ -464,6 +480,21 @@ export default function Header({
               </div>
             </form>
           </div>
+          {/* Dark mode toggle */}
+          <button
+            type="button"
+            onClick={onToggleDarkMode}
+            className="p-1 rounded-full transition-colors shrink-0 relative"
+            style={{ color: "var(--color-ink3)", width: 32, height: 32 }}
+            title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+          >
+            <span
+              key={darkMode ? "sun" : "moon"}
+              className="theme-toggle-icon enter absolute inset-0 flex items-center justify-center"
+            >
+              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </span>
+          </button>
 
           {/* affichage de la liste de suggestions */}
           {showSuggestions && filteredSuggestions.length > 0 && (

@@ -129,6 +129,22 @@ export default function App() {
 
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
+  // Thème sombre
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-theme",
+      darkMode ? "dark" : "light",
+    );
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
   // state pour les promotions
   const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
@@ -904,6 +920,8 @@ export default function App() {
         onOpenTracking={() => setTrackingOpen(true)}
         searchSuggestions={productTitles}
         products={products}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode((prev) => !prev)}
       />
 
       {/* Global Toast */}
@@ -1385,8 +1403,8 @@ export default function App() {
                           alt={product.title}
                           className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
                         />
-                        <div className="absolute inset-0 bg-gray-50/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
-                          <span className="bg-white/90 text-gray-900 font-bold text-xs px-3.5 py-1.5 rounded-full border border-gray-200 shadow-xl flex items-center gap-1.5">
+                        <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                          <span className="bg-white/95 dark:bg-gray-900/90 dark:text-gray-100 text-gray-900 font-bold text-xs px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl flex items-center gap-1.5">
                             <Eye className="w-3.5 h-3.5 text-(--color-accent)" />
                             Aperçu rapide
                           </span>
@@ -1797,6 +1815,7 @@ export default function App() {
                     })()}
                     alt={selectedProduct.title}
                     className="w-full h-full object-cover"
+                    style={{ filter: "none" }}
                   />
                 </div>
 
