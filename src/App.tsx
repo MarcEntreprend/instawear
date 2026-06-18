@@ -134,6 +134,14 @@ export default function App() {
   const [promotionsLoading, setPromotionsLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartLoaded, setCartLoaded] = useState(false);
+
+  // Caches locaux pour éviter les erreurs 406 sur admin_users et customers
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [allCustomers, setAllCustomers] = useState<
+    { id: string; email: string }[]
+  >([]);
+  const [cacheReady, setCacheReady] = useState(false);
 
   // Charger le panier de l'utilisateur connecté depuis Supabase
   useEffect(() => {
@@ -142,11 +150,8 @@ export default function App() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("email", user.email)
-          .single();
+        // Recherche locale pour éviter l'erreur 406
+        const customer = allCustomers.find((c) => c.email === user.email);
         if (customer) {
           const cartItems = await customerApi.getCart(customer.id);
           setCart(
@@ -163,24 +168,23 @@ export default function App() {
               })
               .filter((ci): ci is CartItem => ci !== null),
           );
+          setCartLoaded(true);
         }
       }
     };
     loadCart();
   }, [isAdmin, isUser, products]); // recharge quand l'état de connexion change ou les produits sont prêts
 
-  // Sauvegarder le panier dans Supabase à chaque modification (si connecté)
+  // Sauvegarder le panier dans Supabase
   useEffect(() => {
+    if (!cartLoaded) return; // ne pas synchroniser avant d'avoir chargé le panier
     const syncCart = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user?.email) return;
-      const { data: customer } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("email", user.email)
-        .single();
+      // Recherche locale pour éviter l'erreur 406
+      const customer = allCustomers.find((c) => c.email === user.email);
       if (!customer) return;
       // Remplacement complet : on vide puis on réinsère
       await customerApi.clearCart(customer.id);
@@ -239,11 +243,8 @@ export default function App() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("email", user.email)
-          .single();
+        // Recherche locale pour éviter l'erreur 406
+        const customer = allCustomers.find((c) => c.email === user.email);
         if (customer) {
           const favs = await customerApi.getFavourites(customer.id);
           setFavorites(favs.map((f: Favourite) => f.productId));
@@ -251,7 +252,7 @@ export default function App() {
       }
     };
     loadFavorites();
-  }, [isAdmin, isUser]); // se recharge quand l'état de connexion change
+  }, [isAdmin, isUser, allCustomers]); // se recharge quand l'état de connexion change ou quand le cache clients est prêt
 
   // New design creation details
   const [newDesignPrompt, setNewDesignPrompt] = useState("");
@@ -288,10 +289,29 @@ export default function App() {
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [validEmail, setValidEmail] = useState(false);
 
+  // Charger une fois la liste des admins et des clients pour éviter les requêtes 406
+  useEffect(() => {
+    const loadCaches = async () => {
+      try {
+        const { adminUserApi, customerApi } = await import("./api/supabaseApi");
+        const [admins, customers] = await Promise.all([
+          adminUserApi.list(),
+          customerApi.list(),
+        ]);
+        setAdminEmails(admins.map((u) => u.email));
+        setAllCustomers(customers.map((c) => ({ id: c.id, email: c.email })));
+        setCacheReady(true);
+      } catch (e) {
+        // silencieux
+      }
+    };
+    loadCaches();
+  }, []);
+
   // les promotions
   useEffect(() => {
     fetchProducts();
-    fetchSettings();
+    // fetchSettings();
     heroPromotionsApi
       .list()
       .then(setHeroPromotions)
@@ -303,44 +323,45 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
-        // Vérifier si l'utilisateur connecté est admin
-        supabase
-          .from("admin_users")
-          .select("role")
-          .eq("email", session.user.email)
-          .single()
-          .then(({ data }) => {
-            if (data) {
-              setIsAdmin(true);
-              setIsUser(false);
-            } else {
-              setIsUser(true);
-              setIsAdmin(false);
-            }
-          });
+        // Vérifier localement si l'utilisateur est admin (évite erreur 406)
+        const isAdminUser = adminEmails.includes(session.user.email);
+        if (isAdminUser) {
+          setIsAdmin(true);
+          setIsUser(false);
+        } else {
+          setIsUser(true);
+          setIsAdmin(false);
+        }
+      } else {
+        // Aucune session : vider les données locales
+        setIsAdmin(false);
+        setIsUser(false);
+        setCart([]);
+        setFavorites([]);
+        setCartLoaded(false);
+        setShowFavoritesOnly(false);
       }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user?.email) {
-          supabase
-            .from("admin_users")
-            .select("role")
-            .eq("email", session.user.email)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                setIsAdmin(true);
-                setIsUser(false);
-              } else {
-                setIsUser(true);
-                setIsAdmin(false);
-              }
-            });
+          // Vérifier localement si l'utilisateur est admin (évite erreur 406)
+          const isAdminUser = adminEmails.includes(session.user.email);
+          if (isAdminUser) {
+            setIsAdmin(true);
+            setIsUser(false);
+          } else {
+            setIsUser(true);
+            setIsAdmin(false);
+          }
         } else {
           setIsAdmin(false);
           setIsUser(false);
+          setCart([]);
+          setFavorites([]);
+          setCartLoaded(false);
+          setShowFavoritesOnly(false);
         }
       },
     );
@@ -348,7 +369,7 @@ export default function App() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, []); // Se lance au montage une seule fois
+  }, [cacheReady]); // Se lance au montage ET quand le cache est prêt
 
   // Sync Promo Timer every second
 
@@ -426,18 +447,6 @@ export default function App() {
       setProducts([]);
     } finally {
       setLoadingProducts(false);
-    }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch("/api/printful/settings");
-      if (res.ok) {
-        const data = await res.json();
-        setPrintfulSettings(data);
-      }
-    } catch (err) {
-      console.error("Failed to load settings:", err);
     }
   };
 
@@ -828,13 +837,8 @@ export default function App() {
       return;
     }
 
-    // Récupérer le client_id
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("email", user.email)
-      .single();
-
+    // Recherche locale pour éviter l'erreur 406
+    const customer = allCustomers.find((c) => c.email === user.email);
     const clientId = customer?.id;
     if (!clientId) return;
 
@@ -885,9 +889,15 @@ export default function App() {
         onOpenProfile={() => {
           if (activeTab === "store") setShowProfileModal(true);
         }}
-        onLogout={() => {
+        onLogout={async () => {
+          await supabase.auth.signOut();
           setIsAdmin(false);
           setIsUser(false);
+          setUserName("");
+          setCart([]);
+          setFavorites([]);
+          setCartLoaded(false);
+          setShowFavoritesOnly(false);
           setActiveTab("store");
         }}
         onScrollToSection={scrollToSection}
@@ -1409,6 +1419,40 @@ export default function App() {
                             </>
                           )}
                         </div>
+                        {/* Heart button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(product.id);
+                          }}
+                          className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-110"
+                          style={{
+                            background: favorites.includes(product.id)
+                              ? "var(--color-accent)"
+                              : "rgba(255,255,255,0.9)",
+                            backdropFilter: "blur(8px)",
+                            border: `1px solid ${favorites.includes(product.id) ? "transparent" : "var(--color-border)"}`,
+                            zIndex: 5,
+                          }}
+                          aria-label={
+                            favorites.includes(product.id)
+                              ? "Retirer des favoris"
+                              : "Ajouter aux favoris"
+                          }
+                        >
+                          <Heart
+                            size={14}
+                            strokeWidth={2}
+                            style={{
+                              color: favorites.includes(product.id)
+                                ? "white"
+                                : "var(--color-ink2)",
+                              fill: favorites.includes(product.id)
+                                ? "white"
+                                : "none",
+                            }}
+                          />
+                        </button>
                       </div>
 
                       <div className="px-3 pt-2 pb-3 flex-1 flex flex-col justify-between">
@@ -1975,6 +2019,38 @@ export default function App() {
                     </p>
                   </div>
 
+                  {/* Favorite button in modal */}
+                  <button
+                    onClick={() => toggleFavorite(selectedProduct.id)}
+                    className="p-3 rounded-xl transition-all duration-150 mb-2"
+                    style={{
+                      background: favorites.includes(selectedProduct.id)
+                        ? "#FEF2F2"
+                        : "var(--color-surface2)",
+                      border: `1.5px solid ${favorites.includes(selectedProduct.id) ? "#FECACA" : "var(--color-border)"}`,
+                      color: favorites.includes(selectedProduct.id)
+                        ? "#EF4444"
+                        : "var(--color-ink3)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "fit-content",
+                    }}
+                  >
+                    <Heart
+                      size={18}
+                      strokeWidth={2}
+                      fill={
+                        favorites.includes(selectedProduct.id)
+                          ? "#EF4444"
+                          : "none"
+                      }
+                    />
+                    {favorites.includes(selectedProduct.id)
+                      ? "Retirer des favoris"
+                      : "Ajouter aux favoris"}
+                  </button>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -2518,11 +2594,17 @@ export default function App() {
         <ProfileModal
           isAdmin={isAdmin}
           userName={userName}
+          allCustomers={allCustomers}
           onClose={() => setShowProfileModal(false)}
-          onLogout={() => {
+          onLogout={async () => {
+            await supabase.auth.signOut();
             setIsAdmin(false);
             setIsUser(false);
             setUserName("");
+            setCart([]);
+            setFavorites([]);
+            setCartLoaded(false);
+            setShowFavoritesOnly(false);
             setActiveTab("store");
           }}
         />

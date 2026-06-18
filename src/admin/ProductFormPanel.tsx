@@ -42,8 +42,8 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   dealActive: false,
   dealEndsAt: undefined,
   dealPrice: undefined,
-  affiliateMode: false,
-  affiliateUrl: undefined,
+  // affiliateMode: false,
+  // affiliateUrl: undefined,
   externalProductId: undefined,
   externalVariantId: undefined,
   lastExternalSync: undefined,
@@ -236,8 +236,8 @@ export default function ProductFormPanel({
         dealActive: product.dealActive || false,
         dealEndsAt: product.dealEndsAt,
         dealPrice: product.dealPrice,
-        affiliateMode: product.affiliateMode || false,
-        affiliateUrl: product.affiliateUrl,
+        // affiliateMode: product.affiliateMode || false,
+        // affiliateUrl: product.affiliateUrl,
         externalProductId: product.externalProductId,
         externalVariantId: product.externalVariantId,
         lastExternalSync: product.lastExternalSync,
@@ -657,7 +657,7 @@ export default function ProductFormPanel({
         </div>
 
         {/* Affiliation */}
-        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+        {/* <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
           <label
             style={{
               ...labelStyle,
@@ -682,7 +682,7 @@ export default function ProductFormPanel({
               placeholder="URL d'affiliation"
             />
           )}
-        </div>
+        </div> */}
 
         {/* External POD IDs */}
         <div

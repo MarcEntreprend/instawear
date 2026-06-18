@@ -10,6 +10,7 @@ interface ProfileModalProps {
   userName?: string;
   onClose: () => void;
   onLogout: () => void;
+  allCustomers: { id: string; email: string }[];
 }
 
 export default function ProfileModal({
@@ -17,6 +18,7 @@ export default function ProfileModal({
   userName,
   onClose,
   onLogout,
+  allCustomers,
 }: ProfileModalProps) {
   const displayName = isAdmin ? "Admin" : userName || "Utilisateur";
   const role = isAdmin ? "administrateur" : "utilisateur";
@@ -38,12 +40,8 @@ export default function ProfileModal({
         } = await supabase.auth.getUser();
         if (user?.email) {
           setUserEmail(user.email);
-          // Trouver le client_id associé à cet email
-          const { data: customer } = await supabase
-            .from("customers")
-            .select("id")
-            .eq("email", user.email)
-            .single();
+          // Recherche locale pour éviter l'erreur 406
+          const customer = allCustomers.find((c) => c.email === user.email);
           if (customer) {
             const [orders, favs] = await Promise.all([
               customerApi.getOrders(customer.id),

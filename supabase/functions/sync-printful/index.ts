@@ -1,63 +1,64 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
+// supabase\functions\sync-printful\index.ts
 // @ts-nocheck
-
-// Setup type definitions for built-in Supabase Runtime APIs
 import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export default {
-  fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
-    // Gérer les requêtes CORS preflight
+  async fetch(req: Request): Promise<Response> {
+    // ⚠️ Toujours ajouter les headers CORS, même pour les OPTIONS
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
+    };
+
     if (req.method === "OPTIONS") {
-      return new Response("ok", {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers":
-            "authorization, x-client-info, apikey, content-type",
-        },
-      });
+      return new Response("ok", { headers: corsHeaders });
     }
 
     try {
-      // Récupérer les paramètres Printful depuis la base
-      const { data: settings, error: settingsError } = await ctx.supabaseAdmin
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const { data: settings, error: settingsError } = await supabaseAdmin
         .from("pod_settings")
         .select("*")
         .single();
 
       if (settingsError || !settings?.api_key) {
-        return Response.json(
-          { error: "Clé API Printful non configurée." },
-          { status: 400 },
+        return new Response(
+          JSON.stringify({ error: "Clé API Printful non configurée." }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          },
         );
       }
 
-      // Appeler l'API Printful pour récupérer les produits synchronisés
       const printfulResponse = await fetch(
         "https://api.printful.com/store/products",
         {
-          headers: {
-            Authorization: `Bearer ${settings.api_key}`,
-          },
+          headers: { Authorization: `Bearer ${settings.api_key}` },
         },
       );
 
       if (!printfulResponse.ok) {
         const errText = await printfulResponse.text();
-        return Response.json(
-          { error: `Erreur Printful : ${errText}` },
-          { status: 502 },
+        return new Response(
+          JSON.stringify({ error: `Erreur Printful : ${errText}` }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 502,
+          },
         );
       }
 
       const printfulData = await printfulResponse.json();
       const syncedCount = printfulData.result?.length ?? 0;
 
-      // Mettre à jour les paramètres de synchronisation dans Supabase
-      await ctx.supabaseAdmin
+      await supabaseAdmin
         .from("pod_settings")
         .update({
           last_sync_at: new Date().toISOString(),
@@ -66,8 +67,7 @@ export default {
         })
         .eq("id", settings.id);
 
-      // Enregistrer un log de synchronisation
-      await ctx.supabaseAdmin.from("sync_logs").insert({
+      await supabaseAdmin.from("sync_logs").insert({
         id: `log-${Date.now()}`,
         sync_date: new Date().toISOString(),
         status: "success",
@@ -75,12 +75,19 @@ export default {
         duration: 0,
       });
 
-      return Response.json({ success: true, syncedCount });
+      return new Response(JSON.stringify({ success: true, syncedCount }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } catch (error) {
-      return Response.json(
-        { error: error instanceof Error ? error.message : "Erreur inconnue" },
-        { status: 500 },
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Erreur inconnue",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        },
       );
     }
-  }),
+  },
 };

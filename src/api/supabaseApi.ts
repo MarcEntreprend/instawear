@@ -17,6 +17,47 @@ import type {
   HeroPromotion,
 } from "../admin/adminTypes";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Type représentant EXACTEMENT les colonnes de la table "products" en base.
+// Toute propriété envoyée à .insert() / .update() doit être de ce type.
+// Si vous ajoutez une colonne dans la DB, ajoutez-la ici.
+// ═══════════════════════════════════════════════════════════════════════════
+interface ProductRow {
+  is_active: boolean;
+  title: string;
+  brand: string;
+  description: string;
+  full_description?: string | null;
+  image: string;
+  gallery: string[];
+  mockup_preset?: string | null;
+  price: number;
+  original_price?: number | null;
+  in_stock: boolean;
+  stock_quantity?: number | null;
+  colors: string[];
+  color_names?: string[] | null;
+  sizes: string[];
+  size_surcharge?: Record<string, number> | null;
+  size_guide?: Record<string, { bust: number; length: number }> | null;
+  category: "tshirt" | "hoodie" | "accessory" | "mug";
+  event_type: "live" | "sport" | "culture" | "saisonnier";
+  style: "cute" | "street" | "commute" | "cozy" | "retro";
+  material?: string | null;
+  tags: string[];
+  is_best_seller?: boolean | null;
+  is_limited_time?: boolean | null;
+  deal_active?: boolean | null;
+  deal_ends_at?: string | null;
+  deal_price?: number | null;
+  external_product_id?: string | null;
+  external_variant_id?: string | null;
+  last_external_sync?: string | null;
+  ratings_score?: number | null;
+  ratings_count?: number | null;
+  bought_last_month?: number | null;
+}
+
 // ─── Helpers de mapping ──────────────────────────────────────────────────
 const mapProduct = (row: any): AdminProduct => ({
   id: row.id,
@@ -47,8 +88,8 @@ const mapProduct = (row: any): AdminProduct => ({
   dealActive: row.deal_active,
   dealEndsAt: row.deal_ends_at,
   dealPrice: row.deal_price,
-  affiliateMode: row.affiliate_mode,
-  affiliateUrl: row.affiliate_url,
+  // affiliateMode: row.affiliate_mode,
+  // affiliateUrl: row.affiliate_url,
   externalProductId: row.external_product_id,
   externalVariantId: row.external_variant_id,
   lastExternalSync: row.last_external_sync,
@@ -115,90 +156,189 @@ export const productApi = {
     if (error) return null;
     return mapProduct(data);
   },
+
   async create(
     product: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
   ): Promise<AdminProduct> {
+    const row: ProductRow = {
+      is_active: product.isActive,
+      title: product.title,
+      brand: product.brand,
+      description: product.description,
+      full_description: product.fullDescription,
+      image: product.image,
+      gallery: product.gallery,
+      mockup_preset: product.mockupPreset,
+      price: product.price,
+      original_price: product.originalPrice,
+      in_stock: product.inStock,
+      stock_quantity: product.stockQuantity,
+      colors: product.colors,
+      color_names: product.colorNames,
+      sizes: product.sizes,
+      size_surcharge: product.sizeSurcharge,
+      size_guide: product.sizeGuide,
+      category: product.category,
+      event_type: product.eventType,
+      style: product.style,
+      material: product.material,
+      tags: product.tags,
+      is_best_seller: product.isBestSeller,
+      is_limited_time: product.isLimitedTime,
+      deal_active: product.dealActive,
+      deal_ends_at: product.dealEndsAt,
+      deal_price: product.dealPrice,
+      external_product_id: product.externalProductId,
+      external_variant_id: product.externalVariantId,
+      last_external_sync: product.lastExternalSync,
+      ratings_score: product.ratings?.score ?? 5,
+      ratings_count: product.ratings?.count ?? 0,
+      bought_last_month: product.boughtLastMonth ?? 0,
+    };
     const { data, error } = await supabase
       .from("products")
-      .insert({
-        ...product,
-        is_active: product.isActive,
-        full_description: product.fullDescription,
-        original_price: product.originalPrice,
-        in_stock: product.inStock,
-        stock_quantity: product.stockQuantity,
-        color_names: product.colorNames,
-        size_surcharge: product.sizeSurcharge,
-        size_guide: product.sizeGuide,
-        event_type: product.eventType,
-        is_best_seller: product.isBestSeller,
-        is_limited_time: product.isLimitedTime,
-        deal_active: product.dealActive,
-        deal_ends_at: product.dealEndsAt,
-        deal_price: product.dealPrice,
-        affiliate_mode: product.affiliateMode,
-        affiliate_url: product.affiliateUrl,
-        external_product_id: product.externalProductId,
-        external_variant_id: product.externalVariantId,
-        last_external_sync: product.lastExternalSync,
-        ratings_score: product.ratings?.score ?? 5,
-        ratings_count: product.ratings?.count ?? 0,
-        bought_last_month: product.boughtLastMonth ?? 0,
-      })
+      .insert(row)
       .select()
       .single();
     if (error) throw error;
     return mapProduct(data);
   },
+  // async create(
+  //   product: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
+  // ): Promise<AdminProduct> {
+  //   const { data, error } = await supabase
+  //     .from("products")
+  //     .insert({
+  //       ...product,
+  //       is_active: product.isActive,
+  //       full_description: product.fullDescription,
+  //       original_price: product.originalPrice,
+  //       in_stock: product.inStock,
+  //       stock_quantity: product.stockQuantity,
+  //       color_names: product.colorNames,
+  //       size_surcharge: product.sizeSurcharge,
+  //       size_guide: product.sizeGuide,
+  //       event_type: product.eventType,
+  //       is_best_seller: product.isBestSeller,
+  //       is_limited_time: product.isLimitedTime,
+  //       deal_active: product.dealActive,
+  //       deal_ends_at: product.dealEndsAt,
+  //       deal_price: product.dealPrice,
+  //       // affiliate_mode: product.affiliateMode,
+  //       // affiliate_url: product.affiliateUrl,
+  //       external_product_id: product.externalProductId,
+  //       external_variant_id: product.externalVariantId,
+  //       last_external_sync: product.lastExternalSync,
+  //       ratings_score: product.ratings?.score ?? 5,
+  //       ratings_count: product.ratings?.count ?? 0,
+  //       bought_last_month: product.boughtLastMonth ?? 0,
+  //     })
+  //     .select()
+  //     .single();
+  //   if (error) throw error;
+  //   return mapProduct(data);
+  // },
+
+  // ⚠️ Ne pas utiliser de spread ici – mapper explicitement chaque colonne
+  // pour éviter les erreurs "Could not find the column".
   async update(
     id: string,
     updates: Partial<AdminProduct>,
   ): Promise<AdminProduct> {
+    const row: Partial<ProductRow> = {
+      is_active: updates.isActive,
+      title: updates.title,
+      brand: updates.brand,
+      description: updates.description,
+      full_description: updates.fullDescription,
+      image: updates.image,
+      gallery: updates.gallery,
+      mockup_preset: updates.mockupPreset,
+      price: updates.price,
+      original_price: updates.originalPrice,
+      in_stock: updates.inStock,
+      stock_quantity: updates.stockQuantity,
+      colors: updates.colors,
+      color_names: updates.colorNames,
+      sizes: updates.sizes,
+      size_surcharge: updates.sizeSurcharge,
+      size_guide: updates.sizeGuide,
+      category: updates.category,
+      event_type: updates.eventType,
+      style: updates.style,
+      material: updates.material,
+      tags: updates.tags,
+      is_best_seller: updates.isBestSeller,
+      is_limited_time: updates.isLimitedTime,
+      deal_active: updates.dealActive,
+      deal_ends_at: updates.dealEndsAt,
+      deal_price: updates.dealPrice,
+      external_product_id: updates.externalProductId,
+      external_variant_id: updates.externalVariantId,
+      last_external_sync: updates.lastExternalSync,
+      ratings_score: updates.ratings?.score,
+      ratings_count: updates.ratings?.count,
+      bought_last_month: updates.boughtLastMonth,
+    };
     const { data, error } = await supabase
       .from("products")
-      .update({
-        is_active: updates.isActive,
-        title: updates.title,
-        brand: updates.brand,
-        description: updates.description,
-        full_description: updates.fullDescription,
-        image: updates.image,
-        gallery: updates.gallery,
-        mockup_preset: updates.mockupPreset,
-        price: updates.price,
-        original_price: updates.originalPrice,
-        in_stock: updates.inStock,
-        stock_quantity: updates.stockQuantity,
-        colors: updates.colors,
-        color_names: updates.colorNames,
-        sizes: updates.sizes,
-        size_surcharge: updates.sizeSurcharge,
-        size_guide: updates.sizeGuide,
-        category: updates.category,
-        event_type: updates.eventType,
-        style: updates.style,
-        material: updates.material,
-        tags: updates.tags,
-        is_best_seller: updates.isBestSeller,
-        is_limited_time: updates.isLimitedTime,
-        deal_active: updates.dealActive,
-        deal_ends_at: updates.dealEndsAt,
-        deal_price: updates.dealPrice,
-        affiliate_mode: updates.affiliateMode,
-        affiliate_url: updates.affiliateUrl,
-        external_product_id: updates.externalProductId,
-        external_variant_id: updates.externalVariantId,
-        last_external_sync: updates.lastExternalSync,
-        ratings_score: updates.ratings?.score,
-        ratings_count: updates.ratings?.count,
-        bought_last_month: updates.boughtLastMonth,
-      })
+      .update(row)
       .eq("id", id)
       .select()
       .single();
     if (error) throw error;
     return mapProduct(data);
   },
+
+  // async update(
+  //   id: string,
+  //   updates: Partial<AdminProduct>,
+  // ): Promise<AdminProduct> {
+  //   const { data, error } = await supabase
+  //     .from("products")
+  //     .update({
+  //       is_active: updates.isActive,
+  //       title: updates.title,
+  //       brand: updates.brand,
+  //       description: updates.description,
+  //       full_description: updates.fullDescription,
+  //       image: updates.image,
+  //       gallery: updates.gallery,
+  //       mockup_preset: updates.mockupPreset,
+  //       price: updates.price,
+  //       original_price: updates.originalPrice,
+  //       in_stock: updates.inStock,
+  //       stock_quantity: updates.stockQuantity,
+  //       colors: updates.colors,
+  //       color_names: updates.colorNames,
+  //       sizes: updates.sizes,
+  //       size_surcharge: updates.sizeSurcharge,
+  //       size_guide: updates.sizeGuide,
+  //       category: updates.category,
+  //       event_type: updates.eventType,
+  //       style: updates.style,
+  //       material: updates.material,
+  //       tags: updates.tags,
+  //       is_best_seller: updates.isBestSeller,
+  //       is_limited_time: updates.isLimitedTime,
+  //       deal_active: updates.dealActive,
+  //       deal_ends_at: updates.dealEndsAt,
+  //       deal_price: updates.dealPrice,
+  //       // affiliate_mode: updates.affiliateMode,
+  //       // affiliate_url: updates.affiliateUrl,
+  //       external_product_id: updates.externalProductId,
+  //       external_variant_id: updates.externalVariantId,
+  //       last_external_sync: updates.lastExternalSync,
+  //       ratings_score: updates.ratings?.score,
+  //       ratings_count: updates.ratings?.count,
+  //       bought_last_month: updates.boughtLastMonth,
+  //     })
+  //     .eq("id", id)
+  //     .select()
+  //     .single();
+  //   if (error) throw error;
+  //   return mapProduct(data);
+  // },
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) throw error;
@@ -526,13 +666,20 @@ export const podApi = {
   },
   async sync(): Promise<{ settings: PodSettings; log: SyncLog }> {
     const start = Date.now();
-    // Appeler l’Edge Function Supabase qui proxyfie Printful
-    const { data: result, error: fnError } =
-      await supabase.functions.invoke("sync-printful");
-    if (fnError) throw new Error(fnError.message);
-    if (result?.error) throw new Error(result.error);
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur Edge Function");
+    }
+    const result = await res.json();
 
-    // Rafraîchir les paramètres après synchro
     const settings = await this.getSettings();
     const log: SyncLog = {
       id: `log-${Date.now()}`,
@@ -541,7 +688,6 @@ export const podApi = {
       message: `${result.syncedCount} produits synchronisés avec Printful.`,
       duration: Date.now() - start,
     };
-    // Insérer le log dans la base (optionnel, déjà fait par la fonction, mais pour cohérence)
     await supabase.from("sync_logs").insert({
       id: log.id,
       sync_date: log.syncDate,
