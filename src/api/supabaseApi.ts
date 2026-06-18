@@ -50,6 +50,8 @@ interface ProductRow {
   deal_active?: boolean | null;
   deal_ends_at?: string | null;
   deal_price?: number | null;
+  affiliate_mode?: boolean | null;
+  affiliate_url?: string | null;
   external_product_id?: string | null;
   external_variant_id?: string | null;
   last_external_sync?: string | null;
@@ -88,8 +90,8 @@ const mapProduct = (row: any): AdminProduct => ({
   dealActive: row.deal_active,
   dealEndsAt: row.deal_ends_at,
   dealPrice: row.deal_price,
-  // affiliateMode: row.affiliate_mode,
-  // affiliateUrl: row.affiliate_url,
+  affiliateMode: row.affiliate_mode,
+  affiliateUrl: row.affiliate_url,
   externalProductId: row.external_product_id,
   externalVariantId: row.external_variant_id,
   lastExternalSync: row.last_external_sync,
@@ -188,6 +190,8 @@ export const productApi = {
       deal_active: product.dealActive,
       deal_ends_at: product.dealEndsAt,
       deal_price: product.dealPrice,
+      affiliate_mode: product.affiliateMode,
+      affiliate_url: product.affiliateUrl,
       external_product_id: product.externalProductId,
       external_variant_id: product.externalVariantId,
       last_external_sync: product.lastExternalSync,
@@ -203,44 +207,6 @@ export const productApi = {
     if (error) throw error;
     return mapProduct(data);
   },
-  // async create(
-  //   product: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
-  // ): Promise<AdminProduct> {
-  //   const { data, error } = await supabase
-  //     .from("products")
-  //     .insert({
-  //       ...product,
-  //       is_active: product.isActive,
-  //       full_description: product.fullDescription,
-  //       original_price: product.originalPrice,
-  //       in_stock: product.inStock,
-  //       stock_quantity: product.stockQuantity,
-  //       color_names: product.colorNames,
-  //       size_surcharge: product.sizeSurcharge,
-  //       size_guide: product.sizeGuide,
-  //       event_type: product.eventType,
-  //       is_best_seller: product.isBestSeller,
-  //       is_limited_time: product.isLimitedTime,
-  //       deal_active: product.dealActive,
-  //       deal_ends_at: product.dealEndsAt,
-  //       deal_price: product.dealPrice,
-  //       // affiliate_mode: product.affiliateMode,
-  //       // affiliate_url: product.affiliateUrl,
-  //       external_product_id: product.externalProductId,
-  //       external_variant_id: product.externalVariantId,
-  //       last_external_sync: product.lastExternalSync,
-  //       ratings_score: product.ratings?.score ?? 5,
-  //       ratings_count: product.ratings?.count ?? 0,
-  //       bought_last_month: product.boughtLastMonth ?? 0,
-  //     })
-  //     .select()
-  //     .single();
-  //   if (error) throw error;
-  //   return mapProduct(data);
-  // },
-
-  // ⚠️ Ne pas utiliser de spread ici – mapper explicitement chaque colonne
-  // pour éviter les erreurs "Could not find the column".
   async update(
     id: string,
     updates: Partial<AdminProduct>,
@@ -273,6 +239,8 @@ export const productApi = {
       deal_active: updates.dealActive,
       deal_ends_at: updates.dealEndsAt,
       deal_price: updates.dealPrice,
+      affiliate_mode: updates.affiliateMode,
+      affiliate_url: updates.affiliateUrl,
       external_product_id: updates.externalProductId,
       external_variant_id: updates.externalVariantId,
       last_external_sync: updates.lastExternalSync,
@@ -290,55 +258,6 @@ export const productApi = {
     return mapProduct(data);
   },
 
-  // async update(
-  //   id: string,
-  //   updates: Partial<AdminProduct>,
-  // ): Promise<AdminProduct> {
-  //   const { data, error } = await supabase
-  //     .from("products")
-  //     .update({
-  //       is_active: updates.isActive,
-  //       title: updates.title,
-  //       brand: updates.brand,
-  //       description: updates.description,
-  //       full_description: updates.fullDescription,
-  //       image: updates.image,
-  //       gallery: updates.gallery,
-  //       mockup_preset: updates.mockupPreset,
-  //       price: updates.price,
-  //       original_price: updates.originalPrice,
-  //       in_stock: updates.inStock,
-  //       stock_quantity: updates.stockQuantity,
-  //       colors: updates.colors,
-  //       color_names: updates.colorNames,
-  //       sizes: updates.sizes,
-  //       size_surcharge: updates.sizeSurcharge,
-  //       size_guide: updates.sizeGuide,
-  //       category: updates.category,
-  //       event_type: updates.eventType,
-  //       style: updates.style,
-  //       material: updates.material,
-  //       tags: updates.tags,
-  //       is_best_seller: updates.isBestSeller,
-  //       is_limited_time: updates.isLimitedTime,
-  //       deal_active: updates.dealActive,
-  //       deal_ends_at: updates.dealEndsAt,
-  //       deal_price: updates.dealPrice,
-  //       // affiliate_mode: updates.affiliateMode,
-  //       // affiliate_url: updates.affiliateUrl,
-  //       external_product_id: updates.externalProductId,
-  //       external_variant_id: updates.externalVariantId,
-  //       last_external_sync: updates.lastExternalSync,
-  //       ratings_score: updates.ratings?.score,
-  //       ratings_count: updates.ratings?.count,
-  //       bought_last_month: updates.boughtLastMonth,
-  //     })
-  //     .eq("id", id)
-  //     .select()
-  //     .single();
-  //   if (error) throw error;
-  //   return mapProduct(data);
-  // },
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) throw error;

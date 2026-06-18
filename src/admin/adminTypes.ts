@@ -32,8 +32,8 @@ export interface AdminProduct {
   dealActive?: boolean;
   dealEndsAt?: string; // ISO datetime
   dealPrice?: number;
-  // affiliateMode?: boolean;
-  // affiliateUrl?: string;
+  affiliateMode?: boolean;
+  affiliateUrl?: string;
   externalProductId?: string;
   externalVariantId?: string;
   lastExternalSync?: string; // ISO datetime
