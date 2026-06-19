@@ -66,7 +66,8 @@ instawear/
 │   │   ├── ProductCard.tsx
 │   │   ├── ProductModal.tsx
 │   │   ├── ProfileModal.tsx
-│   │   └── TagInput.tsx
+│   │   ├── TagInput.tsx
+│   │   └── ToastContainer.tsx
 │   ├── data/
 │   │   ├── defaultProducts.ts
 │   │   └── staticData.ts

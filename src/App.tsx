@@ -43,6 +43,7 @@ import AuthModal from "./components/AuthModal";
 import CheckoutModal from "./components/CheckoutModal";
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
+import ToastContainer, { type Toast } from "./components/ToastContainer";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { Product, CartItem, PrintfulSettings } from "./types";
@@ -288,10 +289,9 @@ export default function App() {
   const [newDesignImg, setNewDesignImg] = useState(PLACEHOLDER_IMG);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSavingDesign, setIsSavingDesign] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{
-    text: string;
-    type: "success" | "info" | "error";
-  } | null>(null);
+  // Système de toasts enrichi (file d'attente)
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  let toastIdCounter = useRef(0);
 
   // Printful test endpoints loading
   const [isSyncingPrintful, setIsSyncingPrintful] = useState(false);
@@ -444,12 +444,15 @@ export default function App() {
 
   const showToast = (
     text: string,
-    type: "success" | "info" | "error" = "success",
+    type: "success" | "info" | "error" | "warning" = "success",
+    duration?: number,
   ) => {
-    setToastMessage({ text, type });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
+    const id = ++toastIdCounter.current;
+    setToasts((prev) => [...prev, { id, text, type, duration }]);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   // Récupère les produits depuis Supabase (base de données réelle)
@@ -924,18 +927,8 @@ export default function App() {
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
       />
 
-      {/* Global Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-55 max-w-sm bg-white border-l-4 border-cyan-400 p-4 rounded-r shadow-2xl flex items-start gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <Sparkles className="w-5 h-5 text-(--color-accent) shrink-0 mt-0.5 animate-bounce" />
-          <div>
-            <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-              InstaWear Hub
-            </p>
-            <p className="text-sm text-gray-600 mt-1">{toastMessage.text}</p>
-          </div>
-        </div>
-      )}
+      {/* Toast system */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Client Customer Main Storefront View */}
       {activeTab === "store" && (
