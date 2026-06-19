@@ -480,21 +480,6 @@ export default function Header({
               </div>
             </form>
           </div>
-          {/* Dark mode toggle */}
-          <button
-            type="button"
-            onClick={onToggleDarkMode}
-            className="p-1 rounded-full transition-colors shrink-0 relative"
-            style={{ color: "var(--color-ink3)", width: 32, height: 32 }}
-            title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-          >
-            <span
-              key={darkMode ? "sun" : "moon"}
-              className="theme-toggle-icon enter absolute inset-0 flex items-center justify-center"
-            >
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </span>
-          </button>
 
           {/* affichage de la liste de suggestions */}
           {showSuggestions && filteredSuggestions.length > 0 && (
@@ -560,17 +545,47 @@ export default function Header({
 
           {/* Actions (visuel v2) */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Dark mode toggle */}
+            <button
+              type="button"
+              onClick={onToggleDarkMode}
+              className="p-1 rounded-full transition-all duration-200 shrink-0 relative"
+              style={{ color: "var(--color-ink2)", width: 32, height: 32 }}
+              title={
+                darkMode ? "Passer en mode clair" : "Passer en mode sombre"
+              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <span
+                key={darkMode ? "sun" : "moon"}
+                className="theme-toggle-icon enter absolute inset-0 flex items-center justify-center"
+              >
+                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </span>
+            </button>
+
             {/* Favorites */}
             <button
               onClick={onOpenFavorites}
-              className="relative p-2 rounded-xl transition-all duration-150"
+              className="relative p-2 rounded-xl transition-all duration-200"
               style={{ color: "var(--color-ink2)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--color-surface2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--color-surface2)";
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.08)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
               aria-label="Mes favoris"
             >
               <Heart size={20} strokeWidth={1.8} />
@@ -588,18 +603,23 @@ export default function Header({
             {isAdminLoggedIn || isUserLoggedIn ? (
               <button
                 onClick={onOpenProfile}
-                className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
                 style={{
                   color: isAdminLoggedIn
                     ? "var(--color-accent)"
                     : "var(--color-ink2)",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--color-surface2)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--color-surface2)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 20px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
                 aria-label="Mon profil"
                 title="Mon profil"
               >
@@ -608,14 +628,19 @@ export default function Header({
             ) : (
               <button
                 onClick={onOpenAuth}
-                className="hidden md:flex p-2 rounded-xl transition-all duration-150"
+                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
                 style={{ color: "var(--color-ink2)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--color-surface2)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--color-surface2)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 20px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
                 aria-label="Connexion / Inscription"
                 title="Connexion / Inscription"
               >
