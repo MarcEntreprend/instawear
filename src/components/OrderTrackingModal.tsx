@@ -37,6 +37,7 @@ interface TrackedOrder {
 
 interface OrderTrackingModalProps {
   onClose: () => void;
+  onSelectProduct?: (productId: string) => void;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -49,6 +50,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function OrderTrackingModal({
   onClose,
+  onSelectProduct,
 }: OrderTrackingModalProps) {
   const [input, setInput] = useState("");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
@@ -315,16 +317,31 @@ export default function OrderTrackingModal({
                 Articles
               </p>
               {order.items.map((item, i) => (
-                <div
+                <button
                   key={i}
+                  onClick={() => onSelectProduct?.(item.productId)}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    width: "100%",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    padding: "4px 0",
+                    cursor: "pointer",
                     fontSize: 12.5,
                     color: "var(--color-ink2)",
                     marginBottom: 4,
+                    borderRadius: 8,
+                    transition: "background 0.15s",
                   }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--color-surface)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "none")
+                  }
                 >
                   <div
                     style={{
@@ -353,7 +370,7 @@ export default function OrderTrackingModal({
                   <span style={{ fontWeight: 600, marginLeft: 8 }}>
                     {(item.unitPrice * item.quantity).toFixed(2)} €
                   </span>
-                </div>
+                </button>
               ))}
             </div>
 

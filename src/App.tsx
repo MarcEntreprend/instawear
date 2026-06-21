@@ -1683,46 +1683,6 @@ export default function App() {
         </main>
       )}
 
-      {/* Admin Creator Dashboard Screen 1 */}
-      {/* {activeTab === "admin" && (
-        <AdminDashboard
-          products={products}
-          fetchProducts={fetchProducts}
-          printfulSettings={printfulSettings}
-          setPrintfulSettings={setPrintfulSettings}
-          handleDeleteProduct={handleDeleteProduct}
-          handleSavePrintfulSettings={handleSavePrintfulSettings}
-          generateAiDesignContent={generateAiDesignContent}
-          handleSaveDesign={handleSaveDesign}
-          triggerPrintfulSync={triggerPrintfulSync}
-          newDesignPrompt={newDesignPrompt}
-          setNewDesignPrompt={setNewDesignPrompt}
-          newDesignTitle={newDesignTitle}
-          setNewDesignTitle={setNewDesignTitle}
-          newDesignDesc={newDesignDesc}
-          setNewDesignDesc={setNewDesignDesc}
-          newDesignTags={newDesignTags}
-          setNewDesignTags={setNewDesignTags}
-          newDesignPrice={newDesignPrice}
-          setNewDesignPrice={setNewDesignPrice}
-          newDesignCategory={newDesignCategory}
-          setNewDesignCategory={setNewDesignCategory}
-          newDesignEventType={newDesignEventType}
-          setNewDesignEventType={setNewDesignEventType}
-          newDesignStyle={newDesignStyle}
-          setNewDesignStyle={setNewDesignStyle}
-          newDesignImg={newDesignImg}
-          setNewDesignImg={setNewDesignImg}
-          isGeneratingAi={isGeneratingAi}
-          isSavingDesign={isSavingDesign}
-          isSyncingPrintful={isSyncingPrintful}
-          showToast={showToast}
-          setActiveTab={setActiveTab}
-          MOCKUP_PRESETS={MOCKUP_PRESETS}
-          PLACEHOLDER_IMG={PLACEHOLDER_IMG}
-        />
-      )} */}
-
       {/* Admin Creator Dashboard Screen 2 */}
       {activeTab === "admin" && (
         <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
@@ -2147,22 +2107,36 @@ export default function App() {
                       key={idx}
                       className="flex gap-3 bg-gray-50 rounded-xl p-3 border border-gray-200 relative"
                     >
-                      <div className="w-16 h-20 bg-white rounded-lg overflow-hidden shrink-0">
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(item.product);
+                          setActiveGalleryIndex(0);
+                        }}
+                        className="w-16 h-20 bg-white rounded-lg overflow-hidden shrink-0 border-none p-0 cursor-pointer"
+                      >
                         <img
                           src={item.product.image || PLACEHOLDER_IMG}
                           alt={item.product.title}
                           className="w-full h-full object-cover"
                         />
-                      </div>
+                      </button>
 
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">
                             {item.product.brand}
                           </p>
-                          <h4 className="text-xs text-gray-900 font-bold line-clamp-1">
-                            {item.product.title}
-                          </h4>
+                          <button
+                            onClick={() => {
+                              setSelectedProduct(item.product);
+                              setActiveGalleryIndex(0);
+                            }}
+                            className="text-left bg-transparent border-none p-0 cursor-pointer hover:underline w-full"
+                          >
+                            <h4 className="text-xs text-gray-900 font-bold line-clamp-1">
+                              {item.product.title}
+                            </h4>
+                          </button>
 
                           <div className="flex items-center gap-2 mt-1 select-none">
                             <span
@@ -2610,7 +2584,16 @@ export default function App() {
 
       {/* OrderTrackingModal Modal */}
       {trackingOpen && (
-        <OrderTrackingModal onClose={() => setTrackingOpen(false)} />
+        <OrderTrackingModal
+          onClose={() => setTrackingOpen(false)}
+          onSelectProduct={(productId) => {
+            const product = products.find((p) => p.id === productId);
+            if (product) {
+              setSelectedProduct(product);
+              setActiveGalleryIndex(0);
+            }
+          }}
+        />
       )}
     </div>
   );

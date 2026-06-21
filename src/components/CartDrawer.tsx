@@ -11,6 +11,7 @@ interface CartDrawerProps {
   onUpdateQty: (index: number, delta: number) => void;
   onRemove: (index: number) => void;
   onCheckout: () => void;
+  onSelectProduct?: (productId: string) => void;
 }
 
 export default function CartDrawer({
@@ -19,6 +20,7 @@ export default function CartDrawer({
   onUpdateQty,
   onRemove,
   onCheckout,
+  onSelectProduct,
 }: CartDrawerProps) {
   const total = cart.reduce(
     (a, item) => a + item.product.price * item.quantity,
@@ -166,8 +168,9 @@ export default function CartDrawer({
             <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
               {cart.map((item, i) => (
                 <div key={i} className="flex gap-3">
-                  <div
-                    className="w-20 h-24 rounded-xl overflow-hidden shrink-0"
+                  <button
+                    onClick={() => onSelectProduct?.(item.product.id)}
+                    className="w-20 h-24 rounded-xl overflow-hidden shrink-0 border-none p-0 cursor-pointer"
                     style={{ background: "var(--color-surface2)" }}
                   >
                     <img
@@ -175,18 +178,24 @@ export default function CartDrawer({
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </button>
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <p
-                        className="text-sm font-semibold leading-snug line-clamp-2"
-                        style={{
-                          color: "var(--color-ink)",
-                          fontFamily: "var(--font-sans)",
-                        }}
+                      <button
+                        onClick={() => onSelectProduct?.(item.product.id)}
+                        className="text-left bg-transparent border-none p-0 cursor-pointer hover:underline w-full"
+                        style={{ color: "var(--color-ink)" }}
                       >
-                        {item.product.title}
-                      </p>
+                        <p
+                          className="text-sm font-semibold leading-snug line-clamp-2"
+                          style={{
+                            color: "var(--color-ink)",
+                            fontFamily: "var(--font-sans)",
+                          }}
+                        >
+                          {item.product.title}
+                        </p>
+                      </button>
                       <div className="flex items-center gap-2 mt-1">
                         <span
                           className="w-3.5 h-3.5 rounded-full border"
