@@ -10,6 +10,7 @@ import {
   Truck,
   MapPin,
 } from "lucide-react";
+import { PLACEHOLDER_IMG } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
 
 interface TrackedOrder {
@@ -26,6 +27,7 @@ interface TrackedOrder {
   items: {
     productId: string;
     title: string;
+    productImage?: string;
     selectedColor: string;
     selectedSize: string;
     quantity: number;
@@ -79,6 +81,7 @@ export default function OrderTrackingModal({
           items: found.items.map((item) => ({
             productId: item.productId,
             title: item.productTitle || item.productId,
+            productImage: item.productImage,
             selectedColor: item.selectedColor,
             selectedSize: item.selectedSize,
             quantity: item.quantity,
@@ -317,15 +320,37 @@ export default function OrderTrackingModal({
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
+                    alignItems: "center",
                     fontSize: 12.5,
                     color: "var(--color-ink2)",
                     marginBottom: 4,
                   }}
                 >
-                  <span>
-                    {item.title} ({item.selectedSize}) × {item.quantity}
-                  </span>
-                  <span style={{ fontWeight: 600 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      flex: 1,
+                    }}
+                  >
+                    <img
+                      src={item.productImage || PLACEHOLDER_IMG}
+                      alt={item.title}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 6,
+                        objectFit: "cover",
+                        border: "1px solid var(--color-border)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>
+                      {item.title} ({item.selectedSize}) × {item.quantity}
+                    </span>
+                  </div>
+                  <span style={{ fontWeight: 600, marginLeft: 8 }}>
                     {(item.unitPrice * item.quantity).toFixed(2)} €
                   </span>
                 </div>

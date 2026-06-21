@@ -331,18 +331,26 @@ export const customerApi = {
     if (error) throw error;
   },
   async getFavourites(clientId: string): Promise<Favourite[]> {
-    // Récupérer les favoris d'un client depuis Supabase
     const { data, error } = await supabase
       .from("favourites")
       .select("id, client_id, product_id, created_at")
       .eq("client_id", clientId);
     if (error) throw error;
+    // Récupérer les produits correspondants pour afficher image, prix, etc.
+    const productIds = [...new Set((data ?? []).map((f: any) => f.product_id))];
+    const { data: products } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", productIds);
+    const productMap = new Map(
+      (products ?? []).map((p: any) => [p.id, mapProduct(p)]),
+    );
     return (data ?? []).map((fav: any) => ({
       id: fav.id,
       clientId: fav.client_id,
       productId: fav.product_id,
       createdAt: fav.created_at,
-      // On ne joint pas le produit complet ici pour simplifier
+      product: productMap.get(fav.product_id),
     }));
   },
   // ── Panier ───────────────────────────────────────────────────────────
@@ -382,6 +390,17 @@ export const customerApi = {
       )
       .eq("client_id", clientId);
     if (error) throw error;
+    // Récupérer les produits correspondants pour afficher image, prix, etc.
+    const productIds = [
+      ...new Set((data ?? []).map((item: any) => item.product_id)),
+    ];
+    const { data: products } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", productIds);
+    const productMap = new Map(
+      (products ?? []).map((p: any) => [p.id, mapProduct(p)]),
+    );
     return (data ?? []).map((item: any) => ({
       id: item.id,
       clientId: item.client_id,
@@ -390,6 +409,7 @@ export const customerApi = {
       selectedSize: item.selected_size,
       quantity: item.quantity,
       addedAt: item.added_at,
+      product: productMap.get(item.product_id),
     }));
   },
   async getOrders(clientId: string): Promise<Order[]> {
