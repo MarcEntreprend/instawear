@@ -1,8 +1,7 @@
 // src\data\staticData.ts
 
 import { Testimonial, FAQ } from "../types";
-
-const PLACEHOLDER_IMG = "/instawear-outline-Traced.svg";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 export const TESTIMONIALS: Testimonial[] = [
   {

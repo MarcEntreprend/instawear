@@ -50,43 +50,7 @@ import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
-
-// Preset mockup templates with placeholder images
-const PLACEHOLDER_IMG = "/instawear-outline-Traced.svg";
-
-const LOGO_URL = "/InstaWear-logo.png";
-const MOCKUP_PRESETS = [
-  {
-    name: "T-Shirt Noir Minimaliste (Mockup Classique)",
-    url: PLACEHOLDER_IMG,
-    category: "tshirt",
-  },
-  {
-    name: "T-Shirt Blanc Studio (Mannequin Unisexe)",
-    url: PLACEHOLDER_IMG,
-    category: "tshirt",
-  },
-  {
-    name: "Hoodie Noir Urbain (Style Cozy)",
-    url: PLACEHOLDER_IMG,
-    category: "hoodie",
-  },
-  {
-    name: "Hoodie Oversized Crème (Style Streetwear)",
-    url: PLACEHOLDER_IMG,
-    category: "hoodie",
-  },
-  {
-    name: "Casquette Trucker Rétro (Vibe Vintage)",
-    url: PLACEHOLDER_IMG,
-    category: "accessory",
-  },
-  {
-    name: "Mug Festif Céramique (Format Standard)",
-    url: PLACEHOLDER_IMG,
-    category: "mug",
-  },
-];
+import { LOGO_URL, PLACEHOLDER_IMG } from "./constants/assets";
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes

@@ -2,12 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Save, Upload } from "lucide-react";
-import { AdminProduct } from "./adminTypes";
 import TagInput from "../components/TagInput";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
-
-const PLACEHOLDER_IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
+import { AdminProduct } from "./adminTypes";
 
 interface ProductFormPanelProps {
   product: AdminProduct | null; // null = création

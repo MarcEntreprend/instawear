@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Zap,
 } from "lucide-react";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 export type AdminSection =
   | "dashboard"
@@ -48,7 +49,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "admin-users", label: "Sécurité", icon: Shield },
 ];
 
-const LOGO_URL = "/InstaWear-logo-settings.png";
+// const LOGO_URL = "/InstaWear-logo-settings.png";
 
 interface AdminSidebarProps {
   active: AdminSection;
