@@ -956,7 +956,11 @@ export default function AdminDashboard({
       }}
     >
       <div className="admin-sidebar-desktop">
-        <AdminSidebar active={section} onNavigate={navigate} />
+        <AdminSidebar
+          active={section}
+          onNavigate={navigate}
+          onReturnToStore={onReturnToStore}
+        />
       </div>
 
       {mobileNavOpen && (
@@ -986,6 +990,7 @@ export default function AdminDashboard({
               onNavigate={navigate}
               onClose={() => setMobileNavOpen(false)}
               mobile
+              onReturnToStore={onReturnToStore}
             />
           </div>
         </div>

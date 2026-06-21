@@ -16,7 +16,11 @@ import {
   ChevronRight,
   Zap,
 } from "lucide-react";
-import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import {
+  PLACEHOLDER_IMG,
+  LOGO_URL,
+  LOGO_SETTINGS_URL,
+} from "../constants/assets";
 
 export type AdminSection =
   | "dashboard"
@@ -49,20 +53,20 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "admin-users", label: "Sécurité", icon: Shield },
 ];
 
-// const LOGO_URL = "/InstaWear-logo-settings.png";
-
 interface AdminSidebarProps {
   active: AdminSection;
   onNavigate: (s: AdminSection) => void;
   onClose?: () => void;
   mobile?: boolean;
+  onReturnToStore?: () => void;
 }
 
 export default function AdminSidebar({
   active,
   onNavigate,
   onClose,
-  mobile = false,
+  mobile,
+  onReturnToStore,
 }: AdminSidebarProps) {
   // Couleurs adaptatives selon le thème (clair / sombre)
   const bg = "var(--color-surface2)";
@@ -109,7 +113,7 @@ export default function AdminSidebar({
             }}
           >
             <img
-              src={LOGO_URL}
+              src={LOGO_SETTINGS_URL}
               alt="InstaWear"
               style={{
                 width: "100%",
@@ -165,16 +169,20 @@ export default function AdminSidebar({
       </div>
 
       {/* Live indicator */}
-      <div
+      <button
+        onClick={onReturnToStore}
         style={{
           padding: "10px 14px",
           margin: "12px 12px 0",
           borderRadius: 10,
           background: "var(--color-accent-soft)",
-          border: `1px solid var(--color-accent-soft2)`,
+          border: "1px solid var(--color-accent-soft2)",
           display: "flex",
           alignItems: "center",
           gap: 8,
+          width: "calc(100% - 24px)",
+          cursor: "pointer",
+          fontFamily: "inherit",
         }}
       >
         <div
@@ -204,7 +212,7 @@ export default function AdminSidebar({
           style={{ color: "var(--color-accent)", marginLeft: "auto" }}
           strokeWidth={2.5}
         />
-      </div>
+      </button>
 
       {/* Nav */}
       <nav
