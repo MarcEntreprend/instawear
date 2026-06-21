@@ -541,15 +541,23 @@ function DashboardHome({
                   }}
                 >
                   <div>
-                    <p
+                    <button
+                      onClick={() => onNavigate("orders")}
                       style={{
                         fontWeight: 700,
                         fontSize: 13,
                         color: "var(--color-ink)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        padding: 0,
+                        textDecoration: "underline",
+                        textUnderlineOffset: 3,
                       }}
                     >
                       {order.id}
-                    </p>
+                    </button>
                     <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
                       {order.clientName ??
                         order.clientEmail ??
@@ -702,15 +710,23 @@ function DashboardHome({
                 }}
               >
                 <div>
-                  <p
+                  <button
+                    onClick={() => onNavigate("orders")}
                     style={{
-                      fontSize: 12.5,
                       fontWeight: 700,
+                      fontSize: 12.5,
                       color: "var(--color-ink)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      padding: 0,
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
                     }}
                   >
                     {order.id}
-                  </p>
+                  </button>
                   <p
                     style={{
                       fontSize: 11,
@@ -808,7 +824,8 @@ function DashboardHome({
                   borderBottom: "1px solid var(--color-border)",
                 }}
               >
-                <div
+                <button
+                  onClick={() => onNavigate("products")}
                   style={{
                     width: 40,
                     height: 40,
@@ -816,6 +833,9 @@ function DashboardHome({
                     overflow: "hidden",
                     background: "var(--color-surface2)",
                     flexShrink: 0,
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
                   }}
                 >
                   <img
@@ -828,9 +848,10 @@ function DashboardHome({
                       display: "block",
                     }}
                   />
-                </div>
+                </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p
+                  <button
+                    onClick={() => onNavigate("products")}
                     style={{
                       fontSize: 12.5,
                       fontWeight: 600,
@@ -838,10 +859,17 @@ function DashboardHome({
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      padding: 0,
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
                     }}
                   >
                     {p.title}
-                  </p>
+                  </button>
                   <p
                     style={{
                       fontSize: 11,
