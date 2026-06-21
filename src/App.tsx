@@ -24,10 +24,8 @@ import {
   X,
   CheckCircle,
   HelpCircle,
-  Settings,
   Layers,
   Code,
-  AlertCircle,
   Calendar,
   ArrowRight,
   ChevronLeft,
@@ -1271,7 +1269,7 @@ export default function App() {
                 <span className="text-gray-900 font-bold">
                   {filteredProducts.length}
                 </span>{" "}
-                designs uniques
+                articles
               </div>
             </div>
 
@@ -1284,9 +1282,13 @@ export default function App() {
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="py-16 text-center border border-dashed border-gray-200 rounded-2xl bg-white/20 max-w-lg mx-auto">
-                <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-2" />
+                <img
+                  src={PLACEHOLDER_IMG}
+                  alt="Aucun résultat"
+                  className="w-12 h-12 mx-auto mb-2 opacity-50"
+                />
                 <p className="font-bold text-gray-900 mb-1">
-                  Aucun vêtement ne correspond à votre recherche
+                  Aucun article ne correspond à votre recherche
                 </p>
                 <p className="text-gray-500 text-sm mb-4">
                   Modifiez vos filtres ou lancez une autre recherche !
@@ -1313,7 +1315,7 @@ export default function App() {
                     e.currentTarget.style.color = "var(--color-accent)";
                   }}
                 >
-                  Réinitialiser le Store
+                  Voir la collection
                 </button>
               </div>
             ) : (
