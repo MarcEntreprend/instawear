@@ -1,12 +1,18 @@
+// src\admin\PromotionsPage.tsx
+
 import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
-import type { HeroPromotion, AdminProduct } from "./adminTypes";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
+import ProductQuickViewModal from "./ProductQuickViewModal";
+import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<HeroPromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -408,7 +414,8 @@ export default function PromotionsPage() {
                         <ArrowDown size={12} />
                       </button>
                     </div>
-                    <div
+                    <button
+                      onClick={() => product && setQuickViewProduct(product)}
                       style={{
                         width: 48,
                         height: 48,
@@ -416,7 +423,11 @@ export default function PromotionsPage() {
                         overflow: "hidden",
                         background: "var(--color-surface2)",
                         flexShrink: 0,
+                        border: "none",
+                        padding: 0,
+                        cursor: product ? "pointer" : "default",
                       }}
+                      disabled={!product}
                     >
                       <img
                         src={product?.image || promo.image || ""}
@@ -427,17 +438,26 @@ export default function PromotionsPage() {
                           objectFit: "cover",
                         }}
                       />
-                    </div>
+                    </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
+                      <button
+                        onClick={() => product && setQuickViewProduct(product)}
                         style={{
                           fontWeight: 700,
                           fontSize: 14,
                           color: "var(--color-ink)",
+                          background: "none",
+                          border: "none",
+                          cursor: product ? "pointer" : "default",
+                          textAlign: "left",
+                          padding: 0,
+                          textDecoration: "underline",
+                          textUnderlineOffset: 3,
                         }}
+                        disabled={!product}
                       >
                         {promo.headline || product?.title || "Sans produit"}
-                      </p>
+                      </button>
                       <p style={{ fontSize: 12, color: "var(--color-ink3)" }}>
                         {promo.sub || product?.description?.slice(0, 80)}
                       </p>
@@ -472,6 +492,12 @@ export default function PromotionsPage() {
           </div>
         )}
       </div>
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
+      )}
     </div>
   );
 }
