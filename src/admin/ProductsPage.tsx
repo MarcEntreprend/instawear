@@ -1,6 +1,6 @@
 // src/admin/ProductsPage.tsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
-import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductFormPanel from "./ProductFormPanel";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 
@@ -87,6 +87,8 @@ export default function ProductsPage() {
   });
   const [sortKey, setSortKey] = useState<keyof AdminProduct>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  // Ordre manuel (réorganisation visuelle uniquement, pas de persistance)
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Product form navigation
@@ -147,6 +149,26 @@ export default function ProductsPage() {
     return list;
   }, [allProducts, filters, sortKey, sortDir]);
 
+  // Synchroniser l'ordre manuel avec la liste filtrée
+  useEffect(() => {
+    const newIds = products.map((p) => p.id);
+    setManualOrder((prev) => {
+      const filteredPrev = prev.filter((id) => newIds.includes(id));
+      const missing = newIds.filter((id) => !filteredPrev.includes(id));
+      return [...filteredPrev, ...missing];
+    });
+  }, [products]);
+
+  // Réordonne les produits selon manualOrder
+  const orderedProducts = useMemo(() => {
+    if (manualOrder.length === 0) return products;
+    return [...products].sort((a, b) => {
+      const ia = manualOrder.indexOf(a.id);
+      const ib = manualOrder.indexOf(b.id);
+      return ia - ib;
+    });
+  }, [products, manualOrder]);
+
   const toggleSort = (key: keyof AdminProduct) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -173,9 +195,20 @@ export default function ProductsPage() {
     });
 
   const toggleAll = () => {
-    if (selected.size === products.length) setSelected(new Set());
-    else setSelected(new Set(products.map((p) => p.id)));
+    if (selected.size === orderedProducts.length) setSelected(new Set());
+    else setSelected(new Set(orderedProducts.map((p) => p.id)));
   };
+
+  // Annuler la sélection avec Échap
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelected(new Set());
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // ── Actions ────────────────────────────────────────────────────────────
   const handleCreateNew = () => {
@@ -216,6 +249,18 @@ export default function ProductsPage() {
     if (selected.size === 0) return;
     await bulkSetActive(Array.from(selected), active);
     setSelected(new Set());
+  };
+
+  const moveProduct = (id: string, direction: -1 | 1) => {
+    setManualOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx === -1) return prev;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]];
+      return updated;
+    });
   };
 
   const handleBulkDelete = async () => {
@@ -280,7 +325,8 @@ export default function ProductsPage() {
             Produits
           </h2>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            {products.length} produit{products.length !== 1 ? "s" : ""}
+            {orderedProducts.length} produit
+            {orderedProducts.length !== 1 ? "s" : ""}
           </p>
         </div>
         <button
@@ -489,6 +535,19 @@ export default function ProductsPage() {
           >
             Supprimer
           </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            style={{
+              ...quickBtn,
+              marginLeft: "auto",
+              color: "var(--color-ink3)",
+              borderColor: "var(--color-border)",
+              background: "var(--color-surface2)",
+            }}
+          >
+            <X size={14} style={{ marginRight: 4 }} />
+            Annuler la sélection
+          </button>
         </div>
       )}
 
@@ -512,11 +571,15 @@ export default function ProductsPage() {
             }}
           >
             <tr>
+              {selected.size === 0 && (
+                <th style={{ padding: "12px 14px", textAlign: "center" }}></th>
+              )}
               <th style={{ padding: "12px 14px", textAlign: "left" }}>
                 <input
                   type="checkbox"
                   checked={
-                    selected.size === products.length && products.length > 0
+                    selected.size === orderedProducts.length &&
+                    orderedProducts.length > 0
                   }
                   onChange={toggleAll}
                   style={{ accentColor: "var(--color-accent)" }}
@@ -559,13 +622,16 @@ export default function ProductsPage() {
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => {
+            {orderedProducts.map((p) => {
               const discount =
                 p.originalPrice && p.originalPrice > p.price
                   ? Math.round(
                       ((p.originalPrice - p.price) / p.originalPrice) * 100,
                     )
                   : null;
+              const idxInManual = manualOrder.indexOf(p.id);
+              const isFirst = idxInManual === 0;
+              const isLast = idxInManual === manualOrder.length - 1;
               return (
                 <tr
                   key={p.id}
@@ -574,6 +640,39 @@ export default function ProductsPage() {
                     opacity: p.isActive ? 1 : 0.55,
                   }}
                 >
+                  {/* Flèches de réorganisation (masquées si sélection active) */}
+                  {selected.size === 0 && (
+                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                        }}
+                      >
+                        <button
+                          onClick={() => moveProduct(p.id, -1)}
+                          style={{
+                            ...arrowBtn,
+                            visibility: isFirst ? "hidden" : "visible",
+                          }}
+                          disabled={isFirst}
+                        >
+                          <ChevronUp size={12} />
+                        </button>
+                        <button
+                          onClick={() => moveProduct(p.id, 1)}
+                          style={{
+                            ...arrowBtn,
+                            visibility: isLast ? "hidden" : "visible",
+                          }}
+                          disabled={isLast}
+                        >
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                   <td style={{ padding: "10px 14px" }}>
                     <input
                       type="checkbox"
@@ -766,7 +865,7 @@ export default function ProductsPage() {
             })}
           </tbody>
         </table>
-        {products.length === 0 && (
+        {orderedProducts.length === 0 && (
           <div
             style={{
               textAlign: "center",
@@ -812,4 +911,14 @@ const quickBtn: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 12,
   cursor: "pointer",
+};
+
+const arrowBtn: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid var(--color-border)",
+  borderRadius: 4,
+  padding: 2,
+  cursor: "pointer",
+  color: "var(--color-ink4)",
+  display: "flex",
 };
