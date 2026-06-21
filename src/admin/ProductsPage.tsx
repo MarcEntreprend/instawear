@@ -18,6 +18,7 @@ import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import ProductFormPanel from "./ProductFormPanel";
+import ProductQuickViewModal from "./ProductQuickViewModal";
 
 const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
 const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
@@ -91,6 +92,9 @@ export default function ProductsPage() {
   // Product form navigation
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   // The product being edited (if any)
   const editingProduct = useMemo(() => {
@@ -579,13 +583,17 @@ export default function ProductsPage() {
                     />
                   </td>
                   <td style={{ padding: "10px 14px" }}>
-                    <div
+                    <button
+                      onClick={() => setQuickViewProduct(p)}
                       style={{
                         width: 40,
                         height: 40,
                         borderRadius: 10,
                         overflow: "hidden",
                         background: "var(--color-surface2)",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
                       }}
                     >
                       <img
@@ -598,20 +606,36 @@ export default function ProductsPage() {
                           display: "block",
                         }}
                       />
-                    </div>
+                    </button>
                   </td>
                   <td
                     style={{
                       padding: "10px 14px",
-                      fontWeight: 600,
                       color: "var(--color-ink)",
                       maxWidth: 220,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
                     }}
                   >
-                    {p.title}
+                    <button
+                      onClick={() => setQuickViewProduct(p)}
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--color-ink)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        padding: 0,
+                        textDecoration: "underline",
+                        textUnderlineOffset: 3,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        display: "block",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      {p.title}
+                    </button>
                     <div
                       style={{
                         fontSize: 11,
@@ -758,6 +782,12 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
+      )}
     </div>
   );
 }

@@ -26,9 +26,10 @@ import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useDashboard } from "./adminHooks";
+import ProductQuickViewModal from "./ProductQuickViewModal";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
-import { Order } from "./adminTypes";
+import { AdminProduct, Order } from "./adminTypes";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -369,8 +370,10 @@ function OrdersChart() {
 // ─── Dashboard Home ───────────────────────────────────────────────────────
 function DashboardHome({
   onNavigate,
+  onQuickView,
 }: {
   onNavigate: (s: AdminSection) => void;
+  onQuickView?: (product: AdminProduct) => void;
 }) {
   const { data: stats, loading } = useDashboard();
 
@@ -825,7 +828,7 @@ function DashboardHome({
                 }}
               >
                 <button
-                  onClick={() => onNavigate("products")}
+                  onClick={() => onQuickView?.(p)}
                   style={{
                     width: 40,
                     height: 40,
@@ -851,7 +854,7 @@ function DashboardHome({
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <button
-                    onClick={() => onNavigate("products")}
+                    onClick={() => onQuickView?.(p)}
                     style={{
                       fontSize: 12.5,
                       fontWeight: 600,
@@ -913,6 +916,9 @@ export default function AdminDashboard({
   const [navStack, setNavStack] = useState<AdminSection[]>(["dashboard"]);
   const section = navStack[navStack.length - 1];
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   const navigate = useCallback((s: AdminSection) => {
     setNavStack((prev) => [...prev, s]);
@@ -1135,9 +1141,19 @@ export default function AdminDashboard({
           style={{ flex: 1, overflowY: "auto", padding: "28px 28px" }}
           className="admin-content-scroll"
         >
-          {section === "dashboard" && <DashboardHome onNavigate={navigate} />}
+          {section === "dashboard" && (
+            <DashboardHome
+              onNavigate={navigate}
+              onQuickView={setQuickViewProduct}
+            />
+          )}
           {section === "products" && <ProductsPage />}
-          {section === "customers" && <CustomersPage />}
+          {section === "customers" && (
+            <CustomersPage
+              onNavigate={navigate}
+              onQuickView={setQuickViewProduct}
+            />
+          )}
           {section === "orders" && <OrdersPage />}
           {section === "promotions" && <PromotionsPage />}
           {section === "reports" && <ReportsPage />}
@@ -1147,6 +1163,13 @@ export default function AdminDashboard({
           {section === "help" && <HelpPage />}
         </div>
       </div>
+
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
+      )}
 
       <style>{`
         @media (min-width: 900px) {

@@ -18,7 +18,15 @@ import {
 import { useCustomers } from "./adminHooks";
 import { useCustomerDetail } from "./adminHooks";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { Customer, Favourite, AdminCartItem, Order } from "./adminTypes";
+import ProductQuickViewModal from "./ProductQuickViewModal";
+import type { AdminSection } from "./AdminSidebar";
+import {
+  Customer,
+  Favourite,
+  AdminCartItem,
+  Order,
+  AdminProduct,
+} from "./adminTypes";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -78,13 +86,22 @@ function formatDateTime(iso?: string) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
-export default function CustomersPage() {
+export default function CustomersPage({
+  onNavigate,
+  onQuickView,
+}: {
+  onNavigate?: (section: AdminSection) => void;
+  onQuickView?: (product: AdminProduct) => void;
+}) {
   const { data: customers, loading } = useCustomers();
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<keyof Customer>("registrationDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null,
+  );
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
 
@@ -151,6 +168,10 @@ export default function CustomersPage() {
       <CustomerDetailPanel
         customerId={selectedCustomerId}
         onBack={() => setSelectedCustomerId(null)}
+        onNavigate={onNavigate}
+        onQuickView={setQuickViewProduct}
+        quickViewProduct={quickViewProduct}
+        setQuickViewProduct={setQuickViewProduct}
       />
     );
   }
@@ -306,9 +327,17 @@ export default function CustomersPage() {
 function CustomerDetailPanel({
   customerId,
   onBack,
+  onNavigate,
+  onQuickView,
+  quickViewProduct,
+  setQuickViewProduct,
 }: {
   customerId: string;
   onBack: () => void;
+  onNavigate?: (section: AdminSection) => void;
+  onQuickView?: (product: AdminProduct) => void;
+  quickViewProduct?: AdminProduct | null;
+  setQuickViewProduct?: (product: AdminProduct | null) => void;
 }) {
   const { data } = useCustomerDetail(customerId);
   const [activeTab, setActiveTab] = useState<"favorites" | "cart" | "orders">(
@@ -463,15 +492,33 @@ function CustomerDetailPanel({
         ))}
       </div>
 
-      {activeTab === "favorites" && <FavouritesList items={favourites} />}
-      {activeTab === "cart" && <CartList items={cart} />}
-      {activeTab === "orders" && <OrdersList orders={orders} />}
+      {activeTab === "favorites" && (
+        <FavouritesList items={favourites} onQuickView={onQuickView} />
+      )}
+      {activeTab === "cart" && (
+        <CartList items={cart} onQuickView={onQuickView} />
+      )}
+      {activeTab === "orders" && (
+        <OrdersList orders={orders} onNavigate={onNavigate} />
+      )}
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct?.(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────
-function FavouritesList({ items }: { items: Favourite[] }) {
+function FavouritesList({
+  items,
+  onQuickView,
+}: {
+  items: Favourite[];
+  onQuickView?: (product: AdminProduct) => void;
+}) {
   if (items.length === 0)
     return <EmptyState icon={<Heart size={28} />} text="Aucun favori." />;
   return (
@@ -494,16 +541,41 @@ function FavouritesList({ items }: { items: Favourite[] }) {
             >
               <td style={tdStyle}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={miniImgStyle}>
+                  <button
+                    onClick={() =>
+                      fav.product && onQuickView?.(fav.product as AdminProduct)
+                    }
+                    style={{
+                      ...miniImgStyle,
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
                     <img
                       src={fav.product?.image || PLACEHOLDER_IMG}
                       alt=""
                       style={imgStyle}
                     />
-                  </div>
-                  <span style={{ fontWeight: 600, color: "var(--color-ink)" }}>
+                  </button>
+                  <button
+                    onClick={() =>
+                      fav.product && onQuickView?.(fav.product as AdminProduct)
+                    }
+                    style={{
+                      fontWeight: 600,
+                      color: "var(--color-ink)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      padding: 0,
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
                     {fav.product?.title || fav.productId}
-                  </span>
+                  </button>
                 </div>
               </td>
               <td style={tdStyle}>
@@ -524,7 +596,13 @@ function FavouritesList({ items }: { items: Favourite[] }) {
   );
 }
 
-function CartList({ items }: { items: AdminCartItem[] }) {
+function CartList({
+  items,
+  onQuickView,
+}: {
+  items: AdminCartItem[];
+  onQuickView?: (product: AdminProduct) => void;
+}) {
   if (items.length === 0)
     return <EmptyState icon={<ShoppingBag size={28} />} text="Panier vide." />;
   const total = items.reduce(
@@ -553,17 +631,39 @@ function CartList({ items }: { items: AdminCartItem[] }) {
             >
               <td style={tdStyle}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={miniImgStyle}>
+                  <button
+                    onClick={() =>
+                      item.product &&
+                      onQuickView?.(item.product as AdminProduct)
+                    }
+                    style={{
+                      ...miniImgStyle,
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
                     <img
                       src={item.product?.image || PLACEHOLDER_IMG}
                       alt=""
                       style={imgStyle}
                     />
-                  </div>
-                  <span
+                  </button>
+                  <button
+                    onClick={() =>
+                      item.product &&
+                      onQuickView?.(item.product as AdminProduct)
+                    }
                     style={{
                       fontWeight: 600,
                       color: "var(--color-ink)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      padding: 0,
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
                       maxWidth: 180,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -571,7 +671,7 @@ function CartList({ items }: { items: AdminCartItem[] }) {
                     }}
                   >
                     {item.product?.title || item.productId}
-                  </span>
+                  </button>
                 </div>
               </td>
               <td style={tdStyle}>
@@ -615,7 +715,13 @@ function CartList({ items }: { items: AdminCartItem[] }) {
   );
 }
 
-function OrdersList({ orders }: { orders: Order[] }) {
+function OrdersList({
+  orders,
+  onNavigate,
+}: {
+  orders: Order[];
+  onNavigate?: (section: AdminSection) => void;
+}) {
   if (orders.length === 0)
     return <EmptyState icon={<Package size={28} />} text="Aucune commande." />;
   return (
@@ -640,7 +746,24 @@ function OrdersList({ orders }: { orders: Order[] }) {
               <td
                 style={{ ...tdStyle, fontWeight: 600, fontFamily: "monospace" }}
               >
-                {order.id.slice(0, 8)}…
+                <button
+                  onClick={() => onNavigate?.("orders")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-ink)",
+                    fontWeight: 600,
+                    fontFamily: "monospace",
+                    fontSize: "inherit",
+                    padding: 0,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  {/* {order.id.slice(0, 8)}… */}
+                  {order.id}
+                </button>
               </td>
               <td
                 style={{ ...tdStyle, color: "var(--color-ink3)", fontSize: 12 }}

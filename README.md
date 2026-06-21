@@ -53,8 +53,9 @@ instawear/
 │   │   ├── CustomersPage.tsx
 │   │   ├── HelpPage.tsx
 │   │   ├── IntegrationsPage.tsx
-│   │   ├── OrdersPage.tsx
+│   │   ├── OrdersPage.tsx ProductQuickViewModal.tsx
 │   │   ├── ProductFormPanel.tsx
+│   │   ├── ProductQuickViewModal.tsx
 │   │   ├── ProductsPage.tsx
 │   │   ├── PromotionsPage.tsx
 │   │   ├── ReportsPage.tsx
