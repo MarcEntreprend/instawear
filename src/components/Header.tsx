@@ -287,7 +287,7 @@ export default function Header({
           boxShadow: isScrolled ? "var(--shadow-sm)" : "none",
         }}
       >
-        <div className="w-full px-4 py-3 flex items-center gap-3">
+        <nav className="w-full px-4 py-3 flex items-center gap-3">
           {/* Logo (visuel v2)  */}
           <button
             onClick={() => {
@@ -544,7 +544,7 @@ export default function Header({
           )}
 
           {/* Actions (visuel v2) */}
-          <div className="flex items-center gap-2 shrink-0">
+          <nav className="flex items-center gap-2 shrink-0">
             {/* Dark mode toggle */}
             <button
               type="button"
@@ -705,8 +705,8 @@ export default function Header({
                 <Menu size={20} strokeWidth={2} />
               )}
             </button>
-          </div>
-        </div>
+          </nav>
+        </nav>
 
         {/* Category pills sub-nav (visuel v2, logique v3) */}
         <div
