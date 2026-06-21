@@ -15,6 +15,9 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
 
 `npx vite --host`
 
+npx vite --force
+-> Ça redémarre Vite en ignorant le cache. Bon pour la suite !
+
 # IPv4 Address
 
 `192.168.15.2 `
@@ -26,16 +29,19 @@ Local: http://localhost:5173/
 
 ```
 instawear/
+├── .vscode/
 ├── assets/
 │   └── .aistudio
 ├── data/
+│   ├── assets.json
 │   ├── products.json
 │   └── settings.json
 ├── node_modules/
 ├── public/
 │   ├── InstaWear-logo-settings.png
 │   ├── InstaWear-logo-wh-middle-no-BG.png
-│   └── InstaWear-logo.png
+│   ├── InstaWear-logo.png
+│   └── Instawear-missing-item.svg
 ├── src/
 │   ├── admin/
 │   │   ├── AdminDashboard.tsx
@@ -54,6 +60,7 @@ instawear/
 │   │   ├── ReportsPage.tsx
 │   │   └── SettingsPage.tsx
 │   ├── api/
+│   │   ├── storageApi.ts
 │   │   └── supabaseApi.ts
 │   ├── components/
 │   │   ├── AuthModal.tsx
@@ -68,6 +75,8 @@ instawear/
 │   │   ├── ProfileModal.tsx
 │   │   ├── TagInput.tsx
 │   │   └── ToastContainer.tsx
+│   ├── constants/
+│   │   └── assets.ts
 │   ├── data/
 │   │   ├── defaultProducts.ts
 │   │   └── staticData.ts
@@ -82,20 +91,11 @@ instawear/
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── .temp/
-│   │   ├── cli-latest
-│   │   ├── gotrue-version
-│   │   ├── linked-project.json
-│   │   ├── pooler-url
-│   │   ├── postgres-version
-│   │   ├── project-ref
-│   │   ├── rest-version
-│   │   ├── storage-migration
-│   │   └── storage-version
-│   ├── functions/
-│   │   └── sync-printful/
-│   │       ├── .npmrc
-│   │       ├── deno.json
-│   │       └── index.ts
+│   └── functions/
+│       └── sync-printful/
+│           ├── .npmrc
+│           ├── deno.json
+│           └── index.ts
 │   └── config.toml
 ├── .env
 ├── .env.example
