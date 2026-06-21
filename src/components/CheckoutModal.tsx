@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { orderApi } from "../api/supabaseApi";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { supabase } from "../lib/supabaseClient";
 
 interface CheckoutModalProps {
@@ -21,9 +22,6 @@ interface CheckoutModalProps {
   onClose: () => void;
   onSuccess: () => void; // Called after the order is "sent" (clears cart, shows confirmation)
 }
-
-const PLACEHOLDER_IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 const WHATSAPP_NUMBER = "+50900000000"; // Replace with your WhatsApp number
 const TELEGRAM_USERNAME = "marcrubenmacean"; // Replace with your Telegram username or bot

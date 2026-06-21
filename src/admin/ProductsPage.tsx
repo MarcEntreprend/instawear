@@ -16,10 +16,8 @@ import {
 } from "lucide-react";
 import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import ProductFormPanel from "./ProductFormPanel";
-
-const IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
 const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
@@ -591,7 +589,7 @@ export default function ProductsPage() {
                       }}
                     >
                       <img
-                        src={p.image || IMG}
+                        src={p.image || PLACEHOLDER_IMG}
                         alt={p.title}
                         style={{
                           width: "100%",

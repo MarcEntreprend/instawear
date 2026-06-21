@@ -3,8 +3,7 @@
 import React from "react";
 import { Heart, Star, ShoppingCart, Clock } from "lucide-react";
 import { Product } from "../types";
-
-const IMG = "/instawear-outline-Traced.svg";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 interface ProductCardProps {
   product: Product;
@@ -49,7 +48,7 @@ export default function ProductCard({
         onClick={() => onViewDetails(product)}
       >
         <img
-          src={product.image || IMG}
+          src={product.image || PLACEHOLDER_IMG}
           alt={`${product.title} — InstaWear`}
           className="w-full h-full object-cover transition-transform duration-500 ease-(--ease-out-expo)"
           style={{ transform: hovered ? "scale(1.06)" : "scale(1)" }}

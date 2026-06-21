@@ -2,9 +2,8 @@
 
 import React from "react";
 import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { CartItem } from "../types";
-
-const IMG = "/instawear-outline-Traced.svg";
 
 interface CartDrawerProps {
   cart: CartItem[];
@@ -172,7 +171,7 @@ export default function CartDrawer({
                     style={{ background: "var(--color-surface2)" }}
                   >
                     <img
-                      src={item.product.image || IMG}
+                      src={item.product.image || PLACEHOLDER_IMG}
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />

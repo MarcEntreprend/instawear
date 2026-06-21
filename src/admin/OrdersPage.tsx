@@ -15,11 +15,9 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters } from "./adminTypes";
 
-// ─── Placeholder image ─────────────────────────────────────────────────────
-const IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 // ─── Status labels & colors ────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -917,7 +915,7 @@ export default function OrdersPage() {
                             }}
                           >
                             <img
-                              src={item.productImage || IMG}
+                              src={item.productImage || PLACEHOLDER_IMG}
                               alt={item.productTitle ?? ""}
                               style={{
                                 width: "100%",

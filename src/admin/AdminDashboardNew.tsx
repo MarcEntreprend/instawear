@@ -26,6 +26,7 @@ import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useDashboard } from "./adminHooks";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
 import { Order } from "./adminTypes";
 
@@ -372,9 +373,6 @@ function DashboardHome({
   onNavigate: (s: AdminSection) => void;
 }) {
   const { data: stats, loading } = useDashboard();
-
-  const IMG =
-    "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
   if (loading || !stats) {
     return <SkeletonDashboard />;
@@ -821,7 +819,7 @@ function DashboardHome({
                   }}
                 >
                   <img
-                    src={p.image || IMG}
+                    src={p.image || PLACEHOLDER_IMG}
                     alt={p.title}
                     style={{
                       width: "100%",

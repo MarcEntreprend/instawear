@@ -13,9 +13,8 @@ import {
   ChevronRight,
   Check,
 } from "lucide-react";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Product } from "../types";
-
-const IMG = "/instawear-outline-Traced.svg";
 
 interface ProductModalProps {
   product: Product;
@@ -116,7 +115,11 @@ export default function ProductModal({
             style={{ background: "var(--color-surface2)" }}
           >
             <img
-              src={product.gallery?.[galleryIdx] || product.image || IMG}
+              src={
+                product.gallery?.[galleryIdx] ||
+                product.image ||
+                PLACEHOLDER_IMG
+              }
               alt={product.title}
               className="w-full h-full object-cover md:rounded-tl-2xl"
             />
@@ -175,7 +178,7 @@ export default function ProductModal({
                       }}
                     >
                       <img
-                        src={img || IMG}
+                        src={img || PLACEHOLDER_IMG}
                         alt=""
                         className="w-full h-full object-cover"
                       />

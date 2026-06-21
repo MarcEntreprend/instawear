@@ -1,8 +1,7 @@
 // src\data\defaultProducts.ts
 
 import { Product } from "../types";
-
-const IMG = "/instawear-outline-Traced.svg";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 export const DEFAULT_PRODUCTS: Product[] = [
   {
@@ -15,8 +14,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• Coton 100% biologique peigné (180 g/m²)\n• Impression numérique HD haute durabilité certifiée éco-responsable\n• Coupe unisexe moderne avec coutures latérales doublées\n• Design exclusif représentant l'énergie pure de la samba en éclairs néons\n• Certifié OEKO-TEX® Standard 100",
     price: 29.99,
     originalPrice: 45.0,
-    image: IMG,
-    gallery: [IMG, IMG, IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG, PLACEHOLDER_IMG, PLACEHOLDER_IMG],
     colors: ["#00FFFF", "#FF00FF", "#1E1E1E", "#FFFFFF"],
     colorNames: [
       "Cyan Électrique",
@@ -46,8 +45,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• 85% coton bio peigné, 15% polyester recyclé (350 g/m²)\n• Intérieur gratté ultra doux pour une rétention de chaleur optimale\n• Capuche doublée avec cordon de serrage assorti et embouts métalliques\n• Poche kangourou spacieuse avec coutures renforcées\n• Graphisme vintage sérigraphié haute densité résistant au lavage",
     price: 54.99,
     originalPrice: 79.99,
-    image: IMG,
-    gallery: [IMG, IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG, PLACEHOLDER_IMG],
     colors: ["#0F172A", "#475569", "#FFFFFF"],
     colorNames: ["Bleu Minuit", "Gris Athlétique", "Blanc Pur"],
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
@@ -71,8 +70,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• Coton 100% ringspun doux et léger (150 g/m²)\n• Encolure ras-du-cou côtelée de haute qualité\n• Impression numérique respirante idéale pour fêter activement\n• Illustration bavaroise revisitée avec des touches modernes",
     price: 24.99,
     originalPrice: 34.99,
-    image: IMG,
-    gallery: [IMG, IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG, PLACEHOLDER_IMG],
     colors: ["#D97706", "#065F46", "#1E1E1E"],
     colorNames: ["Caramel Bavarois", "Vert Forêt", "Noir Sombre"],
     sizes: ["S", "M", "L", "XL"],
@@ -96,8 +95,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• Coupe confort avec emmanchures descendues (300 g/m²)\n• Impression phosphorescente de qualité studio — brille dans le noir\n• Finitions bord-côte élastiques aux poignets et à la taille\n• Capuche ajustable double épaisseur pour un look streetwear mystérieux",
     price: 49.99,
     originalPrice: 69.99,
-    image: IMG,
-    gallery: [IMG, IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG, PLACEHOLDER_IMG],
     colors: ["#EA580C", "#1E1E1E", "#4D7C0F"],
     colorNames: ["Orange Citrouille", "Noir Absolu", "Vert Toxique"],
     sizes: ["M", "L", "XL", "XXL"],
@@ -119,8 +118,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
     fullDescription:
       "• Coton biologique brossé extrêmement doux\n• Design de type collage artistique de vagues mélodiques\n• Coupe fluide décontractée avec manches à revers",
     price: 27.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#FEF08A", "#FEE2E2", "#ECFDF5"],
     colorNames: ["Sable Chaud", "Rose Crépuscule", "Menthe Fraîche"],
     sizes: ["S", "M", "L", "XL"],
@@ -143,8 +142,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• Couronne structurée à 5 panneaux à profil moyen\n• Visière pré-courbée avec dessous contrasté rétro\n• Filet arrière respirant en nid d'abeille haute durabilité\n• Fermeture plastique snapback réglable style classique",
     price: 19.99,
     originalPrice: 29.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#1E3A8A", "#B91C1C", "#15803D"],
     colorNames: ["Bleu Stadium", "Rouge Athlète", "Vert Olympique"],
     sizes: ["Unique (Réglable)"],
@@ -168,8 +167,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       "• Céramique haute intensité (325 ml)\n• Forme ergonomique, anse large isolée thermiquement\n• Impression sensible à la température révélant un décompte festif magique",
     price: 14.99,
     originalPrice: 19.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#000000", "#FFFFFF"],
     colorNames: ["Noir Minuit", "Blanc Pur"],
     sizes: ["Format Standard"],
@@ -192,8 +191,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
       '• Coupe droite classique "Boxy" rétro style années 90\n• Encolure épaisse et surpiqûres à double aiguilles\n• Graphisme de voiture de course rétro avec filtres artistiques',
     price: 28.99,
     originalPrice: 38.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#DC2626", "#E2E8F0", "#1E1E1E"],
     colorNames: ["Rouge Racing", "Gris Asphalte", "Noir Pneu"],
     sizes: ["S", "M", "L", "XL"],
@@ -215,8 +214,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
     fullDescription:
       "• Coton pelucheux extra-doux (280 g/m²)\n• Impression vibrante résistante au lavage\n• Coupe ample et confortable\n• Motifs de rennes et flocons générés par IA — chaque pièce est unique",
     price: 44.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#DC2626", "#166534", "#1E3A8A"],
     colorNames: ["Rouge Père Noël", "Vert Sapin", "Bleu Hiver"],
     sizes: ["S", "M", "L", "XL", "XXL"],
@@ -238,8 +237,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
     fullDescription:
       "• Coton bio ringspun (160 g/m²)\n• Impression épaisse type sérigraphie\n• Graphisme visualiseur audio et ondes sonores générées par IA",
     price: 26.99,
-    image: IMG,
-    gallery: [IMG],
+    image: PLACEHOLDER_IMG,
+    gallery: [PLACEHOLDER_IMG],
     colors: ["#1E1E1E", "#7C3AED", "#EC4899"],
     colorNames: ["Noir Scène", "Violet Laser", "Pink Fluo"],
     sizes: ["XS", "S", "M", "L", "XL"],

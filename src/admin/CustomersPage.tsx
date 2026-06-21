@@ -17,10 +17,8 @@ import {
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
 import { useCustomerDetail } from "./adminHooks";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Customer, Favourite, AdminCartItem, Order } from "./adminTypes";
-
-const IMG =
-  "https://cdn.pixabay.com/photo/2026/01/26/22/44/cat-10089737_1280.png";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -498,7 +496,7 @@ function FavouritesList({ items }: { items: Favourite[] }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={miniImgStyle}>
                     <img
-                      src={fav.product?.image || IMG}
+                      src={fav.product?.image || PLACEHOLDER_IMG}
                       alt=""
                       style={imgStyle}
                     />
@@ -557,7 +555,7 @@ function CartList({ items }: { items: AdminCartItem[] }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={miniImgStyle}>
                     <img
-                      src={item.product?.image || IMG}
+                      src={item.product?.image || PLACEHOLDER_IMG}
                       alt=""
                       style={imgStyle}
                     />

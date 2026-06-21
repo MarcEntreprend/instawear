@@ -9,7 +9,7 @@
 export const LOGO_URL = "/InstaWear-logo.png";
 
 // Logo principal sans  background (Favicon)
-export const LOGO_NO_BACKGROUND = "/InstaWear-logo.png";
+export const LOGO_NO_BACKGROUND = "/InstaWear-logo-wh-middle-no-BG.png";
 
 // Logo admin (sidebar)
 export const LOGO_SETTINGS_URL = "/InstaWear-logo-settings.png";

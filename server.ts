@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product, PrintfulSettings } from "./src/types";
+import assets from "./data/assets.json" with { type: "json" };
 import { DEFAULT_PRODUCTS } from "./src/data/defaultProducts";
 
 // Load environment variables
@@ -148,13 +149,8 @@ app.post("/api/products", (req, res) => {
       originalPrice: Number(newDesign.price)
         ? Number(newDesign.price) * 1.5
         : 39.99,
-      image:
-        newDesign.image ||
-        "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
-      gallery: [
-        newDesign.image ||
-          "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=600&auto=format&fit=crop",
-      ],
+      image: newDesign.image || assets.PLACEHOLDER_IMG,
+      gallery: [newDesign.image || assets.PLACEHOLDER_IMG],
       colors:
         newDesign.colors && newDesign.colors.length > 0
           ? newDesign.colors
