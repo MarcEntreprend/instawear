@@ -285,12 +285,16 @@ export default function CustomersPage({
                       display: "flex",
                       alignItems: "center",
                       gap: 5,
-                      color: "var(--color-ink3)",
+                      color: c.lastLoginDate
+                        ? "var(--color-ink3)"
+                        : "var(--color-ink4)",
                       fontSize: 12,
                     }}
                   >
                     <Clock size={12} />
-                    {formatDateTime(c.lastLoginDate)}
+                    {c.lastLoginDate
+                      ? formatDateTime(c.lastLoginDate)
+                      : "Jamais connecté"}
                   </div>
                 </td>
                 <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -451,7 +455,9 @@ function CustomerDetailPanel({
               size={12}
               style={{ marginRight: 4, verticalAlign: "middle" }}
             />
-            Dernière connexion {formatDateTime(customer.lastLoginDate)}
+            {customer.lastLoginDate
+              ? `Dernière connexion ${formatDateTime(customer.lastLoginDate)}`
+              : "Aucune connexion enregistrée"}
           </span>
         </div>
       </div>
