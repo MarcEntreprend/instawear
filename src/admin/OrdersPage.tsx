@@ -298,9 +298,12 @@ export default function OrdersPage() {
         </button>
       </div>
 
-      {/* Filter bar */}
+      {/* Filter bar – sticky on scroll within admin content */}
       <div
         style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 40,
           display: "flex",
           flexWrap: "wrap",
           gap: 10,

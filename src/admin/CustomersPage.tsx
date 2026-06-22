@@ -824,6 +824,9 @@ const titleStyle: React.CSSProperties = {
   marginBottom: 2,
 };
 const searchBarStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 40,
   display: "flex",
   alignItems: "center",
   gap: 8,

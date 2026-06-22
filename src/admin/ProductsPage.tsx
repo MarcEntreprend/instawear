@@ -1,5 +1,4 @@
 // src/admin/ProductsPage.tsx
-
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
@@ -307,7 +306,13 @@ export default function ProductsPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 22,
+      }}
+    >
       {/* Header */}
       <div
         style={{
@@ -352,9 +357,12 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      {/* Filter bar */}
+      {/* Filter bar – sticky on scroll within admin content */}
       <div
         style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 40,
           display: "flex",
           flexWrap: "wrap",
           gap: 10,
