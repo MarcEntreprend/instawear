@@ -202,13 +202,11 @@ export default function AuthModal({
 
         const isAdmin = !!adminData;
 
-        // Mettre à jour last_login_date dans customers (sans trigger)
+        // Mettre à jour last_login_date dans customers (update silencieux, sans upsert)
         supabase
           .from("customers")
-          .upsert(
-            { id: data.user.id, last_login_date: new Date().toISOString() },
-            { onConflict: "id" },
-          )
+          .update({ last_login_date: new Date().toISOString() })
+          .eq("id", data.user.id)
           .then(({ error }) => {
             if (error)
               console.warn("Erreur mise à jour last_login_date:", error);
