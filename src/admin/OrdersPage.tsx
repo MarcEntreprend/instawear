@@ -16,6 +16,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
+import { productApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
 import ProductQuickViewModal from "./ProductQuickViewModal";
@@ -99,6 +100,23 @@ export default function OrdersPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+
+  // states pour le chargement et la fonction de récupération
+  const [loadingQuickView, setLoadingQuickView] = useState(false);
+
+  const handleQuickView = async (productId: string) => {
+    setLoadingQuickView(true);
+    try {
+      const product = await productApi.get(productId);
+      if (product) {
+        setQuickViewProduct(product);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingQuickView(false);
+    }
+  };
 
   // ── Filter & sort ────────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
@@ -928,29 +946,7 @@ export default function OrdersPage() {
                           }}
                         >
                           <button
-                            onClick={() =>
-                              setQuickViewProduct({
-                                id: item.productId,
-                                title: item.productTitle ?? item.productId,
-                                image: item.productImage ?? PLACEHOLDER_IMG,
-                                brand: "",
-                                description: "",
-                                price: item.unitPrice,
-                                ratings: { score: 0, count: 0 },
-                                boughtLastMonth: 0,
-                                gallery: [],
-                                colors: [],
-                                sizes: [],
-                                tags: [],
-                                eventType: "culture",
-                                category: "tshirt",
-                                style: "street",
-                                isActive: true,
-                                inStock: true,
-                                createdAt: "",
-                                updatedAt: "",
-                              } as AdminProduct)
-                            }
+                            onClick={() => handleQuickView(item.productId)}
                             style={{
                               width: 32,
                               height: 32,
@@ -975,29 +971,7 @@ export default function OrdersPage() {
                             />
                           </button>
                           <button
-                            onClick={() =>
-                              setQuickViewProduct({
-                                id: item.productId,
-                                title: item.productTitle ?? item.productId,
-                                image: item.productImage ?? PLACEHOLDER_IMG,
-                                brand: "",
-                                description: "",
-                                price: item.unitPrice,
-                                ratings: { score: 0, count: 0 },
-                                boughtLastMonth: 0,
-                                gallery: [],
-                                colors: [],
-                                sizes: [],
-                                tags: [],
-                                eventType: "culture",
-                                category: "tshirt",
-                                style: "street",
-                                isActive: true,
-                                inStock: true,
-                                createdAt: "",
-                                updatedAt: "",
-                              } as AdminProduct)
-                            }
+                            onClick={() => handleQuickView(item.productId)}
                             style={{
                               fontWeight: 500,
                               color: "var(--color-ink)",
