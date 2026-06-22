@@ -201,6 +201,19 @@ export default function AuthModal({
           .single();
 
         const isAdmin = !!adminData;
+
+        // Mettre à jour last_login_date dans customers (sans trigger)
+        supabase
+          .from("customers")
+          .upsert(
+            { id: data.user.id, last_login_date: new Date().toISOString() },
+            { onConflict: "id" },
+          )
+          .then(({ error }) => {
+            if (error)
+              console.warn("Erreur mise à jour last_login_date:", error);
+          });
+
         onLoginSuccess(isAdmin, name || email);
       }
     } catch (err: any) {
