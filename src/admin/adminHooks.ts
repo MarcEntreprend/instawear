@@ -61,8 +61,40 @@ function useAsync<T>(
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────
+// Mettre en cache les stats du dashboard pendant 60 secondes
+
+let cachedStats: DashboardStats | null = null;
+let cacheTimestamp = 0;
+
 export function useDashboard() {
-  return useAsync<DashboardStats>(() => dashboardApi.getStats());
+  const [data, setData] = useState<DashboardStats | null>(cachedStats);
+  const [loading, setLoading] = useState(!cachedStats);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    if (cachedStats && Date.now() - cacheTimestamp < 60000) {
+      setData(cachedStats);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await dashboardApi.getStats();
+      cachedStats = result;
+      cacheTimestamp = Date.now();
+      setData(result);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, loading, error, refetch: fetch };
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────

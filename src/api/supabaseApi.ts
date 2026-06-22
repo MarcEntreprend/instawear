@@ -443,16 +443,31 @@ export const customerApi = {
 
 export const orderApi = {
   async list(): Promise<Order[]> {
-    const { data: orders, error } = await supabase.from("orders").select("*");
+    // 1. Charger toutes les commandes (1 requête)
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
     if (error) throw error;
-    const ordersMapped = (orders ?? []).map(mapOrder);
-    // Récupérer les items pour chaque commande
-    for (const order of ordersMapped) {
-      const { data: items } = await supabase
-        .from("order_items")
-        .select("*")
-        .eq("order_id", order.id);
-      order.items = (items ?? []).map((item: any) => ({
+
+    const ordersList = orders ?? [];
+    if (ordersList.length === 0) return [];
+
+    // 2. Récupérer les IDs de commandes
+    const orderIds = ordersList.map((o: any) => o.id);
+
+    // 3. Charger TOUS les items en une seule requête
+    const { data: allItems, error: itemsError } = await supabase
+      .from("order_items")
+      .select("*")
+      .in("order_id", orderIds);
+    if (itemsError) throw itemsError;
+
+    // 4. Grouper les items par order_id
+    const itemsByOrder: Record<string, any[]> = {};
+    (allItems ?? []).forEach((item: any) => {
+      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+      itemsByOrder[item.order_id].push({
         id: item.id,
         orderId: item.order_id,
         productId: item.product_id,
@@ -462,9 +477,14 @@ export const orderApi = {
         selectedSize: item.selected_size,
         quantity: item.quantity,
         unitPrice: item.unit_price,
-      }));
-    }
-    return ordersMapped;
+      });
+    });
+
+    // 5. Mapper les commandes et leur attacher les items
+    return ordersList.map((o: any) => ({
+      ...mapOrder(o),
+      items: itemsByOrder[o.id] ?? [],
+    }));
   },
   async get(id: string): Promise<Order | null> {
     const { data: order, error } = await supabase
@@ -473,11 +493,14 @@ export const orderApi = {
       .eq("id", id)
       .single();
     if (error || !order) return null;
-    const mapped = mapOrder(order);
+
+    // Charger les items en une requête (au lieu d'une par commande)
     const { data: items } = await supabase
       .from("order_items")
       .select("*")
       .eq("order_id", id);
+
+    const mapped = mapOrder(order);
     mapped.items = (items ?? []).map((item: any) => ({
       id: item.id,
       orderId: item.order_id,

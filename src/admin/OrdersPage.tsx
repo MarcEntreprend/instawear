@@ -13,11 +13,11 @@ import {
   Calendar,
   ShoppingBag,
   ArrowUpDown,
+  RefreshCw,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters } from "./adminTypes";
-
 
 // ─── Status labels & colors ────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -77,6 +77,7 @@ export default function OrdersPage() {
     orders: allOrders,
     loading,
     error,
+    refetch,
     updateStatus,
     exportCsv,
   } = useOrders();
@@ -220,16 +221,34 @@ export default function OrdersPage() {
         }}
       >
         <div>
-          <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              marginBottom: 2,
-            }}
-          >
-            Commandes
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--color-ink)",
+                marginBottom: 2,
+              }}
+            >
+              Commandes
+            </h2>
+            <button
+              onClick={() => refetch()}
+              title="Rafraîchir les commandes"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+            </button>
+          </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             {filteredOrders.length} commande
             {filteredOrders.length !== 1 ? "s" : ""}
