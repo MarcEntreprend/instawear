@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { Order, OrderFilters } from "./adminTypes";
+import { Order, OrderFilters, AdminProduct } from "./adminTypes";
+import ProductQuickViewModal from "./ProductQuickViewModal";
 
 // ─── Status labels & colors ────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -95,6 +96,9 @@ export default function OrdersPage() {
 
   // ── Detail modal state ───────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   // ── Filter & sort ────────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
@@ -923,7 +927,30 @@ export default function OrdersPage() {
                             gap: 10,
                           }}
                         >
-                          <div
+                          <button
+                            onClick={() =>
+                              setQuickViewProduct({
+                                id: item.productId,
+                                title: item.productTitle ?? item.productId,
+                                image: item.productImage ?? PLACEHOLDER_IMG,
+                                brand: "",
+                                description: "",
+                                price: item.unitPrice,
+                                ratings: { score: 0, count: 0 },
+                                boughtLastMonth: 0,
+                                gallery: [],
+                                colors: [],
+                                sizes: [],
+                                tags: [],
+                                eventType: "culture",
+                                category: "tshirt",
+                                style: "street",
+                                isActive: true,
+                                inStock: true,
+                                createdAt: "",
+                                updatedAt: "",
+                              } as AdminProduct)
+                            }
                             style={{
                               width: 32,
                               height: 32,
@@ -931,6 +958,9 @@ export default function OrdersPage() {
                               overflow: "hidden",
                               background: "var(--color-surface2)",
                               flexShrink: 0,
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
                             }}
                           >
                             <img
@@ -943,15 +973,45 @@ export default function OrdersPage() {
                                 display: "block",
                               }}
                             />
-                          </div>
-                          <span
+                          </button>
+                          <button
+                            onClick={() =>
+                              setQuickViewProduct({
+                                id: item.productId,
+                                title: item.productTitle ?? item.productId,
+                                image: item.productImage ?? PLACEHOLDER_IMG,
+                                brand: "",
+                                description: "",
+                                price: item.unitPrice,
+                                ratings: { score: 0, count: 0 },
+                                boughtLastMonth: 0,
+                                gallery: [],
+                                colors: [],
+                                sizes: [],
+                                tags: [],
+                                eventType: "culture",
+                                category: "tshirt",
+                                style: "street",
+                                isActive: true,
+                                inStock: true,
+                                createdAt: "",
+                                updatedAt: "",
+                              } as AdminProduct)
+                            }
                             style={{
                               fontWeight: 500,
                               color: "var(--color-ink)",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              padding: 0,
+                              textDecoration: "underline",
+                              textUnderlineOffset: 3,
                             }}
                           >
                             {item.productTitle ?? item.productId}
-                          </span>
+                          </button>
                         </div>
                       </td>
                       <td style={{ textAlign: "center", padding: "10px 12px" }}>
@@ -1039,6 +1099,13 @@ export default function OrdersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
       )}
     </div>
   );
