@@ -170,7 +170,10 @@ export default function AdminSidebar({
 
       {/* Live indicator */}
       <button
-        onClick={onReturnToStore}
+        onClick={() => {
+          onReturnToStore?.();
+          window.location.reload();
+        }}
         style={{
           padding: "10px 14px",
           margin: "12px 12px 0",
