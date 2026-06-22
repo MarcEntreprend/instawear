@@ -16,6 +16,9 @@ export default function ProductQuickViewModal({
 }: ProductQuickViewModalProps) {
   if (!product) return null;
 
+  // state pour suivre l'image active, et rendre les miniatures cliquables.
+  const [activeImage, setActiveImage] = React.useState(0);
+
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
@@ -99,7 +102,11 @@ export default function ProductQuickViewModal({
               }}
             >
               <img
-                src={product.image || PLACEHOLDER_IMG}
+                src={
+                  activeImage === 0
+                    ? product.image || PLACEHOLDER_IMG
+                    : product.gallery?.[activeImage - 1] || PLACEHOLDER_IMG
+                }
                 alt={product.title}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
@@ -145,15 +152,50 @@ export default function ProductQuickViewModal({
             </div>
             {product.gallery && product.gallery.length > 1 && (
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                {/* Miniature de l'image principale */}
+                <button
+                  onClick={() => setActiveImage(0)}
+                  style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    border:
+                      activeImage === 0
+                        ? "2px solid var(--color-accent)"
+                        : "1px solid var(--color-border)",
+                    padding: 0,
+                    cursor: "pointer",
+                    background: "none",
+                  }}
+                >
+                  <img
+                    src={product.image || PLACEHOLDER_IMG}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </button>
+                {/* Miniatures de la galerie */}
                 {product.gallery.slice(0, 6).map((url, i) => (
-                  <div
+                  <button
                     key={i}
+                    onClick={() => setActiveImage(i + 1)}
                     style={{
                       width: 50,
                       height: 50,
                       borderRadius: 8,
                       overflow: "hidden",
-                      border: "1px solid var(--color-border)",
+                      border:
+                        activeImage === i + 1
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                      padding: 0,
+                      cursor: "pointer",
+                      background: "none",
                     }}
                   >
                     <img
@@ -165,7 +207,7 @@ export default function ProductQuickViewModal({
                         objectFit: "cover",
                       }}
                     />
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -314,16 +356,46 @@ export default function ProductQuickViewModal({
                 {product.style}
               </span>
             </div>
+            {/* Description courte */}
             {product.description && (
               <p
                 style={{
                   fontSize: 12,
                   color: "var(--color-ink2)",
                   lineHeight: 1.6,
+                  fontStyle: "italic",
                 }}
               >
                 {product.description}
               </p>
+            )}
+            {/* Fiche technique (description longue) */}
+            {product.fullDescription && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-ink)",
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-line",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    color: "var(--color-ink3)",
+                    textTransform: "uppercase",
+                    marginBottom: 6,
+                  }}
+                >
+                  Fiche technique
+                </p>
+                {product.fullDescription}
+              </div>
             )}
             <div
               style={{
