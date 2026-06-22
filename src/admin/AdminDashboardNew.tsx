@@ -1143,7 +1143,13 @@ export default function AdminDashboard({
         </div>
 
         <div
-          style={{ flex: 1, overflowY: "auto", padding: "28px 28px" }}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            padding: "28px 28px",
+            scrollbarGutter: "stable",
+          }}
           className="admin-content-scroll"
         >
           {section === "dashboard" && (
