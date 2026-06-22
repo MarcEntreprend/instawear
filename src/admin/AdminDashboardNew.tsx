@@ -920,8 +920,12 @@ export default function AdminDashboard({
     null,
   );
 
+  // Remplace le dernier élément de la stack au lieu d'empiler (évite l'historique infini)
   const navigate = useCallback((s: AdminSection) => {
-    setNavStack((prev) => [...prev, s]);
+    setNavStack((prev) => {
+      if (prev.length <= 1) return [...prev, s]; // depuis le dashboard, on push normalement
+      return [...prev.slice(0, -1), s]; // sinon on remplace la page courante
+    });
     setMobileNavOpen(false);
   }, []);
 
