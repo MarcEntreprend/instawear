@@ -148,15 +148,23 @@ export default function ProductsPage() {
     return list;
   }, [allProducts, filters, sortKey, sortDir]);
 
-  // Synchroniser l'ordre manuel avec la liste filtrée
+  // Synchroniser l'ordre manuel avec la liste filtrée (IDs uniquement, sans boucle)
   useEffect(() => {
     const newIds = products.map((p) => p.id);
     setManualOrder((prev) => {
+      // Éviter les mises à jour inutiles si l'ordre n'a pas changé
       const filteredPrev = prev.filter((id) => newIds.includes(id));
       const missing = newIds.filter((id) => !filteredPrev.includes(id));
+      if (
+        missing.length === 0 &&
+        filteredPrev.length === prev.length &&
+        filteredPrev.every((id, i) => id === prev[i])
+      ) {
+        return prev; // Aucun changement → ne pas trigger de re-render
+      }
       return [...filteredPrev, ...missing];
     });
-  }, [products]);
+  }, [products.map((p) => p.id).join(",")]); // Dépendance stable : une string d'IDs
 
   // Réordonne les produits selon manualOrder
   const orderedProducts = useMemo(() => {
@@ -225,16 +233,17 @@ export default function ProductsPage() {
     setEditingProductId(null);
   };
 
-  const handleSaveProduct = async (
-    data: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
-  ) => {
-    if (editingProductId) {
-      await updateProduct(editingProductId, data);
-    } else {
-      await createProduct(data);
-    }
-    handleBackToList();
-  };
+  // Comme on utilise directement createProduct/updateProduct dans le onSave inline ci‑dessus, on peut supprimer l’ancienne handleSaveProduct ou la laisser (elle ne sera plus utilisée pour l’import).
+  // const handleSaveProduct = async (
+  //   data: Omit<AdminProduct, "id" | "createdAt" | "updatedAt">,
+  // ) => {
+  //   if (editingProductId) {
+  //     await updateProduct(editingProductId, data);
+  //   } else {
+  //     await createProduct(data);
+  //   }
+  //   handleBackToList();
+  // };
 
   const handleDuplicate = async (id: string) => {
     await duplicateProduct(id);
@@ -280,7 +289,15 @@ export default function ProductsPage() {
       <ProductFormPanel
         product={isCreating ? null : editingProduct}
         onBack={handleBackToList}
-        onSave={handleSaveProduct}
+        onSave={async (data) => {
+          const savedProduct = isCreating
+            ? await createProduct(data)
+            : await updateProduct(editingProductId!, data);
+          handleBackToList();
+          // Ouvre la QuickView du produit importé
+          setQuickViewProduct(savedProduct);
+          return savedProduct;
+        }}
       />
     );
   }

@@ -1,10 +1,11 @@
 // src/admin/ProductFormPanel.tsx
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Save, Upload } from "lucide-react";
+import { ArrowLeft, Save, Upload, RefreshCw, ExternalLink } from "lucide-react";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
+import { podApi } from "../api/supabaseApi";
 import { AdminProduct } from "./adminTypes";
 
 interface ProductFormPanelProps {
@@ -286,6 +287,86 @@ export default function ProductFormPanel({
   const update = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  //  fonction d'import et un état de chargement
+  const [importingPrintful, setImportingPrintful] = useState(false);
+
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const handleImportFromPrintful = async () => {
+    setImportError(null);
+    if (!form.externalProductId) {
+      setImportError("Veuillez d'abord saisir un External Product ID.");
+      return;
+    }
+    setImportingPrintful(true);
+    try {
+      console.log("[Printful] Récupération du produit", form.externalProductId);
+      const pfProduct = await podApi.getProductDetails(form.externalProductId);
+      console.log("[Printful] Données reçues :", pfProduct);
+
+      const title = (pfProduct.name || pfProduct.title || "") as string;
+      const description = (pfProduct.description || "") as string;
+      const mainImage = (pfProduct.thumbnail_url ||
+        pfProduct.image ||
+        form.image) as string;
+
+      const variants: any[] = pfProduct.variants || [];
+      const matchedVariant = form.externalVariantId
+        ? variants.find(
+            (v: any) =>
+              v.external_id === form.externalVariantId ||
+              v.id?.toString() === form.externalVariantId,
+          )
+        : variants[0];
+
+      const price = matchedVariant?.retail_price
+        ? parseFloat(matchedVariant.retail_price)
+        : form.price;
+
+      const colors = variants
+        .map((v: any) => (v.color_code || v.color) as string)
+        .filter(Boolean) as string[];
+      const colorNames = variants
+        .map((v: any) => v.color as string)
+        .filter(Boolean) as string[];
+      const sizes = variants
+        .map((v: any) => v.size as string)
+        .filter(Boolean) as string[];
+
+      const galleryImages = variants
+        .map((v: any) => (v.image || v.file?.preview_url) as string)
+        .filter(Boolean)
+        .slice(0, 6) as string[];
+
+      const updatedForm = {
+        ...form,
+        title: title || form.title,
+        description: description || form.description,
+        image: mainImage || form.image,
+        price: price || form.price,
+        colors: colors.length > 0 ? [...new Set(colors)] : form.colors,
+        colorNames:
+          colorNames.length > 0 ? [...new Set(colorNames)] : form.colorNames,
+        sizes: sizes.length > 0 ? [...new Set(sizes)] : form.sizes,
+        gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
+        lastExternalSync: new Date().toISOString(),
+      };
+
+      setForm(updatedForm);
+      setImportError(null);
+      setImportingPrintful(false);
+
+      // Enregistrer automatiquement le produit
+      console.log("[Printful] Sauvegarde automatique du produit...");
+      await onSave(updatedForm);
+      console.log("[Printful] Produit sauvegardé.");
+    } catch (err: any) {
+      console.error("[Printful] Erreur :", err);
+      setImportError(err.message || "Erreur lors de l'import Printful");
+      setImportingPrintful(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -336,6 +417,22 @@ export default function ProductFormPanel({
         >
           {product ? "Modifier le produit" : "Nouveau produit"}
         </h2>
+
+        {importError && (
+          <div
+            style={{
+              background: "#fee2e2",
+              border: "1px solid #fecaca",
+              color: "#991b1b",
+              padding: "12px 16px",
+              borderRadius: 12,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {importError}
+          </div>
+        )}
       </div>
 
       <form
@@ -758,27 +855,62 @@ export default function ProductFormPanel({
           )}
         </div>
 
-        {/* External POD IDs */}
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-        >
-          <div>
-            <label style={labelStyle}>External Product ID</label>
-            <input
-              type="text"
-              value={form.externalProductId || ""}
-              onChange={(e) => update("externalProductId", e.target.value)}
-              style={inputStyle}
-            />
+        {/* External POD IDs + Import Printful */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          >
+            <div>
+              <label style={labelStyle}>External Product ID</label>
+              <input
+                type="text"
+                value={form.externalProductId || ""}
+                onChange={(e) => update("externalProductId", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>External Variant ID</label>
+              <input
+                type="text"
+                value={form.externalVariantId || ""}
+                onChange={(e) => update("externalVariantId", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
           </div>
-          <div>
-            <label style={labelStyle}>External Variant ID</label>
-            <input
-              type="text"
-              value={form.externalVariantId || ""}
-              onChange={(e) => update("externalVariantId", e.target.value)}
-              style={inputStyle}
-            />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={handleImportFromPrintful}
+              disabled={importingPrintful || !form.externalProductId}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                borderRadius: 10,
+                border: "1.5px solid var(--color-accent)",
+                background: "transparent",
+                color: "var(--color-accent)",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                opacity: importingPrintful ? 0.6 : 1,
+              }}
+            >
+              {importingPrintful ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  Import...
+                </>
+              ) : (
+                <>
+                  <ExternalLink size={14} />
+                  Importer depuis Printful
+                </>
+              )}
+            </button>
           </div>
         </div>
 
