@@ -674,6 +674,28 @@ export const podApi = {
       duration: log.duration,
     }));
   },
+
+  /**
+   * Récupère les détails d'un produit Printful via l'Edge Function.
+   * @param productId - L'ID externe du produit chez Printful.
+   * @returns Les données brutes du produit Printful.
+   */
+  async getProductDetails(productId: string): Promise<any> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ action: "get-product", productId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur Edge Function");
+    }
+    return res.json();
+  },
 };
 
 export const storeSettingsApi = {
