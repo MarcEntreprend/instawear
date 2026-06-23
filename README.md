@@ -30,8 +30,10 @@ Local: http://localhost:5173/
 ```
 instawear/
 ├── .vscode/
+│   └── settings.json
 ├── assets/
-│   └── .aistudio
+│   └── .aistudio/
+│       └── .gitignore
 ├── data/
 │   ├── assets.json
 │   ├── products.json
@@ -53,7 +55,8 @@ instawear/
 │   │   ├── CustomersPage.tsx
 │   │   ├── HelpPage.tsx
 │   │   ├── IntegrationsPage.tsx
-│   │   ├── OrdersPage.tsx ProductQuickViewModal.tsx
+│   │   ├── OrdersPage.tsx
+│   │   ├── PrintfulProductForm.tsx
 │   │   ├── ProductFormPanel.tsx
 │   │   ├── ProductQuickViewModal.tsx
 │   │   ├── ProductsPage.tsx
@@ -92,18 +95,28 @@ instawear/
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── .temp/
-│   └── functions/
-│       └── sync-printful/
-│           ├── .npmrc
-│           ├── deno.json
-│           └── index.ts
+│   │   ├── cli-latest
+│   │   ├── gotrue-version
+│   │   ├── linked-project.json
+│   │   ├── pooler-url
+│   │   ├── postgres-version
+│   │   ├── project-ref
+│   │   ├── rest-version
+│   │   ├── storage-migration
+│   │   └── storage-version
+│   ├── functions/
+│   │   ├── reset-password/
+│   │   │   └── index.ts
+│   │   └── sync-printful/
+│   │       ├── .npmrc
+│   │       ├── deno.json
+│   │       └── index.ts
 │   └── config.toml
 ├── .env
 ├── .env.example
 ├── .gitignore
 ├── AGENT.md
 ├── Doc-specification-technique.md
-├── et --soft HEAD~1
 ├── index.html
 ├── metadata.json
 ├── package-lock.json
