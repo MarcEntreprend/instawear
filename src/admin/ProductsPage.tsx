@@ -12,11 +12,13 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
+  RefreshCw,
 } from "lucide-react";
 import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductFormPanel from "./ProductFormPanel";
+import PrintfulProductForm from "./PrintfulProductForm";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 
 const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
@@ -57,11 +59,13 @@ function Badge({
   );
 }
 
+// déstructuration de useProducts()
 export default function ProductsPage() {
   const {
     products: allProducts,
     loading,
     saving,
+    refetch,
     createProduct,
     updateProduct,
     deleteProduct,
@@ -93,6 +97,7 @@ export default function ProductsPage() {
   // Product form navigation
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingPrintful, setIsCreatingPrintful] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
@@ -223,6 +228,11 @@ export default function ProductsPage() {
     setEditingProductId(null);
   };
 
+  const handleCreatePrintful = () => {
+    setIsCreatingPrintful(true);
+    setEditingProductId(null);
+  };
+
   const handleEdit = (product: AdminProduct) => {
     setEditingProductId(product.id);
     setIsCreating(false);
@@ -230,6 +240,7 @@ export default function ProductsPage() {
 
   const handleBackToList = () => {
     setIsCreating(false);
+    setIsCreatingPrintful(false);
     setEditingProductId(null);
   };
 
@@ -282,6 +293,21 @@ export default function ProductsPage() {
     if (!window.confirm("Supprimer définitivement ce produit ?")) return;
     await deleteProduct(id);
   };
+
+  // -- Bloc conditionnel pour le formulaire Printful -----------------------
+  if (isCreatingPrintful) {
+    return (
+      <PrintfulProductForm
+        onBack={handleBackToList}
+        onSave={async (data) => {
+          const saved = await createProduct(data);
+          handleBackToList();
+          setQuickViewProduct(saved);
+          return saved;
+        }}
+      />
+    );
+  }
 
   // ── Render form panel if editing or creating ──────────────────────────
   if (isCreating || editingProductId) {
@@ -341,39 +367,83 @@ export default function ProductsPage() {
         }}
       >
         <div>
-          <h2
-            style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}
-          >
-            Produits
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--color-ink)",
+              }}
+            >
+              Produits
+            </h2>
+            <button
+              onClick={() => refetch()}
+              title="Rafraîchir les produits"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+            </button>
+          </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             {orderedProducts.length} produit
             {orderedProducts.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <button
-          onClick={handleCreateNew}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "10px 20px",
-            borderRadius: 12,
-            border: "none",
-            background: "var(--color-accent)",
-            color: "white",
-            fontFamily: "var(--font-body)",
-            fontWeight: 700,
-            fontSize: 13.5,
-            cursor: "pointer",
-            boxShadow: "var(--shadow-accent)",
-          }}
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          Nouveau produit
-        </button>
-      </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={handleCreateNew}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 20px",
+              borderRadius: 12,
+              border: "none",
+              background: "var(--color-accent)",
+              color: "white",
+              fontFamily: "var(--font-body)",
+              fontWeight: 700,
+              fontSize: 13.5,
+              cursor: "pointer",
+              boxShadow: "var(--shadow-accent)",
+            }}
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Nouveau produit
+          </button>
 
+          <button
+            onClick={handleCreatePrintful}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 20px",
+              borderRadius: 12,
+              border: "1.5px solid var(--color-accent)",
+              background: "transparent",
+              color: "var(--color-accent)",
+              fontFamily: "var(--font-body)",
+              fontWeight: 700,
+              fontSize: 13.5,
+              cursor: "pointer",
+            }}
+          >
+            <Package size={15} strokeWidth={2} />
+            Nouveau produit Printful
+          </button>
+        </div>
+      </div>
       {/* Filter bar – sticky on scroll within admin content */}
       <div
         style={{

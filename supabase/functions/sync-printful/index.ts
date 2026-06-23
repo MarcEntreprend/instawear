@@ -23,6 +23,45 @@ export default {
 
       const body = await req.json().catch(() => ({}));
 
+      // ─── Mode "list-products" : retourne la liste simplifiée des produits Printful ───
+      if (body.action === "list-products") {
+        const { data: settings, error: settingsError } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+        if (settingsError || !settings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+        const pfRes = await fetch("https://api.printful.com/store/products", {
+          headers: { Authorization: `Bearer ${settings.api_key}` },
+        });
+        if (!pfRes.ok) {
+          const errText = await pfRes.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful: ${errText}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+        const pfData = await pfRes.json();
+        const items = (pfData.result || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          thumbnail_url: p.thumbnail_url,
+        }));
+        return new Response(JSON.stringify(items), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // ─── Mode "get-product" : récupérer les détails d'un produit Printful ───
       if (body.action === "get-product" && body.productId) {
         const { data: settings, error: settingsError } = await supabaseAdmin

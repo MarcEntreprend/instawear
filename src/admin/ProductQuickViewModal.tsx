@@ -397,6 +397,41 @@ export default function ProductQuickViewModal({
                 {product.fullDescription}
               </div>
             )}
+
+            {/* Printful info */}
+            {product.externalProductId && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-ink3)",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    color: "var(--color-ink3)",
+                    textTransform: "uppercase",
+                    marginBottom: 6,
+                  }}
+                >
+                  📦 Printful
+                </p>
+                <p>Product ID : {product.externalProductId}</p>
+                <p>Variant ID : {product.externalVariantId || "—"}</p>
+                <p>
+                  Dernière synchro :{" "}
+                  {product.lastExternalSync
+                    ? new Date(product.lastExternalSync).toLocaleString("fr-FR")
+                    : "—"}
+                </p>
+              </div>
+            )}
+
             <div
               style={{
                 display: "flex",

@@ -696,6 +696,28 @@ export const podApi = {
     }
     return res.json();
   },
+
+  /**
+   * Récupère la liste des produits Printful (id, nom, miniature).
+   */
+  async listPrintfulProducts(): Promise<
+    { id: number; name: string; thumbnail_url: string }[]
+  > {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ action: "list-products" }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur Edge Function");
+    }
+    return res.json();
+  },
 };
 
 export const storeSettingsApi = {
