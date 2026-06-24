@@ -42,7 +42,16 @@ export interface Product {
   inStock?: boolean;
   tags: string[];
   eventType: "sport" | "culture" | "saisonnier" | "live";
-  category: "tshirt" | "hoodie" | "accessory" | "mug";
+  category:
+    | "tshirt"
+    | "hoodie"
+    | "accessory"
+    | "mug"
+    | "case"
+    | "sticker"
+    | "poster"
+    | "canvas"
+    | "other";
   style: "cute" | "street" | "commute" | "cozy" | "retro";
 }
 
@@ -101,7 +110,16 @@ export interface DesignInput {
   prompt: string;
   description: string;
   eventType: "sport" | "culture" | "saisonnier" | "live";
-  category: "tshirt" | "hoodie" | "accessory" | "mug";
+  category:
+    | "tshirt"
+    | "hoodie"
+    | "accessory"
+    | "mug"
+    | "case"
+    | "sticker"
+    | "poster"
+    | "canvas"
+    | "other";
   style: "cute" | "street" | "commute" | "cozy" | "retro";
   tags: string[];
   basePrice: number;
