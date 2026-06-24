@@ -40,7 +40,16 @@ interface ProductRow {
   sizes: string[];
   size_surcharge?: Record<string, number> | null;
   size_guide?: Record<string, { bust: number; length: number }> | null;
-  category: "tshirt" | "hoodie" | "accessory" | "mug";
+  category:
+    | "tshirt"
+    | "hoodie"
+    | "accessory"
+    | "mug"
+    | "case"
+    | "sticker"
+    | "poster"
+    | "canvas"
+    | "other";
   event_type: "live" | "sport" | "culture" | "saisonnier";
   style: "cute" | "street" | "commute" | "cozy" | "retro";
   material?: string | null;
@@ -55,6 +64,8 @@ interface ProductRow {
   external_product_id?: string | null;
   external_variant_id?: string | null;
   last_external_sync?: string | null;
+  printful_price?: number | null;
+  printful_currency?: string | null;
   ratings_score?: number | null;
   ratings_count?: number | null;
   bought_last_month?: number | null;
@@ -95,6 +106,8 @@ const mapProduct = (row: any): AdminProduct => ({
   externalProductId: row.external_product_id,
   externalVariantId: row.external_variant_id,
   lastExternalSync: row.last_external_sync,
+  printfulPrice: row.printful_price,
+  printfulCurrency: row.printful_currency,
   ratings: {
     score: row.ratings_score ?? 0,
     count: row.ratings_count ?? 0,
@@ -195,6 +208,8 @@ export const productApi = {
       external_product_id: product.externalProductId,
       external_variant_id: product.externalVariantId,
       last_external_sync: product.lastExternalSync,
+      printful_price: product.printfulPrice,
+      printful_currency: product.printfulCurrency,
       ratings_score: product.ratings?.score ?? 5,
       ratings_count: product.ratings?.count ?? 0,
       bought_last_month: product.boughtLastMonth ?? 0,
@@ -244,6 +259,8 @@ export const productApi = {
       external_product_id: updates.externalProductId,
       external_variant_id: updates.externalVariantId,
       last_external_sync: updates.lastExternalSync,
+      printful_price: updates.printfulPrice,
+      printful_currency: updates.printfulCurrency,
       ratings_score: updates.ratings?.score,
       ratings_count: updates.ratings?.count,
       bought_last_month: updates.boughtLastMonth,

@@ -334,7 +334,10 @@ export default function ProductFormPanel({
         .filter(Boolean) as string[];
 
       const galleryImages = variants
-        .map((v: any) => (v.image || v.file?.preview_url) as string)
+        .map(
+          (v: any) =>
+            (v.preview_url || v.image || v.file?.preview_url) as string,
+        )
         .filter(Boolean)
         .slice(0, 6) as string[];
 
@@ -350,6 +353,10 @@ export default function ProductFormPanel({
         sizes: sizes.length > 0 ? [...new Set(sizes)] : form.sizes,
         gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
         lastExternalSync: new Date().toISOString(),
+        printfulPrice: price || undefined,
+        printfulCurrency: (matchedVariant?.currency ||
+          pfProduct.currency ||
+          "USD") as string,
       };
 
       setForm(updatedForm);

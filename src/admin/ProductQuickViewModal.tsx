@@ -423,6 +423,12 @@ export default function ProductQuickViewModal({
                 </p>
                 <p>Product ID : {product.externalProductId}</p>
                 <p>Variant ID : {product.externalVariantId || "—"}</p>
+                {product.printfulPrice != null && (
+                  <p>
+                    Prix Printful : {product.printfulPrice.toFixed(2)}{" "}
+                    {product.printfulCurrency || "$"}
+                  </p>
+                )}
                 <p>
                   Dernière synchro :{" "}
                   {product.lastExternalSync

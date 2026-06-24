@@ -22,7 +22,16 @@ export interface AdminProduct {
   // Stores per-size measurements. Keys must match entries in sizes[].
   // Example: { "M": { "bust": 51, "length": 72 }, "L": { "bust": 54, "length": 74 } }
   sizeGuide?: Record<string, { bust: number; length: number }>;
-  category: "tshirt" | "hoodie" | "accessory" | "mug";
+  category:
+    | "tshirt"
+    | "hoodie"
+    | "accessory"
+    | "mug"
+    | "case"
+    | "sticker"
+    | "poster"
+    | "canvas"
+    | "other";
   eventType: "live" | "sport" | "culture" | "saisonnier";
   style: "cute" | "street" | "commute" | "cozy" | "retro";
   material?: string;
@@ -37,6 +46,8 @@ export interface AdminProduct {
   externalProductId?: string;
   externalVariantId?: string;
   lastExternalSync?: string; // ISO datetime
+  printfulPrice?: number; // Coût de base Printful
+  printfulCurrency?: string; // Devise Printful (USD, EUR…)
   ratings: { score: number; count: number };
   boughtLastMonth: number;
   createdAt: string;

@@ -109,8 +109,9 @@ export default {
           description: syncProduct?.description || "",
           thumbnail_url:
             syncProduct?.thumbnail_url ||
-            mainVariant?.files?.[0]?.thumbnail_url ||
+            mainVariant?.files?.[0]?.preview_url ||
             "",
+          currency: mainVariant?.currency || "USD",
           variants: variants.map((v: any) => ({
             id: v.id,
             external_id: v.external_id || v.sku,
@@ -119,7 +120,10 @@ export default {
             color_code: v.color_code,
             retail_price: v.retail_price,
             price: v.price,
+            currency: v.currency,
             files: v.files || [],
+            preview_url:
+              v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "",
           })),
         };
 

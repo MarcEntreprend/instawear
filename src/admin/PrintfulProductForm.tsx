@@ -1,13 +1,6 @@
 // src/admin/PrintfulProductForm.tsx
-
 import React, { useState, useEffect } from "react";
-import {
-  ArrowLeft,
-  Package,
-  RefreshCw,
-  ExternalLink,
-  RefreshCcw,
-} from "lucide-react";
+import { ArrowLeft, Package, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
 import { AdminProduct } from "./adminTypes";
 
@@ -16,7 +9,19 @@ interface PrintfulProductFormProps {
   onSave: (product: AdminProduct) => Promise<AdminProduct>;
 }
 
-const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
+// Catégories étendues pour couvrir le catalogue Printful
+const CATEGORIES = [
+  "tshirt",
+  "hoodie",
+  "accessory",
+  "mug",
+  "case",
+  "sticker",
+  "poster",
+  "canvas",
+  "other",
+];
+
 const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
 const STYLES = ["cute", "street", "commute", "cozy", "retro"];
 
@@ -32,10 +37,17 @@ export default function PrintfulProductForm({
   const [variants, setVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
   const [loadingVariants, setLoadingVariants] = useState(false);
+
+  // Champs du formulaire
   const [price, setPrice] = useState<number>(29.99);
   const [category, setCategory] = useState<string>("tshirt");
   const [eventType, setEventType] = useState<string>("culture");
   const [style, setStyle] = useState<string>("street");
+
+  // Infos Printful affichées à titre informatif
+  const [pfPrice, setPfPrice] = useState<number | null>(null);
+  const [pfCurrency, setPfCurrency] = useState<string>("USD");
+
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +56,7 @@ export default function PrintfulProductForm({
     podApi
       .listPrintfulProducts()
       .then(setPfProducts)
-      .catch((err) => setError("Erreur chargement produits Printful."))
+      .catch(() => setError("Erreur chargement produits Printful."))
       .finally(() => setLoadingList(false));
   }, []);
 
@@ -53,20 +65,45 @@ export default function PrintfulProductForm({
     if (!selectedProductId) {
       setVariants([]);
       setSelectedVariantId("");
+      setPfPrice(null);
       return;
     }
     setLoadingVariants(true);
     podApi
       .getProductDetails(selectedProductId)
       .then((data) => {
-        setVariants(data.variants || []);
-        if (data.variants?.length) {
-          setSelectedVariantId(data.variants[0].id.toString());
+        const vars = data.variants || [];
+        setVariants(vars);
+        if (vars.length > 0) {
+          setSelectedVariantId(vars[0].id.toString());
+          // Pré‑remplir avec les infos du premier variant
+          const first = vars[0];
+          if (first.retail_price) {
+            setPfPrice(parseFloat(first.retail_price));
+            // On initialise le prix de vente à cost * 2 (suggestion)
+            setPrice(parseFloat(first.retail_price) * 2);
+          }
+          setPfCurrency(first.currency || data.currency || "USD");
         }
       })
-      .catch((err) => setError("Erreur chargement variantes."))
+      .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
   }, [selectedProductId]);
+
+  // Mettre à jour les infos quand la variante sélectionnée change
+  useEffect(() => {
+    if (!selectedVariantId || variants.length === 0) return;
+    const v = variants.find((v: any) => v.id.toString() === selectedVariantId);
+    if (v) {
+      if (v.retail_price) {
+        const cost = parseFloat(v.retail_price);
+        setPfPrice(cost);
+        // Si le prix n'a pas été modifié manuellement, on le recalcule
+        setPrice(cost * 2);
+      }
+      setPfCurrency(v.currency || pfCurrency);
+    }
+  }, [selectedVariantId, variants]);
 
   const handleImport = async () => {
     setError(null);
@@ -76,7 +113,6 @@ export default function PrintfulProductForm({
     }
     setImporting(true);
     try {
-      // Récupérer les détails complets pour construire le produit
       const pfData = await podApi.getProductDetails(selectedProductId);
       const title = pfData.name || "";
       const mainImage = pfData.thumbnail_url || "";
@@ -87,14 +123,18 @@ export default function PrintfulProductForm({
       const retailPrice = variant?.retail_price
         ? parseFloat(variant.retail_price)
         : 0;
+
       const colors = pfData.variants
+        .map((v: any) => v.color_code as string)
+        .filter(Boolean) as string[];
+      const colorNames = pfData.variants
         .map((v: any) => v.color as string)
         .filter(Boolean) as string[];
       const sizes = pfData.variants
         .map((v: any) => v.size as string)
         .filter(Boolean) as string[];
       const gallery = pfData.variants
-        .map((v: any) => v.files?.[0]?.thumbnail_url as string)
+        .map((v: any) => v.preview_url as string)
         .filter(Boolean)
         .slice(0, 6) as string[];
 
@@ -107,12 +147,12 @@ export default function PrintfulProductForm({
         image: mainImage,
         gallery,
         mockupPreset: "",
-        price: price || retailPrice,
+        price: price,
         originalPrice: undefined,
         inStock: true,
         stockQuantity: 100,
         colors: [...new Set(colors)],
-        colorNames: [...new Set(colors)] as string[],
+        colorNames: [...new Set(colorNames)] as string[],
         sizes: [...new Set(sizes)],
         sizeSurcharge: {},
         sizeGuide: undefined,
@@ -131,12 +171,13 @@ export default function PrintfulProductForm({
         externalProductId: selectedProductId,
         externalVariantId: selectedVariantId,
         lastExternalSync: new Date().toISOString(),
+        printfulPrice: retailPrice,
+        printfulCurrency: variant?.currency || pfData.currency || "USD",
         ratings: { score: 5, count: 0 },
         boughtLastMonth: 0,
       };
 
       const saved = await onSave(newProduct as AdminProduct);
-      // onSave s'occupe de la redirection et QuickView
     } catch (err: any) {
       setError(err.message || "Erreur import");
     } finally {
@@ -298,6 +339,33 @@ export default function PrintfulProductForm({
             </select>
           )}
         </div>
+
+        {/* Prix Printful informatif */}
+        {pfPrice !== null && (
+          <div
+            style={{
+              background: "var(--color-surface2)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              fontSize: 13,
+              color: "var(--color-ink3)",
+            }}
+          >
+            💰 Prix Printful :{" "}
+            <strong>
+              {pfPrice.toFixed(2)} {pfCurrency}
+            </strong>
+            <span
+              style={{
+                fontSize: 11,
+                marginLeft: 8,
+                color: "var(--color-ink4)",
+              }}
+            >
+              (prix de base, hors frais de port)
+            </span>
+          </div>
+        )}
 
         {/* Champs manuels */}
         <div
