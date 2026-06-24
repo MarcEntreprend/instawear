@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Check,
 } from "lucide-react";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Product } from "../types";
 
@@ -53,6 +54,8 @@ export default function ProductModal({
   const [galleryIdx, setGalleryIdx] = useState(0);
   const [showGuide, setShowGuide] = useState(false);
   const [added, setAdded] = useState(false);
+
+  const currencySymbol = useCurrencySymbol();
 
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
@@ -250,7 +253,7 @@ export default function ProductModal({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {dynPrice.toFixed(2)} $
+                {dynPrice.toFixed(2)} {currencySymbol}
               </span>
               {product.originalPrice && (
                 <>
@@ -258,7 +261,7 @@ export default function ProductModal({
                     className="text-sm line-through"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    {product.originalPrice.toFixed(2)} $
+                    {product.originalPrice.toFixed(2)} {currencySymbol}
                   </span>
                   <span
                     className="badge text-gray-900"
@@ -273,7 +276,8 @@ export default function ProductModal({
                   className="text-xs"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  (+{SIZE_SURCHARGE[selectedSize]} $ taille {selectedSize})
+                  (+{SIZE_SURCHARGE[selectedSize]} {currencySymbol} taille{" "}
+                  {selectedSize})
                 </span>
               )}
             </div>
@@ -412,7 +416,7 @@ export default function ProductModal({
               >
                 <Truck size={13} strokeWidth={2} />
                 <span className="font-semibold">
-                  Livraison gratuite dès 35 $
+                  Livraison gratuite dès 35 {currencySymbol}
                 </span>
               </div>
               <div
@@ -479,7 +483,7 @@ export default function ProductModal({
                 ) : (
                   <>
                     <ShoppingCart size={16} strokeWidth={2} />
-                    Ajouter — {dynPrice.toFixed(2)} $
+                    Ajouter — {dynPrice.toFixed(2)} {currencySymbol}
                   </>
                 )}
               </button>

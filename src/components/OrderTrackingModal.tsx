@@ -10,6 +10,7 @@ import {
   Truck,
   MapPin,
 } from "lucide-react";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
 
@@ -55,6 +56,7 @@ export default function OrderTrackingModal({
   const [input, setInput] = useState("");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [error, setError] = useState("");
+  const currencySymbol = useCurrencySymbol();
 
   const handleSearch = async () => {
     setError("");
@@ -368,7 +370,8 @@ export default function OrderTrackingModal({
                     </span>
                   </div>
                   <span style={{ fontWeight: 600, marginLeft: 8 }}>
-                    {(item.unitPrice * item.quantity).toFixed(2)} €
+                    {(item.unitPrice * item.quantity).toFixed(2)}{" "}
+                    {currencySymbol}
                   </span>
                 </button>
               ))}
@@ -385,7 +388,9 @@ export default function OrderTrackingModal({
               }}
             >
               <span>Total</span>
-              <span>{order.totalAmount.toFixed(2)} €</span>
+              <span>
+                {order.totalAmount.toFixed(2)} {currencySymbol}
+              </span>
             </div>
           </div>
         )}

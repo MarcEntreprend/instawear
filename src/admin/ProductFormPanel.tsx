@@ -795,7 +795,7 @@ export default function ProductFormPanel({
             <GalleryInput
               value={form.gallery || []}
               onChange={(v) => update("gallery", v)}
-              max={6}
+              max={12}
             />
           </div>
         </div>

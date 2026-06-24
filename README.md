@@ -85,6 +85,7 @@ instawear/
 │   │   ├── defaultProducts.ts
 │   │   └── staticData.ts
 │   ├── hooks/
+│   │   ├── useCurrencySymbol.ts
 │   │   └── useLocalStorage.ts
 │   ├── lib/
 │   │   └── supabaseClient.ts

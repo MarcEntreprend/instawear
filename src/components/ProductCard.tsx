@@ -3,6 +3,7 @@
 import React from "react";
 import { Heart, Star, ShoppingCart, Clock } from "lucide-react";
 import { Product } from "../types";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 interface ProductCardProps {
@@ -27,6 +28,8 @@ export default function ProductCard({
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
+
+  const currencySymbol = useCurrencySymbol();
 
   return (
     <article
@@ -211,11 +214,11 @@ export default function ProductCard({
             className="text-lg font-black text-(--color-ink) tabular-nums"
             style={{ fontFamily: "var(--font-sans)" }}
           >
-            {product.price.toFixed(2)} $
+            {product.price.toFixed(2)} {currencySymbol}
           </span>
           {product.originalPrice && (
             <span className="text-sm line-through text-(--color-ink4) tabular-nums">
-              {product.originalPrice.toFixed(2)} $
+              {product.originalPrice.toFixed(2)} {currencySymbol}
             </span>
           )}
         </div>

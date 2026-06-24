@@ -371,9 +371,13 @@ export default function SettingsPage() {
                 className="input-base"
                 style={{ width: "100%", cursor: "pointer" }}
               >
-                <option value="EUR">EUR ($)</option>
                 <option value="USD">USD ($)</option>
+                <option value="BRL">BRL (R$)</option>
+                <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
+                <option value="CAD">CAD (CA$)</option>
+                <option value="CHF">CHF (CHF)</option>
+                <option value="JPY">JPY (¥)</option>
               </select>
             </div>
             <div>
@@ -396,10 +400,14 @@ export default function SettingsPage() {
                 className="input-base"
                 style={{ width: "100%", cursor: "pointer" }}
               >
-                <option value="FR">France</option>
-                <option value="BE">Belgique</option>
-                <option value="CH">Suisse</option>
-                <option value="CA">Canada</option>
+                <option value="US">États-Unis (USD)</option>
+                <option value="BR">Brésil (BRL)</option>
+                <option value="CA">Canada (CAD)</option>
+                <option value="GB">Royaume-Uni (GBP)</option>
+                <option value="CH">Suisse (CHF)</option>
+                <option value="FR">France (EUR)</option>
+                <option value="JP">Japon (JPY)</option>
+                <option value="BE">Belgique (EUR)</option>
               </select>
             </div>
             <div>

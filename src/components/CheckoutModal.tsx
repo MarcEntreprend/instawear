@@ -12,6 +12,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import type { CartItem } from "../types";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { orderApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { supabase } from "../lib/supabaseClient";
@@ -45,7 +46,9 @@ export default function CheckoutModal({
   const [sent, setSent] = useState(false);
   const [orderId, setOrderId] = useState("");
 
-  // Livraison offerte si >= 35 €
+  const currencySymbol = useCurrencySymbol();
+
+  // Livraison offerte si >= 35 € (currency)
   const shippingCost = cartTotal >= 35 ? 0 : 4.99;
   const total = cartTotal + shippingCost;
 
@@ -73,12 +76,12 @@ export default function CheckoutModal({
       text += `\n${i + 1}. ${item.product.title}\n`;
       text += `   Couleur: ${item.selectedColor} | Taille: ${item.selectedSize} | Qté: ${item.quantity}\n`;
       const lineTotal = item.product.price * item.quantity;
-      text += `   Prix: ${lineTotal.toFixed(2)} €\n`;
+      text += `   Prix: ${lineTotal.toFixed(2)} ${currencySymbol}\n`;
     });
 
-    text += `\n💰 *Total articles :* ${cartTotal.toFixed(2)} €\n`;
-    text += `🚚 *Livraison :* ${shippingCost === 0 ? "Gratuite" : `${shippingCost.toFixed(2)} €`}\n`;
-    text += `🧾 *Montant total :* ${total.toFixed(2)} €\n`;
+    text += `\n💰 *Total articles :* ${cartTotal.toFixed(2)} ${currencySymbol}\n`;
+    text += `🚚 *Livraison :* ${shippingCost === 0 ? "Gratuite" : `${shippingCost.toFixed(2)} ${currencySymbol}`}\n`;
+    text += `🧾 *Montant total :* ${total.toFixed(2)} ${currencySymbol}\n`;
 
     if (message) text += `\n📝 *Message :* ${message}\n`;
     return text;
@@ -518,7 +521,8 @@ export default function CheckoutModal({
                 </span>
               </div>
               <span style={{ fontWeight: 700, flexShrink: 0 }}>
-                {(item.product.price * item.quantity).toFixed(2)} €
+                {(item.product.price * item.quantity).toFixed(2)}{" "}
+                {currencySymbol}
               </span>
             </div>
           ))}
@@ -534,7 +538,9 @@ export default function CheckoutModal({
             }}
           >
             <span>Total</span>
-            <span>{total.toFixed(2)} €</span>
+            <span>
+              {total.toFixed(2)} {currencySymbol}
+            </span>
           </div>
         </div>
 

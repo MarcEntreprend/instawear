@@ -83,7 +83,7 @@ export default function PrintfulProductForm({
             // On initialise le prix de vente à cost * 2 (suggestion)
             setPrice(parseFloat(first.retail_price) * 2);
           }
-          setPfCurrency(first.currency || data.currency || "USD");
+          setPfCurrency(first.currency || data.currency || "BRL");
         }
       })
       .catch(() => setError("Erreur chargement variantes."))
@@ -101,7 +101,7 @@ export default function PrintfulProductForm({
         // Si le prix n'a pas été modifié manuellement, on le recalcule
         setPrice(cost * 2);
       }
-      setPfCurrency(v.currency || pfCurrency);
+      setPfCurrency(v.currency || pfCurrency || "BRL");
     }
   }, [selectedVariantId, variants]);
 
@@ -120,6 +120,11 @@ export default function PrintfulProductForm({
         pfData.variants.find(
           (v: any) => v.id.toString() === selectedVariantId,
         ) || pfData.variants[0];
+
+      // Logs de débogage temporaires
+      console.log("[Printful] Données brutes reçues :", pfData);
+      console.log("[Printful] Variant sélectionné :", variant);
+
       const retailPrice = variant?.retail_price
         ? parseFloat(variant.retail_price)
         : 0;
@@ -136,7 +141,7 @@ export default function PrintfulProductForm({
       const gallery = pfData.variants
         .map((v: any) => v.preview_url as string)
         .filter(Boolean)
-        .slice(0, 6) as string[];
+        .slice(0, 12) as string[];
 
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,
@@ -172,7 +177,7 @@ export default function PrintfulProductForm({
         externalVariantId: selectedVariantId,
         lastExternalSync: new Date().toISOString(),
         printfulPrice: retailPrice,
-        printfulCurrency: variant?.currency || pfData.currency || "USD",
+        printfulCurrency: variant?.currency || pfData.currency || "BRL",
         ratings: { score: 5, count: 0 },
         boughtLastMonth: 0,
       };
@@ -372,7 +377,7 @@ export default function PrintfulProductForm({
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
         >
           <div>
-            <label style={labelStyle}>Prix de vente ($)</label>
+            <label style={labelStyle}>Prix de vente ($, €, R$,...)</label>
             <input
               type="number"
               value={price}

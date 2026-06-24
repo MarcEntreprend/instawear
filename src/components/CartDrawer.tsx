@@ -2,6 +2,7 @@
 
 import React from "react";
 import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { CartItem } from "../types";
 
@@ -29,6 +30,7 @@ export default function CartDrawer({
   const freeShipping = total >= 35;
   const remaining = Math.max(0, 35 - total);
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
+  const currencySymbol = useCurrencySymbol();
 
   return (
     <>
@@ -138,7 +140,9 @@ export default function CartDrawer({
                   style={{ color: "var(--color-accent)" }}
                 >
                   Plus que{" "}
-                  <span className="font-black">{remaining.toFixed(2)} $</span>{" "}
+                  <span className="font-black">
+                    {remaining.toFixed(2)} {currencySymbol}
+                  </span>{" "}
                   pour la livraison gratuite
                 </p>
                 <div
@@ -225,7 +229,8 @@ export default function CartDrawer({
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {(item.product.price * item.quantity).toFixed(2)} $
+                        {(item.product.price * item.quantity).toFixed(2)}{" "}
+                        {currencySymbol}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
@@ -291,7 +296,7 @@ export default function CartDrawer({
                 >
                   <span>Sous-total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {total.toFixed(2)} $
+                    {total.toFixed(2)} {currencySymbol}
                   </span>
                 </div>
                 <div
@@ -301,7 +306,9 @@ export default function CartDrawer({
                   }}
                 >
                   <span>Livraison</span>
-                  <span>{freeShipping ? "Gratuite" : "4,99 $"}</span>
+                  <span>
+                    {freeShipping ? "Gratuite" : `4,99 ${currencySymbol}`}
+                  </span>
                 </div>
                 <div
                   className="flex justify-between pt-2 font-black text-base"
@@ -312,7 +319,8 @@ export default function CartDrawer({
                 >
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {(total + (freeShipping ? 0 : 4.99)).toFixed(2)} $
+                    {(total + (freeShipping ? 0 : 4.99)).toFixed(2)}{" "}
+                    {currencySymbol}
                   </span>
                 </div>
               </div>

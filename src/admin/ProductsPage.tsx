@@ -17,6 +17,7 @@ import {
 import { useProducts } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import ProductFormPanel from "./ProductFormPanel";
 import PrintfulProductForm from "./PrintfulProductForm";
 import ProductQuickViewModal from "./ProductQuickViewModal";
@@ -101,6 +102,8 @@ export default function ProductsPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+
+  const currencySymbol = useCurrencySymbol();
 
   // The product being edited (if any)
   const editingProduct = useMemo(() => {
@@ -849,7 +852,7 @@ export default function ProductsPage() {
                       color: "var(--color-ink)",
                     }}
                   >
-                    {p.price.toFixed(2)} $
+                    {p.price.toFixed(2)} {currencySymbol}
                     {discount && (
                       <span
                         style={{

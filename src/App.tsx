@@ -44,6 +44,7 @@ import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
+import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
@@ -90,6 +91,8 @@ export default function App() {
   const [trackingOpen, setTrackingOpen] = useState(false);
 
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const currencySymbol = useCurrencySymbol();
 
   // Thème sombre
   const [darkMode, setDarkMode] = useState(() => {
@@ -1179,11 +1182,11 @@ export default function App() {
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-xs font-black text-gray-900">
-                            {item.price} $
+                            {item.price} {currencySymbol}
                           </span>
                           {item.originalPrice && (
                             <span className="text-[10px] text-gray-500 line-through">
-                              {item.originalPrice} $
+                              {item.originalPrice} {currencySymbol}
                             </span>
                           )}
                         </div>
@@ -1481,12 +1484,15 @@ export default function App() {
                             <span className="text-lg font-black text-gray-900 font-sans">
                               {product.price.toFixed(2)}{" "}
                               <span className="text-[11px] font-medium text-gray-500">
-                                $
+                                {currencySymbol}
                               </span>
                             </span>
                             {product.originalPrice && (
                               <span className="text-xs text-gray-500 line-through">
-                                {product.originalPrice.toFixed(2)} $
+                                {product.originalPrice.toFixed(2)}{" "}
+                                {currencySymbol}
+                                {product.originalPrice.toFixed(2)}{" "}
+                                {currencySymbol}
                               </span>
                             )}
                           </div>
@@ -1804,13 +1810,14 @@ export default function App() {
                         Prix de l&apos;événement
                       </p>
                       <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
-                        {selectedProduct.price.toFixed(2)} $
+                        {selectedProduct.price.toFixed(2)} {currencySymbol}
                       </p>
                     </div>
                     {selectedProduct.originalPrice && (
                       <div className="text-xs text-gray-500 leading-normal pl-2 border-l border-gray-200">
                         <p className="line-through">
-                          {selectedProduct.originalPrice.toFixed(2)} $
+                          {selectedProduct.originalPrice.toFixed(2)}{" "}
+                          {currencySymbol}
                         </p>
                         <p className="text-rose-400 font-semibold">
                           -
@@ -2153,7 +2160,7 @@ export default function App() {
 
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs font-black text-gray-900">
-                            {item.product.price.toFixed(2)} $
+                            {item.product.price.toFixed(2)} {currencySymbol}
                           </span>
 
                           <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
@@ -2195,7 +2202,7 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <span>Sous-total articles :</span>
                   <span className="font-bold text-gray-900">
-                    {cartTotal.toFixed(2)} $
+                    {cartTotal.toFixed(2)} {currencySymbol}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-(--color-accent) font-medium">
@@ -2223,7 +2230,7 @@ export default function App() {
                   <p className="mt-0.5">
                     Ajoutez encore{" "}
                     <strong className="text-gray-900">
-                      {(35 - cartTotal).toFixed(2)} $
+                      {(35 - cartTotal).toFixed(2)} {currencySymbol}
                     </strong>{" "}
                     d&apos;articles pour débloquer la livraison gratuite !
                   </p>

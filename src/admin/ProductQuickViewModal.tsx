@@ -3,6 +3,7 @@
 import React from "react";
 import { X, Star, ShieldCheck, Tag } from "lucide-react";
 import type { AdminProduct } from "./adminTypes";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 
 interface ProductQuickViewModalProps {
@@ -18,6 +19,8 @@ export default function ProductQuickViewModal({
 
   // state pour suivre l'image active, et rendre les miniatures cliquables.
   const [activeImage, setActiveImage] = React.useState(0);
+
+  const currencySymbol = useCurrencySymbol();
 
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
@@ -63,7 +66,7 @@ export default function ProductQuickViewModal({
           <h3
             style={{ fontWeight: 700, fontSize: 16, color: "var(--color-ink)" }}
           >
-            Aperçu produit
+            Aperçu produit Admin
           </h3>
           <button
             onClick={onClose}
@@ -269,7 +272,7 @@ export default function ProductQuickViewModal({
                   color: "var(--color-ink)",
                 }}
               >
-                {product.price.toFixed(2)} $
+                {product.price.toFixed(2)} {currencySymbol}
               </span>
               {product.originalPrice && (
                 <span
@@ -279,7 +282,7 @@ export default function ProductQuickViewModal({
                     color: "var(--color-ink4)",
                   }}
                 >
-                  {product.originalPrice.toFixed(2)} $
+                  {product.originalPrice.toFixed(2)} {currencySymbol}
                 </span>
               )}
               {discount > 0 && (
