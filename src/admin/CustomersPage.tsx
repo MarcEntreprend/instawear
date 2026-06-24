@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
 import { useCustomerDetail } from "./adminHooks";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { AdminSection } from "./AdminSidebar";
@@ -94,6 +95,7 @@ export default function CustomersPage({
   onQuickView?: (product: AdminProduct) => void;
 }) {
   const { data: customers, loading } = useCustomers();
+  const currencySymbol = useCurrencySymbol();
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<keyof Customer>("registrationDate");
@@ -525,6 +527,7 @@ function FavouritesList({
   items: Favourite[];
   onQuickView?: (product: AdminProduct) => void;
 }) {
+  const currencySymbol = useCurrencySymbol();
   if (items.length === 0)
     return <EmptyState icon={<Heart size={28} />} text="Aucun favori." />;
   return (
@@ -586,7 +589,7 @@ function FavouritesList({
               </td>
               <td style={tdStyle}>
                 {fav.product?.price != null
-                  ? `${fav.product.price.toFixed(2)} $`
+                  ? `${fav.product.price.toFixed(2)} ${currencySymbol}`
                   : "—"}
               </td>
               <td
@@ -609,6 +612,8 @@ function CartList({
   items: AdminCartItem[];
   onQuickView?: (product: AdminProduct) => void;
 }) {
+  const currencySymbol = useCurrencySymbol();
+
   if (items.length === 0)
     return <EmptyState icon={<ShoppingBag size={28} />} text="Panier vide." />;
   const total = items.reduce(
@@ -705,7 +710,8 @@ function CartList({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {((item.product?.price ?? 0) * item.quantity).toFixed(2)} $
+                {((item.product?.price ?? 0) * item.quantity).toFixed(2)}{" "}
+                {currencySymbol}
               </td>
             </tr>
           ))}
@@ -714,7 +720,7 @@ function CartList({
       <div style={totalRowStyle}>
         <span>Total panier :</span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {total.toFixed(2)} $
+          {total.toFixed(2)} {currencySymbol}
         </span>
       </div>
     </div>
@@ -728,6 +734,8 @@ function OrdersList({
   orders: Order[];
   onNavigate?: (section: AdminSection) => void;
 }) {
+  const currencySymbol = useCurrencySymbol();
+
   if (orders.length === 0)
     return <EmptyState icon={<Package size={28} />} text="Aucune commande." />;
   return (
@@ -784,7 +792,7 @@ function OrdersList({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {order.totalAmount.toFixed(2)} $
+                {order.totalAmount.toFixed(2)} {currencySymbol}
               </td>
               <td style={{ ...tdStyle, textAlign: "center" }}>
                 <OrderStatusBadge status={order.status} />

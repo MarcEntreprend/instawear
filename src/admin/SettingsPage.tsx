@@ -368,8 +368,18 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setStoreForm({ ...storeForm, currency: e.target.value })
                 }
-                className="input-base"
-                style={{ width: "100%", cursor: "pointer" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface2)",
+                  fontSize: 13,
+                  color: "var(--color-ink)",
+                  fontFamily: "var(--font-body)",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
               >
                 <option value="USD">USD ($)</option>
                 <option value="BRL">BRL (R$)</option>
@@ -397,8 +407,18 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setStoreForm({ ...storeForm, country: e.target.value })
                 }
-                className="input-base"
-                style={{ width: "100%", cursor: "pointer" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface2)",
+                  fontSize: 13,
+                  color: "var(--color-ink)",
+                  fontFamily: "var(--font-body)",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
               >
                 <option value="US">États-Unis (USD)</option>
                 <option value="BR">Brésil (BRL)</option>

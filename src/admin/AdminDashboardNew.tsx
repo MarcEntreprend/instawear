@@ -25,6 +25,7 @@ import IntegrationsPage from "./IntegrationsPage";
 import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useDashboard } from "./adminHooks";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -377,6 +378,8 @@ function DashboardHome({
 }) {
   const { data: stats, loading } = useDashboard();
 
+  const currencySymbol = useCurrencySymbol();
+
   if (loading || !stats) {
     return <SkeletonDashboard />;
   }
@@ -565,7 +568,7 @@ function DashboardHome({
                       {order.clientName ??
                         order.clientEmail ??
                         "Client inconnu"}{" "}
-                      – {order.totalAmount.toFixed(2)} $
+                      – {order.totalAmount.toFixed(2)} {currencySymbol}
                     </p>
                   </div>
                   <button
@@ -625,7 +628,7 @@ function DashboardHome({
         <StatCard
           icon={<TrendingUp size={17} strokeWidth={2} />}
           label="CA estimé"
-          value={`${stats.revenueEstimate.toFixed(0)} $`}
+          value={`${stats.revenueEstimate.toFixed(0)} {currencySymbol}`}
           sub="toutes commandes"
           delta={deltas.revenue}
         />
@@ -749,7 +752,7 @@ function DashboardHome({
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {order.totalAmount.toFixed(2)} $
+                    {order.totalAmount.toFixed(2)} {currencySymbol}
                   </span>
                   <OrderStatusBadge status={order.status} />
                 </div>
@@ -880,7 +883,7 @@ function DashboardHome({
                       marginTop: 1,
                     }}
                   >
-                    {p.price.toFixed(2)} $
+                    {p.price.toFixed(2)} {currencySymbol}
                   </p>
                 </div>
                 <span

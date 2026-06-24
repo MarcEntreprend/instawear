@@ -12,6 +12,7 @@ import {
   Phone,
 } from "lucide-react";
 import { CartItem, OrderForm } from "../types";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 
 interface OrderModalProps {
   cart: CartItem[];
@@ -42,6 +43,7 @@ export default function OrderModal({
     Partial<Record<keyof OrderForm, string>>
   >({});
 
+  const currencySymbol = useCurrencySymbol();
   const cartTotal = cart.reduce(
     (a, item) => a + item.product.price * item.quantity,
     0,
@@ -65,9 +67,9 @@ export default function OrderModal({
       "📦 Articles :",
       ...cart.map(
         (item) =>
-          `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} $`,
+          `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
       ),
-      `  TOTAL : ${cartTotal.toFixed(2)} $`,
+      `  TOTAL : ${cartTotal.toFixed(2)} {currencySymbol}{currencySymbol}`,
       "",
       "👤 Coordonnées :",
       `  Nom : ${form.name}`,
@@ -253,7 +255,8 @@ export default function OrderModal({
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {(item.product.price * item.quantity).toFixed(2)} $
+                    {(item.product.price * item.quantity).toFixed(2)}{" "}
+                    {currencySymbol}
                   </span>
                 </div>
               ))}
@@ -274,7 +277,7 @@ export default function OrderModal({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {cartTotal.toFixed(2)} $
+                  {cartTotal.toFixed(2)} {currencySymbol}
                 </span>
               </div>
             </div>
