@@ -1,3 +1,5 @@
+// src\components\FilterPanel.tsx
+
 import React from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { FilterState } from "../types";
