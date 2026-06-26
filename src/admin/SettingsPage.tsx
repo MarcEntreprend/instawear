@@ -15,10 +15,12 @@ import {
   Clock,
   Tag,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { usePod, useStoreSettings } from "./adminHooks";
+import { usePod, useStoreSettings, useReferenceLists } from "./adminHooks";
 import { StoreSettings, SyncLog } from "./adminTypes";
-import { apiConnectionsApi } from "../api/supabaseApi";
+import { apiConnectionsApi, referenceListApi } from "../api/supabaseApi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
@@ -236,7 +238,71 @@ export default function SettingsPage() {
     );
   };
 
+  // Handlers pour les listes de référence
+  const handleAddRef = (type: string) => {
+    setEditingRef({ type, value: "", label: "", keywords: [] });
+    setKeywordsInput("");
+    setShowRefModal(true);
+  };
+  const handleEditRef = (item: (typeof referenceItems)[0]) => {
+    setEditingRef({
+      id: item.id,
+      type: item.type,
+      value: item.value,
+      label: item.label,
+      keywords: item.keywords,
+    });
+    setKeywordsInput(item.keywords.join(", "));
+    setShowRefModal(true);
+  };
+  const handleSaveRef = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRef) return;
+    // Parser les mots-clés depuis l'input brut
+    const parsedKeywords = keywordsInput
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    try {
+      if (editingRef.id) {
+        await referenceListApi.update(editingRef.id, {
+          label: editingRef.label,
+          keywords: parsedKeywords,
+        });
+      } else {
+        await referenceListApi.create({
+          type: editingRef.type as any,
+          value: editingRef.value,
+          label: editingRef.label,
+          keywords: parsedKeywords,
+        });
+      }
+      setShowRefModal(false);
+      refetchRefs();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  const handleDeleteRef = async (id: string) => {
+    if (window.confirm("Supprimer cet élément ?")) {
+      await referenceListApi.delete(id);
+      refetchRefs();
+    }
+  };
+
   const isPodConnected = podSettings?.isConnected ?? false;
+
+  // hook et  states
+  const { items: referenceItems, refetch: refetchRefs } = useReferenceLists();
+  const [showRefModal, setShowRefModal] = useState(false);
+  const [editingRef, setEditingRef] = useState<{
+    id?: string;
+    type: string;
+    value: string;
+    label: string;
+    keywords: string[];
+  } | null>(null);
+  const [keywordsInput, setKeywordsInput] = useState("");
 
   // ═══════════════════════════════════════════════════════════════════════
   // Rendu (possible après tous les hooks)
@@ -1449,6 +1515,310 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
+
+      {/* ─── Section : Listes de référence (catégories, événements, styles) ─ */}
+      <div
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 18,
+          overflow: "hidden",
+          boxShadow: "var(--shadow-xs)",
+        }}
+      >
+        <div
+          style={{
+            padding: "16px 22px",
+            borderBottom: "1px solid var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Tag
+            size={18}
+            strokeWidth={2}
+            style={{ color: "var(--color-accent)" }}
+          />
+          <h3
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: "var(--color-ink)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Listes de référence
+          </h3>
+        </div>
+        <div
+          style={{
+            padding: "20px 22px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+          }}
+        >
+          {(["category", "event_type", "style"] as const).map((type) => {
+            const items = referenceItems.filter((r) => r.type === type);
+            const typeLabel =
+              type === "category"
+                ? "Catégories"
+                : type === "event_type"
+                  ? "Types d'événement"
+                  : "Styles";
+            return (
+              <div key={type}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: "var(--color-ink)",
+                    }}
+                  >
+                    {typeLabel}
+                  </h4>
+                  <button
+                    onClick={() => handleAddRef(type)}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: 8,
+                      border: "1px solid var(--color-accent)",
+                      background: "transparent",
+                      color: "var(--color-accent)",
+                      fontWeight: 600,
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+                {items.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "var(--color-ink4)" }}>
+                    Aucun élément.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "4px 10px",
+                          borderRadius: 8,
+                          background: "var(--color-surface2)",
+                          border: "1px solid var(--color-border)",
+                          fontSize: 12,
+                          color: "var(--color-ink2)",
+                        }}
+                      >
+                        <span>{item.label}</span>
+                        <button
+                          onClick={() => handleEditRef(item)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "var(--color-ink4)",
+                            fontSize: 12,
+                            padding: 0,
+                            lineHeight: 1,
+                          }}
+                        >
+                          <Pencil size={12} strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRef(item.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: "#ef4444",
+                            fontSize: 12,
+                            padding: 0,
+                            lineHeight: 1,
+                          }}
+                        >
+                          <Trash2 size={12} strokeWidth={2} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modale pour ajouter/modifier un élément de référence */}
+      {showRefModal && editingRef && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(26,20,10,0.5)",
+              backdropFilter: "blur(4px)",
+            }}
+            onClick={() => setShowRefModal(false)}
+          />
+          <div
+            style={{
+              position: "relative",
+              zIndex: 201,
+              background: "var(--color-surface)",
+              borderRadius: 20,
+              maxWidth: 500,
+              width: "90%",
+              padding: "28px",
+              boxShadow: "var(--shadow-xl)",
+            }}
+          >
+            <form
+              onSubmit={handleSaveRef}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            >
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Valeur (identifiant unique)
+                </label>
+                <input
+                  type="text"
+                  value={editingRef.value}
+                  disabled={!!editingRef.id}
+                  onChange={(e) =>
+                    setEditingRef({ ...editingRef, value: e.target.value })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  placeholder="ex: tshirt"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Libellé affiché
+                </label>
+                <input
+                  type="text"
+                  value={editingRef.label}
+                  onChange={(e) =>
+                    setEditingRef({ ...editingRef, label: e.target.value })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  placeholder="ex: T-Shirt"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Mots-clés (séparés par des virgules)
+                </label>
+                <input
+                  type="text"
+                  value={keywordsInput}
+                  onChange={(e) => setKeywordsInput(e.target.value)}
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  placeholder="ex: t-shirt, tee, chemise"
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  marginTop: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowRefModal(false)}
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: 12,
+                    border: "1.5px solid var(--color-border2)",
+                    background: "var(--color-surface)",
+                    color: "var(--color-ink2)",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 22px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "var(--color-accent)",
+                    color: "white",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: 700,
+                    fontSize: 13.5,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Save size={15} strokeWidth={2} />
+                  {editingRef.id ? "Mettre à jour" : "Ajouter"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ─── Section 3 : Journal de synchronisation ───────────────────────── */}
       <div

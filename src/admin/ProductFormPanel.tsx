@@ -6,6 +6,7 @@ import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
 import { podApi } from "../api/supabaseApi";
+import { useReferenceLists } from "./adminHooks";
 import { AdminProduct } from "./adminTypes";
 
 interface ProductFormPanelProps {
@@ -239,6 +240,7 @@ export default function ProductFormPanel({
   onBack,
   onSave,
 }: ProductFormPanelProps) {
+  const { getByType } = useReferenceLists();
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
@@ -485,10 +487,11 @@ export default function ProductFormPanel({
               onChange={(e) => update("category", e.target.value)}
               style={inputStyle}
             >
-              <option value="tshirt">T-shirt</option>
-              <option value="hoodie">Hoodie</option>
-              <option value="accessory">Accessoire</option>
-              <option value="mug">Mug</option>
+              {getByType("category").map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -498,10 +501,11 @@ export default function ProductFormPanel({
               onChange={(e) => update("eventType", e.target.value)}
               style={inputStyle}
             >
-              <option value="live">Live</option>
-              <option value="sport">Sport</option>
-              <option value="culture">Culture</option>
-              <option value="saisonnier">Saisonnier</option>
+              {getByType("event_type").map((et) => (
+                <option key={et.value} value={et.value}>
+                  {et.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -511,11 +515,11 @@ export default function ProductFormPanel({
               onChange={(e) => update("style", e.target.value)}
               style={inputStyle}
             >
-              <option value="street">Street</option>
-              <option value="retro">Retro</option>
-              <option value="cute">Cute</option>
-              <option value="cozy">Cozy</option>
-              <option value="commute">Commute</option>
+              {getByType("style").map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>

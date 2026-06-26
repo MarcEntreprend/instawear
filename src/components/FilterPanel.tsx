@@ -4,6 +4,7 @@ import React from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { FilterState } from "../types";
 import { MATERIALS } from "../data/defaultProducts";
+import { useReferenceLists } from "../admin/adminHooks";
 
 interface FilterPanelProps {
   filters: FilterState;
@@ -12,34 +13,13 @@ interface FilterPanelProps {
   productCount: number;
 }
 
-const CATEGORIES = [
-  { id: "tshirt", label: "T-Shirts" },
-  { id: "hoodie", label: "Hoodies" },
-  { id: "accessory", label: "Accessoires" },
-  { id: "mug", label: "Mugs" },
-];
-
-const EVENT_TYPES = [
-  {
-    id: "live",
-    label: (
-      <>
-        Live 2026{" "}
-        <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
-      </>
-    ),
-  },
-  { id: "sport", label: "🏆 Sport" },
-  { id: "culture", label: "🎉 Festival & Culture" },
-  { id: "saisonnier", label: "🍂 Saisons & Fêtes" },
-];
-
 export default function FilterPanel({
   filters,
   onChange,
   onReset,
   productCount,
 }: FilterPanelProps) {
+  const { getByType } = useReferenceLists();
   const activeCount = [
     filters.category,
     filters.eventType,
@@ -111,22 +91,22 @@ export default function FilterPanel({
           Catégorie
         </p>
         <div className="flex flex-col gap-1">
-          {CATEGORIES.map((cat) => (
+          {getByType("category").map((cat) => (
             <button
-              key={cat.id}
+              key={cat.value}
               onClick={() =>
                 onChange({
-                  category: filters.category === cat.id ? null : cat.id,
+                  category: filters.category === cat.value ? null : cat.value,
                 })
               }
               className="text-left text-sm px-3 py-2 rounded-lg font-medium transition-all duration-150"
               style={{
                 background:
-                  filters.category === cat.id
+                  filters.category === cat.value
                     ? "var(--color-accent-bg)"
                     : "transparent",
                 color:
-                  filters.category === cat.id
+                  filters.category === cat.value
                     ? "var(--color-accent)"
                     : "var(--color-ink2)",
                 fontFamily: "var(--font-sans)",
@@ -147,22 +127,22 @@ export default function FilterPanel({
           Type d'événement
         </p>
         <div className="flex flex-col gap-1">
-          {EVENT_TYPES.map((ev) => (
+          {getByType("event_type").map((ev) => (
             <button
-              key={ev.id}
+              key={ev.value}
               onClick={() =>
                 onChange({
-                  eventType: filters.eventType === ev.id ? null : ev.id,
+                  eventType: filters.eventType === ev.value ? null : ev.value,
                 })
               }
               className="text-left text-sm px-3 py-2 rounded-lg font-medium transition-all duration-150"
               style={{
                 background:
-                  filters.eventType === ev.id
+                  filters.eventType === ev.value
                     ? "var(--color-accent-bg)"
                     : "transparent",
                 color:
-                  filters.eventType === ev.id
+                  filters.eventType === ev.value
                     ? "var(--color-accent)"
                     : "var(--color-ink2)",
                 fontFamily: "var(--font-sans)",

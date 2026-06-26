@@ -22,18 +22,9 @@ export interface AdminProduct {
   // Stores per-size measurements. Keys must match entries in sizes[].
   // Example: { "M": { "bust": 51, "length": 72 }, "L": { "bust": 54, "length": 74 } }
   sizeGuide?: Record<string, { bust: number; length: number }>;
-  category:
-    | "tshirt"
-    | "hoodie"
-    | "accessory"
-    | "mug"
-    | "case"
-    | "sticker"
-    | "poster"
-    | "canvas"
-    | "other";
-  eventType: "live" | "sport" | "culture" | "saisonnier";
-  style: "cute" | "street" | "commute" | "cozy" | "retro";
+  category: string;
+  eventType: string;
+  style: string;
   material?: string;
   tags: string[];
   isBestSeller?: boolean;
@@ -191,6 +182,16 @@ export interface CreateAdminUserPayload {
   email: string;
   passwordHash?: string;
   role: AdminRole;
+}
+
+// ─── Reference List (dynamic categories, event types, styles) ────────────
+export interface ReferenceItem {
+  id: string;
+  type: "category" | "event_type" | "style";
+  value: string;
+  label: string;
+  keywords: string[];
+  sortOrder: number;
 }
 
 // ─── Store Settings (§2.10) ───────────────────────────────────────────────

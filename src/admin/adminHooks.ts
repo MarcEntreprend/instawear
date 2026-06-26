@@ -366,6 +366,28 @@ export function useAdminUsers() {
   };
 }
 
+// ─── Reference Lists (dynamic categories, event types, styles) ────────────
+let cachedReferenceLists: import("./adminTypes").ReferenceItem[] | null = null;
+
+export function useReferenceLists() {
+  const { data, loading, error, refetch } = useAsync<
+    import("./adminTypes").ReferenceItem[]
+  >(() =>
+    import("../api/supabaseApi").then(({ referenceListApi }) =>
+      referenceListApi.list(),
+    ),
+  );
+
+  useEffect(() => {
+    if (data) cachedReferenceLists = data;
+  }, [data]);
+
+  const getByType = (type: string) =>
+    (cachedReferenceLists ?? data ?? []).filter((r) => r.type === type);
+
+  return { items: data ?? [], loading, error, refetch, getByType };
+}
+
 // ─── Store Settings ───────────────────────────────────────────────────────
 export function useStoreSettings() {
   const { data, loading, error, refetch } = useAsync<StoreSettings>(() =>

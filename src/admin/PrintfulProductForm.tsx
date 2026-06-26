@@ -3,32 +3,18 @@ import React, { useState, useEffect } from "react";
 import { ArrowLeft, Package, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
 import { AdminProduct } from "./adminTypes";
+import { useReferenceLists } from "./adminHooks";
 
 interface PrintfulProductFormProps {
   onBack: () => void;
   onSave: (product: AdminProduct) => Promise<AdminProduct>;
 }
 
-// Catégories étendues pour couvrir le catalogue Printful
-const CATEGORIES = [
-  "tshirt",
-  "hoodie",
-  "accessory",
-  "mug",
-  "case",
-  "sticker",
-  "poster",
-  "canvas",
-  "other",
-];
-
-const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
-const STYLES = ["cute", "street", "commute", "cozy", "retro"];
-
 export default function PrintfulProductForm({
   onBack,
   onSave,
 }: PrintfulProductFormProps) {
+  const { getByType } = useReferenceLists();
   const [pfProducts, setPfProducts] = useState<
     { id: number; name: string; thumbnail_url: string }[]
   >([]);
@@ -76,14 +62,59 @@ export default function PrintfulProductForm({
         setVariants(vars);
         if (vars.length > 0) {
           setSelectedVariantId(vars[0].id.toString());
-          // Pré‑remplir avec les infos du premier variant
           const first = vars[0];
           if (first.retail_price) {
             setPfPrice(parseFloat(first.retail_price));
-            // On initialise le prix de vente à cost * 2 (suggestion)
             setPrice(parseFloat(first.retail_price) * 2);
           }
           setPfCurrency(first.currency || data.currency || "BRL");
+
+          // Préparation du texte pour la détection des mots-clés
+          const productName = (data.name || "").toLowerCase();
+          const productType = (data.type || "").toLowerCase();
+          const combined = `${productName} ${productType}`;
+
+          // --- Catégorie dynamique basée sur reference_lists ---
+          const categories = getByType("category");
+          let matchedCat = "other";
+          for (const cat of categories) {
+            for (const kw of cat.keywords) {
+              if (combined.includes(kw.toLowerCase())) {
+                matchedCat = cat.value;
+                break;
+              }
+            }
+            if (matchedCat !== "other") break;
+          }
+          setCategory(matchedCat);
+
+          // --- Type d'événement dynamique ---
+          const eventTypes = getByType("event_type");
+          let matchedEvt = "";
+          for (const evt of eventTypes) {
+            for (const kw of evt.keywords) {
+              if (combined.includes(kw.toLowerCase())) {
+                matchedEvt = evt.value;
+                break;
+              }
+            }
+            if (matchedEvt) break;
+          }
+          if (matchedEvt) setEventType(matchedEvt);
+
+          // --- Style dynamique ---
+          const styles = getByType("style");
+          let matchedSty = "";
+          for (const sty of styles) {
+            for (const kw of sty.keywords) {
+              if (combined.includes(kw.toLowerCase())) {
+                matchedSty = sty.value;
+                break;
+              }
+            }
+            if (matchedSty) break;
+          }
+          if (matchedSty) setStyle(matchedSty);
         }
       })
       .catch(() => setError("Erreur chargement variantes."))
@@ -394,9 +425,9 @@ export default function PrintfulProductForm({
               onChange={(e) => setCategory(e.target.value)}
               style={inputStyle}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {getByType("category").map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
                 </option>
               ))}
             </select>
@@ -408,9 +439,9 @@ export default function PrintfulProductForm({
               onChange={(e) => setEventType(e.target.value)}
               style={inputStyle}
             >
-              {EVENT_TYPES.map((et) => (
-                <option key={et} value={et}>
-                  {et}
+              {getByType("event_type").map((et) => (
+                <option key={et.value} value={et.value}>
+                  {et.label}
                 </option>
               ))}
             </select>
@@ -422,9 +453,9 @@ export default function PrintfulProductForm({
               onChange={(e) => setStyle(e.target.value)}
               style={inputStyle}
             >
-              {STYLES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {getByType("style").map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
                 </option>
               ))}
             </select>

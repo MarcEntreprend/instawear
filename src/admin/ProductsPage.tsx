@@ -14,17 +14,13 @@ import {
   Package,
   RefreshCw,
 } from "lucide-react";
-import { useProducts } from "./adminHooks";
+import { useProducts, useReferenceLists } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import ProductFormPanel from "./ProductFormPanel";
 import PrintfulProductForm from "./PrintfulProductForm";
 import ProductQuickViewModal from "./ProductQuickViewModal";
-
-const CATEGORIES = ["tshirt", "hoodie", "accessory", "mug"];
-const EVENT_TYPES = ["live", "sport", "culture", "saisonnier"];
-const STYLES = ["cute", "street", "commute", "cozy", "retro"];
 
 const BADGE_STYLE: Record<string, React.CSSProperties> = {
   bestseller: { background: "#fde68a", color: "#92400e" },
@@ -62,6 +58,7 @@ function Badge({
 
 // déstructuration de useProducts()
 export default function ProductsPage() {
+  const { getByType } = useReferenceLists();
   const {
     products: allProducts,
     loading,
@@ -511,13 +508,14 @@ export default function ProductsPage() {
           )}
         </div>
 
+        {/* select barre de filtres */}
         {(["category", "eventType", "style"] as const).map((key) => {
-          const options =
-            key === "category"
-              ? CATEGORIES
-              : key === "eventType"
-                ? EVENT_TYPES
-                : STYLES;
+          const typeMap: Record<string, string> = {
+            category: "category",
+            eventType: "event_type",
+            style: "style",
+          };
+          const options = getByType(typeMap[key]);
           const label =
             key === "category"
               ? "Catégorie"
@@ -544,8 +542,8 @@ export default function ProductsPage() {
             >
               <option value="">{label}</option>
               {options.map((o) => (
-                <option key={o} value={o}>
-                  {o}
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
             </select>

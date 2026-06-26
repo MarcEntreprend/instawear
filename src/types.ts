@@ -41,18 +41,9 @@ export interface Product {
   material?: string;
   inStock?: boolean;
   tags: string[];
-  eventType: "sport" | "culture" | "saisonnier" | "live";
-  category:
-    | "tshirt"
-    | "hoodie"
-    | "accessory"
-    | "mug"
-    | "case"
-    | "sticker"
-    | "poster"
-    | "canvas"
-    | "other";
-  style: "cute" | "street" | "commute" | "cozy" | "retro";
+  eventType: string;
+  category: string;
+  style: string;
 }
 
 export interface CartItem {
@@ -109,18 +100,9 @@ export interface DesignInput {
   title: string;
   prompt: string;
   description: string;
-  eventType: "sport" | "culture" | "saisonnier" | "live";
-  category:
-    | "tshirt"
-    | "hoodie"
-    | "accessory"
-    | "mug"
-    | "case"
-    | "sticker"
-    | "poster"
-    | "canvas"
-    | "other";
-  style: "cute" | "street" | "commute" | "cozy" | "retro";
+  eventType: string;
+  category: string;
+  style: string;
   tags: string[];
   basePrice: number;
   mockImage: string;

@@ -40,18 +40,9 @@ interface ProductRow {
   sizes: string[];
   size_surcharge?: Record<string, number> | null;
   size_guide?: Record<string, { bust: number; length: number }> | null;
-  category:
-    | "tshirt"
-    | "hoodie"
-    | "accessory"
-    | "mug"
-    | "case"
-    | "sticker"
-    | "poster"
-    | "canvas"
-    | "other";
-  event_type: "live" | "sport" | "culture" | "saisonnier";
-  style: "cute" | "street" | "commute" | "cozy" | "retro";
+  category: string;
+  event_type: string;
+  style: string;
   material?: string | null;
   tags: string[];
   is_best_seller?: boolean | null;
@@ -952,6 +943,76 @@ export const heroPromotionsApi = {
         .update({ order: i })
         .eq("id", ids[i]);
     }
+  },
+};
+
+export const referenceListApi = {
+  async list(): Promise<import("../admin/adminTypes").ReferenceItem[]> {
+    const { data, error } = await supabase
+      .from("reference_lists")
+      .select("*")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      type: r.type,
+      value: r.value,
+      label: r.label,
+      keywords: r.keywords ?? [],
+      sortOrder: r.sort_order,
+    }));
+  },
+
+  async create(
+    item: Omit<
+      import("../admin/adminTypes").ReferenceItem,
+      "id" | "sortOrder" | "createdAt"
+    >,
+  ): Promise<import("../admin/adminTypes").ReferenceItem> {
+    const { data, error } = await supabase
+      .from("reference_lists")
+      .insert({
+        id: `${item.type}-${item.value}-${Date.now()}`,
+        type: item.type,
+        value: item.value,
+        label: item.label,
+        keywords: item.keywords,
+        sort_order: 0,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      type: data.type,
+      value: data.value,
+      label: data.label,
+      keywords: data.keywords ?? [],
+      sortOrder: data.sort_order,
+    };
+  },
+
+  async update(
+    id: string,
+    updates: Partial<import("../admin/adminTypes").ReferenceItem>,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("reference_lists")
+      .update({
+        label: updates.label,
+        keywords: updates.keywords,
+        sort_order: updates.sortOrder,
+      })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("reference_lists")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   },
 };
 
