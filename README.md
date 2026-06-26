@@ -46,7 +46,6 @@ instawear/
 │   └── Instawear-missing-item.svg
 ├── src/
 │   ├── admin/
-│   │   ├── AdminDashboard.tsx
 │   │   ├── AdminDashboardNew.tsx
 │   │   ├── adminHooks.ts
 │   │   ├── AdminSidebar.tsx
