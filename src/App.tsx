@@ -42,7 +42,6 @@ import CheckoutModal from "./components/CheckoutModal";
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
-import AdminDashboard from "./admin/AdminDashboard";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { Product, CartItem, PrintfulSettings } from "./types";
