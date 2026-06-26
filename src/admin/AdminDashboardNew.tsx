@@ -628,7 +628,7 @@ function DashboardHome({
         <StatCard
           icon={<TrendingUp size={17} strokeWidth={2} />}
           label="CA estimé"
-          value={`${stats.revenueEstimate.toFixed(0)} {currencySymbol}`}
+          value={`${stats.revenueEstimate.toFixed(0)} ${currencySymbol}`}
           sub="toutes commandes"
           delta={deltas.revenue}
         />
