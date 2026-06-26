@@ -105,11 +105,16 @@ export default function ProductQuickViewModal({
               }}
             >
               <img
-                src={
-                  activeImage === 0
-                    ? product.image || PLACEHOLDER_IMG
-                    : product.gallery?.[activeImage - 1] || PLACEHOLDER_IMG
-                }
+                src={(() => {
+                  const allImages = [
+                    product.image || PLACEHOLDER_IMG,
+                    ...(product.gallery || []).filter(
+                      (url) =>
+                        url && url !== (product.image || PLACEHOLDER_IMG),
+                    ),
+                  ];
+                  return allImages[activeImage] || PLACEHOLDER_IMG;
+                })()}
                 alt={product.title}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
@@ -153,67 +158,56 @@ export default function ProductQuickViewModal({
                 )}
               </div>
             </div>
-            {product.gallery && product.gallery.length > 1 && (
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                {/* Miniature de l'image principale */}
-                <button
-                  onClick={() => setActiveImage(0)}
+            {/* Galerie complète (image principale + images additionnelles) */}
+            {(() => {
+              const allImages = [
+                product.image || PLACEHOLDER_IMG,
+                ...(product.gallery || []).filter(
+                  (url) => url && url !== (product.image || PLACEHOLDER_IMG),
+                ),
+              ];
+              if (allImages.length <= 1) return null;
+              return (
+                <div
                   style={{
-                    width: 50,
-                    height: 50,
-                    borderRadius: 8,
-                    overflow: "hidden",
-                    border:
-                      activeImage === 0
-                        ? "2px solid var(--color-accent)"
-                        : "1px solid var(--color-border)",
-                    padding: 0,
-                    cursor: "pointer",
-                    background: "none",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(50px, 1fr))",
+                    gap: 6,
+                    marginTop: 10,
                   }}
                 >
-                  <img
-                    src={product.image || PLACEHOLDER_IMG}
-                    alt=""
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </button>
-                {/* Miniatures de la galerie */}
-                {product.gallery.slice(0, 6).map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImage(i + 1)}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      border:
-                        activeImage === i + 1
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border)",
-                      padding: 0,
-                      cursor: "pointer",
-                      background: "none",
-                    }}
-                  >
-                    <img
-                      src={url}
-                      alt=""
+                  {allImages.map((url, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImage(idx)}
                       style={{
                         width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
+                        aspectRatio: "1 / 1",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        border:
+                          activeImage === idx
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                        padding: 0,
+                        cursor: "pointer",
+                        background: "none",
                       }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
+                    >
+                      <img
+                        src={url}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Colonne droite - Infos */}

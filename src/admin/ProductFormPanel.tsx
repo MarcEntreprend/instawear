@@ -107,13 +107,44 @@ function GalleryInput({
             >
               <span
                 style={{
-                  maxWidth: 200,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  maxWidth: "100%",
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
                 }}
               >
-                {url}
+                <span
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </span>
+                <span
+                  style={{
+                    maxWidth: 200,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {url}
+                </span>
               </span>
               <button
                 type="button"
@@ -217,15 +248,19 @@ function GalleryInput({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/svg+xml"
             style={{ display: "none" }}
+            multiple
             onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              try {
-                const url = await storageApi.uploadImage(file, "gallery");
-                addItem(url);
-              } catch (err) {
-                console.error("Upload failed", err);
-                alert("Erreur lors de l'upload de l'image.");
+              const files = e.target.files;
+              if (!files || files.length === 0) return;
+              for (let i = 0; i < files.length; i++) {
+                if (value.length >= max) break;
+                try {
+                  const url = await storageApi.uploadImage(files[i], "gallery");
+                  addItem(url);
+                } catch (err) {
+                  console.error("Upload failed", err);
+                  alert("Erreur lors de l'upload d'une image.");
+                }
               }
             }}
           />
@@ -744,52 +779,77 @@ export default function ProductFormPanel({
         >
           <div>
             <label style={labelStyle}>Image principale (URL)</label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="url"
-                value={form.image}
-                onChange={(e) => update("image", e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
-                placeholder="https://..."
-              />
-              <label
-                title="Uploader une image"
-                style={{
-                  ...inputStyle,
-                  width: 40,
-                  padding: "8px 0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 10,
-                  background: "var(--color-surface2)",
-                  color: "var(--color-ink3)",
-                  flexShrink: 0,
-                }}
-              >
-                <Upload size={16} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                  style={{ display: "none" }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      const url = await storageApi.uploadImage(
-                        file,
-                        "products",
-                      );
-                      update("image", url);
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                      alert("Erreur lors de l'upload de l'image.");
-                    }
-                  }}
+                  type="url"
+                  value={form.image}
+                  onChange={(e) => update("image", e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                  placeholder="https://..."
                 />
-              </label>
+                <label
+                  title="Uploader une image"
+                  style={{
+                    ...inputStyle,
+                    width: 40,
+                    padding: "8px 0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 10,
+                    background: "var(--color-surface2)",
+                    color: "var(--color-ink3)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Upload size={16} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const url = await storageApi.uploadImage(
+                          file,
+                          "products",
+                        );
+                        update("image", url);
+                      } catch (err) {
+                        console.error("Upload failed", err);
+                        alert("Erreur lors de l'upload de l'image.");
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {/* Miniature de l'image principale */}
+              {form.image && form.image !== PLACEHOLDER_IMG && (
+                <div
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <img
+                    src={form.image}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div>

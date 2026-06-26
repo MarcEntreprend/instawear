@@ -302,6 +302,7 @@ export default function ProductsPage() {
         onSave={async (data) => {
           const saved = await createProduct(data);
           handleBackToList();
+          refetch(); // Rafraîchir la liste après création
           setQuickViewProduct(saved);
           return saved;
         }}

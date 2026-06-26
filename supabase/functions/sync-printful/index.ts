@@ -124,6 +124,8 @@ export default {
             files: v.files || [],
             preview_url:
               v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "",
+            // Image du catalogue Printful pour cette couleur (varie selon la couleur)
+            product_image: v.product?.image || "",
           })),
         };
 
