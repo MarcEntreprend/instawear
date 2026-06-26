@@ -71,11 +71,11 @@ const CATEGORY_PILLS = [
   {
     label: (
       <>
-        Live 2026{" "}
+        Promotions{" "}
         <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
       </>
     ),
-    eventType: "live",
+    eventType: "discount",
     category: null,
   },
   { label: "🏆 Sport", eventType: "sport", category: null },

@@ -24,7 +24,7 @@ import ProductQuickViewModal from "./ProductQuickViewModal";
 
 const BADGE_STYLE: Record<string, React.CSSProperties> = {
   bestseller: { background: "#fde68a", color: "#92400e" },
-  live: { background: "#ede9fe", color: "#5b21b6" },
+  discount: { background: "#ede9fe", color: "#5b21b6" },
   limited: { background: "#fee2e2", color: "#991b1b" },
   inactive: { background: "#f3f4f6", color: "#6b7280" },
   outofstock: { background: "#fff7ed", color: "#c2410c" },
@@ -897,8 +897,11 @@ export default function ProductsPage() {
                           style={BADGE_STYLE.bestseller}
                         />
                       )}
-                      {p.eventType === "live" && (
-                        <Badge label="Live" style={BADGE_STYLE.live} />
+                      {p.eventType === "discount" && (
+                        <Badge
+                          label="Promotions"
+                          style={BADGE_STYLE.discount}
+                        />
                       )}
                       {(p.isLimitedTime || p.dealActive) && (
                         <Badge

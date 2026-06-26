@@ -1343,9 +1343,9 @@ export default function App() {
                               Limited Deal
                             </span>
                           )}
-                        {product.eventType === "live" && (
+                        {product.eventType === "discount" && (
                           <span className="bg-white text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
-                            LIVE 2026{" "}
+                            Promotions{" "}
                             <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
                           </span>
                         )}

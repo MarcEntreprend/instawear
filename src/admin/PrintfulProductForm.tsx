@@ -29,6 +29,8 @@ export default function PrintfulProductForm({
   const [category, setCategory] = useState<string>("tshirt");
   const [eventType, setEventType] = useState<string>("culture");
   const [style, setStyle] = useState<string>("street");
+  const [isBestSeller, setIsBestSeller] = useState(false);
+  const [isLimitedTime, setIsLimitedTime] = useState(false);
 
   // Infos Printful affichées à titre informatif
   const [pfPrice, setPfPrice] = useState<number | null>(null);
@@ -197,8 +199,8 @@ export default function PrintfulProductForm({
         style: style as AdminProduct["style"],
         material: "",
         tags: [],
-        isBestSeller: false,
-        isLimitedTime: false,
+        isBestSeller: isBestSeller,
+        isLimitedTime: isLimitedTime,
         dealActive: false,
         dealEndsAt: undefined,
         dealPrice: undefined,
@@ -460,6 +462,40 @@ export default function PrintfulProductForm({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Badges */}
+        <div style={{ display: "flex", gap: 24 }}>
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={isBestSeller}
+              onChange={(e) => setIsBestSeller(e.target.checked)}
+            />
+            Best seller
+          </label>
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={isLimitedTime}
+              onChange={(e) => setIsLimitedTime(e.target.checked)}
+            />
+            Offre limitée
+          </label>
         </div>
 
         <div
