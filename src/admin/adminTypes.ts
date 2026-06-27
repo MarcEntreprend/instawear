@@ -97,6 +97,8 @@ export interface ShippingAddress {
   city: string;
   zip: string;
   country: string;
+  state_code?: string;
+  tax_number?: string;
   phone: string;
 }
 

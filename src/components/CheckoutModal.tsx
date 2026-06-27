@@ -42,7 +42,12 @@ export default function CheckoutModal({
     "retrait",
   );
   const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [zip, setZip] = useState("");
+  const [country, setCountry] = useState("FR");
   const [message, setMessage] = useState("");
+  const [stateCode, setStateCode] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
   const [sent, setSent] = useState(false);
   const [orderId, setOrderId] = useState("");
 
@@ -161,9 +166,11 @@ export default function CheckoutModal({
         shippingAddress: {
           fullName: name,
           address: reception === "livraison" ? address : "Non renseignée",
-          city: "",
-          zip: "",
-          country: "FR",
+          city: reception === "livraison" ? city : "",
+          zip: reception === "livraison" ? zip : "",
+          country: reception === "livraison" ? country : "FR",
+          state_code: reception === "livraison" ? stateCode : "",
+          tax_number: reception === "livraison" ? taxNumber : "",
           phone,
         },
         notes: message,
@@ -173,17 +180,30 @@ export default function CheckoutModal({
           productId: item.product.id,
           productTitle: item.product.title,
           productImage: item.product.image || PLACEHOLDER_IMG,
-          selectedColor: item.selectedColor,
-          selectedSize: item.selectedSize,
+          selectedColor: item.selectedColor || "#000000",
+          selectedSize: item.selectedSize || "M",
           quantity: item.quantity,
           unitPrice: item.product.price,
         })),
       } as any);
-    } catch (e) {
-      console.warn("Impossible de sauvegarder la commande dans Supabase", e);
+    } catch (e: any) {
+      console.error("Erreur sauvegarde commande", e);
+      alert(
+        "Erreur lors de l'enregistrement de la commande : " + (e.message || ""),
+      );
+      return; // Empêche d'ouvrir le lien et d'afficher la confirmation
     }
 
     window.open(url, "_blank");
+
+    // Envoyer la commande vers Printful (mode draft, asynchrone)
+    import("../api/supabaseApi").then(({ podApi }) => {
+      podApi
+        .createOrder(newOrderId)
+        .then(() => console.log(`[Printful] Commande ${newOrderId} envoyée`))
+        .catch((e) => console.warn("[Printful] Erreur envoi commande:", e));
+    });
+
     setSent(true);
     onSuccess();
   };
@@ -410,6 +430,7 @@ export default function CheckoutModal({
       </div>
     );
   }
+
   return (
     <div style={overlayStyle}>
       <div style={panelStyle}>
@@ -614,16 +635,102 @@ export default function CheckoutModal({
             </div>
           </div>
           {reception === "livraison" && (
-            <div>
-              <label style={labelStyle}>Adresse de livraison</label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                style={inputStyle}
-                placeholder="123 rue de la Paix, 75000 Paris"
-              />
-            </div>
+            <>
+              <div>
+                <label style={labelStyle}>Adresse</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  style={inputStyle}
+                  placeholder="123 rue de la Paix"
+                />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 14,
+                }}
+              >
+                <div>
+                  <label style={labelStyle}>Ville</label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    style={inputStyle}
+                    placeholder="Paris"
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Code postal</label>
+                  <input
+                    type="text"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    style={inputStyle}
+                    placeholder="75000"
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Pays</label>
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="FR">France</option>
+                  <option value="US">États-Unis</option>
+                  <option value="BR">Brésil</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">Royaume-Uni</option>
+                  <option value="CH">Suisse</option>
+                  <option value="JP">Japon</option>
+                  <option value="BE">Belgique</option>
+                </select>
+                {/* State code – requis pour BR, US, CA, AU */}
+                {(country === "BR" ||
+                  country === "US" ||
+                  country === "CA" ||
+                  country === "AU") && (
+                  <div style={{ marginTop: 14 }}>
+                    <label style={labelStyle}>
+                      {country === "BR"
+                        ? "État (State code) *"
+                        : "État / Province *"}
+                    </label>
+                    <input
+                      type="text"
+                      value={stateCode}
+                      onChange={(e) =>
+                        setStateCode(e.target.value.toUpperCase())
+                      }
+                      style={inputStyle}
+                      placeholder={country === "BR" ? "SP" : "CA"}
+                      maxLength={2}
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* CPF/CNPJ – requis pour le Brésil */}
+                {country === "BR" && (
+                  <div style={{ marginTop: 14 }}>
+                    <label style={labelStyle}>CPF ou CNPJ *</label>
+                    <input
+                      type="text"
+                      value={taxNumber}
+                      onChange={(e) => setTaxNumber(e.target.value)}
+                      style={inputStyle}
+                      placeholder="000.000.000-00"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+            </>
           )}
           <div>
             <label style={labelStyle}>Message (optionnel)</label>

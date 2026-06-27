@@ -1517,7 +1517,11 @@ export default function App() {
 
                         <button
                           onClick={() =>
-                            addToCart(product, product.colors[0], "M")
+                            addToCart(
+                              product,
+                              product.colors?.[0] || "#000000",
+                              "M",
+                            )
                           }
                           className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
                           id={`btn-add-cart-list-${product.id}`}
@@ -1999,7 +2003,9 @@ export default function App() {
                       onClick={() => {
                         addToCart(
                           selectedProduct,
-                          pickedColor || selectedProduct.colors[0],
+                          pickedColor ||
+                            selectedProduct.colors?.[0] ||
+                            "#000000",
                           pickedSize,
                         );
                       }}
@@ -2013,7 +2019,9 @@ export default function App() {
                       onClick={() => {
                         addToCart(
                           selectedProduct,
-                          pickedColor || selectedProduct.colors[0],
+                          pickedColor ||
+                            selectedProduct.colors?.[0] ||
+                            "#000000",
                           pickedSize,
                         );
                         setCartOpen(true);

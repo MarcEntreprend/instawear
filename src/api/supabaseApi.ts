@@ -538,13 +538,15 @@ export const orderApi = {
       shipping_address_zip: order.shippingAddress.zip,
       shipping_address_country: order.shippingAddress.country,
       shipping_address_phone: order.shippingAddress.phone,
+      shipping_address_state_code: order.shippingAddress.state_code,
+      shipping_address_tax_number: order.shippingAddress.tax_number,
       notes: order.notes,
       external_order_id: order.externalOrderId,
     });
     if (error) throw error;
     // Insérer les items
     for (const item of order.items) {
-      await supabase.from("order_items").insert({
+      const { error: itemError } = await supabase.from("order_items").insert({
         id: item.id,
         order_id: item.orderId,
         product_id: item.productId,
@@ -555,6 +557,12 @@ export const orderApi = {
         quantity: item.quantity,
         unit_price: item.unitPrice,
       });
+      if (itemError) {
+        console.error("Erreur insertion order_item:", itemError);
+        throw new Error(
+          `Échec de l'enregistrement d'un article : ${itemError.message}`,
+        );
+      }
     }
     return order;
   },
@@ -719,6 +727,29 @@ export const podApi = {
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({ action: "list-products" }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur Edge Function");
+    }
+    return res.json();
+  },
+
+  /**
+   * Envoie une commande existante vers Printful (mode draft).
+   * @param orderId - L'ID de la commande InstaWear.
+   */
+  async createOrder(
+    orderId: string,
+  ): Promise<{ success: boolean; externalOrderId: string }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-printful-order`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ orderId }),
     });
     if (!res.ok) {
       const err = await res.json();

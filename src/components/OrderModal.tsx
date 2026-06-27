@@ -1,3 +1,5 @@
+// src\components\OrderModal.tsx
+
 import React, { useState } from "react";
 import {
   X,
@@ -69,7 +71,7 @@ export default function OrderModal({
         (item) =>
           `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
       ),
-      `  TOTAL : ${cartTotal.toFixed(2)} {currencySymbol}{currencySymbol}`,
+      `  TOTAL : ${cartTotal.toFixed(2)} ${currencySymbol}`,
       "",
       "👤 Coordonnées :",
       `  Nom : ${form.name}`,

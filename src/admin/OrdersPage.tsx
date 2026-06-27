@@ -795,6 +795,49 @@ export default function OrdersPage() {
                   Statut
                 </p>
                 <OrderStatusBadge status={selectedOrder.status} />
+
+                {/* ajout du bouton « Envoyer à Printful » */}
+                {selectedOrder.status === "pending" && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            "Envoyer cette commande à Printful (mode draft) ?",
+                          )
+                        )
+                          return;
+                        try {
+                          const { podApi } = await import("../api/supabaseApi");
+                          await podApi.createOrder(selectedOrder.id);
+                          alert(
+                            "Commande envoyée à Printful (statut mis à jour).",
+                          );
+                          setSelectedOrder(null);
+                        } catch (e: any) {
+                          alert("Erreur : " + (e.message || ""));
+                        }
+                      }}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 8,
+                        border: "1px solid var(--color-accent)",
+                        background: "var(--color-accent)",
+                        color: "white",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <Package size={14} strokeWidth={2} />
+                      Envoyer à Printful
+                    </button>
+                  </div>
+                )}
+
                 <div style={{ marginTop: 12 }}>
                   <p
                     style={{

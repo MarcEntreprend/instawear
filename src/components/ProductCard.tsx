@@ -10,7 +10,8 @@ interface ProductCardProps {
   product: Product;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
-  onAddToCart: (product: Product) => void;
+  // onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, color: string, size: string) => void;
   onViewDetails: (product: Product) => void;
   countdownStr: string;
 }
@@ -227,7 +228,7 @@ export default function ProductCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onAddToCart(product);
+            onAddToCart(product, product.colors?.[0] || "#000000", "M");
           }}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
           style={{
