@@ -134,6 +134,43 @@ export default {
         });
       }
 
+      // ─── Mode "get-catalog-product" : récupérer le prix catalogue d'un variant ───
+      if (body.action === "get-catalog-product") {
+        const { productId, variantId } = body;
+        if (!productId || !variantId) {
+          return new Response(
+            JSON.stringify({ error: "productId et variantId requis" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        try {
+          const res = await fetch(
+            `https://api.printful.com/products/${productId}`,
+          );
+          if (!res.ok)
+            throw new Error(`Printful catalogue error ${res.status}`);
+          const data = await res.json();
+          const variants = data?.result?.variants;
+          if (!Array.isArray(variants))
+            throw new Error("Variants introuvables");
+          const target = variants.find((v: any) => v.id == variantId);
+          if (!target) throw new Error("Variant non trouvé");
+          const price = target.price; // string or number
+          return new Response(JSON.stringify({ price }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (err: any) {
+          return new Response(JSON.stringify({ error: err.message }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 502,
+          });
+        }
+      }
+
       // ─── Mode par défaut : synchronisation complète du catalogue ─────────
       const { data: settings, error: settingsError } = await supabaseAdmin
         .from("pod_settings")

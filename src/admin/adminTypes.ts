@@ -38,7 +38,8 @@ export interface AdminProduct {
   externalVariantId?: string;
   lastExternalSync?: string; // ISO datetime
   printfulPrice?: number; // Coût de base Printful
-  printfulCurrency?: string; // Devise Printful (USD, EUR…)
+  printfulCurrency?: string | null;
+  shippingEstimate?: number | null; // frais de port estimés pour ce produit
   ratings: { score: number; count: number };
   boughtLastMonth: number;
   createdAt: string;

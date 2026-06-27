@@ -57,6 +57,7 @@ interface ProductRow {
   last_external_sync?: string | null;
   printful_price?: number | null;
   printful_currency?: string | null;
+  shipping_estimate?: number | null; // colonne ajoutée
   ratings_score?: number | null;
   ratings_count?: number | null;
   bought_last_month?: number | null;
@@ -99,6 +100,7 @@ const mapProduct = (row: any): AdminProduct => ({
   lastExternalSync: row.last_external_sync,
   printfulPrice: row.printful_price,
   printfulCurrency: row.printful_currency,
+  shippingEstimate: row.shipping_estimate,
   ratings: {
     score: row.ratings_score ?? 0,
     count: row.ratings_count ?? 0,
@@ -201,6 +203,7 @@ export const productApi = {
       last_external_sync: product.lastExternalSync,
       printful_price: product.printfulPrice,
       printful_currency: product.printfulCurrency,
+      shipping_estimate: product.shippingEstimate,
       ratings_score: product.ratings?.score ?? 5,
       ratings_count: product.ratings?.count ?? 0,
       bought_last_month: product.boughtLastMonth ?? 0,
@@ -251,6 +254,7 @@ export const productApi = {
       external_variant_id: updates.externalVariantId,
       last_external_sync: updates.lastExternalSync,
       printful_price: updates.printfulPrice,
+      shipping_estimate: updates.shippingEstimate,
       printful_currency: updates.printfulCurrency,
       ratings_score: updates.ratings?.score,
       ratings_count: updates.ratings?.count,
