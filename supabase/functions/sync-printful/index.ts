@@ -126,6 +126,7 @@ export default {
               v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "",
             // Image du catalogue Printful pour cette couleur (varie selon la couleur)
             product_image: v.product?.image || "",
+            product: v.product || {}, // tout l'objet catalogue
           })),
         };
 
@@ -169,6 +170,100 @@ export default {
             status: 502,
           });
         }
+      }
+
+      // ─── Mode "get-shipping-estimate" : estimation des frais de port Printful ───
+      if (body.action === "get-shipping-estimate") {
+        const { variantId } = body; // correspond au catalogue variant ID
+        if (!variantId) {
+          return new Response(JSON.stringify({ error: "variantId requis" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        // Récupérer les paramètres Printful ET le pays de la boutique
+        const { data: podSettings, error: podError } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+
+        if (podError || !podSettings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        const { data: storeSettings } = await supabaseAdmin
+          .from("store_settings")
+          .select("country")
+          .eq("id", true)
+          .single();
+
+        const country = storeSettings?.country || "BR";
+
+        // Appeler l'API Printful Shipping Rates
+        const shippingRes = await fetch(
+          "https://api.printful.com/shipping/rates",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${podSettings.api_key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              recipient: {
+                address1: "",
+                city: "",
+                country_code: country,
+                zip: "",
+              },
+              items: [
+                {
+                  variant_id: Number(variantId),
+                  quantity: 1,
+                },
+              ],
+            }),
+          },
+        );
+
+        if (!shippingRes.ok) {
+          const errText = await shippingRes.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful Shipping: ${errText}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        const shippingData = await shippingRes.json();
+        const rates = shippingData.result || [];
+        if (rates.length === 0) {
+          return new Response(JSON.stringify({ error: "Aucun tarif trouvé" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 404,
+          });
+        }
+
+        // Extraire le min et le max
+        const costs = rates.map((r: any) => parseFloat(r.rate));
+        const minCost = Math.min(...costs);
+        const maxCost = Math.max(...costs);
+        const currency = rates[0].currency || "BRL";
+
+        return new Response(
+          JSON.stringify({ min: minCost, max: maxCost, currency }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // ─── Mode par défaut : synchronisation complète du catalogue ─────────
