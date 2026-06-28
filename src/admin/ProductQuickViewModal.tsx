@@ -435,6 +435,65 @@ export default function ProductQuickViewModal({
               </div>
             )}
 
+            {/* Printful Pricing */}
+            {product.printfulPrice != null && product.printfulPrice > 0 && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-ink3)",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    color: "var(--color-ink3)",
+                    textTransform: "uppercase",
+                    marginBottom: 6,
+                  }}
+                >
+                  💰 Printful Pricing
+                </p>
+                <p>
+                  Printful price : {product.printfulPrice.toFixed(2)}{" "}
+                  {product.printfulCurrency || "BRL"}
+                </p>
+                <p>
+                  Printful shipping price :{" "}
+                  {(product.shippingEstimate ?? 0).toFixed(2)}{" "}
+                  {product.printfulCurrency || "BRL"}
+                </p>
+                {/* Calcul de la marge en % et en valeur */}
+                {(() => {
+                  const cost = product.printfulPrice;
+                  const shipping = product.shippingEstimate ?? 0;
+                  const retail = product.price;
+                  const marginPercent =
+                    cost + shipping > 0
+                      ? (retail / (cost + shipping) - 1) * 100
+                      : 0;
+                  const revenue = retail - (cost + shipping);
+                  return (
+                    <>
+                      <p>
+                        Marge souhaitée : {marginPercent.toFixed(0)}% (
+                        {revenue.toFixed(2)} {product.printfulCurrency || "BRL"}
+                        )
+                      </p>
+                      <p>
+                        Revenue : {revenue.toFixed(2)}{" "}
+                        {product.printfulCurrency || "BRL"}
+                      </p>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
             <div
               style={{
                 display: "flex",
