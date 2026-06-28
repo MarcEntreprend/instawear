@@ -220,6 +220,7 @@ export default {
                 address1: "",
                 city: "",
                 country_code: country,
+                state_code: country === "US" ? "CA" : undefined, // requis pour les US
                 zip: "",
               },
               items: [

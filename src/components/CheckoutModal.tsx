@@ -1,6 +1,6 @@
 // src/components/CheckoutModal.tsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
   Send,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { orderApi } from "../api/supabaseApi";
+import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { supabase } from "../lib/supabaseClient";
 
@@ -39,12 +39,13 @@ export default function CheckoutModal({
   const [email, setEmail] = useState("");
   const [date, setDate] = useState("");
   const [reception, setReception] = useState<"retrait" | "livraison">(
-    "retrait",
+    "livraison",
   );
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
   const [country, setCountry] = useState("FR");
+  const [storeCountry, setStoreCountry] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [stateCode, setStateCode] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
@@ -64,6 +65,18 @@ export default function CheckoutModal({
     return d.toISOString().split("T")[0];
   }, []);
 
+  // Charger le pays depuis store_settings au montage
+  useEffect(() => {
+    storeSettingsApi
+      .get()
+      .then((settings) => {
+        const countryFromStore = settings.country || "FR";
+        setStoreCountry(countryFromStore);
+        setCountry(countryFromStore);
+      })
+      .catch(() => {});
+  }, []);
+
   const buildOrderText = (orderId: string) => {
     let text = `🛒 *COMMANDE INSTAWEAR*\n\n`;
     text += `🔑 *Réf. commande :* ${orderId}\n`;
@@ -71,7 +84,11 @@ export default function CheckoutModal({
     text += `*Client :* ${name}\n`;
     text += `*Téléphone :* ${phone}\n`;
     if (email) text += `*Email :* ${email}\n`;
-    if (date) text += `*Date souhaitée :* ${date}\n`;
+    if (date) {
+      // Convertit YYYY-MM-DD en MM/DD/YYYY
+      const [y, m, d] = date.split("-");
+      text += `*Date souhaitée :* ${m}/${d}/${y}\n`;
+    }
     text += `*Réception :* ${reception === "retrait" ? "Retrait sur place" : "Livraison"}\n`;
     if (reception === "livraison" && address)
       text += `*Adresse :* ${address}\n`;
@@ -577,7 +594,7 @@ export default function CheckoutModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={inputStyle}
-                placeholder="Jean Dupont"
+                placeholder="John Doe"
               />
             </div>
             <div>
@@ -587,7 +604,7 @@ export default function CheckoutModal({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
-                placeholder="+33 6 12 34 56 78"
+                placeholder="+1 (212) 555-1234"
               />
             </div>
           </div>
@@ -598,7 +615,7 @@ export default function CheckoutModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={inputStyle}
-              placeholder="jean@exemple.com"
+              placeholder="johnn@exemple.com"
             />
           </div>
           <div
@@ -625,12 +642,12 @@ export default function CheckoutModal({
               <select
                 value={reception}
                 onChange={(e) =>
-                  setReception(e.target.value as "retrait" | "livraison")
+                  setReception(e.target.value as "livraison" | "retrait")
                 }
                 style={inputStyle}
               >
-                <option value="retrait">Retrait sur place</option>
                 <option value="livraison">Livraison à domicile</option>
+                <option value="retrait">Retrait sur place</option>
               </select>
             </div>
           </div>
@@ -643,7 +660,7 @@ export default function CheckoutModal({
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   style={inputStyle}
-                  placeholder="123 rue de la Paix"
+                  placeholder="132 Main Street"
                 />
               </div>
               <div
@@ -660,7 +677,7 @@ export default function CheckoutModal({
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     style={inputStyle}
-                    placeholder="Paris"
+                    placeholder="New York"
                   />
                 </div>
                 <div>
@@ -670,7 +687,7 @@ export default function CheckoutModal({
                     value={zip}
                     onChange={(e) => setZip(e.target.value)}
                     style={inputStyle}
-                    placeholder="75000"
+                    placeholder="10001"
                   />
                 </div>
               </div>
@@ -681,8 +698,8 @@ export default function CheckoutModal({
                   onChange={(e) => setCountry(e.target.value)}
                   style={inputStyle}
                 >
-                  <option value="FR">France</option>
                   <option value="US">États-Unis</option>
+                  <option value="FR">France</option>
                   <option value="BR">Brésil</option>
                   <option value="CA">Canada</option>
                   <option value="GB">Royaume-Uni</option>
@@ -708,7 +725,7 @@ export default function CheckoutModal({
                         setStateCode(e.target.value.toUpperCase())
                       }
                       style={inputStyle}
-                      placeholder={country === "BR" ? "SP" : "CA"}
+                      placeholder={country === "BR" ? "SP" : "NY"}
                       maxLength={2}
                       required
                     />
