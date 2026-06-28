@@ -1,5 +1,5 @@
 // src/admin/ReportsPage.tsx
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useCallback, useState } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -13,7 +13,9 @@ import {
   FileText,
   ArrowUpRight,
   ArrowDownRight,
+  RefreshCw,
 } from "lucide-react";
+import { dashboardApi } from "../api/supabaseApi";
 import { useDashboard } from "./adminHooks";
 
 // ─── Composant de barre de progression ────────────────────────────────────
@@ -153,8 +155,24 @@ function EmptySection({ message }: { message: string }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────
 export default function ReportsPage() {
-  // Récupération des données réelles depuis le dashboard hook
-  const { data: stats, loading } = useDashboard();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const s = await dashboardApi.getStats();
+      setStats(s);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   // Préparer les données pour les KPI (utiliser les stats si disponibles)
   const revenue = stats ? `${stats.revenueEstimate.toFixed(0)} $` : "0 $";
@@ -183,27 +201,44 @@ export default function ReportsPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      {/* En-tête avec période et export */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
+          alignItems: "center",
           justifyContent: "space-between",
-          alignItems: "flex-start",
           flexWrap: "wrap",
-          gap: 16,
+          gap: 12,
         }}
       >
         <div>
-          <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              marginBottom: 4,
-            }}
-          >
-            Rapports
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--color-ink)",
+              }}
+            >
+              Rapports
+            </h2>
+            <button
+              onClick={fetchStats}
+              title="Rafraîchir les données"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+            </button>
+          </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             Analysez vos ventes, vos clients et la performance de vos produits.
           </p>

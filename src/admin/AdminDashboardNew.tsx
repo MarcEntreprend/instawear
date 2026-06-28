@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
+  RefreshCw,
 } from "lucide-react";
 import AdminSidebar, { AdminSection } from "./AdminSidebar";
 import ProductsPage from "./ProductsPage.tsx";
@@ -29,8 +30,8 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useDashboard } from "./adminHooks";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { orderApi } from "../api/supabaseApi";
-import { AdminProduct, Order } from "./adminTypes";
+import { orderApi, dashboardApi } from "../api/supabaseApi";
+import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -376,7 +377,24 @@ function DashboardHome({
   onNavigate: (s: AdminSection) => void;
   onQuickView?: (product: AdminProduct) => void;
 }) {
-  const { data: stats, loading } = useDashboard();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const s = await dashboardApi.getStats();
+      setStats(s);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const currencySymbol = useCurrencySymbol();
 
@@ -392,20 +410,37 @@ function DashboardHome({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      {/* En-tête */}
+      {/* Header */}
       <div>
-        <h1
-          style={{
-            fontSize: 24,
-            fontWeight: 700,
-            color: "var(--color-ink)",
-            letterSpacing: "-0.03em",
-            marginBottom: 4,
-          }}
-        >
-          Bonjour
-        </h1>
-        <p style={{ fontSize: 13.5, color: "var(--color-ink3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "var(--color-ink)",
+              letterSpacing: "-0.03em",
+            }}
+          >
+            Bonjour
+          </h1>
+          <button
+            onClick={fetchStats}
+            title="Rafraîchir les statistiques"
+            style={{
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              padding: "4px 8px",
+              cursor: "pointer",
+              color: "var(--color-ink2)",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <RefreshCw size={14} strokeWidth={2} />
+          </button>
+        </div>
+        <p style={{ fontSize: 13.5, color: "var(--color-ink3)", marginTop: 4 }}>
           Aperçu de votre boutique InstaWear aujourd'hui.
         </p>
       </div>

@@ -1,5 +1,5 @@
 // src/admin/CustomersPage.tsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   X,
@@ -14,6 +14,7 @@ import {
   Clock,
   Eye,
   ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
 import { useCustomerDetail } from "./adminHooks";
@@ -28,6 +29,7 @@ import {
   Order,
   AdminProduct,
 } from "./adminTypes";
+import { customerApi } from "../api/supabaseApi";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -94,7 +96,24 @@ export default function CustomersPage({
   onNavigate?: (section: AdminSection) => void;
   onQuickView?: (product: AdminProduct) => void;
 }) {
-  const { data: customers, loading } = useCustomers();
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCustomers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = await customerApi.list();
+      setCustomers(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
   const currencySymbol = useCurrencySymbol();
 
   const [search, setSearch] = useState("");
@@ -181,9 +200,43 @@ export default function CustomersPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       {/* Header */}
-      <div style={headerRowStyle}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
         <div>
-          <h2 style={titleStyle}>Clients</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--color-ink)",
+              }}
+            >
+              Clients
+            </h2>
+            <button
+              onClick={fetchCustomers}
+              title="Rafraîchir les clients"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+            </button>
+          </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             {filtered.length} client{filtered.length !== 1 ? "s" : ""}
           </p>

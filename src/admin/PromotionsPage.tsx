@@ -1,7 +1,16 @@
 // src\admin\PromotionsPage.tsx
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, Trash2, Tag, ArrowUp, ArrowDown, Save, X } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Tag,
+  ArrowUp,
+  ArrowDown,
+  Save,
+  X,
+  RefreshCw,
+} from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
@@ -142,21 +151,40 @@ export default function PromotionsPage() {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
         }}
       >
         <div>
-          <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              marginBottom: 4,
-            }}
-          >
-            Promotions & Deals
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "var(--color-ink)",
+              }}
+            >
+              Promotions & Deals
+            </h2>
+            <button
+              onClick={refresh}
+              title="Rafraîchir les promotions"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+            </button>
+          </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             Gérez les produits affichés dans le carrousel Hero de la boutique.
           </p>
