@@ -110,12 +110,14 @@ function StatCard({
   value,
   delta,
   onInfo,
+  isActive,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   delta?: { value: number; positive: boolean } | null;
   onInfo: () => void;
+  isActive: boolean;
 }) {
   return (
     <div style={{ ...cardStyle, position: "relative" }}>
@@ -168,8 +170,12 @@ function StatCard({
           position: "absolute",
           top: 8,
           right: 8,
-          background: "var(--color-surface2)",
-          border: "1px solid var(--color-border)",
+          background: isActive
+            ? "var(--color-accent)"
+            : "var(--color-surface2)",
+          border: isActive
+            ? "1px solid var(--color-accent)"
+            : "1px solid var(--color-border)",
           borderRadius: 12,
           width: 20,
           height: 20,
@@ -177,7 +183,7 @@ function StatCard({
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          color: "var(--color-ink4)",
+          color: isActive ? "white" : "var(--color-ink4)",
           fontSize: 11,
           fontWeight: 700,
           padding: 0,
@@ -215,6 +221,7 @@ const daysAgo = (n: number) => {
 };
 
 const formatShortDate = (iso: string) => {
+  if (!iso) return "…";
   const d = new Date(iso);
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
@@ -230,13 +237,15 @@ export default function ReportsPage() {
   const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState(30); // nombre de jours
+  const [period, setPeriod] = useState(30); // 30j par défaut
   const [customMode, setCustomMode] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [activeInfo, setActiveInfo] = useState<string | null>(null);
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [showTopModal, setShowTopModal] = useState(false);
+  const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
 
-  // Périodes disponibles
   const periodOptions = [
     { label: "7j", days: 7 },
     { label: "30j", days: 30 },
@@ -244,7 +253,7 @@ export default function ReportsPage() {
     { label: "1a", days: 365 },
   ];
 
-  // Dates min/max pour le sélecteur personnalisé
+  // Dates min/max pour le sélecteur personnalisé (basées sur les commandes)
   const orderDates = useMemo(() => {
     const dates = allOrders.map((o) => new Date(o.createdAt).getTime());
     if (dates.length === 0)
@@ -283,9 +292,10 @@ export default function ReportsPage() {
     fetchAll();
   }, [fetchAll]);
 
-  // ─── Détermination de la période effective ────────────────────────────
+  // ─── Période effective ─────────────────────────────────────────────────
+  const customDatesReady = customMode && customStart && customEnd;
   const { effectiveStart, effectiveEnd } = useMemo(() => {
-    if (customMode && customStart && customEnd) {
+    if (customDatesReady) {
       return {
         effectiveStart: new Date(customStart),
         effectiveEnd: new Date(customEnd + "T23:59:59"),
@@ -293,9 +303,20 @@ export default function ReportsPage() {
     }
     const now = new Date();
     return { effectiveStart: daysAgo(period), effectiveEnd: now };
-  }, [customMode, customStart, customEnd, period]);
+  }, [customDatesReady, customStart, customEnd, period]);
 
-  // ─── Commandes dans la période courante et précédente ─────────────────
+  // Libellé lisible de la période
+  const periodLabel = useMemo(() => {
+    if (customMode) {
+      if (customDatesReady) {
+        return `${formatShortDate(customStart)} – ${formatShortDate(customEnd)}`;
+      }
+      return "Plage personnalisée (choisissez les dates)";
+    }
+    return periodOptions.find((p) => p.days === period)?.label || "30j";
+  }, [customMode, customDatesReady, customStart, customEnd, period]);
+
+  // ─── Commandes dans les périodes courante et précédente ───────────────
   const { currentOrders, previousOrders } = useMemo(() => {
     const now = effectiveEnd;
     const periodStart = effectiveStart;
@@ -313,7 +334,7 @@ export default function ReportsPage() {
     return { currentOrders: current, previousOrders: previous };
   }, [allOrders, effectiveStart, effectiveEnd]);
 
-  // ─── KPIs réels ─────────────────────────────────────────────────────────
+  // ─── KPIs ──────────────────────────────────────────────────────────────
   const currentRevenue = useMemo(
     () => currentOrders.reduce((sum, o) => sum + o.totalAmount, 0),
     [currentOrders],
@@ -347,10 +368,7 @@ export default function ReportsPage() {
     }).length;
   }, [allCustomers, effectiveStart, effectiveEnd]);
 
-  const calcDelta = (
-    current: number,
-    previous: number,
-  ): { value: number; positive: boolean } | null => {
+  const calcDelta = (current: number, previous: number) => {
     if (previous === 0) return null;
     const pct = Math.round(((current - previous) / previous) * 100);
     return { value: Math.abs(pct), positive: pct >= 0 };
@@ -361,7 +379,7 @@ export default function ReportsPage() {
   const customersDelta = calcDelta(currentNewCustomers, previousNewCustomers);
   const basketDelta = calcDelta(currentAvgBasket, previousAvgBasket);
 
-  // ─── Données du graphique (revenu par jour) ────────────────────────────
+  // ─── Graphique (revenu par jour) ───────────────────────────────────────
   const chartData = useMemo(() => {
     const revenueMap: Record<string, number> = {};
     currentOrders.forEach((o) => {
@@ -369,7 +387,6 @@ export default function ReportsPage() {
       revenueMap[day] = (revenueMap[day] || 0) + o.totalAmount;
     });
 
-    // Générer tous les jours de la période effective
     const days: { label: string; revenue: number }[] = [];
     const start = new Date(effectiveStart);
     const end = new Date(effectiveEnd);
@@ -403,7 +420,7 @@ export default function ReportsPage() {
     [chartData],
   );
 
-  // ─── Ventes par catégorie (réelles) ────────────────────────────────────
+  // ─── Ventes par catégorie ──────────────────────────────────────────────
   const categorySales = useMemo(() => {
     const productMap = new Map(allProducts.map((p) => [p.id, p]));
     const revenueByCat: Record<string, number> = {};
@@ -420,8 +437,7 @@ export default function ReportsPage() {
       (s, v) => s + v,
       0,
     );
-    if (totalCatRevenue === 0)
-      return [] as { label: string; pct: number; color: string }[];
+    if (totalCatRevenue === 0) return [] as any[];
 
     const catLabels: Record<string, string> = {
       tshirt: "T-Shirts",
@@ -435,14 +451,16 @@ export default function ReportsPage() {
 
     return Object.entries(revenueByCat)
       .map(([cat, rev]) => ({
+        value: cat,
         label: catLabels[cat] || cat,
         pct: Math.round((rev / totalCatRevenue) * 100),
+        revenue: rev,
         color: getCategoryColor(cat),
       }))
-      .sort((a, b) => b.pct - a.pct);
+      .sort((a, b) => b.revenue - a.revenue);
   }, [currentOrders, allProducts]);
 
-  // ─── Top produits (réels) ──────────────────────────────────────────────
+  // ─── Top produits (par CA) ─────────────────────────────────────────────
   const topProducts = useMemo(() => {
     const productMap = new Map(allProducts.map((p) => [p.id, p]));
     const agg: Record<
@@ -479,17 +497,27 @@ export default function ReportsPage() {
 
   const totalCustomers = stats?.totalCustomers ?? 0;
 
-  // Libellé de la période pour l'info
-  const periodLabel = customMode
-    ? `${formatShortDate(customStart)} – ${formatShortDate(customEnd)}`
-    : periodOptions.find((p) => p.days === period)?.label || "30j";
-
-  // Définitions des métriques
+  // ─── Définitions des métriques ─────────────────────────────────────────
   const metricInfos: Record<string, string> = {
     revenue: `**CA (Chiffre d'Affaires)** = somme des montants totaux de toutes les commandes sur la période « ${periodLabel} ».\n\nLa flèche compare au CA de la période précédente de même durée.`,
     orders: `**Commandes** = nombre total de commandes enregistrées sur la période « ${periodLabel} ».\n\nLa flèche compare au nombre de commandes de la période précédente de même durée.`,
     customers: `**Clients (total)** = nombre total de clients dans la base, toutes périodes confondues.\n\nLa flèche compare le nombre de nouveaux clients de la période « ${periodLabel} » à la période précédente.`,
     basket: `**Panier moyen** = CA total ÷ nombre de commandes sur la période « ${periodLabel} ».\n\nLa flèche compare au panier moyen de la période précédente de même durée.`,
+  };
+
+  // Toggle info et fermeture lors du passage en mode plage
+  const toggleInfo = (key: string) => {
+    setActiveInfo((prev) => (prev === key ? null : key));
+  };
+
+  const activateCustomMode = () => {
+    setCustomMode((prev) => {
+      if (!prev) {
+        // ouverture du mode plage → fermer l’info
+        setActiveInfo(null);
+      }
+      return !prev;
+    });
   };
 
   // ─── Rendu ──────────────────────────────────────────────────────────────
@@ -560,13 +588,20 @@ export default function ReportsPage() {
           <span style={{ fontSize: 12, color: "var(--color-ink4)" }}>
             {periodLabel}
           </span>
-          <button style={textBtn}>
+          <button
+            style={{
+              ...textBtn,
+              opacity: customDatesReady || !customMode ? 1 : 0.4,
+              pointerEvents: customDatesReady || !customMode ? "auto" : "none",
+            }}
+            disabled={!customDatesReady && customMode}
+          >
             <FileText size={14} /> Exporter CSV
           </button>
         </div>
       </div>
 
-      {/* Sélecteur de période (affecte toute la page) */}
+      {/* Sélecteur de période */}
       <div
         style={{
           display: "flex",
@@ -582,6 +617,7 @@ export default function ReportsPage() {
             onClick={() => {
               setPeriod(days);
               setCustomMode(false);
+              setActiveInfo(null);
             }}
             style={{
               padding: "6px 14px",
@@ -601,9 +637,8 @@ export default function ReportsPage() {
             {label}
           </button>
         ))}
-        {/* Bouton plage personnalisée */}
         <button
-          onClick={() => setCustomMode(!customMode)}
+          onClick={activateCustomMode}
           title="Plage personnalisée"
           style={{
             padding: "6px 10px",
@@ -670,36 +705,32 @@ export default function ReportsPage() {
           label={`CA (${periodLabel})`}
           value={`${currentRevenue.toFixed(0)} ${currencySymbol}`}
           delta={revenueDelta}
-          onInfo={() =>
-            setActiveInfo(activeInfo === "revenue" ? null : "revenue")
-          }
+          onInfo={() => toggleInfo("revenue")}
+          isActive={activeInfo === "revenue"}
         />
         <StatCard
           icon={<ShoppingBag size={20} strokeWidth={2} />}
           label={`Commandes (${periodLabel})`}
           value={currentOrderCount.toString()}
           delta={ordersDelta}
-          onInfo={() =>
-            setActiveInfo(activeInfo === "orders" ? null : "orders")
-          }
+          onInfo={() => toggleInfo("orders")}
+          isActive={activeInfo === "orders"}
         />
         <StatCard
           icon={<Users size={20} strokeWidth={2} />}
           label="Clients (total)"
           value={totalCustomers.toString()}
           delta={customersDelta}
-          onInfo={() =>
-            setActiveInfo(activeInfo === "customers" ? null : "customers")
-          }
+          onInfo={() => toggleInfo("customers")}
+          isActive={activeInfo === "customers"}
         />
         <StatCard
           icon={<TrendingUp size={20} strokeWidth={2} />}
           label="Panier moyen"
           value={`${currentAvgBasket.toFixed(0)} ${currencySymbol}`}
           delta={basketDelta}
-          onInfo={() =>
-            setActiveInfo(activeInfo === "basket" ? null : "basket")
-          }
+          onInfo={() => toggleInfo("basket")}
+          isActive={activeInfo === "basket"}
         />
       </div>
 
@@ -760,9 +791,13 @@ export default function ReportsPage() {
           }}
         >
           <h3
-            style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)" }}
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: "var(--color-ink)",
+            }}
           >
-            Revenu par jour
+            Revenu par jour ({periodLabel})
           </h3>
         </div>
         <div
@@ -826,31 +861,48 @@ export default function ReportsPage() {
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}
         className="reports-two-col"
       >
+        {/* Ventes par catégorie */}
         <div style={cardStyle}>
-          <h3
+          <div
             style={{
-              fontWeight: 700,
-              fontSize: 15,
-              color: "var(--color-ink)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               marginBottom: 16,
             }}
           >
-            Ventes par catégorie
-          </h3>
+            <h3
+              style={{
+                fontWeight: 700,
+                fontSize: 15,
+                color: "var(--color-ink)",
+              }}
+            >
+              Ventes par catégorie ({periodLabel})
+            </h3>
+            {(categorySales.length > 10 || devMode) && (
+              <button onClick={() => setShowCatModal(true)} style={textBtn}>
+                <Eye size={14} /> Voir tout
+              </button>
+            )}
+          </div>
           {categorySales.length > 0 ? (
-            categorySales.map((item) => (
-              <ProgressBar
-                key={item.label}
-                label={item.label}
-                pct={item.pct}
-                color={item.color}
-              />
-            ))
+            categorySales
+              .slice(0, 10)
+              .map((item) => (
+                <ProgressBar
+                  key={item.value}
+                  label={item.label}
+                  pct={item.pct}
+                  color={item.color}
+                />
+              ))
           ) : (
             <EmptySection message="Aucune vente sur cette période." />
           )}
         </div>
 
+        {/* Top produits */}
         <div style={cardStyle}>
           <div
             style={{
@@ -867,11 +919,13 @@ export default function ReportsPage() {
                 color: "var(--color-ink)",
               }}
             >
-              Top produits
+              Top produits ({periodLabel}) · par CA
             </h3>
-            <button style={textBtn}>
-              <Eye size={14} /> Voir tout
-            </button>
+            {(topProducts.length > 5 || devMode) && (
+              <button onClick={() => setShowTopModal(true)} style={textBtn}>
+                <Eye size={14} /> Voir tout
+              </button>
+            )}
           </div>
           {topProducts.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -932,7 +986,239 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Statut des intégrations – SECTION INCHANGÉE */}
+      {/* Modal "Top produits" complet */}
+      {showTopModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 250,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setShowTopModal(false)}
+        >
+          <div
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: 20,
+              maxWidth: 600,
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              padding: 28,
+              boxShadow: "var(--shadow-xl)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 20,
+              }}
+            >
+              <h3
+                style={{
+                  fontWeight: 700,
+                  fontSize: 18,
+                  color: "var(--color-ink)",
+                }}
+              >
+                Top produits ({periodLabel}) · par CA
+              </h3>
+              <button
+                onClick={() => setShowTopModal(false)}
+                style={{
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 8,
+                  padding: 4,
+                  cursor: "pointer",
+                  color: "var(--color-ink2)",
+                  display: "flex",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {topProducts.length === 0 ? (
+              <EmptySection message="Aucun produit vendu pour le moment." />
+            ) : (
+              topProducts.map((product, index) => (
+                <div
+                  key={product.name}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 0",
+                    borderBottom: "1px solid var(--color-border)",
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                        color: "var(--color-accent)",
+                        minWidth: 28,
+                      }}
+                    >
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "var(--color-ink)",
+                        }}
+                      >
+                        {product.name}
+                      </p>
+                      <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
+                        {product.orders} articles vendus
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      color: "var(--color-ink)",
+                    }}
+                  >
+                    {product.revenue}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal "Ventes par catégorie" complet */}
+      {showCatModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 250,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setShowCatModal(false)}
+        >
+          <div
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: 20,
+              maxWidth: 600,
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              padding: 28,
+              boxShadow: "var(--shadow-xl)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 20,
+              }}
+            >
+              <h3
+                style={{
+                  fontWeight: 700,
+                  fontSize: 18,
+                  color: "var(--color-ink)",
+                }}
+              >
+                Ventes par catégorie ({periodLabel})
+              </h3>
+              <button
+                onClick={() => setShowCatModal(false)}
+                style={{
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 8,
+                  padding: 4,
+                  cursor: "pointer",
+                  color: "var(--color-ink2)",
+                  display: "flex",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {categorySales.length === 0 && (
+              <EmptySection message="Aucune vente sur cette période." />
+            )}
+            {categorySales.map((item, idx) => (
+              <div
+                key={item.value}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 0",
+                  borderBottom: "1px solid var(--color-border)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: "var(--color-accent)",
+                      minWidth: 28,
+                    }}
+                  >
+                    #{idx + 1}
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 14,
+                      color: "var(--color-ink)",
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      color: "var(--color-ink)",
+                      marginRight: 12,
+                    }}
+                  >
+                    {item.pct}%
+                  </span>
+                  <span style={{ fontSize: 12, color: "var(--color-ink3)" }}>
+                    {item.revenue.toFixed(0)} {currencySymbol}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Statut des intégrations*/}
       <div style={cardStyle}>
         <div
           style={{
@@ -960,8 +1246,14 @@ export default function ReportsPage() {
           style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 20 }}
         >
           {[
-            { name: "Printful", connected: stats?.podConnected ?? false },
-            { name: "API Interne", connected: true },
+            {
+              name: "Printful",
+              connected: stats?.podConnected ?? false,
+            },
+            {
+              name: "API Interne",
+              connected: true,
+            },
           ].map((integration) => (
             <div
               key={integration.name}
@@ -974,7 +1266,11 @@ export default function ReportsPage() {
                   ? "var(--color-success-bg)"
                   : "var(--color-accent-bg)",
                 borderRadius: 12,
-                border: `1px solid ${integration.connected ? "var(--color-success)" : "var(--color-accent-soft)"}`,
+                border: `1px solid ${
+                  integration.connected
+                    ? "var(--color-success)"
+                    : "var(--color-accent-soft)"
+                }`,
                 minWidth: 180,
               }}
             >
@@ -1022,11 +1318,32 @@ export default function ReportsPage() {
           .reports-two-col { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {/* Mode test – retirer en production */}
+      {/* # TO DELETE once test is complete */}
+      <div style={{ textAlign: "center", marginTop: 8 }}>
+        <button
+          onClick={() => setDevMode(!devMode)}
+          style={{
+            padding: "4px 12px",
+            borderRadius: 6,
+            border: "1px solid var(--color-border)",
+            background: devMode
+              ? "var(--color-accent)"
+              : "var(--color-surface2)",
+            color: devMode ? "white" : "var(--color-ink4)",
+            fontWeight: 600,
+            fontSize: 11,
+            cursor: "pointer",
+          }}
+        >
+          {devMode ? "✓ Boutons visibles" : "🧪 Voir boutons masqués"}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ─── Styles réutilisés ─────────────────────────────────────────────────────
 const cardStyle: React.CSSProperties = {
   background: "var(--color-surface)",
   border: "1px solid var(--color-border)",
