@@ -159,6 +159,8 @@ export default function SettingsPage() {
   const handleSaveStore = async (e: React.FormEvent) => {
     e.preventDefault();
     await saveStore(storeForm);
+    // Notifie tous les composants qu'ils doivent relire la devise / les paramètres
+    window.dispatchEvent(new Event("store-settings-updated"));
   };
 
   const handleSync = async () => {

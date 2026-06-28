@@ -1,41 +1,38 @@
 // src/hooks/useCurrencySymbol.ts
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { storeSettingsApi } from "../api/supabaseApi";
 
 const SYMBOLS: Record<string, string> = {
-  EUR: "€",
   USD: "$",
-  GBP: "£",
   BRL: "R$",
+  EUR: "€",
+  GBP: "£",
   CAD: "CA$",
   CHF: "CHF",
   JPY: "¥",
 };
 
-let cachedSymbol: string | null = null;
-let cacheTimestamp = 0;
-
 export function useCurrencySymbol(): string {
-  const [symbol, setSymbol] = useState<string>(cachedSymbol ?? "$");
+  const [symbol, setSymbol] = useState<string>("$");
 
-  useEffect(() => {
-    if (cachedSymbol && Date.now() - cacheTimestamp < 60_000) {
-      setSymbol(cachedSymbol);
-      return;
-    }
+  const fetch = useCallback(() => {
     storeSettingsApi
       .get()
-      .then((settings) => {
-        const sym = SYMBOLS[settings.currency] || settings.currency;
-        cachedSymbol = sym;
-        cacheTimestamp = Date.now();
-        setSymbol(sym);
-      })
-      .catch(() => {
-        // garde le symbole par défaut
-      });
+      .then((s) => setSymbol(SYMBOLS[s.currency] || "$"))
+      .catch(() => setSymbol("$"));
   }, []);
+
+  // Chargement initial
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  // Écoute l'événement déclenché après une sauvegarde des paramètres
+  useEffect(() => {
+    const handler = () => fetch();
+    window.addEventListener("store-settings-updated", handler);
+    return () => window.removeEventListener("store-settings-updated", handler);
+  }, [fetch]);
 
   return symbol;
 }
