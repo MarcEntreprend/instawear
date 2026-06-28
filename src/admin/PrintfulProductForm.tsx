@@ -797,16 +797,29 @@ export default function PrintfulProductForm({
               step={0.01}
             />
             {shippingRange ? (
-              <p
-                style={{
-                  fontSize: 11,
-                  color: "var(--color-ink4)",
-                  marginTop: 4,
-                }}
-              >
-                Plage estimée : {shippingRange.min.toFixed(2)} –{" "}
-                {shippingRange.max.toFixed(2)} {pfCurrency}
-              </p>
+              shippingRange.min === shippingRange.max ? (
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-ink4)",
+                    marginTop: 4,
+                  }}
+                >
+                  Frais de port estimés : {shippingRange.min.toFixed(2)}{" "}
+                  {pfCurrency}
+                </p>
+              ) : (
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-ink4)",
+                    marginTop: 4,
+                  }}
+                >
+                  Plage estimée : {shippingRange.min.toFixed(2)} –{" "}
+                  {shippingRange.max.toFixed(2)} {pfCurrency}
+                </p>
+              )
             ) : (
               <p
                 style={{
