@@ -14,6 +14,7 @@ export interface NavLink {
 
 export interface Product {
   id: string;
+  isActive: boolean;
   title: string;
   brand: string;
   description: string;

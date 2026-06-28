@@ -626,6 +626,9 @@ export default function App() {
 
   // Filter products by all selection constraints
   const filteredProducts = products.filter((product) => {
+    // Exclure les produits inactifs du catalogue
+    if (!product.isActive) return false;
+
     const matchesSearch =
       product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -641,7 +644,6 @@ export default function App() {
       ? product.eventType === selectedEventType
       : true;
 
-    // logique de filtrage dans le calcul des filteredProducts
     const matchesFavorites = showFavoritesOnly
       ? favorites.includes(product.id)
       : true;
@@ -1403,6 +1405,7 @@ export default function App() {
                             e.stopPropagation();
                             toggleFavorite(product.id);
                           }}
+                          disabled={!product.isActive}
                           className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-110"
                           style={{
                             background: favorites.includes(product.id)
@@ -1411,6 +1414,10 @@ export default function App() {
                             backdropFilter: "blur(8px)",
                             border: `1px solid ${favorites.includes(product.id) ? "transparent" : "var(--color-border)"}`,
                             zIndex: 5,
+                            opacity: product.isActive ? 1 : 0.4,
+                            cursor: product.isActive
+                              ? "pointer"
+                              : "not-allowed",
                           }}
                           aria-label={
                             favorites.includes(product.id)
@@ -1515,20 +1522,35 @@ export default function App() {
                           )}
                         </div>
 
-                        <button
-                          onClick={() =>
-                            addToCart(
-                              product,
-                              product.colors?.[0] || "#000000",
-                              "M",
-                            )
-                          }
-                          className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
-                          id={`btn-add-cart-list-${product.id}`}
-                        >
-                          <Plus className="w-3.5 h-3.5 text-white" />
-                          Ajouter au panier
-                        </button>
+                        {product.isActive ? (
+                          <button
+                            onClick={() =>
+                              addToCart(
+                                product,
+                                product.colors?.[0] || "#000000",
+                                "M",
+                              )
+                            }
+                            className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
+                            id={`btn-add-cart-list-${product.id}`}
+                          >
+                            <Plus className="w-3.5 h-3.5 text-white" />
+                            Ajouter au panier
+                          </button>
+                        ) : (
+                          <div className="text-center mt-1">
+                            <p className="text-[10px] text-rose-500 font-medium mb-1">
+                              Cet article n'est pas disponible pour le moment.
+                            </p>
+                            <button
+                              disabled
+                              className="w-full bg-gray-200 text-gray-400 font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Ajouter au panier
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1998,41 +2020,64 @@ export default function App() {
                       : "Ajouter aux favoris"}
                   </button>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        addToCart(
-                          selectedProduct,
-                          pickedColor ||
-                            selectedProduct.colors?.[0] ||
-                            "#000000",
-                          pickedSize,
-                        );
-                      }}
-                      className="flex-1 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/10 hover:shadow-cyan-400/20"
-                      id="btn-modal-add-cart"
-                    >
-                      Ajouter au panier
-                    </button>
+                  {/*   Ajouter au panier Button */}
+                  {selectedProduct.isActive ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          addToCart(
+                            selectedProduct,
+                            pickedColor ||
+                              selectedProduct.colors?.[0] ||
+                              "#000000",
+                            pickedSize,
+                          );
+                        }}
+                        className="flex-1 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/10 hover:shadow-cyan-400/20"
+                        id="btn-modal-add-cart"
+                      >
+                        Ajouter au panier
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        addToCart(
-                          selectedProduct,
-                          pickedColor ||
-                            selectedProduct.colors?.[0] ||
-                            "#000000",
-                          pickedSize,
-                        );
-                        setCartOpen(true);
-                        setSelectedProduct(null);
-                      }}
-                      className="flex-1 bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg hover:shadow-amber-400/20"
-                      id="btn-modal-fast-buy"
-                    >
-                      Acheter maintenant
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => {
+                          addToCart(
+                            selectedProduct,
+                            pickedColor ||
+                              selectedProduct.colors?.[0] ||
+                              "#000000",
+                            pickedSize,
+                          );
+                          setCartOpen(true);
+                          setSelectedProduct(null);
+                        }}
+                        className="flex-1 bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg hover:shadow-amber-400/20"
+                        id="btn-modal-fast-buy"
+                      >
+                        Acheter maintenant
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center mt-2">
+                      <p className="text-xs text-rose-500 font-medium mb-3">
+                        Cet article n'est pas disponible pour le moment.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          disabled
+                          className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
+                        >
+                          Ajouter au panier
+                        </button>
+                        <button
+                          disabled
+                          className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
+                        >
+                          Acheter maintenant
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2118,10 +2163,11 @@ export default function App() {
             ) : (
               <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
                 {cart.map((item, idx) => {
+                  const isActive = item.product.isActive;
                   return (
                     <div
                       key={idx}
-                      className="flex gap-3 bg-gray-50 rounded-xl p-3 border border-gray-200 relative"
+                      className={`flex gap-3 bg-gray-50 rounded-xl p-3 border border-gray-200 relative ${!isActive ? "opacity-60" : ""}`}
                     >
                       <button
                         onClick={() => {
@@ -2129,6 +2175,7 @@ export default function App() {
                           setActiveGalleryIndex(0);
                         }}
                         className="w-16 h-20 bg-white rounded-lg overflow-hidden shrink-0 border-none p-0 cursor-pointer"
+                        disabled={!isActive}
                       >
                         <img
                           src={item.product.image || PLACEHOLDER_IMG}
@@ -2148,6 +2195,7 @@ export default function App() {
                               setActiveGalleryIndex(0);
                             }}
                             className="text-left bg-transparent border-none p-0 cursor-pointer hover:underline w-full"
+                            disabled={!isActive}
                           >
                             <h4 className="text-xs text-gray-900 font-bold line-clamp-1">
                               {item.product.title}
@@ -2165,37 +2213,51 @@ export default function App() {
                           </div>
                         </div>
 
+                        {!isActive && (
+                          <p className="text-[10px] text-rose-500 font-medium mt-1">
+                            Cet article n'est pas disponible pour le moment.
+                          </p>
+                        )}
+
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs font-black text-gray-900">
                             {item.product.price.toFixed(2)} {currencySymbol}
                           </span>
 
-                          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
-                            <button
-                              onClick={() => updateCartQty(idx, -1)}
-                              className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
-                            >
-                              -
-                            </button>
-                            <span className="text-xs text-gray-900 font-bold px-1.5">
-                              {item.quantity}
+                          {isActive ? (
+                            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
+                              <button
+                                onClick={() => updateCartQty(idx, -1)}
+                                className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
+                              >
+                                -
+                              </button>
+                              <span className="text-xs text-gray-900 font-bold px-1.5">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => updateCartQty(idx, 1)}
+                                className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
+                              >
+                                +
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-rose-400 border border-rose-200 bg-rose-50 px-2 py-0.5 rounded">
+                              Indisponible
                             </span>
-                            <button
-                              onClick={() => updateCartQty(idx, 1)}
-                              className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
-                            >
-                              +
-                            </button>
-                          </div>
+                          )}
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => removeFromCart(idx)}
-                        className="absolute top-2 right-2 text-gray-600 hover:text-rose-400"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isActive && (
+                        <button
+                          onClick={() => removeFromCart(idx)}
+                          className="absolute top-2 right-2 text-gray-600 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -2244,16 +2306,30 @@ export default function App() {
                 </div>
               )}
 
-              <button
-                onClick={() => {
-                  setCartOpen(false);
-                  setCheckoutOpen(true);
-                }}
-                className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-sm p-4 rounded-xl uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1.5 select-none"
-                id="btn-fast-checkout"
-              >
-                Passer la commande
-              </button>
+              {cart.some((item) => item.product.isActive) ? (
+                <button
+                  onClick={() => {
+                    setCartOpen(false);
+                    setCheckoutOpen(true);
+                  }}
+                  className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-sm p-4 rounded-xl uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1.5 select-none"
+                  id="btn-fast-checkout"
+                >
+                  Passer la commande
+                </button>
+              ) : (
+                <div className="text-center">
+                  <p className="text-xs text-rose-500 font-medium mb-2">
+                    Aucun article disponible pour commander.
+                  </p>
+                  <button
+                    disabled
+                    className="w-full bg-gray-200 text-gray-400 font-black text-sm p-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
+                  >
+                    Passer la commande
+                  </button>
+                </div>
+              )}
 
               <p className="text-[10px] text-gray-500 text-center leading-relaxed">
                 Paiement de démonstration crypté en 256 bits. Les vêtements
