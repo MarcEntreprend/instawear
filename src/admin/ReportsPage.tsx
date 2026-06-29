@@ -102,6 +102,18 @@ function ProgressBar({
           color: "var(--color-ink)",
           minWidth: 40,
           textAlign: "right",
+          cursor: "pointer",
+          padding: "2px 4px",
+          borderRadius: 4,
+          transition: "background 0.15s, color 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "var(--color-accent-soft)";
+          e.currentTarget.style.color = "var(--color-accent)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "var(--color-ink)";
         }}
       >
         {rightText !== undefined ? rightText : `${pct}%`}
@@ -257,7 +269,8 @@ export default function ReportsPage() {
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
   const [weekStartsMonday, setWeekStartsMonday] = useState(true); // Lundi par défaut
   const [showSettings, setShowSettings] = useState(false);
-  const [showRevenueInstead, setShowRevenueInstead] = useState(false);
+  const [showRevenueCat, setShowRevenueCat] = useState(false);
+  const [showRevenueTop, setShowRevenueTop] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
@@ -557,13 +570,21 @@ export default function ReportsPage() {
     return Object.values(agg)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5)
-      .map((p) => ({
-        name: p.title,
-        orders: p.orders,
-        revenue: `${p.revenue.toFixed(0)} ${currencySymbol}`,
-        productId: p.productId,
-        image: p.image,
-      }));
+      .map((p) => {
+        const pct =
+          currentRevenue > 0
+            ? Math.round((p.revenue / currentRevenue) * 100)
+            : 0;
+        return {
+          name: p.title,
+          orders: p.orders,
+          revenue: `${p.revenue.toFixed(0)} ${currencySymbol}`,
+          revenueRaw: p.revenue,
+          pct,
+          productId: p.productId,
+          image: p.image,
+        };
+      });
   }, [currentOrders, allProducts, currencySymbol]);
 
   const totalCustomers = stats?.totalCustomers ?? 0;
@@ -1264,15 +1285,13 @@ export default function ReportsPage() {
                 title={`${item.label} — ${item.pct}% — ${item.revenue.toFixed(2)} ${currencySymbol}`}
               >
                 <div
-                  key={item.value}
-                  title={`${item.label} — ${item.pct}% — ${item.revenue.toFixed(2)} ${currencySymbol}`}
-                  onClick={() => setShowRevenueInstead((prev) => !prev)}
+                  onClick={() => setShowRevenueCat((prev) => !prev)}
                   style={{ cursor: "pointer" }}
                 >
                   <ProgressBar
                     label={item.label}
                     pct={
-                      showRevenueInstead
+                      showRevenueCat
                         ? (item.revenue /
                             categorySales.reduce((s, c) => s + c.revenue, 0)) *
                           100
@@ -1280,7 +1299,7 @@ export default function ReportsPage() {
                     }
                     color={item.color}
                     rightText={
-                      showRevenueInstead
+                      showRevenueCat
                         ? `${item.revenue.toFixed(0)} ${currencySymbol}`
                         : `${item.pct}%`
                     }
@@ -1388,13 +1407,31 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowRevenueTop((prev) => !prev);
+                    }}
                     style={{
                       fontWeight: 700,
                       fontSize: 14,
                       color: "var(--color-ink)",
+                      cursor: "pointer",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      transition: "background 0.15s, color 0.15s",
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "var(--color-accent-soft)";
+                      e.currentTarget.style.color = "var(--color-accent)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--color-ink)";
+                    }}
+                    title="Cliquer pour basculer entre CA et % du total"
                   >
-                    {product.revenue}
+                    {showRevenueTop ? `${product.pct}%` : product.revenue}
                   </span>
                 </div>
               ))}
@@ -1534,13 +1571,31 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowRevenueTop((prev) => !prev);
+                    }}
                     style={{
                       fontWeight: 700,
                       fontSize: 14,
                       color: "var(--color-ink)",
+                      cursor: "pointer",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      transition: "background 0.15s, color 0.15s",
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "var(--color-accent-soft)";
+                      e.currentTarget.style.color = "var(--color-accent)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--color-ink)";
+                    }}
+                    title="Cliquer pour basculer entre CA et % du total"
                   >
-                    {product.revenue}
+                    {showRevenueTop ? `${product.pct}%` : product.revenue}
                   </span>
                 </div>
               ))
@@ -1660,9 +1715,9 @@ export default function ReportsPage() {
                       color: "var(--color-ink3)",
                       cursor: "pointer",
                     }}
-                    onClick={() => setShowRevenueInstead((prev) => !prev)}
+                    onClick={() => setShowRevenueCat((prev) => !prev)}
                   >
-                    {showRevenueInstead
+                    {showRevenueCat
                       ? `${item.revenue.toFixed(0)} ${currencySymbol}`
                       : `${item.pct}%`}
                   </span>
