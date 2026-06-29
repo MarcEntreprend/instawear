@@ -54,6 +54,7 @@ instawear/
 │   │   ├── CustomersPage.tsx
 │   │   ├── HelpPage.tsx
 │   │   ├── IntegrationsPage.tsx
+│   │   ├── NotificationsPage.tsx
 │   │   ├── OrdersPage.tsx
 │   │   ├── PrintfulProductForm.tsx
 │   │   ├── ProductFormPanel.tsx
