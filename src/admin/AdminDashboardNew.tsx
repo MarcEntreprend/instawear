@@ -334,7 +334,7 @@ function OrdersChart() {
             top: tooltip.y,
             transform: "translate(-50%, -100%)",
             background: "var(--color-ink)",
-            color: "white",
+            color: "var(--color-bg)",
             padding: "4px 10px",
             borderRadius: 8,
             fontSize: 12,
@@ -342,6 +342,7 @@ function OrdersChart() {
             pointerEvents: "none",
             zIndex: 500,
             whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           }}
         >
           {new Date(tooltip.day).toLocaleDateString("fr-FR", {
@@ -398,15 +399,37 @@ function DashboardHome({
 
   const currencySymbol = useCurrencySymbol();
 
+  // Deltas réels (comparaison avec hier pour les commandes)
+  const [yesterdayOrders, setYesterdayOrders] = useState<number | null>(null);
+
+  useEffect(() => {
+    import("../api/supabaseApi").then(({ dashboardApi }) => {
+      dashboardApi.getOrdersByDay(2).then((data) => {
+        if (data.length >= 2) {
+          const yesterdayData = data[data.length - 2];
+          setYesterdayOrders(yesterdayData.count);
+        }
+      });
+    });
+  }, []);
+
   if (loading || !stats) {
     return <SkeletonDashboard />;
   }
 
-  // Exemple de deltas simulés (à remplacer par des calculs réels plus tard)
-  const deltas = {
-    ordersToday: { value: 12, positive: true },
-    revenue: { value: 8, positive: true },
-  };
+  const ordersDelta =
+    yesterdayOrders !== null && yesterdayOrders > 0
+      ? {
+          value: Math.abs(
+            Math.round(
+              ((stats.ordersToday - yesterdayOrders) / yesterdayOrders) * 100,
+            ),
+          ),
+          positive: stats.ordersToday >= yesterdayOrders,
+        }
+      : yesterdayOrders === 0 && stats.ordersToday > 0
+        ? { value: 100, positive: true }
+        : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -658,14 +681,13 @@ function DashboardHome({
           label="Commandes aujourd'hui"
           value={stats.ordersToday}
           sub="nouvelles commandes"
-          delta={deltas.ordersToday}
+          delta={ordersDelta}
         />
         <StatCard
           icon={<TrendingUp size={17} strokeWidth={2} />}
           label="CA estimé"
           value={`${stats.revenueEstimate.toFixed(0)} ${currencySymbol}`}
           sub="toutes commandes"
-          delta={deltas.revenue}
         />
         <StatCard
           icon={
