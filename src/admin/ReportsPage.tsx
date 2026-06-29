@@ -15,6 +15,7 @@ import {
   Calendar,
   Info,
   X,
+  Settings,
 } from "lucide-react";
 import {
   dashboardApi,
@@ -23,22 +24,24 @@ import {
   customerApi,
 } from "../api/supabaseApi";
 import type { Order, AdminProduct, Customer } from "./adminTypes";
+import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 
-// ─── Palette de couleurs pour les catégories ────────────────────────────────
-const CATEGORY_COLORS: Record<string, string> = {
-  tshirt: "var(--color-accent)",
-  hoodie: "#f59e0b",
-  accessories: "#10b981",
-  mug: "#6366f1",
-  hat: "#ec4899",
-  bag: "#8b5cf6",
-  other: "#6b7280",
-};
+// Palette de couleurs qui cyclera sur les catégories dynamiques
+const CATEGORY_COLOR_PALETTE = [
+  "var(--color-accent)",
+  "#f59e0b",
+  "#10b981",
+  "#6366f1",
+  "#ec4899",
+  "#8b5cf6",
+  "#0891b2",
+  "#d97706",
+  "#7c3aed",
+  "#db2777",
+];
 
-function getCategoryColor(cat: string): string {
-  return CATEGORY_COLORS[cat] || CATEGORY_COLORS.other;
-}
+const OTHER_COLOR = "#6b7280";
 
 // ─── Composant de barre de progression ────────────────────────────────────
 function ProgressBar({
@@ -231,8 +234,10 @@ const formatDateForInput = (d: Date) => d.toISOString().split("T")[0];
 // ─── Composant principal ──────────────────────────────────────────────────
 export default function ReportsPage() {
   const currencySymbol = useCurrencySymbol();
+  const { getByType } = useReferenceLists();
 
   const [stats, setStats] = useState<any>(null);
+  const [podSettingsFull, setPodSettingsFull] = useState<any>(null);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
@@ -246,6 +251,8 @@ export default function ReportsPage() {
   const [showCatModal, setShowCatModal] = useState(false);
   const [showTopModal, setShowTopModal] = useState(false);
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
+  const [weekStartsMonday, setWeekStartsMonday] = useState(true); // Lundi par défaut
+  const [showSettings, setShowSettings] = useState(false);
 
   const periodOptions = [
     { label: "Auj.", days: 0 },
@@ -279,6 +286,11 @@ export default function ReportsPage() {
         productApi.list(),
         customerApi.list(),
       ]);
+      //
+      const podFull = await import("../api/supabaseApi").then(({ podApi }) =>
+        podApi.getSettings(),
+      );
+      setPodSettingsFull(podFull);
       setStats(s);
       setAllOrders(orders);
       setAllProducts(products);
@@ -398,14 +410,19 @@ export default function ReportsPage() {
     if (period === 0 && !customMode) {
       const today = new Date();
       const dayOfWeek = today.getDay(); // 0 = dimanche
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      monday.setHours(0, 0, 0, 0);
+      const firstDayOffset = weekStartsMonday
+        ? dayOfWeek === 0
+          ? 6
+          : dayOfWeek - 1 // lundi
+        : dayOfWeek; // dimanche
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - firstDayOffset);
+      startOfWeek.setHours(0, 0, 0, 0);
 
       const weekDays: { label: string; revenue: number }[] = [];
       for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
         const key = formatDateForInput(d);
         weekDays.push({
           label: d.toLocaleDateString("fr-FR", { weekday: "short" }),
@@ -441,12 +458,31 @@ export default function ReportsPage() {
       });
     }
     return aggregated;
-  }, [currentOrders, effectiveStart, effectiveEnd, period, customMode]);
+  }, [
+    currentOrders,
+    effectiveStart,
+    effectiveEnd,
+    period,
+    customMode,
+    weekStartsMonday,
+  ]);
 
   const maxChartRevenue = useMemo(
     () => Math.max(...chartData.map((d) => d.revenue), 1),
     [chartData],
   );
+
+  // ─── Catégories dynamiques (depuis reference_lists) ───────────────────
+  const catLabels: Record<string, string> = {};
+  const catColors: Record<string, string> = {};
+  const categories = getByType("category");
+  categories.forEach((cat, idx) => {
+    catLabels[cat.value] = cat.label;
+    catColors[cat.value] =
+      CATEGORY_COLOR_PALETTE[idx % CATEGORY_COLOR_PALETTE.length];
+  });
+  catLabels["other"] = "Autres";
+  catColors["other"] = OTHER_COLOR;
 
   // ─── Ventes par catégorie ──────────────────────────────────────────────
   const categorySales = useMemo(() => {
@@ -467,23 +503,13 @@ export default function ReportsPage() {
     );
     if (totalCatRevenue === 0) return [] as any[];
 
-    const catLabels: Record<string, string> = {
-      tshirt: "T-Shirts",
-      hoodie: "Hoodies",
-      accessories: "Accessoires",
-      mug: "Mugs",
-      hat: "Casquettes",
-      bag: "Sacs",
-      other: "Autres",
-    };
-
     return Object.entries(revenueByCat)
       .map(([cat, rev]) => ({
         value: cat,
         label: catLabels[cat] || cat,
         pct: Math.round((rev / totalCatRevenue) * 100),
         revenue: rev,
-        color: getCategoryColor(cat),
+        color: catColors[cat] || OTHER_COLOR,
       }))
       .sort((a, b) => b.revenue - a.revenue);
   }, [currentOrders, allProducts]);
@@ -552,6 +578,8 @@ export default function ReportsPage() {
   const handleExportCsv = useCallback(() => {
     const rows: string[] = [];
     const sep = ";";
+
+    // ─── Feuille 1 : Rapport actuel (inchangé) ───────────────────────────
     rows.push(`Rapport InstaWear – ${periodLabel}`);
     rows.push("");
     rows.push("RÉSUMÉ");
@@ -583,6 +611,69 @@ export default function ReportsPage() {
       rows.push(`${i + 1}${sep}${p.name}${sep}${p.orders}${sep}${p.revenue}`),
     );
 
+    // ─── Feuille 2 : Product Catalog ─────────────────────────────────────
+    rows.push("");
+    rows.push("═══════════════════════════════════════");
+    rows.push("CATALOGUE PRODUITS");
+    rows.push(
+      `product_id${sep}is_active${sep}title${sep}brand${sep}description${sep}full_description${sep}image_url${sep}gallery_urls${sep}created_at`,
+    );
+    allProducts.forEach((p) => {
+      const gallery = Array.isArray(p.gallery) ? p.gallery.join(" | ") : "";
+      rows.push(
+        `${p.id}${sep}${p.isActive ? "true" : "false"}${sep}${p.title}${sep}${p.brand}${sep}${p.description}${sep}${p.fullDescription || ""}${sep}${p.image || ""}${sep}${gallery}${sep}${p.createdAt || ""}`,
+      );
+    });
+
+    // ─── Feuille 3 : Supplier & Supply Chain ─────────────────────────────
+    rows.push("");
+    rows.push("═══════════════════════════════════════");
+    rows.push("FOURNISSEUR & SYNCHRONISATION");
+    if (podSettingsFull) {
+      rows.push(`Store ID${sep}${podSettingsFull.storeId || ""}`);
+      rows.push(`Store Name${sep}${podSettingsFull.storeName || ""}`);
+      rows.push(`Connecté${sep}${podSettingsFull.isConnected ? "Oui" : "Non"}`);
+      rows.push(`Dernière synchro${sep}${podSettingsFull.lastSyncAt || ""}`);
+      rows.push(
+        `Produits synchronisés${sep}${podSettingsFull.productsSyncedCount || 0}`,
+      );
+      rows.push("");
+      rows.push(`product_id${sep}external_product_id${sep}external_variant_id`);
+      allProducts
+        .filter((p) => p.externalProductId)
+        .forEach((p) => {
+          rows.push(
+            `${p.id}${sep}${p.externalProductId || ""}${sep}${p.externalVariantId || ""}`,
+          );
+        });
+    } else {
+      rows.push("Aucune donnée fournisseur disponible.");
+    }
+
+    // ─── Feuille 4 : Order Fulfillment ───────────────────────────────────
+    rows.push("");
+    rows.push("═══════════════════════════════════════");
+    rows.push("COMMANDES & EXPÉDITION");
+    rows.push(
+      `order_id${sep}order_date${sep}external_order_id${sep}product_id${sep}product_title${sep}selected_color${sep}selected_size${sep}quantity${sep}unit_price${sep}customer_name${sep}shipping_address${sep}shipping_city${sep}shipping_state${sep}shipping_zip${sep}shipping_country${sep}customer_phone${sep}tax_number`,
+    );
+    allOrders.forEach((order) => {
+      const addr = order.shippingAddress;
+      const rowCommon = `${order.id}${sep}${order.createdAt || ""}${sep}${order.externalOrderId || ""}${sep}`;
+      if (order.items.length === 0) {
+        rows.push(
+          `${rowCommon}${sep}${sep}${sep}${sep}${sep}${sep}${addr.fullName}${sep}${addr.address}${sep}${addr.city}${sep}${addr.state_code || ""}${sep}${addr.zip}${sep}${addr.country}${sep}${addr.phone || ""}${sep}${addr.tax_number || ""}`,
+        );
+      } else {
+        order.items.forEach((item) => {
+          rows.push(
+            `${rowCommon}${item.productId}${sep}${item.productTitle}${sep}${item.selectedColor}${sep}${item.selectedSize}${sep}${item.quantity}${sep}${item.unitPrice}${sep}${addr.fullName}${sep}${addr.address}${sep}${addr.city}${sep}${addr.state_code || ""}${sep}${addr.zip}${sep}${addr.country}${sep}${addr.phone || ""}${sep}${addr.tax_number || ""}`,
+          );
+        });
+      }
+    });
+
+    // Génération du fichier
     const csv = rows.join("\n");
     const blob = new Blob(["\uFEFF" + csv], {
       type: "text/csv;charset=utf-8;",
@@ -590,10 +681,9 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    // Nom du fichier : rapport-instawear-30j-du-24-juin-au-28-juin.csv
+
     let fileNameLabel = periodLabel;
     if (!customMode && [0, 7, 30].includes(period)) {
-      // Ajouter la plage de dates réelle pour les périodes courtes
       const fromStr = formatShortDate(formatDateForInput(effectiveStart));
       const toStr = formatShortDate(formatDateForInput(effectiveEnd));
       fileNameLabel = `${periodLabel}-du-${fromStr}-au-${toStr}`;
@@ -613,7 +703,30 @@ export default function ReportsPage() {
     categorySales,
     topProducts,
     currencySymbol,
+    allProducts,
+    allOrders,
+    podSettingsFull,
+    customMode,
+    period,
+    effectiveStart,
+    effectiveEnd,
   ]);
+
+  // Fermer le menu settings quand on clique ailleurs
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      setShowSettings(false);
+    };
+    // Délai pour éviter la fermeture immédiate sur le clic d'ouverture
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showSettings]);
 
   // ─── Rendu ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -679,7 +792,14 @@ export default function ReportsPage() {
             Analysez vos ventes, vos clients et la performance de vos produits.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            position: "relative",
+          }}
+        >
           <span style={{ fontSize: 12, color: "var(--color-ink4)" }}>
             {periodLabel}
           </span>
@@ -702,6 +822,136 @@ export default function ReportsPage() {
           >
             <FileText size={14} /> Exporter CSV
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSettings((prev) => !prev);
+            }}
+            title="Paramètres du rapport"
+            style={{
+              ...textBtn,
+              padding: "6px 8px",
+            }}
+          >
+            <Settings size={14} />
+          </button>
+          {showSettings && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                marginTop: 8,
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 12,
+                boxShadow: "var(--shadow-xl)",
+                padding: "14px 18px",
+                zIndex: 100,
+                minWidth: 240,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: 13,
+                  color: "var(--color-ink)",
+                  fontWeight: 600,
+                }}
+              >
+                <span>Début de semaine</span>
+                <button
+                  onClick={() => setWeekStartsMonday((prev) => !prev)}
+                  style={{
+                    background: weekStartsMonday
+                      ? "var(--color-accent)"
+                      : "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 999,
+                    width: 36,
+                    height: 20,
+                    position: "relative",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "background 0.2s",
+                  }}
+                  title={weekStartsMonday ? "Lundi" : "Dimanche"}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: weekStartsMonday ? 18 : 2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      transition: "left 0.2s",
+                    }}
+                  />
+                </button>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-ink4)",
+                    minWidth: 60,
+                    textAlign: "right",
+                  }}
+                >
+                  {weekStartsMonday ? "Lundi" : "Dimanche"}
+                </span>
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: 13,
+                  color: "var(--color-ink)",
+                  fontWeight: 600,
+                }}
+              >
+                <span>Boutons masqués</span>
+                <button
+                  onClick={() => setDevMode((prev) => !prev)}
+                  style={{
+                    background: devMode
+                      ? "var(--color-accent)"
+                      : "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 999,
+                    width: 36,
+                    height: 20,
+                    position: "relative",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: devMode ? 18 : 2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      transition: "left 0.2s",
+                    }}
+                  />
+                </button>
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1422,28 +1672,6 @@ export default function ReportsPage() {
           .reports-two-col { grid-template-columns: 1fr !important; }
         }
       `}</style>
-
-      {/* Mode test – retirer en production */}
-      {/* # TO DELETE once test is complete */}
-      <div style={{ textAlign: "center", marginTop: 8 }}>
-        <button
-          onClick={() => setDevMode(!devMode)}
-          style={{
-            padding: "4px 12px",
-            borderRadius: 6,
-            border: "1px solid var(--color-border)",
-            background: devMode
-              ? "var(--color-accent)"
-              : "var(--color-surface2)",
-            color: devMode ? "white" : "var(--color-ink4)",
-            fontWeight: 600,
-            fontSize: 11,
-            cursor: "pointer",
-          }}
-        >
-          {devMode ? "✓ Boutons visibles" : "🧪 Voir boutons masqués"}
-        </button>
-      </div>
     </div>
   );
 }
