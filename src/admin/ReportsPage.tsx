@@ -271,6 +271,12 @@ export default function ReportsPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showRevenueCat, setShowRevenueCat] = useState(false);
   const [showRevenueTop, setShowRevenueTop] = useState(false);
+  const [chartTooltip, setChartTooltip] = useState<{
+    label: string;
+    revenue: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
@@ -1199,7 +1205,9 @@ export default function ReportsPage() {
             alignItems: "flex-end",
             gap: 2,
             marginTop: 8,
+            position: "relative",
           }}
+          onMouseLeave={() => setChartTooltip(null)}
         >
           {chartData.map((d, i) => {
             const h =
@@ -1207,7 +1215,6 @@ export default function ReportsPage() {
             return (
               <div
                 key={i}
-                title={`${d.label}: ${d.revenue.toFixed(0)} ${currencySymbol}`}
                 style={{
                   flex: 1,
                   display: "flex",
@@ -1215,6 +1222,15 @@ export default function ReportsPage() {
                   alignItems: "center",
                   justifyContent: "flex-end",
                   height: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setChartTooltip({
+                    label: d.label,
+                    revenue: d.revenue,
+                    x: rect.left + rect.width / 2,
+                    y: rect.top - 10,
+                  });
                 }}
               >
                 <div
@@ -1228,11 +1244,35 @@ export default function ReportsPage() {
                     borderRadius: "2px 2px 0 0",
                     transition: "height 0.3s",
                     minHeight: d.revenue > 0 ? 2 : 1,
+                    cursor: "pointer",
                   }}
                 />
               </div>
             );
           })}
+          {chartTooltip && (
+            <div
+              style={{
+                position: "fixed",
+                left: chartTooltip.x,
+                top: chartTooltip.y,
+                transform: "translate(-50%, -100%)",
+                background: "var(--color-ink)",
+                color: "var(--color-bg)",
+                padding: "4px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                pointerEvents: "none",
+                zIndex: 500,
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              {chartTooltip.label} : {chartTooltip.revenue.toFixed(0)}{" "}
+              {currencySymbol}
+            </div>
+          )}
         </div>
         <div
           style={{
