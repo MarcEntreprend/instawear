@@ -182,6 +182,27 @@ export default function AuthModal({
               { onConflict: "id" },
             );
           if (insertError) console.warn("Erreur création client:", insertError);
+          else {
+            // Créer une notification "Nouveau client" (asynchrone, ne bloque pas l'inscription)
+            import("../api/supabaseApi").then(({ notificationApi }) => {
+              notificationApi
+                .create({
+                  title: "Nouveau client inscrit",
+                  description: `${name || email} s'est inscrit sur la boutique`,
+                  category: "customers",
+                  priority: "low",
+                  metadata: {
+                    customerName: name || email,
+                    linkTo: "/admin/customers",
+                    source: "Client",
+                  },
+                  action_label: "Voir le profil",
+                })
+                .catch((e) =>
+                  console.warn("Échec création notification nouveau client", e),
+                );
+            });
+          }
         }
 
         onSignUpSuccess(name || email);

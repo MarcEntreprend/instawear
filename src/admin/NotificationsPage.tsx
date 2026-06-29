@@ -1,19 +1,22 @@
 // src/admin/NotificationsPage.tsx
+// Version fusionnée – UX avancée + design system InstaWear
 
-import React, { useState, useMemo } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import {
-  Bell,
   Search,
-  Filter,
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Info,
   ExternalLink,
   ShoppingBag,
   Package,
   Users,
-  Tag,
   Wifi,
   WifiOff,
   Shield,
@@ -27,22 +30,21 @@ import {
   EyeOff,
   Archive,
   CheckCheck,
-  ChevronDown,
-  ChevronUp,
   Clock,
-  Calendar,
-  MoreHorizontal,
-  RefreshCw,
   Inbox,
   Zap,
   Ban,
   TrendingUp,
   Gift,
-  BarChart3,
   FileText,
+  X,
+  SlidersHorizontal,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react";
+import { notificationApi } from "../api/supabaseApi";
 
-// ─── Types TypeScript (anticipent la connexion backend) ─────────────────────
+// ─── Types (conservés de ta version) ──────────────────────────────────────
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
 export type NotificationStatus = "unread" | "read" | "archived";
@@ -62,7 +64,7 @@ export interface AdminNotification {
   category: NotificationCategory;
   priority: NotificationPriority;
   status: NotificationStatus;
-  timestamp: string; // ISO
+  timestamp: string;
   metadata?: {
     orderId?: string;
     productId?: string;
@@ -71,7 +73,7 @@ export interface AdminNotification {
     customerName?: string;
     amount?: number;
     currency?: string;
-    linkTo?: string; // simule la navigation future
+    linkTo?: string;
     externalRef?: string;
     source?: "Printful" | "Client" | "Système" | "Stripe" | "Shopify";
   };
@@ -79,371 +81,32 @@ export interface AdminNotification {
   actionLabel?: string;
 }
 
-// ─── Données mockées ultra‑réalistes (20+ notifications) ────────────────────
+// ─── Constantes visuelles (variables CSS du projet) ────────────────────────
 
-const MOCK_NOTIFICATIONS: AdminNotification[] = [
-  {
-    id: "1",
-    title: "Nouvelle commande #ORD-2026-1173",
-    description: "Client : Jean Dupont. 3 articles pour un total de 152,97 $.",
-    category: "orders",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString(), // il y a 12 min
-    metadata: {
-      orderId: "ORD-2026-1173",
-      customerName: "Jean Dupont",
-      amount: 152.97,
-      currency: "$",
-      linkTo: "/admin/orders/ORD-2026-1173",
-      productTitle: "T-Shirt Rio Carnival, Mug Brazil, Coque iPhone",
-    },
-    icon: <ShoppingBag size={18} />,
-    actionLabel: "Voir la commande",
-  },
-  {
-    id: "2",
-    title: "Statut commande mis à jour",
-    description: 'Commande #ORD-2026-1170 est passée en "Expédiée".',
-    category: "orders",
-    priority: "low",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    metadata: {
-      orderId: "ORD-2026-1170",
-      linkTo: "/admin/orders/ORD-2026-1170",
-      source: "Printful",
-    },
-    icon: <Truck size={18} />,
-    actionLabel: "Suivre le colis",
-  },
-  {
-    id: "3",
-    title: "Échec création commande Printful",
-    description:
-      "La commande #ORD-2026-1168 n'a pas pu être envoyée à Printful (erreur 400).",
-    category: "orders",
-    priority: "high",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    metadata: {
-      orderId: "ORD-2026-1168",
-      source: "Printful",
-      linkTo: "/admin/orders/ORD-2026-1168",
-    },
-    icon: <XCircle size={18} />,
-    actionLabel: "Résoudre le problème",
-  },
-  {
-    id: "4",
-    title: "Délai d'impression dépassé",
-    description:
-      "Commande #ORD-2026-1165 : l'impression chez Printful prend plus de 3 jours.",
-    category: "orders",
-    priority: "high",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    metadata: {
-      orderId: "ORD-2026-1165",
-      source: "Printful",
-      linkTo: "/admin/orders/ORD-2026-1165",
-    },
-    icon: <Clock size={18} />,
-    actionLabel: "Contacter le support Printful",
-  },
-  {
-    id: "5",
-    title: "Nouveau produit importé",
-    description:
-      'Le produit "Tough Case for iPhone®" a été importé depuis Printful.',
-    category: "products",
-    priority: "low",
-    status: "read",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    metadata: {
-      productId: "prod-printful-441770369",
-      productTitle: "Tough Case for iPhone®",
-      productImage: "https://files.cdn.printful.com/...",
-      linkTo: "/admin/products/prod-printful-441770369",
-    },
-    icon: <Package size={18} />,
-    actionLabel: "Voir le produit",
-  },
-  {
-    id: "6",
-    title: "Produit en rupture chez Printful",
-    description:
-      'Le variant "M / Black" du produit "Haiti Unisex t-shirt" est en rupture de stock.',
-    category: "products",
-    priority: "high",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    metadata: {
-      productId: "prod-printful-441780380",
-      productTitle: "Haiti Unisex t-shirt",
-      linkTo: "/admin/products/prod-printful-441780380",
-      source: "Printful",
-    },
-    icon: <Ban size={18} />,
-    actionLabel: "Désactiver le variant",
-  },
-  {
-    id: "7",
-    title: "Sync Printful échouée",
-    description:
-      "La synchronisation automatique a rencontré une erreur (401 Unauthorized).",
-    category: "api",
-    priority: "urgent",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-    metadata: {
-      source: "Printful",
-      linkTo: "/admin/settings",
-    },
-    icon: <WifiOff size={18} />,
-    actionLabel: "Vérifier la connexion API",
-  },
-  {
-    id: "8",
-    title: "Nouveau client inscrit",
-    description: "Marie Lambert s'est inscrite sur le site.",
-    category: "customers",
-    priority: "low",
-    status: "read",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    metadata: {
-      customerName: "Marie Lambert",
-      linkTo: "/admin/customers",
-    },
-    icon: <Users size={18} />,
-    actionLabel: "Voir le profil",
-  },
-  {
-    id: "9",
-    title: "Client VIP atteint",
-    description:
-      'Carlos Mendes a atteint le palier "Gold" avec plus de 500 $ d\'achats.',
-    category: "customers",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    metadata: {
-      customerName: "Carlos Mendes",
-      amount: 520,
-      currency: "$",
-      linkTo: "/admin/customers",
-    },
-    icon: <Star size={18} />,
-    actionLabel: "Féliciter le client",
-  },
-  {
-    id: "10",
-    title: "Nouvel avis produit",
-    description: 'Le produit "Hoodie UCL Finals" a reçu un avis 5 étoiles.',
-    category: "customers",
-    priority: "low",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    metadata: {
-      productId: "prod-123",
-      productTitle: "Hoodie UCL Finals",
-      linkTo: "/admin/products/prod-123",
-    },
-    icon: <MessageSquare size={18} />,
-    actionLabel: "Lire l'avis",
-  },
-  {
-    id: "11",
-    title: "Code promo utilisé",
-    description:
-      'Le code "SUMMER25" a été utilisé 47 fois. Il expire dans 2 jours.',
-    category: "bonus",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
-    metadata: {
-      linkTo: "/admin/promotions",
-      source: "Système",
-    },
-    icon: <Megaphone size={18} />,
-    actionLabel: "Gérer les promos",
-  },
-  {
-    id: "12",
-    title: "Campagne promotionnelle terminée",
-    description:
-      'La campagne "Summer Sale" a généré 2 340 $ de CA avec 38 commandes.',
-    category: "bonus",
-    priority: "low",
-    status: "read",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    metadata: {
-      amount: 2340,
-      currency: "$",
-      linkTo: "/admin/promotions",
-    },
-    icon: <BarChart3 size={18} />,
-    actionLabel: "Voir les résultats",
-  },
-  {
-    id: "13",
-    title: "Objectif de vente atteint",
-    description: "Vous avez atteint 100 commandes ce mois‑ci ! Bonus débloqué.",
-    category: "bonus",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-    metadata: {
-      linkTo: "/admin/reports",
-      source: "Système",
-    },
-    icon: <TrendingUp size={18} />,
-    actionLabel: "Voir les stats",
-  },
-  {
-    id: "14",
-    title: "Webhook Printful reçu",
-    description:
-      'Webhook "package_shipped" reçu pour la commande #ORD-2026-1160.',
-    category: "api",
-    priority: "low",
-    status: "read",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    metadata: {
-      orderId: "ORD-2026-1160",
-      source: "Printful",
-      linkTo: "/admin/orders/ORD-2026-1160",
-    },
-    icon: <Wifi size={18} />,
-    actionLabel: "Voir la commande",
-  },
-  {
-    id: "15",
-    title: "Erreur API Stripe",
-    description:
-      "Échec de débit pour la commande #ORD-2026-1158 : carte refusée.",
-    category: "finance",
-    priority: "high",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-    metadata: {
-      orderId: "ORD-2026-1158",
-      source: "Stripe",
-      linkTo: "/admin/orders/ORD-2026-1158",
-    },
-    icon: <CreditCard size={18} />,
-    actionLabel: "Contacter le client",
-  },
-  {
-    id: "16",
-    title: "Facture Printful disponible",
-    description: "Votre facture mensuelle de juin 2026 est prête (1 247,80 $).",
-    category: "finance",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
-    metadata: {
-      amount: 1247.8,
-      currency: "$",
-      source: "Printful",
-      linkTo: "https://printful.com/dashboard/billing",
-    },
-    icon: <FileText size={18} />,
-    actionLabel: "Télécharger la facture",
-  },
-  {
-    id: "17",
-    title: "Tentative de fraude détectée",
-    description:
-      "Connexion suspecte depuis l'IP 203.0.113.42 (localisation : Russie).",
-    category: "security",
-    priority: "urgent",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    metadata: {
-      source: "Système",
-      linkTo: "/admin/security",
-    },
-    icon: <Shield size={18} />,
-    actionLabel: "Examiner l'activité",
-  },
-  {
-    id: "18",
-    title: "Produit signalé par un client",
-    description:
-      'Le produit "Mug World Cup" a été signalé pour contenu inapproprié.',
-    category: "security",
-    priority: "high",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    metadata: {
-      productId: "prod-789",
-      productTitle: "Mug World Cup",
-      linkTo: "/admin/products/prod-789",
-    },
-    icon: <AlertTriangle size={18} />,
-    actionLabel: "Modérer le contenu",
-  },
-  {
-    id: "19",
-    title: "Sync produits terminée",
-    description:
-      "La synchronisation automatique avec Printful vient de se terminer.",
-    category: "api",
-    priority: "low",
-    status: "read",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 7).toISOString(),
-    metadata: {
-      source: "Printful",
-      linkTo: "/admin/reports",
-    },
-    icon: <RefreshCw size={18} />,
-    actionLabel: "Voir les résultats",
-  },
-  {
-    id: "20",
-    title: "Quota API proche de la limite",
-    description:
-      "Vous avez utilisé 85% du quota autorisé pour l'API Printful ce mois‑ci.",
-    category: "api",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    metadata: {
-      source: "Printful",
-      linkTo: "/admin/settings",
-    },
-    icon: <Zap size={18} />,
-    actionLabel: "Gérer les quotas",
-  },
-  {
-    id: "21",
-    title: "Ticket support ouvert",
-    description:
-      'Le client "Sophie Martin" a ouvert un ticket : "Problème de taille".',
-    category: "customers",
-    priority: "medium",
-    status: "unread",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    metadata: {
-      customerName: "Sophie Martin",
-      linkTo: "/admin/support",
-    },
-    icon: <MessageSquare size={18} />,
-    actionLabel: "Répondre",
-  },
-];
-
-// ─── Constantes de style ────────────────────────────────────────────────────
-
-const PRIORITY_COLORS: Record<
+const PRIORITY_META: Record<
   NotificationPriority,
-  { bg: string; color: string; label: string }
+  { label: string; dot: string; ring: string }
 > = {
-  low: { bg: "#f3f4f6", color: "#6b7280", label: "Basse" },
-  medium: { bg: "#dbeafe", color: "#1e40af", label: "Moyenne" },
-  high: { bg: "#fee2e2", color: "#991b1b", label: "Haute" },
-  urgent: { bg: "#fef3c7", color: "#92400e", label: "Urgente" },
+  low: {
+    label: "Basse",
+    dot: "var(--color-ink4)",
+    ring: "var(--color-surface2)",
+  },
+  medium: {
+    label: "Moyenne",
+    dot: "var(--color-ink3)",
+    ring: "var(--color-surface2)",
+  },
+  high: {
+    label: "Haute",
+    dot: "var(--color-accent)",
+    ring: "var(--color-accent-bg)",
+  },
+  urgent: {
+    label: "Urgente",
+    dot: "var(--color-accent)",
+    ring: "var(--color-accent-soft)",
+  },
 };
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
@@ -457,21 +120,109 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
 };
 
 const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
-  orders: <ShoppingBag size={14} />,
-  products: <Package size={14} />,
-  customers: <Users size={14} />,
-  bonus: <Gift size={14} />,
-  api: <Settings size={14} />,
-  security: <Shield size={14} />,
-  finance: <CreditCard size={14} />,
+  orders: <ShoppingBag size={13} strokeWidth={1.75} />,
+  products: <Package size={13} strokeWidth={1.75} />,
+  customers: <Users size={13} strokeWidth={1.75} />,
+  bonus: <Gift size={13} strokeWidth={1.75} />,
+  api: <Settings size={13} strokeWidth={1.75} />,
+  security: <Shield size={13} strokeWidth={1.75} />,
+  finance: <CreditCard size={13} strokeWidth={1.75} />,
 };
 
-// ─── Composant principal ────────────────────────────────────────────────────
+function getNotificationIcon(
+  category: NotificationCategory,
+  priority: NotificationPriority,
+): React.ReactNode {
+  // Icônes spécifiques pour certains couples catégorie/priorité
+  if (category === "orders" && priority === "high")
+    return <XCircle size={17} strokeWidth={1.75} />;
+  if (category === "api" && priority === "urgent")
+    return <WifiOff size={17} strokeWidth={1.75} />;
+  if (category === "security") return <Shield size={17} strokeWidth={1.75} />;
+  if (category === "finance")
+    return <CreditCard size={17} strokeWidth={1.75} />;
+
+  // Sinon, icône par défaut de la catégorie
+  const icons: Record<NotificationCategory, React.ReactNode> = {
+    orders: <ShoppingBag size={17} strokeWidth={1.75} />,
+    products: <Package size={17} strokeWidth={1.75} />,
+    customers: <Users size={17} strokeWidth={1.75} />,
+    bonus: <Gift size={17} strokeWidth={1.75} />,
+    api: <Settings size={17} strokeWidth={1.75} />,
+    security: <Shield size={17} strokeWidth={1.75} />,
+    finance: <CreditCard size={17} strokeWidth={1.75} />,
+  };
+  return icons[category];
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "hier";
+  if (d < 7) return `il y a ${d} j`;
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function dayBucket(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const startOfDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
+  const diffDays = Math.round(
+    (startOfToday.getTime() - startOfDate.getTime()) / 86400000,
+  );
+  if (diffDays <= 0) return "Aujourd'hui";
+  if (diffDays === 1) return "Hier";
+  if (diffDays < 7) return "Cette semaine";
+  return "Plus ancien";
+}
+
+// ─── Toast system ──────────────────────────────────────────────────────────
+
+interface ToastState {
+  id: number;
+  message: string;
+}
+
+function useToasts() {
+  const [toasts, setToasts] = useState<ToastState[]>([]);
+  const counter = useRef(0);
+  const push = (message: string) => {
+    const id = ++counter.current;
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      3200,
+    );
+  };
+  return { toasts, push };
+}
+
+// ─── Composant principal ───────────────────────────────────────────────────
 
 export default function NotificationsPage() {
-  // ─── States (préparés pour la connexion backend) ─────────────────────────
-  const [notifications, setNotifications] =
-    useState<AdminNotification[]>(MOCK_NOTIFICATIONS);
+  // ─── États ──────────────────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<
     NotificationCategory | "all"
@@ -486,65 +237,98 @@ export default function NotificationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "compact">("list");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const perPage = 10;
+  const { toasts, push: pushToast } = useToasts();
 
-  // ─── Handlers ────────────────────────────────────────────────────────────
+  // ─── Chargement réel depuis l'API ──────────────────────────────────────
 
-  const handleMarkAsRead = (id: string) => {
-    // Simulé – futur : PUT /api/notifications/{id}/read
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, status: "read" as NotificationStatus } : n,
-      ),
-    );
+  const fetchNotifications = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data, total } = await notificationApi.list({
+        category: filterCategory !== "all" ? filterCategory : undefined,
+        priority: filterPriority !== "all" ? filterPriority : undefined,
+        status: filterStatus !== "all" ? filterStatus : undefined,
+        search: searchTerm || undefined,
+        page: currentPage,
+        perPage,
+        sortOrder,
+      });
+      setNotifications(data);
+      setTotalCount(total);
+    } catch (e) {
+      console.error("Erreur chargement notifications", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    filterCategory,
+    filterPriority,
+    filterStatus,
+    searchTerm,
+    currentPage,
+    sortOrder,
+  ]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // ─── Compteur non lues (polling toutes les 30s) ────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    notificationApi
+      .getUnreadCount()
+      .then(setUnreadCount)
+      .catch(() => {});
+    const interval = setInterval(() => {
+      notificationApi
+        .getUnreadCount()
+        .then(setUnreadCount)
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [notifications]);
+
+  // ─── Handlers (appels API réels) ───────────────────────────────────────
+
+  const handleMarkAsRead = async (id: string) => {
+    await notificationApi.markAsRead(id);
+    fetchNotifications();
   };
 
-  const handleMarkAsUnread = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, status: "unread" as NotificationStatus } : n,
-      ),
-    );
+  const handleMarkAsUnread = async (id: string) => {
+    await notificationApi.markAsUnread(id);
+    fetchNotifications();
   };
 
-  const handleArchive = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, status: "archived" as NotificationStatus } : n,
-      ),
-    );
+  const handleArchive = async (id: string) => {
+    await notificationApi.archive(id);
+    pushToast("Notification archivée.");
+    fetchNotifications();
   };
 
-  const handleBulkMarkAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        selectedIds.has(n.id)
-          ? { ...n, status: "read" as NotificationStatus }
-          : n,
-      ),
-    );
+  const handleBulkMarkAsRead = async () => {
+    await notificationApi.bulkMarkAsRead([...selectedIds]);
+    pushToast(`${selectedIds.size} notification(s) marquée(s) comme lue(s).`);
     setSelectedIds(new Set());
+    fetchNotifications();
   };
 
-  const handleBulkArchive = () => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        selectedIds.has(n.id)
-          ? { ...n, status: "archived" as NotificationStatus }
-          : n,
-      ),
-    );
+  const handleBulkArchive = async () => {
+    const count = selectedIds.size;
+    await notificationApi.bulkArchive([...selectedIds]);
+    pushToast(`${count} notification(s) archivée(s).`);
     setSelectedIds(new Set());
+    fetchNotifications();
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.status === "unread"
-          ? { ...n, status: "read" as NotificationStatus }
-          : n,
-      ),
-    );
+  const handleMarkAllAsRead = async () => {
+    await notificationApi.markAllAsRead();
+    pushToast("Toutes les notifications ont été marquées comme lues.");
+    fetchNotifications();
   };
 
   const handleToggleSelect = (id: string) => {
@@ -557,169 +341,311 @@ export default function NotificationsPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredNotifications.length) {
+    if (selectedIds.size === notifications.length && notifications.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredNotifications.map((n) => n.id)));
+      setSelectedIds(new Set(notifications.map((n) => n.id)));
     }
   };
 
-  // Simule la navigation vers une page externe
-  const handleNavigate = (link?: string) => {
+  const handleNavigate = (link?: string, title?: string) => {
     if (!link) return;
-    alert(`Navigation simulée vers : ${link}`);
+    pushToast(`Navigation vers : ${title ?? link}`);
   };
 
-  // ─── Filtrage & Tri & Pagination ─────────────────────────────────────────
+  const handleExport = () => {
+    notificationApi
+      .exportCsv()
+      .then((csv) => {
+        const blob = new Blob(["\uFEFF" + csv], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `notifications-${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        pushToast(
+          `Export CSV généré – ${notifications.length} notification(s).`,
+        );
+      })
+      .catch(() => pushToast("Erreur lors de l'export."));
+  };
 
-  const filteredNotifications = useMemo(() => {
-    let result = [...notifications];
+  const activeFilterCount = [
+    filterCategory !== "all",
+    filterPriority !== "all",
+    filterStatus !== "all",
+  ].filter(Boolean).length;
 
-    if (filterCategory !== "all") {
-      result = result.filter((n) => n.category === filterCategory);
-    }
-    if (filterPriority !== "all") {
-      result = result.filter((n) => n.priority === filterPriority);
-    }
-    if (filterStatus !== "all") {
-      result = result.filter((n) => n.status === filterStatus);
-    }
-    if (searchTerm.trim()) {
-      const s = searchTerm.toLowerCase();
-      result = result.filter(
-        (n) =>
-          n.title.toLowerCase().includes(s) ||
-          n.description.toLowerCase().includes(s) ||
-          n.metadata?.customerName?.toLowerCase().includes(s) ||
-          n.metadata?.orderId?.toLowerCase().includes(s) ||
-          n.metadata?.productTitle?.toLowerCase().includes(s),
-      );
-    }
+  const resetFilters = () => {
+    setFilterCategory("all");
+    setFilterPriority("all");
+    setFilterStatus("all");
+    setSearchTerm("");
+  };
 
-    result.sort((a, b) =>
-      sortOrder === "newest"
-        ? new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        : new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
-    return result;
-  }, [
-    notifications,
-    filterCategory,
-    filterPriority,
-    filterStatus,
-    searchTerm,
-    sortOrder,
-  ]);
-
-  const paginatedNotifications = useMemo(() => {
-    const start = (currentPage - 1) * perPage;
-    return filteredNotifications.slice(start, start + perPage);
-  }, [filteredNotifications, currentPage]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredNotifications.length / perPage),
-  );
-  const unreadCount = notifications.filter((n) => n.status === "unread").length;
-
-  // Réinitialiser la page quand les filtres changent
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [filterCategory, filterPriority, filterStatus, searchTerm]);
 
-  // ─── Rendu ────────────────────────────────────────────────────────────────
+  // ─── Catégories pour le bento stats ──────────────────────────────────
+  const categoryBreakdown = useMemo(() => {
+    const counts: Record<NotificationCategory, number> = {
+      orders: 0,
+      products: 0,
+      customers: 0,
+      bonus: 0,
+      api: 0,
+      security: 0,
+      finance: 0,
+    };
+    notifications
+      .filter((n) => n.status !== "archived")
+      .forEach((n) => counts[n.category]++);
+    const max = Math.max(1, ...Object.values(counts));
+    return (Object.keys(counts) as NotificationCategory[])
+      .map((key) => ({
+        key,
+        count: counts[key],
+        pct: (counts[key] / max) * 100,
+      }))
+      .filter((c) => c.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [notifications]);
+
+  const urgentCount = notifications.filter(
+    (n) => n.status !== "archived" && n.priority === "urgent",
+  ).length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+
+  // ─── Groupement par jour ──────────────────────────────────────────────
+  const groupedByDay = useMemo(() => {
+    const groups: { label: string; items: AdminNotification[] }[] = [];
+    for (const notif of notifications) {
+      const label = dayBucket(notif.timestamp);
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) last.items.push(notif);
+      else groups.push({ label, items: [notif] });
+    }
+    return groups;
+  }, [notifications]);
+
+  // ─── Rendu ────────────────────────────────────────────────────────────
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           flexWrap: "wrap",
-          gap: 12,
+          gap: 16,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h2
+          <div
             style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--color-ink)",
-              letterSpacing: "-0.02em",
+              width: 40,
+              height: 40,
+              borderRadius: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--color-accent-bg)",
+              color: "var(--color-accent)",
             }}
           >
-            Notifications
-          </h2>
-          {unreadCount > 0 && (
-            <span
+            <Inbox size={19} strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2
               style={{
-                background: "var(--color-accent)",
-                color: "white",
-                borderRadius: 999,
-                padding: "2px 10px",
-                fontSize: 13,
+                fontSize: 20,
                 fontWeight: 700,
+                color: "var(--color-ink)",
+                letterSpacing: "-0.02em",
               }}
             >
-              {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
-            </span>
-          )}
+              Notifications
+            </h2>
+            <p style={{ fontSize: 12.5, color: "var(--color-ink3)" }}>
+              {unreadCount > 0
+                ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}`
+                : "Tout est à jour"}
+              {urgentCount > 0 && (
+                <span style={{ color: "var(--color-accent)" }}>
+                  {" · "}
+                  {urgentCount} urgente{urgentCount > 1 ? "s" : ""}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={handleMarkAllAsRead} style={secondaryBtn}>
-            <CheckCheck size={14} /> Tout marquer comme lu
-          </button>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
           <button
-            onClick={() => alert("Export simulé (CSV)")}
-            style={secondaryBtn}
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+            style={{
+              ...secondaryBtn,
+              opacity: unreadCount === 0 ? 0.4 : 1,
+              cursor: unreadCount === 0 ? "not-allowed" : "pointer",
+            }}
           >
-            <FileText size={14} /> Exporter
+            <CheckCheck size={14} strokeWidth={1.75} /> Tout marquer comme lu
+          </button>
+          <button onClick={handleExport} style={secondaryBtn}>
+            <FileText size={14} strokeWidth={1.75} /> Exporter
           </button>
           <div
             style={{
               display: "flex",
-              gap: 4,
+              gap: 1,
               background: "var(--color-surface2)",
-              borderRadius: 8,
+              borderRadius: 10,
               padding: 3,
             }}
           >
-            <button
-              onClick={() => setViewMode("list")}
-              style={{
-                ...toggleBtn,
-                background:
-                  viewMode === "list" ? "var(--color-surface)" : "transparent",
-                color:
-                  viewMode === "list"
-                    ? "var(--color-ink)"
-                    : "var(--color-ink4)",
-              }}
-            >
-              Liste
-            </button>
-            <button
-              onClick={() => setViewMode("compact")}
-              style={{
-                ...toggleBtn,
-                background:
-                  viewMode === "compact"
-                    ? "var(--color-surface)"
-                    : "transparent",
-                color:
-                  viewMode === "compact"
-                    ? "var(--color-ink)"
-                    : "var(--color-ink4)",
-              }}
-            >
-              Compact
-            </button>
+            {(["list", "compact"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  ...toggleBtn,
+                  background:
+                    viewMode === mode ? "var(--color-surface)" : "transparent",
+                  color:
+                    viewMode === mode
+                      ? "var(--color-ink)"
+                      : "var(--color-ink4)",
+                }}
+              >
+                {mode === "list" ? "Liste" : "Compact"}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Barre de filtres */}
+      {/* Bento stats */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1.6fr",
+          gap: 12,
+        }}
+      >
+        <StatCard
+          label="Non lues"
+          value={unreadCount}
+          icon={<Inbox size={16} strokeWidth={1.75} />}
+          tone="accent"
+        />
+        <StatCard
+          label="Urgentes en attente"
+          value={urgentCount}
+          icon={<Zap size={16} strokeWidth={1.75} />}
+          tone={urgentCount > 0 ? "warning" : "neutral"}
+        />
+        <div style={{ ...cardStyle, padding: 16 }}>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "var(--color-ink4)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: 12,
+            }}
+          >
+            Répartition par catégorie
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {categoryBreakdown.map((c) => (
+              <div
+                key={c.key}
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
+              >
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 7,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "var(--color-surface2)",
+                    color: "var(--color-ink3)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {CATEGORY_ICONS[c.key]}
+                </span>
+                <span
+                  style={{
+                    width: 88,
+                    flexShrink: 0,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: "var(--color-ink2)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {CATEGORY_LABELS[c.key]}
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    borderRadius: 999,
+                    background: "var(--color-surface2)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${c.pct}%`,
+                      height: "100%",
+                      borderRadius: 999,
+                      background: "var(--color-accent)",
+                      transition: "width 0.7s ease",
+                    }}
+                  />
+                </div>
+                <span
+                  style={{
+                    width: 20,
+                    flexShrink: 0,
+                    textAlign: "right",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink3)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {c.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar */}
       <div
         style={{
           display: "flex",
@@ -728,116 +654,255 @@ export default function NotificationsPage() {
           alignItems: "center",
         }}
       >
-        <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
+        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
           <Search
             size={14}
+            strokeWidth={1.75}
             style={{
               position: "absolute",
-              left: 10,
-              top: 10,
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
               color: "var(--color-ink4)",
+              pointerEvents: "none",
             }}
           />
           <input
             type="text"
-            placeholder="Rechercher dans les notifications…"
+            placeholder="Rechercher une commande, un client, un produit…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={searchInputStyle}
           />
         </div>
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value as any)}
-          style={selectStyle}
+
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          style={{
+            ...secondaryBtn,
+            borderColor:
+              activeFilterCount > 0
+                ? "var(--color-accent)"
+                : "var(--color-border)",
+            background:
+              activeFilterCount > 0
+                ? "var(--color-accent-bg)"
+                : "var(--color-surface)",
+            color:
+              activeFilterCount > 0
+                ? "var(--color-accent)"
+                : "var(--color-ink2)",
+          }}
         >
-          <option value="all">Toutes catégories</option>
-          {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterPriority}
-          onChange={(e) => setFilterPriority(e.target.value as any)}
-          style={selectStyle}
-        >
-          <option value="all">Toutes priorités</option>
-          <option value="low">Basse</option>
-          <option value="medium">Moyenne</option>
-          <option value="high">Haute</option>
-          <option value="urgent">Urgente</option>
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as any)}
-          style={selectStyle}
-        >
-          <option value="all">Tous statuts</option>
-          <option value="unread">Non lue</option>
-          <option value="read">Lue</option>
-          <option value="archived">Archivée</option>
-        </select>
+          <SlidersHorizontal size={14} strokeWidth={1.75} />
+          Filtres
+          {activeFilterCount > 0 && (
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: "var(--color-accent)",
+                color: "white",
+                fontSize: 10,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown
+            size={13}
+            strokeWidth={1.75}
+            style={{
+              transition: "transform 0.2s",
+              transform: filtersOpen ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+        </button>
+
         <button
           onClick={() =>
-            setSortOrder((prev) => (prev === "newest" ? "oldest" : "newest"))
+            setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
           }
-          style={{ ...secondaryBtn, gap: 4 }}
+          style={secondaryBtn}
         >
-          <Clock size={14} />{" "}
+          <Clock size={14} strokeWidth={1.75} />
           {sortOrder === "newest" ? "Plus récent" : "Plus ancien"}
         </button>
       </div>
 
-      {/* Actions groupées (visibles si sélection) */}
-      {selectedIds.size > 0 && (
+      {/* Panneau de filtres */}
+      {filtersOpen && (
         <div
           style={{
             display: "flex",
-            gap: 8,
-            alignItems: "center",
-            padding: "8px 12px",
-            background: "var(--color-accent-soft)",
-            borderRadius: 12,
-            color: "var(--color-accent)",
-            fontWeight: 600,
-            fontSize: 13,
+            flexWrap: "wrap",
+            gap: 10,
+            padding: 12,
+            borderRadius: 14,
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface2)",
           }}
         >
-          <span>
-            {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
-          </span>
-          <button onClick={handleBulkMarkAsRead} style={actionBtn}>
-            <Eye size={14} /> Marquer lue(s)
-          </button>
-          <button onClick={handleBulkArchive} style={actionBtn}>
-            <Archive size={14} /> Archiver
-          </button>
+          <FilterSelect
+            value={filterCategory}
+            onChange={(v) => setFilterCategory(v as any)}
+            placeholder="Toutes catégories"
+            options={Object.entries(CATEGORY_LABELS).map(([k, v]) => ({
+              value: k,
+              label: v,
+            }))}
+          />
+          <FilterSelect
+            value={filterPriority}
+            onChange={(v) => setFilterPriority(v as any)}
+            placeholder="Toutes priorités"
+            options={[
+              { value: "low", label: "Basse" },
+              { value: "medium", label: "Moyenne" },
+              { value: "high", label: "Haute" },
+              { value: "urgent", label: "Urgente" },
+            ]}
+          />
+          <FilterSelect
+            value={filterStatus}
+            onChange={(v) => setFilterStatus(v as any)}
+            placeholder="Tous statuts"
+            options={[
+              { value: "unread", label: "Non lue" },
+              { value: "read", label: "Lue" },
+              { value: "archived", label: "Archivée" },
+            ]}
+          />
+          {activeFilterCount > 0 && (
+            <button
+              onClick={resetFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                background: "none",
+                border: "none",
+                color: "var(--color-accent)",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <X size={12} strokeWidth={2} /> Réinitialiser
+            </button>
+          )}
         </div>
       )}
 
-      {/* Liste des notifications */}
-      {paginatedNotifications.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: 40,
-            color: "var(--color-ink4)",
-          }}
-        >
-          <Inbox size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
-          <p>Aucune notification trouvée.</p>
-        </div>
-      ) : (
+      {/* Barre d'actions groupées */}
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: selectedIds.size > 0 ? 60 : 0,
+          opacity: selectedIds.size > 0 ? 1 : 0,
+          transition: "max-height 0.3s ease, opacity 0.3s ease",
+        }}
+      >
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            gap: viewMode === "compact" ? 6 : 12,
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 16px",
+            borderRadius: 14,
+            background: "var(--color-accent)",
+            color: "white",
+            boxShadow: "var(--shadow-accent)",
           }}
         >
-          {/* Checkbox "Tout sélectionner" */}
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <button
+              onClick={handleBulkMarkAsRead}
+              style={{ ...actionBtnWhite }}
+            >
+              <Eye size={13} strokeWidth={1.75} /> Marquer lue(s)
+            </button>
+            <button onClick={handleBulkArchive} style={{ ...actionBtnWhite }}>
+              <Archive size={13} strokeWidth={1.75} /> Archiver
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 4,
+              }}
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste */}
+      {isLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                gap: 14,
+                padding: 16,
+                borderRadius: 14,
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+              }}
+            >
+              <div
+                className="skeleton"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  flexShrink: 0,
+                }}
+              />
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div
+                  className="skeleton"
+                  style={{ height: 14, width: "42%", borderRadius: 999 }}
+                />
+                <div
+                  className="skeleton"
+                  style={{ height: 12, width: "68%", borderRadius: 999 }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : notifications.length === 0 ? (
+        <EmptyState
+          hasFilters={activeFilterCount > 0 || !!searchTerm}
+          onReset={resetFilters}
+        />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <label
             style={{
               display: "flex",
@@ -851,25 +916,54 @@ export default function NotificationsPage() {
             <input
               type="checkbox"
               checked={
-                selectedIds.size === filteredNotifications.length &&
-                filteredNotifications.length > 0
+                selectedIds.size === notifications.length &&
+                notifications.length > 0
               }
               onChange={handleSelectAll}
+              style={{ accentColor: "var(--color-accent)" }}
             />
-            Tout sélectionner
+            Tout sélectionner ({notifications.length})
           </label>
-          {paginatedNotifications.map((notif) => (
-            <NotificationCard
-              key={notif.id}
-              notification={notif}
-              compact={viewMode === "compact"}
-              isSelected={selectedIds.has(notif.id)}
-              onToggleSelect={() => handleToggleSelect(notif.id)}
-              onMarkRead={() => handleMarkAsRead(notif.id)}
-              onMarkUnread={() => handleMarkAsUnread(notif.id)}
-              onArchive={() => handleArchive(notif.id)}
-              onNavigate={handleNavigate}
-            />
+
+          {groupedByDay.map((group) => (
+            <div
+              key={group.label}
+              style={{ display: "flex", flexDirection: "column", gap: 10 }}
+            >
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--color-ink4)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginLeft: 4,
+                }}
+              >
+                {group.label}
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: viewMode === "compact" ? 6 : 10,
+                }}
+              >
+                {group.items.map((notif) => (
+                  <NotificationCard
+                    key={notif.id}
+                    notification={notif}
+                    compact={viewMode === "compact"}
+                    isSelected={selectedIds.has(notif.id)}
+                    onToggleSelect={() => handleToggleSelect(notif.id)}
+                    onMarkRead={() => handleMarkAsRead(notif.id)}
+                    onMarkUnread={() => handleMarkAsUnread(notif.id)}
+                    onArchive={() => handleArchive(notif.id)}
+                    onNavigate={handleNavigate}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -880,34 +974,248 @@ export default function NotificationsPage() {
           style={{
             display: "flex",
             justifyContent: "center",
-            gap: 6,
+            gap: 8,
             alignItems: "center",
           }}
         >
           <button
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            style={pageBtn}
+            style={{
+              ...pageBtn,
+              opacity: currentPage === 1 ? 0.4 : 1,
+              cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            }}
           >
             ←
           </button>
-          <span style={{ fontSize: 13, color: "var(--color-ink3)" }}>
+          <span style={{ fontSize: 12.5, color: "var(--color-ink3)" }}>
             Page {currentPage} / {totalPages}
           </span>
           <button
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            style={pageBtn}
+            style={{
+              ...pageBtn,
+              opacity: currentPage === totalPages ? 0.4 : 1,
+              cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            }}
           >
             →
           </button>
         </div>
       )}
+
+      {/* Toasts */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          zIndex: 999,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          pointerEvents: "none",
+        }}
+      >
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            style={{
+              pointerEvents: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 16px",
+              borderRadius: 12,
+              borderLeft: "3px solid var(--color-accent)",
+              background: "var(--color-surface)",
+              boxShadow: "var(--shadow-lg)",
+              animation: "slideInRight 0.3s ease",
+            }}
+          >
+            <CheckCircle2
+              size={15}
+              strokeWidth={1.75}
+              style={{ color: "var(--color-accent)", flexShrink: 0 }}
+            />
+            <span
+              style={{
+                fontSize: 12.5,
+                fontWeight: 500,
+                color: "var(--color-ink)",
+              }}
+            >
+              {t.message}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ─── Sous‑composant NotificationCard ────────────────────────────────────────
+// ─── Sous-composants ───────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  tone: "accent" | "warning" | "neutral";
+}) {
+  const toneBg =
+    tone === "accent"
+      ? "var(--color-accent-bg)"
+      : tone === "warning"
+        ? "var(--color-gold-bg)"
+        : "var(--color-surface2)";
+  const toneColor =
+    tone === "accent"
+      ? "var(--color-accent)"
+      : tone === "warning"
+        ? "var(--color-gold)"
+        : "var(--color-ink3)";
+
+  return (
+    <div style={cardStyle}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--color-ink4)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
+          {label}
+        </p>
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: toneBg,
+            color: toneColor,
+          }}
+        >
+          {icon}
+        </span>
+      </div>
+      <p
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: "var(--color-ink)",
+          marginTop: 8,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={selectStyle}
+    >
+      <option value="all">{placeholder}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function EmptyState({
+  hasFilters,
+  onReset,
+}: {
+  hasFilters: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 12,
+        padding: 64,
+        borderRadius: 16,
+        border: "1px dashed var(--color-border)",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 14,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--color-surface2)",
+          color: "var(--color-ink4)",
+        }}
+      >
+        <Inbox size={22} strokeWidth={1.5} />
+      </div>
+      <div>
+        <p
+          style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink2)" }}
+        >
+          {hasFilters
+            ? "Aucune notification ne correspond"
+            : "Aucune notification"}
+        </p>
+        <p style={{ fontSize: 12.5, color: "var(--color-ink4)", marginTop: 2 }}>
+          {hasFilters
+            ? "Essayez d'ajuster vos filtres ou votre recherche."
+            : "Les nouveaux événements de la boutique apparaîtront ici."}
+        </p>
+      </div>
+      {hasFilters && (
+        <button onClick={onReset} style={{ ...secondaryBtn, marginTop: 4 }}>
+          Réinitialiser les filtres
+        </button>
+      )}
+    </div>
+  );
+}
 
 function NotificationCard({
   notification,
@@ -926,29 +1234,60 @@ function NotificationCard({
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onArchive: () => void;
-  onNavigate: (link?: string) => void;
+  onNavigate: (link?: string, title?: string) => void;
 }) {
-  const priorityStyle = PRIORITY_COLORS[notification.priority];
+  const priorityMeta = PRIORITY_META[notification.priority];
   const isUnread = notification.status === "unread";
+  const isArchived = notification.status === "archived";
 
   return (
     <div
-      style={{
-        background: "var(--color-surface)",
-        border: `1px solid ${isUnread ? "var(--color-accent)" : "var(--color-border)"}`,
-        borderRadius: 14,
-        padding: compact ? "10px 14px" : "14px 18px",
-        opacity: notification.status === "archived" ? 0.6 : 1,
-        display: "flex",
-        gap: compact ? 10 : 14,
-        alignItems: compact ? "center" : "flex-start",
-        transition: "background 0.15s",
-        fontWeight: isUnread ? 600 : 400,
-        cursor: "pointer",
+      role="button"
+      tabIndex={0}
+      onClick={() =>
+        onNavigate(notification.metadata?.linkTo, notification.title)
+      }
+      onKeyDown={(e) => {
+        if (e.key === "Enter")
+          onNavigate(notification.metadata?.linkTo, notification.title);
       }}
-      onClick={() => onNavigate(notification.metadata?.linkTo)}
+      style={{
+        position: "relative",
+        display: "flex",
+        alignItems: compact ? "center" : "flex-start",
+        gap: compact ? 12 : 14,
+        padding: compact ? "10px 14px" : "14px 18px",
+        borderRadius: 14,
+        border: `1px solid ${isUnread ? "var(--color-accent)" : "var(--color-border)"}`,
+        background: "var(--color-surface)",
+        opacity: isArchived ? 0.55 : 1,
+        cursor: "pointer",
+        transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+        boxShadow: isUnread ? "0 0 0 0 transparent" : "var(--shadow-sm)",
+      }}
+      onMouseEnter={(e) => {
+        if (!isUnread)
+          e.currentTarget.style.borderColor = "var(--color-border2)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isUnread)
+          e.currentTarget.style.borderColor = "var(--color-border)";
+      }}
     >
-      {/* Checkbox */}
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 12,
+            bottom: 12,
+            width: 3,
+            borderRadius: 999,
+            background: "var(--color-accent)",
+          }}
+        />
+      )}
+
       <input
         type="checkbox"
         checked={isSelected}
@@ -960,26 +1299,25 @@ function NotificationCard({
         }}
       />
 
-      {/* Icône */}
       <div
         style={{
           width: compact ? 32 : 40,
           height: compact ? 32 : 40,
           borderRadius: 10,
-          background: isUnread
-            ? "var(--color-accent-soft)"
-            : "var(--color-surface2)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          background: isUnread
+            ? "var(--color-accent-bg)"
+            : "var(--color-surface2)",
           color: isUnread ? "var(--color-accent)" : "var(--color-ink3)",
           flexShrink: 0,
+          transition: "background 0.2s",
         }}
       >
-        {notification.icon}
+        {getNotificationIcon(notification.category, notification.priority)}
       </div>
 
-      {/* Contenu */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -992,146 +1330,129 @@ function NotificationCard({
         >
           <span
             style={{
-              fontSize: compact ? 13 : 14,
-              fontWeight: isUnread ? 700 : 500,
-              color: "var(--color-ink)",
+              fontSize: compact ? 12.5 : 13.5,
+              fontWeight: isUnread ? 600 : 500,
+              color: isUnread ? "var(--color-ink)" : "var(--color-ink2)",
             }}
           >
             {notification.title}
           </span>
-          {/* Pastille priorité */}
           <span
             style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "1px 6px",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "1px 8px",
               borderRadius: 999,
-              background: priorityStyle.bg,
-              color: priorityStyle.color,
-              whiteSpace: "nowrap",
+              fontSize: 10,
+              fontWeight: 600,
+              background: priorityMeta.ring,
+              color: "var(--color-ink2)",
             }}
           >
-            {priorityStyle.label}
-          </span>
-          {isUnread && (
             <span
               style={{
-                width: 8,
-                height: 8,
+                width: 5,
+                height: 5,
                 borderRadius: "50%",
-                background: "var(--color-accent)",
-                flexShrink: 0,
+                background: priorityMeta.dot,
               }}
             />
-          )}
+            {priorityMeta.label}
+          </span>
         </div>
+
         {!compact && (
           <p
             style={{
               fontSize: 12.5,
-              color: "var(--color-ink2)",
-              marginBottom: 6,
+              color: "var(--color-ink3)",
               lineHeight: 1.5,
+              marginBottom: 6,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
             }}
           >
             {notification.description}
           </p>
         )}
+
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 10,
             flexWrap: "wrap",
+            gap: "4px 10px",
             fontSize: 11,
             color: "var(--color-ink4)",
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Clock size={10} />
-            {new Date(notification.timestamp).toLocaleString("fr-FR", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            <Clock size={10} strokeWidth={1.75} />
+            {timeAgo(notification.timestamp)}
           </span>
           {notification.metadata?.source && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              · {notification.metadata.source}
-            </span>
+            <span>· {notification.metadata.source}</span>
           )}
           {notification.metadata?.orderId && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              · {notification.metadata.orderId}
-            </span>
+            <span>· {notification.metadata.orderId}</span>
           )}
           {notification.metadata?.amount && (
-            <span style={{ fontWeight: 600 }}>
-              · {notification.metadata.amount} {notification.metadata.currency}
+            <span style={{ fontWeight: 600, color: "var(--color-ink3)" }}>
+              ·{" "}
+              {notification.metadata.amount.toLocaleString("fr-FR", {
+                minimumFractionDigits: 2,
+              })}{" "}
+              {notification.metadata.currency}
             </span>
           )}
         </div>
       </div>
 
-      {/* Actions (hors compact) */}
       {!compact && (
         <div
           style={{
             display: "flex",
-            gap: 4,
+            gap: 2,
             alignItems: "center",
             flexShrink: 0,
+            opacity: 0,
+            transition: "opacity 0.2s",
           }}
+          className="notification-actions"
         >
           {notification.status !== "read" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkRead();
-              }}
-              title="Marquer comme lue"
-              style={iconBtn}
-            >
-              <Eye size={14} />
-            </button>
+            <IconAction
+              icon={<Eye size={14} strokeWidth={1.75} />}
+              label="Marquer comme lue"
+              onClick={onMarkRead}
+            />
           )}
           {notification.status !== "unread" &&
             notification.status !== "archived" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMarkUnread();
-                }}
-                title="Marquer non lue"
-                style={iconBtn}
-              >
-                <EyeOff size={14} />
-              </button>
+              <IconAction
+                icon={<EyeOff size={14} strokeWidth={1.75} />}
+                label="Marquer non lue"
+                onClick={onMarkUnread}
+              />
             )}
           {notification.status !== "archived" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onArchive();
-              }}
-              title="Archiver"
-              style={iconBtn}
-            >
-              <Archive size={14} />
-            </button>
+            <IconAction
+              icon={<Archive size={14} strokeWidth={1.75} />}
+              label="Archiver"
+              onClick={onArchive}
+            />
           )}
           {notification.metadata?.linkTo && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate(notification.metadata!.linkTo);
-              }}
-              title="Voir"
-              style={{ ...iconBtn, color: "var(--color-accent)" }}
-            >
-              <ExternalLink size={14} />
-            </button>
+            <IconAction
+              icon={<ExternalLink size={14} strokeWidth={1.75} />}
+              label="Voir"
+              accent
+              onClick={() =>
+                onNavigate(notification.metadata!.linkTo, notification.title)
+              }
+            />
           )}
         </div>
       )}
@@ -1139,27 +1460,66 @@ function NotificationCard({
   );
 }
 
-// ─── Styles réutilisés ──────────────────────────────────────────────────────
+function IconAction({
+  icon,
+  label,
+  onClick,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={label}
+      aria-label={label}
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        color: accent ? "var(--color-accent)" : "var(--color-ink4)",
+        transition: "background 0.15s, color 0.15s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = accent
+          ? "var(--color-accent-bg)"
+          : "var(--color-surface2)";
+        e.currentTarget.style.color = accent
+          ? "var(--color-accent)"
+          : "var(--color-ink2)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.color = accent
+          ? "var(--color-accent)"
+          : "var(--color-ink4)";
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
 
-const searchInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 14px 9px 34px",
-  borderRadius: 12,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-  fontSize: 13,
-  color: "var(--color-ink)",
-  outline: "none",
-};
+// ─── Styles réutilisés ─────────────────────────────────────────────────────
 
-const selectStyle: React.CSSProperties = {
-  padding: "9px 14px",
-  borderRadius: 12,
-  border: "1px solid var(--color-border)",
+const cardStyle: React.CSSProperties = {
   background: "var(--color-surface)",
-  fontSize: 13,
-  color: "var(--color-ink)",
-  cursor: "pointer",
+  border: "1px solid var(--color-border)",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "var(--shadow-sm)",
 };
 
 const secondaryBtn: React.CSSProperties = {
@@ -1174,48 +1534,71 @@ const secondaryBtn: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 12.5,
   cursor: "pointer",
+  transition: "border-color 0.2s, color 0.2s",
 };
 
 const toggleBtn: React.CSSProperties = {
   padding: "5px 12px",
-  borderRadius: 6,
+  borderRadius: 7,
   border: "none",
   fontWeight: 600,
   fontSize: 12,
   cursor: "pointer",
   background: "transparent",
+  transition: "background 0.2s, color 0.2s",
 };
 
-const actionBtn: React.CSSProperties = {
+const actionBtnWhite: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 4,
-  padding: "4px 10px",
-  borderRadius: 6,
+  gap: 6,
+  padding: "6px 12px",
+  borderRadius: 8,
   border: "none",
+  background: "rgba(255,255,255,0.15)",
+  color: "white",
+  fontWeight: 600,
+  fontSize: 12,
+  cursor: "pointer",
+  transition: "background 0.2s",
+};
+
+const searchInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 14px 10px 36px",
+  borderRadius: 12,
+  border: "1px solid var(--color-border)",
   background: "var(--color-surface)",
-  color: "var(--color-accent)",
-  fontWeight: 600,
-  fontSize: 12,
-  cursor: "pointer",
+  fontSize: 13,
+  color: "var(--color-ink)",
+  outline: "none",
+  transition: "border-color 0.2s",
 };
 
-const iconBtn: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
+const selectStyle: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)",
+  fontSize: 12.5,
+  fontWeight: 500,
+  color: "var(--color-ink2)",
   cursor: "pointer",
-  color: "var(--color-ink4)",
-  display: "flex",
-  alignItems: "center",
-  padding: 4,
+  outline: "none",
+  transition: "border-color 0.2s",
 };
 
 const pageBtn: React.CSSProperties = {
-  padding: "5px 10px",
-  borderRadius: 6,
+  width: 32,
+  height: 32,
+  borderRadius: 8,
   border: "1px solid var(--color-border)",
   background: "var(--color-surface)",
   color: "var(--color-ink2)",
   cursor: "pointer",
   fontWeight: 600,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "border-color 0.2s",
 };

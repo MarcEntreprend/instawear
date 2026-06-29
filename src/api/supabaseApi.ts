@@ -215,6 +215,25 @@ export const productApi = {
       .single();
     if (error) throw error;
     return mapProduct(data);
+
+    // NOTIFICATION - Nouveau produit créé
+    try {
+      await notificationApi.create({
+        title: "Nouveau produit créé",
+        description: `"${product.title}" ajouté au catalogue`,
+        category: "products",
+        priority: "low",
+        metadata: {
+          productId: data.id,
+          productTitle: product.title,
+          linkTo: "/admin/products",
+          source: "Système",
+        },
+        action_label: "Voir le produit",
+      });
+    } catch (e) {
+      console.warn("Échec création notification produit", e);
+    }
   },
   async update(
     id: string,
@@ -568,6 +587,28 @@ export const orderApi = {
         );
       }
     }
+
+    // Créer une notification
+    try {
+      await notificationApi.create({
+        title: `Nouvelle commande ${order.id}`,
+        description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
+        category: "orders",
+        priority: "medium",
+        metadata: {
+          orderId: order.id,
+          customerName: order.clientName,
+          amount: order.totalAmount,
+          currency: order.shippingAddress?.country === "US" ? "$" : "R$",
+          linkTo: `/admin/orders`,
+          source: "Client",
+        },
+        action_label: "Voir la commande",
+      });
+    } catch (e) {
+      console.warn("Échec création notification commande", e);
+    }
+
     return order;
   },
   async updateStatus(id: string, status: OrderStatus): Promise<void> {
@@ -576,6 +617,26 @@ export const orderApi = {
       .update({ status })
       .eq("id", id);
     if (error) throw error;
+
+    // NOTIFICATION - Changement de statut de commande
+    try {
+      const statusLabels: Record<string, string> = {
+        in_production: "En production",
+        shipped: "Expédiée",
+        delivered: "Livrée",
+        cancelled: "Annulée",
+      };
+      await notificationApi.create({
+        title: `Statut commande mis à jour`,
+        description: `Commande ${id} → "${statusLabels[status] || status}"`,
+        category: "orders",
+        priority: status === "cancelled" ? "high" : "low",
+        metadata: { orderId: id, linkTo: "/admin/orders", source: "Système" },
+        action_label: "Voir la commande",
+      });
+    } catch (e) {
+      console.warn("Échec création notification statut", e);
+    }
   },
   async exportCsv(): Promise<string> {
     const orders = await this.list();
@@ -677,6 +738,21 @@ export const podApi = {
       message: log.message,
       duration: log.duration,
     });
+
+    // Synchronisation Printful terminée
+    try {
+      await notificationApi.create({
+        title: "Synchronisation Printful terminée",
+        description: `${result.syncedCount} produit(s) synchronisé(s)`,
+        category: "api",
+        priority: "low",
+        metadata: { source: "Printful", linkTo: "/admin/reports" },
+        action_label: "Voir les résultats",
+      });
+    } catch (e) {
+      console.warn("Échec création notification sync", e);
+    }
+
     return { settings, log };
   },
   async getSyncLogs(): Promise<SyncLog[]> {
@@ -757,6 +833,17 @@ export const podApi = {
     });
     if (!res.ok) {
       const err = await res.json();
+      // NOTIFICATION - Échec création commande Printful
+      try {
+        await notificationApi.create({
+          title: "Échec création commande Printful",
+          description: `La commande ${orderId} n'a pas pu être envoyée à Printful`,
+          category: "orders",
+          priority: "high",
+          metadata: { orderId, linkTo: "/admin/orders", source: "Printful" },
+          action_label: "Résoudre le problème",
+        });
+      } catch (_) {}
       throw new Error(err.error || "Erreur Edge Function");
     }
     return res.json();
@@ -1076,6 +1163,148 @@ export const referenceListApi = {
       .delete()
       .eq("id", id);
     if (error) throw error;
+  },
+};
+
+// ─── Notifications API ─────────────────────────────────────────────────
+export const notificationApi = {
+  async list(params?: {
+    category?: string;
+    priority?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    perPage?: number;
+    sortOrder?: "newest" | "oldest";
+  }): Promise<{ data: any[]; total: number }> {
+    const page = params?.page ?? 1;
+    const perPage = params?.perPage ?? 10;
+    const from = (page - 1) * perPage;
+
+    let query = supabase.from("notifications").select("*", { count: "exact" });
+
+    if (params?.category && params.category !== "all") {
+      query = query.eq("category", params.category);
+    }
+    if (params?.priority && params.priority !== "all") {
+      query = query.eq("priority", params.priority);
+    }
+    if (params?.status && params.status !== "all") {
+      query = query.eq("status", params.status);
+    }
+    if (params?.search) {
+      query = query.or(
+        `title.ilike.%${params.search}%,description.ilike.%${params.search}%`,
+      );
+    }
+
+    query = query.order("timestamp", {
+      ascending: params?.sortOrder === "oldest",
+    });
+
+    query = query.range(from, from + perPage - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: data ?? [], total: count ?? 0 };
+  },
+
+  async getUnreadCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "unread");
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  async markAsRead(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "read", updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async markAsUnread(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "unread", updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async archive(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async bulkMarkAsRead(ids: string[]): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "read", updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) throw error;
+  },
+
+  async bulkArchive(ids: string[]): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) throw error;
+  },
+
+  async markAllAsRead(): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "read", updated_at: new Date().toISOString() })
+      .eq("status", "unread");
+    if (error) throw error;
+  },
+
+  async create(notification: {
+    title: string;
+    description?: string;
+    category: string;
+    priority?: string;
+    metadata?: any;
+    action_label?: string;
+  }): Promise<any> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert({
+        title: notification.title,
+        description: notification.description || "",
+        category: notification.category,
+        priority: notification.priority || "medium",
+        status: "unread",
+        timestamp: new Date().toISOString(),
+        metadata: notification.metadata || {},
+        action_label: notification.action_label,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async exportCsv(): Promise<string> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("timestamp", { ascending: false });
+    if (error) throw error;
+    const rows = ["title;description;category;priority;status;timestamp"];
+    (data ?? []).forEach((n: any) => {
+      rows.push(
+        `${n.title};${n.description};${n.category};${n.priority};${n.status};${n.timestamp}`,
+      );
+    });
+    return rows.join("\n");
   },
 };
 
