@@ -26,6 +26,7 @@ import {
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { Order, AdminProduct, Customer } from "./adminTypes";
+import ReportInfoModal from "./ReportInfoModal";
 import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 
@@ -269,6 +270,7 @@ export default function ReportsPage() {
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
   const [weekStartsMonday, setWeekStartsMonday] = useState(true); // Lundi par défaut
   const [showSettings, setShowSettings] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRevenueCat, setShowRevenueCat] = useState(false);
   const [showRevenueTop, setShowRevenueTop] = useState(false);
   const [chartTooltip, setChartTooltip] = useState<{
@@ -830,6 +832,22 @@ export default function ReportsPage() {
               }}
             >
               <RefreshCw size={14} strokeWidth={2} />
+            </button>
+            <button
+              onClick={() => setShowInfoModal(true)}
+              title="Métriques et calculs"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+                color: "var(--color-ink2)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <Info size={14} strokeWidth={2} />
             </button>
           </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
@@ -1874,6 +1892,10 @@ export default function ReportsPage() {
           product={quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
         />
+      )}
+
+      {showInfoModal && (
+        <ReportInfoModal onClose={() => setShowInfoModal(false)} />
       )}
     </div>
   );

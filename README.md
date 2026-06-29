@@ -60,6 +60,7 @@ instawear/
 │   │   ├── ProductQuickViewModal.tsx
 │   │   ├── ProductsPage.tsx
 │   │   ├── PromotionsPage.tsx
+│   │   ├── ReportInfoModal.tsx
 │   │   ├── ReportsPage.tsx
 │   │   └── SettingsPage.tsx
 │   ├── api/
@@ -104,16 +105,16 @@ instawear/
 │   │   ├── rest-version
 │   │   ├── storage-migration
 │   │   └── storage-version
-│   ├── functions/
-│   │   ├── create-printful-order/
-│   │   │   └── index.ts
-│   │   ├── reset-password/
-│   │   │   └── index.ts
-│   │   └── sync-printful/
-│   │       ├── .npmrc
-│   │       ├── deno.json
-│   │       └── index.ts
-│   └── config.toml
+│   ├── config.toml
+│   └── functions/
+│       ├── create-printful-order/
+│       │   └── index.ts
+│       ├── reset-password/
+│       │   └── index.ts
+│       └── sync-printful/
+│           ├── .npmrc
+│           ├── deno.json
+│           └── index.ts
 ├── .env
 ├── .env.example
 ├── .gitignore
