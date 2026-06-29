@@ -473,6 +473,7 @@ export default function ReportsPage() {
   );
 
   // ─── Catégories dynamiques (depuis reference_lists) ───────────────────
+  // mappings dynamiques pour les catégories
   const catLabels: Record<string, string> = {};
   const catColors: Record<string, string> = {};
   const categories = getByType("category");
