@@ -241,12 +241,14 @@ export default function ReportsPage() {
   const [customMode, setCustomMode] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const customDatesReady = customMode && customStart !== "" && customEnd !== "";
   const [activeInfo, setActiveInfo] = useState<string | null>(null);
   const [showCatModal, setShowCatModal] = useState(false);
   const [showTopModal, setShowTopModal] = useState(false);
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
 
   const periodOptions = [
+    { label: "Auj.", days: 0 },
     { label: "7j", days: 7 },
     { label: "30j", days: 30 },
     { label: "3m", days: 90 },
@@ -293,13 +295,17 @@ export default function ReportsPage() {
   }, [fetchAll]);
 
   // ─── Période effective ─────────────────────────────────────────────────
-  const customDatesReady = customMode && customStart && customEnd;
   const { effectiveStart, effectiveEnd } = useMemo(() => {
     if (customDatesReady) {
       return {
         effectiveStart: new Date(customStart),
         effectiveEnd: new Date(customEnd + "T23:59:59"),
       };
+    }
+    if (period === 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return { effectiveStart: today, effectiveEnd: new Date() };
     }
     const now = new Date();
     return { effectiveStart: daysAgo(period), effectiveEnd: now };
@@ -313,6 +319,7 @@ export default function ReportsPage() {
       }
       return "Plage personnalisée (choisissez les dates)";
     }
+    if (period === 0) return "Aujourd'hui";
     return periodOptions.find((p) => p.days === period)?.label || "30j";
   }, [customMode, customDatesReady, customStart, customEnd, period]);
 
@@ -387,6 +394,27 @@ export default function ReportsPage() {
       revenueMap[day] = (revenueMap[day] || 0) + o.totalAmount;
     });
 
+    // En mode "Auj.", on affiche la semaine entière (lundi → dimanche)
+    if (period === 0 && !customMode) {
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = dimanche
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      monday.setHours(0, 0, 0, 0);
+
+      const weekDays: { label: string; revenue: number }[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const key = formatDateForInput(d);
+        weekDays.push({
+          label: d.toLocaleDateString("fr-FR", { weekday: "short" }),
+          revenue: d <= today ? revenueMap[key] || 0 : 0,
+        });
+      }
+      return weekDays;
+    }
+
     const days: { label: string; revenue: number }[] = [];
     const start = new Date(effectiveStart);
     const end = new Date(effectiveEnd);
@@ -413,7 +441,7 @@ export default function ReportsPage() {
       });
     }
     return aggregated;
-  }, [currentOrders, effectiveStart, effectiveEnd]);
+  }, [currentOrders, effectiveStart, effectiveEnd, period, customMode]);
 
   const maxChartRevenue = useMemo(
     () => Math.max(...chartData.map((d) => d.revenue), 1),
@@ -520,6 +548,73 @@ export default function ReportsPage() {
     });
   };
 
+  // ─── Export CSV ────────────────────────────────────────────────────────
+  const handleExportCsv = useCallback(() => {
+    const rows: string[] = [];
+    const sep = ";";
+    rows.push(`Rapport InstaWear – ${periodLabel}`);
+    rows.push("");
+    rows.push("RÉSUMÉ");
+    rows.push(`CA Total${sep}${currentRevenue.toFixed(2)} ${currencySymbol}`);
+    rows.push(`Commandes${sep}${currentOrderCount}`);
+    rows.push(
+      `Panier moyen${sep}${currentAvgBasket.toFixed(2)} ${currencySymbol}`,
+    );
+    rows.push(`Nouveaux clients (période)${sep}${currentNewCustomers}`);
+    rows.push(`Clients (total)${sep}${totalCustomers}`);
+    rows.push("");
+    rows.push("REVENU PAR JOUR");
+    rows.push(`Date${sep}Revenu`);
+    chartData.forEach((d) =>
+      rows.push(`${d.label}${sep}${d.revenue.toFixed(2)} ${currencySymbol}`),
+    );
+    rows.push("");
+    rows.push("VENTES PAR CATÉGORIE");
+    rows.push(`Rang${sep}Catégorie${sep}Part${sep}Revenu`);
+    categorySales.forEach((c, i) =>
+      rows.push(
+        `${i + 1}${sep}${c.label}${sep}${c.pct}%${sep}${c.revenue.toFixed(2)} ${currencySymbol}`,
+      ),
+    );
+    rows.push("");
+    rows.push("TOP PRODUITS");
+    rows.push(`Rang${sep}Produit${sep}Articles vendus${sep}Revenu`);
+    topProducts.forEach((p, i) =>
+      rows.push(`${i + 1}${sep}${p.name}${sep}${p.orders}${sep}${p.revenue}`),
+    );
+
+    const csv = rows.join("\n");
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    // Nom du fichier : rapport-instawear-30j-du-24-juin-au-28-juin.csv
+    let fileNameLabel = periodLabel;
+    if (!customMode && [0, 7, 30].includes(period)) {
+      // Ajouter la plage de dates réelle pour les périodes courtes
+      const fromStr = formatShortDate(formatDateForInput(effectiveStart));
+      const toStr = formatShortDate(formatDateForInput(effectiveEnd));
+      fileNameLabel = `${periodLabel}-du-${fromStr}-au-${toStr}`;
+    }
+    const safeName = fileNameLabel.replace(/[^a-zA-Z0-9à-ü\-]/g, "-");
+    a.download = `rapport-instawear-${safeName}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [
+    periodLabel,
+    currentRevenue,
+    currentOrderCount,
+    currentAvgBasket,
+    currentNewCustomers,
+    totalCustomers,
+    chartData,
+    categorySales,
+    topProducts,
+    currencySymbol,
+  ]);
+
   // ─── Rendu ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -589,12 +684,21 @@ export default function ReportsPage() {
             {periodLabel}
           </span>
           <button
+            onClick={handleExportCsv}
             style={{
               ...textBtn,
-              opacity: customDatesReady || !customMode ? 1 : 0.4,
-              pointerEvents: customDatesReady || !customMode ? "auto" : "none",
+              opacity:
+                (!customMode || customDatesReady) && allOrders.length > 0
+                  ? 1
+                  : 0.4,
+              pointerEvents:
+                (!customMode || customDatesReady) && allOrders.length > 0
+                  ? "auto"
+                  : "none",
             }}
-            disabled={!customDatesReady && customMode}
+            disabled={
+              (customMode && !customDatesReady) || allOrders.length === 0
+            }
           >
             <FileText size={14} /> Exporter CSV
           </button>
