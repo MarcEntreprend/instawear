@@ -15,6 +15,7 @@ import {
   HelpCircle,
   ChevronRight,
   Zap,
+  Bell,
 } from "lucide-react";
 import {
   PLACEHOLDER_IMG,
@@ -25,6 +26,7 @@ import {
 export type AdminSection =
   | "dashboard"
   | "orders"
+  | "notifications"
   | "products"
   | "customers"
   | "promotions"
@@ -43,6 +45,7 @@ interface NavItem {
 const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "orders", label: "Commandes", icon: ShoppingBag },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "products", label: "Produits", icon: Package },
   { id: "customers", label: "Clients", icon: Users },
   { id: "promotions", label: "Promotions & Deals", icon: Tag },

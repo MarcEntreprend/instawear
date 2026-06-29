@@ -19,6 +19,7 @@ import {
 import AdminSidebar, { AdminSection } from "./AdminSidebar";
 import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
+import NotificationsPage from "./NotificationsPage";
 import OrdersPage from "./OrdersPage";
 import PromotionsPage from "./PromotionsPage";
 import ReportsPage from "./ReportsPage";
@@ -979,6 +980,7 @@ export default function AdminDashboard({
     dashboard: "Tableau de bord",
     orders: "Commandes",
     products: "Produits",
+    notifications: "Notifications",
     customers: "Clients",
     promotions: "Promotions & Deals",
     reports: "Rapports",
@@ -1205,6 +1207,7 @@ export default function AdminDashboard({
             />
           )}
           {section === "products" && <ProductsPage />}
+          {section === "notifications" && <NotificationsPage />}
           {section === "customers" && (
             <CustomersPage
               onNavigate={navigate}
