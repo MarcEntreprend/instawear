@@ -147,6 +147,24 @@ export default function AuthModal({
       alert(
         "Mot de passe réinitialisé avec succès ! Connectez-vous avec votre nouveau mot de passe.",
       );
+
+      // NOTIFICATION
+      import("../api/supabaseApi").then(({ notificationApi }) => {
+        notificationApi
+          .create({
+            title: "Mot de passe réinitialisé",
+            description: `${resetEmail} a réinitialisé son mot de passe`,
+            category: "customers",
+            priority: "medium",
+            metadata: {
+              customerName: resetEmail,
+              linkTo: "/admin/customers",
+              source: "Client",
+            },
+            action_label: "Voir le client",
+          })
+          .catch(() => {});
+      });
     } catch (err: any) {
       setError(err.message || "Erreur lors de la réinitialisation.");
     } finally {

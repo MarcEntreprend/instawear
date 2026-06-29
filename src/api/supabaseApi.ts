@@ -292,17 +292,59 @@ export const productApi = {
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) throw error;
+
+    // Notification
+    try {
+      await notificationApi.create({
+        title: "Produit supprimé",
+        description: `Le produit ${id} a été supprimé`,
+        category: "products",
+        priority: "high",
+        metadata: {
+          productId: id,
+          source: "Système",
+          linkTo: "/admin/products",
+        },
+        action_label: "Voir les produits",
+      });
+    } catch (_) {}
   },
+
   async bulkDelete(ids: string[]): Promise<void> {
     const { error } = await supabase.from("products").delete().in("id", ids);
     if (error) throw error;
+
+    // Notification
+    try {
+      await notificationApi.create({
+        title: "Produits supprimés",
+        description: `${ids.length} produit(s) supprimé(s)`,
+        category: "products",
+        priority: "high",
+        metadata: { source: "Système", linkTo: "/admin/products" },
+        action_label: "Voir les produits",
+      });
+    } catch (_) {}
   },
+
   async bulkSetActive(ids: string[], isActive: boolean): Promise<void> {
     const { error } = await supabase
       .from("products")
       .update({ is_active: isActive })
       .in("id", ids);
     if (error) throw error;
+
+    // Notification
+    try {
+      await notificationApi.create({
+        title: `Produit(s) ${isActive ? "activé(s)" : "désactivé(s)"}`,
+        description: `${ids.length} produit(s) ${isActive ? "activé(s)" : "désactivé(s)"}`,
+        category: "products",
+        priority: "medium",
+        metadata: { source: "Système", linkTo: "/admin/products" },
+        action_label: "Voir les produits",
+      });
+    } catch (_) {}
   },
   async duplicate(id: string): Promise<AdminProduct> {
     const orig = await this.get(id);
@@ -719,8 +761,20 @@ export const podApi = {
     });
     if (!res.ok) {
       const err = await res.json();
+      // Notification d'échec de synchronisation
+      try {
+        await notificationApi.create({
+          title: "Synchronisation Printful échouée",
+          description: `La synchronisation a rencontré une erreur : ${err.error || "Erreur inconnue"}`,
+          category: "api",
+          priority: "high",
+          metadata: { source: "Printful", linkTo: "/admin/settings" },
+          action_label: "Vérifier la connexion",
+        });
+      } catch (_) {}
       throw new Error(err.error || "Erreur Edge Function");
     }
+
     const result = await res.json();
 
     const settings = await this.getSettings();

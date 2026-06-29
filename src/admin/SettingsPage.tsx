@@ -155,6 +155,19 @@ export default function SettingsPage() {
       storeId: podForm.storeId,
       isConnected: true,
     });
+
+    import("../api/supabaseApi").then(({ notificationApi }) => {
+      notificationApi
+        .create({
+          title: "Clé API Printful enregistrée",
+          description: `Store ID: ${podForm.storeId || "N/A"}`,
+          category: "api",
+          priority: "low",
+          metadata: { source: "Printful", linkTo: "/admin/settings" },
+          action_label: "Voir les paramètres",
+        })
+        .catch(() => {});
+    });
   };
 
   const handleSaveStore = async (e: React.FormEvent) => {
@@ -162,6 +175,19 @@ export default function SettingsPage() {
     await saveStore(storeForm);
     // Notifie tous les composants qu'ils doivent relire la devise / les paramètres
     window.dispatchEvent(new Event("store-settings-updated"));
+
+    import("../api/supabaseApi").then(({ notificationApi }) => {
+      notificationApi
+        .create({
+          title: "Paramètres boutique mis à jour",
+          description: `Devise: ${storeForm.currency}, Pays: ${storeForm.country}, Livraison gratuite: ${storeForm.freeShippingThreshold}`,
+          category: "api",
+          priority: "low",
+          metadata: { source: "Système", linkTo: "/admin/settings" },
+          action_label: "Voir les paramètres",
+        })
+        .catch(() => {});
+    });
   };
 
   const handleSync = async () => {

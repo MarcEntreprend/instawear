@@ -97,6 +97,20 @@ export default function IntegrationsPage({
         setApiConnections((prev) =>
           prev.map((a) => (a.id === updated.id ? updated : a)),
         );
+
+        // NOTIFICATION
+        import("../api/supabaseApi").then(({ notificationApi }) => {
+          notificationApi
+            .create({
+              title: `Connexion API ajoutée`,
+              description: `"${apiForm.name}" (${apiForm.service}) configurée`,
+              category: "api",
+              priority: "medium",
+              metadata: { source: "Système", linkTo: "/admin/integrations" },
+              action_label: "Voir les intégrations",
+            })
+            .catch(() => {});
+        });
       } else {
         const created = await apiConnectionsApi.create(apiForm as any);
         setApiConnections((prev) => [...prev, created]);
@@ -110,6 +124,21 @@ export default function IntegrationsPage({
   const handleDeleteApi = async (id: string) => {
     if (window.confirm("Supprimer définitivement cette connexion API ?")) {
       await apiConnectionsApi.delete(id);
+
+      //notification
+      import("../api/supabaseApi").then(({ notificationApi }) => {
+        notificationApi
+          .create({
+            title: `Connexion API supprimée`,
+            description: `La connexion a été retirée`,
+            category: "api",
+            priority: "high",
+            metadata: { source: "Système", linkTo: "/admin/integrations" },
+            action_label: "Voir les intégrations",
+          })
+          .catch(() => {});
+      });
+
       setApiConnections((prev) => prev.filter((a) => a.id !== id));
     }
   };

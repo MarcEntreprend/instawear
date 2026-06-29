@@ -66,12 +66,38 @@ export default function PromotionsPage() {
     try {
       if (editingId) {
         await heroPromotionsApi.update(editingId, form);
+        // Notification
+        import("../api/supabaseApi").then(({ notificationApi }) => {
+          notificationApi
+            .create({
+              title: "Promotion modifiée",
+              description: `"${form.headline || form.title || "Sans titre"}" mise à jour`,
+              category: "bonus",
+              priority: "low",
+              metadata: { linkTo: "/admin/promotions", source: "Système" },
+              action_label: "Voir les promotions",
+            })
+            .catch(() => {});
+        });
       } else {
-        await heroPromotionsApi.create({
+        const created = await heroPromotionsApi.create({
           ...form,
           productId: form.productId!,
           order: promotions.length,
         } as HeroPromotion);
+        // Notification
+        import("../api/supabaseApi").then(({ notificationApi }) => {
+          notificationApi
+            .create({
+              title: "Nouvelle promotion créée",
+              description: `"${created.headline || created.title || "Sans titre"}" ajoutée au carrousel`,
+              category: "bonus",
+              priority: "medium",
+              metadata: { linkTo: "/admin/promotions", source: "Système" },
+              action_label: "Voir les promotions",
+            })
+            .catch(() => {});
+        });
       }
       await refresh();
       resetForm();
@@ -81,8 +107,22 @@ export default function PromotionsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const promo = promotions.find((p) => p.id === id);
     if (window.confirm("Supprimer cette promotion du carrousel ?")) {
       await heroPromotionsApi.delete(id);
+      // Notification
+      import("../api/supabaseApi").then(({ notificationApi }) => {
+        notificationApi
+          .create({
+            title: "Promotion supprimée",
+            description: `"${promo?.headline || promo?.title || "Sans titre"}" retirée du carrousel`,
+            category: "bonus",
+            priority: "medium",
+            metadata: { linkTo: "/admin/promotions", source: "Système" },
+            action_label: "Voir les promotions",
+          })
+          .catch(() => {});
+      });
       await refresh();
     }
   };

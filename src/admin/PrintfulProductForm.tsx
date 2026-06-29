@@ -293,6 +293,24 @@ export default function PrintfulProductForm({
       };
 
       await onSave(newProduct as AdminProduct);
+
+      // notification
+      import("../api/supabaseApi").then(({ notificationApi }) => {
+        notificationApi
+          .create({
+            title: `Produit Printful importé`,
+            description: `"${title}" importé avec succès`,
+            category: "products",
+            priority: "low",
+            metadata: {
+              productTitle: title,
+              linkTo: "/admin/products",
+              source: "Printful",
+            },
+            action_label: "Voir le produit",
+          })
+          .catch(() => {});
+      });
     } catch (err: any) {
       setError(err.message || "Erreur import");
     } finally {

@@ -114,6 +114,20 @@ export default function AdminUsersPage() {
   const handleDelete = async (id: string) => {
     if (window.confirm("Supprimer définitivement cet administrateur ?")) {
       await deleteUser(id);
+
+      // Notification
+      import("../api/supabaseApi").then(({ notificationApi }) => {
+        notificationApi
+          .create({
+            title: "Administrateur supprimé",
+            description: `Un compte admin a été retiré`,
+            category: "security",
+            priority: "high",
+            metadata: { source: "Système", linkTo: "/admin/admin-users" },
+            action_label: "Voir les admins",
+          })
+          .catch(() => {});
+      });
     }
   };
 
@@ -138,6 +152,23 @@ export default function AdminUsersPage() {
       });
     }
     setShowModal(false);
+
+    // Notification
+    import("../api/supabaseApi").then(({ notificationApi }) => {
+      const isUpdate = !!editingUser;
+      notificationApi
+        .create({
+          title: isUpdate
+            ? "Administrateur modifié"
+            : "Nouvel administrateur créé",
+          description: `${formEmail.trim()} — Rôle : ${formRole}`,
+          category: "security",
+          priority: "high",
+          metadata: { source: "Système", linkTo: "/admin/admin-users" },
+          action_label: "Voir les admins",
+        })
+        .catch(() => {});
+    });
   };
 
   // ── Affichage ─────────────────────────────────────────────────────────────
