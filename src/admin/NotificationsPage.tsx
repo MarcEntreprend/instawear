@@ -301,6 +301,8 @@ export default function NotificationsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "compact">("list");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showNotifSettings, setShowNotifSettings] = useState(false);
+  const [hideArchived, setHideArchived] = useState(true);
   const perPage = 10;
   const { toasts, push: pushToast } = useToasts();
 
@@ -359,16 +361,19 @@ export default function NotificationsPage() {
 
   const handleMarkAsRead = async (id: string) => {
     await notificationApi.markAsRead(id);
+    window.dispatchEvent(new Event("notifications-updated"));
     fetchNotifications();
   };
 
   const handleMarkAsUnread = async (id: string) => {
     await notificationApi.markAsUnread(id);
+    window.dispatchEvent(new Event("notifications-updated"));
     fetchNotifications();
   };
 
   const handleArchive = async (id: string) => {
     await notificationApi.archive(id);
+    window.dispatchEvent(new Event("notifications-updated"));
     pushToast("Notification archivée.");
     fetchNotifications();
   };
@@ -376,6 +381,7 @@ export default function NotificationsPage() {
   const handleBulkMarkAsUnread = async () => {
     const count = selectedIds.size;
     await notificationApi.bulkMarkAsUnread([...selectedIds]);
+    window.dispatchEvent(new Event("notifications-updated"));
     pushToast(`${count} notification(s) marquée(s) comme non lue(s).`);
     setSelectedIds(new Set());
     fetchNotifications();
@@ -383,6 +389,7 @@ export default function NotificationsPage() {
 
   const handleBulkMarkAsRead = async () => {
     await notificationApi.bulkMarkAsRead([...selectedIds]);
+    window.dispatchEvent(new Event("notifications-updated"));
     pushToast(`${selectedIds.size} notification(s) marquée(s) comme lue(s).`);
     setSelectedIds(new Set());
     fetchNotifications();
@@ -391,6 +398,7 @@ export default function NotificationsPage() {
   const handleBulkArchive = async () => {
     const count = selectedIds.size;
     await notificationApi.bulkArchive([...selectedIds]);
+    window.dispatchEvent(new Event("notifications-updated"));
     pushToast(`${count} notification(s) archivée(s).`);
     setSelectedIds(new Set());
     fetchNotifications();
@@ -398,6 +406,7 @@ export default function NotificationsPage() {
 
   const handleMarkAllAsRead = async () => {
     await notificationApi.markAllAsRead();
+    window.dispatchEvent(new Event("notifications-updated"));
     pushToast("Toutes les notifications ont été marquées comme lues.");
     fetchNotifications();
   };
@@ -486,6 +495,18 @@ export default function NotificationsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [filterCategory, filterPriority, filterStatus, searchTerm]);
+
+  useEffect(() => {
+    if (!showNotifSettings) return;
+    const handleClickOutside = () => setShowNotifSettings(false);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showNotifSettings]);
 
   // ─── Catégories pour le bento stats ──────────────────────────────────
   const categoryBreakdown = useMemo(() => {
@@ -648,6 +669,85 @@ export default function NotificationsPage() {
                 {mode === "list" ? "Liste" : "Compact"}
               </button>
             ))}
+          </div>
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowNotifSettings((prev) => !prev);
+              }}
+              title="Paramètres d'affichage"
+              style={{
+                ...secondaryBtn,
+                padding: "6px 8px",
+              }}
+            >
+              <Settings size={14} />
+            </button>
+            {showNotifSettings && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 8,
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  boxShadow: "var(--shadow-xl)",
+                  padding: "14px 18px",
+                  zIndex: 100,
+                  minWidth: 220,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontSize: 13,
+                    color: "var(--color-ink)",
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>Masquer les archivées</span>
+                  <button
+                    onClick={() => setHideArchived((prev) => !prev)}
+                    style={{
+                      background: hideArchived
+                        ? "var(--color-accent)"
+                        : "var(--color-surface2)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 999,
+                      width: 36,
+                      height: 20,
+                      position: "relative",
+                      cursor: "pointer",
+                      padding: 0,
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        left: hideArchived ? 18 : 2,
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        background: "white",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                        transition: "left 0.2s",
+                      }}
+                    />
+                  </button>
+                </label>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1102,46 +1202,53 @@ export default function NotificationsPage() {
             )}
           </div>
 
-          {groupedByDay.map((group) => (
-            <div
-              key={group.label}
-              style={{ display: "flex", flexDirection: "column", gap: 10 }}
-            >
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--color-ink4)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginLeft: 4,
-                }}
-              >
-                {group.label}
-              </p>
+          {groupedByDay.map((group) => {
+            const visibleItems =
+              hideArchived && filterStatus !== "archived"
+                ? group.items.filter((n) => n.status !== "archived")
+                : group.items;
+            if (visibleItems.length === 0) return null;
+            return (
               <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: viewMode === "compact" ? 6 : 10,
-                }}
+                key={group.label}
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
               >
-                {group.items.map((notif) => (
-                  <NotificationCard
-                    key={notif.id}
-                    notification={notif}
-                    compact={viewMode === "compact"}
-                    isSelected={selectedIds.has(notif.id)}
-                    onToggleSelect={() => handleToggleSelect(notif.id)}
-                    onMarkRead={() => handleMarkAsRead(notif.id)}
-                    onMarkUnread={() => handleMarkAsUnread(notif.id)}
-                    onArchive={() => handleArchive(notif.id)}
-                    onNavigate={handleNavigate}
-                  />
-                ))}
+                <p
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--color-ink4)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginLeft: 4,
+                  }}
+                >
+                  {group.label}
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: viewMode === "compact" ? 6 : 10,
+                  }}
+                >
+                  {visibleItems.map((notif) => (
+                    <NotificationCard
+                      key={notif.id}
+                      notification={notif}
+                      compact={viewMode === "compact"}
+                      isSelected={selectedIds.has(notif.id)}
+                      onToggleSelect={() => handleToggleSelect(notif.id)}
+                      onMarkRead={() => handleMarkAsRead(notif.id)}
+                      onMarkUnread={() => handleMarkAsUnread(notif.id)}
+                      onArchive={() => handleArchive(notif.id)}
+                      onNavigate={handleNavigate}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1487,6 +1594,7 @@ function NotificationCard({
   const priorityMeta = PRIORITY_META[notification.priority];
   const isUnread = notification.status === "unread";
   const isArchived = notification.status === "archived";
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div
@@ -1514,10 +1622,12 @@ function NotificationCard({
         boxShadow: isUnread ? "0 0 0 0 transparent" : "var(--shadow-sm)",
       }}
       onMouseEnter={(e) => {
+        setIsHovered(true);
         if (!isUnread)
           e.currentTarget.style.borderColor = "var(--color-border2)";
       }}
       onMouseLeave={(e) => {
+        setIsHovered(false);
         if (!isUnread)
           e.currentTarget.style.borderColor = "var(--color-border)";
       }}
@@ -1665,10 +1775,9 @@ function NotificationCard({
             gap: 2,
             alignItems: "center",
             flexShrink: 0,
-            opacity: 0,
+            opacity: isHovered ? 1 : 0,
             transition: "opacity 0.2s",
           }}
-          className="notification-actions"
         >
           {notification.status !== "read" && (
             <IconAction
