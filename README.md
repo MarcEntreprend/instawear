@@ -75,6 +75,7 @@ instawear/
 │   │   ├── Header.tsx
 │   │   ├── OrderModal.tsx
 │   │   ├── OrderTrackingModal.tsx
+│   │   ├── PaymentPage.tsx
 │   │   ├── ProductCard.tsx
 │   │   ├── ProductModal.tsx
 │   │   ├── ProfileModal.tsx

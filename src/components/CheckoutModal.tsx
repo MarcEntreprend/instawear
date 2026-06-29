@@ -9,12 +9,14 @@ import {
   Truck,
   Package,
   ArrowRight,
+  CreditCard,
   CheckCircle,
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import PaymentPage from "./PaymentPage";
 import { supabase } from "../lib/supabaseClient";
 
 interface CheckoutModalProps {
@@ -51,6 +53,8 @@ export default function CheckoutModal({
   const [taxNumber, setTaxNumber] = useState("");
   const [sent, setSent] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [showPaymentPage, setShowPaymentPage] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const currencySymbol = useCurrencySymbol();
 
@@ -109,9 +113,16 @@ export default function CheckoutModal({
     return text;
   };
 
-  const handleSend = async (channel: "whatsapp" | "telegram" | "email") => {
+  const handleSend = async (
+    channel: "whatsapp" | "telegram" | "email" | "card",
+  ) => {
     if (!name.trim() || !phone.trim()) {
       alert("Veuillez remplir votre nom et votre téléphone.");
+      return;
+    }
+
+    if (channel === "card") {
+      setShowPaymentPage(true);
       return;
     }
 
@@ -248,7 +259,32 @@ export default function CheckoutModal({
     letterSpacing: "0.04em",
   };
 
-  const [copied, setCopied] = useState(false);
+  if (showPaymentPage) {
+    return (
+      <PaymentPage
+        cart={cart}
+        cartTotal={cartTotal}
+        shippingCost={shippingCost}
+        total={total}
+        name={name}
+        phone={phone}
+        email={email}
+        date={date}
+        reception={reception}
+        address={address}
+        city={city}
+        zip={zip}
+        country={country}
+        stateCode={stateCode}
+        taxNumber={taxNumber}
+        onClose={() => setShowPaymentPage(false)}
+        onSuccess={() => {
+          setShowPaymentPage(false);
+          onSuccess();
+        }}
+      />
+    );
+  }
 
   if (sent) {
     const handleCopyCode = () => {
@@ -855,6 +891,39 @@ export default function CheckoutModal({
             votre commande. Nous vous confirmerons le paiement et la livraison
             sous 24h.
           </p>
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            onClick={() => handleSend("card")} // on utilisera une fonction dédiée
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "14px 28px",
+              borderRadius: 12,
+              border: "none",
+              background: "var(--color-accent)",
+              color: "white",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "var(--font-body)",
+              boxShadow: "var(--shadow-accent)",
+              width: "100%",
+              maxWidth: 400,
+            }}
+          >
+            <CreditCard size={18} />
+            Paiement en ligne
+          </button>
         </div>
       </div>
     </div>
