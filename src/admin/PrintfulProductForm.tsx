@@ -928,6 +928,7 @@ export default function PrintfulProductForm({
                 color: revenue >= 0 ? "var(--color-success)" : "#ef4444",
               }}
             >
+              {revenue <= 0 ? "⚠️ " : ""}
               {revenue.toFixed(2)} {pfCurrency}
             </span>
           </div>

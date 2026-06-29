@@ -1,6 +1,6 @@
 // src/admin/AdminSidebar.tsx
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -17,6 +17,7 @@ import {
   Zap,
   Bell,
 } from "lucide-react";
+import { notificationApi } from "../api/supabaseApi";
 import {
   PLACEHOLDER_IMG,
   LOGO_URL,
@@ -39,7 +40,7 @@ export type AdminSection =
 interface NavItem {
   id: AdminSection;
   label: string;
-  icon: React.FC<{ size?: number; strokeWidth?: number }>;
+  icon: React.FC<any>;
 }
 
 const NAV_ITEMS: (NavItem | "separator")[] = [
@@ -80,6 +81,34 @@ export default function AdminSidebar({
   const activeText = "var(--color-accent)";
   const hoverBg = "var(--color-surface)";
   const hoverText = "var(--color-ink)";
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [urgentCount, setUrgentCount] = useState(0);
+
+  useEffect(() => {
+    const fetch = () => {
+      notificationApi
+        .getUnreadCount()
+        .then(setUnreadCount)
+        .catch(() => {});
+      notificationApi
+        .list({ status: "unread", priority: "urgent", perPage: 1 })
+        .then(({ total }) => setUrgentCount(total))
+        .catch(() => {});
+    };
+    fetch();
+
+    // Polling toutes les 30 secondes
+    const interval = setInterval(fetch, 30000);
+
+    // Rafraîchissement immédiat quand une notification est créée
+    const handleNotifUpdate = () => fetch();
+    window.addEventListener("notifications-updated", handleNotifUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-updated", handleNotifUpdate);
+    };
+  }, []);
 
   return (
     <aside
@@ -258,6 +287,7 @@ export default function AdminSidebar({
           }
           const isActive = active === item.id;
           const Icon = item.icon;
+          const isNotif = item.id === "notifications";
           return (
             <button
               key={item.id}
@@ -310,9 +340,55 @@ export default function AdminSidebar({
                   }}
                 />
               )}
-              <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <Icon
+                  size={16}
+                  strokeWidth={isActive ? 2.2 : 1.8}
+                  style={
+                    isNotif && urgentCount > 0
+                      ? {
+                          animation: "bell-shake 0.4s ease-in-out infinite",
+                          animationDelay: "2s",
+                          color: "var(--color-accent)",
+                        }
+                      : undefined
+                  }
+                />
+                {isNotif && urgentCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -3,
+                      right: -6,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "var(--color-accent)",
+                      border: "1.5px solid var(--color-surface2)",
+                    }}
+                  />
+                )}
+              </span>
               <span style={{ flex: 1 }}>{item.label}</span>
-              {isActive && (
+              {isNotif && unreadCount > 0 && (
+                <span
+                  style={{
+                    background:
+                      urgentCount > 0
+                        ? "var(--color-accent)"
+                        : "var(--color-ink3)",
+                    color: urgentCount > 0 ? "white" : "var(--color-bg)",
+                    borderRadius: 999,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+              {isActive && !isNotif && (
                 <ChevronRight
                   size={13}
                   strokeWidth={2}

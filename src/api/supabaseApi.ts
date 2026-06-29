@@ -1304,6 +1304,14 @@ export const notificationApi = {
     if (error) throw error;
   },
 
+  async bulkMarkAsUnread(ids: string[]): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "unread", updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) throw error;
+  },
+
   async bulkArchive(ids: string[]): Promise<void> {
     const { error } = await supabase
       .from("notifications")
@@ -1343,6 +1351,10 @@ export const notificationApi = {
       .select()
       .single();
     if (error) throw error;
+
+    // Notifier le frontend (sidebar, compteurs) sans rechargement
+    window.dispatchEvent(new Event("notifications-updated"));
+
     return data;
   },
 

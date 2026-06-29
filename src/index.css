@@ -948,6 +948,32 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   flex-shrink: 0;
 }
 
+/* Animation pr le bell */
+@keyframes bell-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  15% {
+    transform: rotate(8deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  45% {
+    transform: rotate(6deg);
+  }
+  60% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+  90% {
+    transform: rotate(-3deg);
+  }
+}
+
 /* ------------------------- */
 
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */

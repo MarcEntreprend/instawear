@@ -217,6 +217,68 @@ function useToasts() {
   return { toasts, push };
 }
 
+function ProgressBar({
+  label,
+  pct,
+  color,
+}: {
+  label: string;
+  pct: number;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        marginBottom: 10,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 13,
+          width: 100,
+          color: "var(--color-ink2)",
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
+      <div
+        style={{
+          flex: 1,
+          height: 10,
+          borderRadius: 5,
+          background: "var(--color-surface2)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            borderRadius: 5,
+            background: color,
+            transition: "width 0.5s ease",
+          }}
+        />
+      </div>
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: "var(--color-ink)",
+          minWidth: 40,
+          textAlign: "right",
+        }}
+      >
+        {pct}%
+      </span>
+    </div>
+  );
+}
+
 // ─── Composant principal ───────────────────────────────────────────────────
 
 export default function NotificationsPage() {
@@ -311,6 +373,14 @@ export default function NotificationsPage() {
     fetchNotifications();
   };
 
+  const handleBulkMarkAsUnread = async () => {
+    const count = selectedIds.size;
+    await notificationApi.bulkMarkAsUnread([...selectedIds]);
+    pushToast(`${count} notification(s) marquée(s) comme non lue(s).`);
+    setSelectedIds(new Set());
+    fetchNotifications();
+  };
+
   const handleBulkMarkAsRead = async () => {
     await notificationApi.bulkMarkAsRead([...selectedIds]);
     pushToast(`${selectedIds.size} notification(s) marquée(s) comme lue(s).`);
@@ -402,23 +472,21 @@ export default function NotificationsPage() {
       security: 0,
       finance: 0,
     };
-    notifications
-      .filter((n) => n.status !== "archived")
-      .forEach((n) => counts[n.category]++);
-    const max = Math.max(1, ...Object.values(counts));
+    const active = notifications.filter((n) => n.status !== "archived");
+    active.forEach((n) => counts[n.category]++);
+    const total = active.length || 1;
     return (Object.keys(counts) as NotificationCategory[])
       .map((key) => ({
         key,
         count: counts[key],
-        pct: (counts[key] / max) * 100,
+        pct: Math.round((counts[key] / total) * 100),
       }))
       .filter((c) => c.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count);
   }, [notifications]);
 
   const urgentCount = notifications.filter(
-    (n) => n.status !== "archived" && n.priority === "urgent",
+    (n) => n.status === "unread" && n.priority === "urgent",
   ).length;
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
@@ -558,109 +626,56 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Bento stats */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1.6fr",
-          gap: 12,
-        }}
-      >
-        <StatCard
-          label="Non lues"
-          value={unreadCount}
-          icon={<Inbox size={16} strokeWidth={1.75} />}
-          tone="accent"
-        />
-        <StatCard
-          label="Urgentes en attente"
-          value={urgentCount}
-          icon={<Zap size={16} strokeWidth={1.75} />}
-          tone={urgentCount > 0 ? "warning" : "neutral"}
-        />
-        <div style={{ ...cardStyle, padding: 16 }}>
-          <p
+      {/* Statistiques */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14 }}>
+        {/* Deux petites cartes empilées */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <MiniStatCard
+            label="Non lues"
+            value={unreadCount}
+            icon={<Inbox size={16} strokeWidth={2} />}
+            accent
+          />
+          <MiniStatCard
+            label="Urgentes"
+            value={urgentCount}
+            icon={<Zap size={16} strokeWidth={2} />}
+          />
+        </div>
+
+        {/* Répartition par catégorie avec barres */}
+        <div style={cardStyle}>
+          <h3
             style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--color-ink4)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              marginBottom: 12,
+              fontWeight: 700,
+              fontSize: 15,
+              color: "var(--color-ink)",
+              marginBottom: 16,
             }}
           >
             Répartition par catégorie
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {categoryBreakdown.map((c) => (
-              <div
+          </h3>
+          {categoryBreakdown.length > 0 ? (
+            categoryBreakdown.map((c) => (
+              <ProgressBar
                 key={c.key}
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
-                <span
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 7,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "var(--color-surface2)",
-                    color: "var(--color-ink3)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {CATEGORY_ICONS[c.key]}
-                </span>
-                <span
-                  style={{
-                    width: 88,
-                    flexShrink: 0,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: "var(--color-ink2)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {CATEGORY_LABELS[c.key]}
-                </span>
-                <div
-                  style={{
-                    flex: 1,
-                    height: 6,
-                    borderRadius: 999,
-                    background: "var(--color-surface2)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${c.pct}%`,
-                      height: "100%",
-                      borderRadius: 999,
-                      background: "var(--color-accent)",
-                      transition: "width 0.7s ease",
-                    }}
-                  />
-                </div>
-                <span
-                  style={{
-                    width: 20,
-                    flexShrink: 0,
-                    textAlign: "right",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--color-ink3)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {c.count}
-                </span>
-              </div>
-            ))}
-          </div>
+                label={CATEGORY_LABELS[c.key]}
+                pct={c.pct}
+                color="var(--color-accent)"
+              />
+            ))
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                padding: 12,
+                color: "var(--color-ink4)",
+                fontSize: 13,
+              }}
+            >
+              Aucune notification active.
+            </div>
+          )}
         </div>
       </div>
 
@@ -848,6 +863,12 @@ export default function NotificationsPage() {
               style={{ ...actionBtnWhite }}
             >
               <Eye size={13} strokeWidth={1.75} /> Marquer lue(s)
+            </button>
+            <button
+              onClick={handleBulkMarkAsUnread}
+              style={{ ...actionBtnWhite }}
+            >
+              <EyeOff size={13} strokeWidth={1.75} /> Marquer non lue(s)
             </button>
             <button onClick={handleBulkArchive} style={{ ...actionBtnWhite }}>
               <Archive size={13} strokeWidth={1.75} /> Archiver
@@ -1125,31 +1146,81 @@ export default function NotificationsPage() {
 // ─── Sous-composants ───────────────────────────────────────────────────────
 
 function StatCard({
+  icon,
   label,
   value,
-  icon,
-  tone,
+  accent = false,
 }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        background: accent ? "var(--color-accent)" : "var(--color-surface)",
+        border: accent ? "none" : "1px solid var(--color-border)",
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: accent ? "var(--shadow-accent)" : "var(--shadow-sm)",
+      }}
+    >
+      <div
+        style={{
+          color: accent ? "rgba(255,255,255,0.8)" : "var(--color-accent)",
+          marginBottom: 12,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <p
+          style={{
+            fontSize: 26,
+            fontWeight: 800,
+            color: accent ? "white" : "var(--color-ink)",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {value}
+        </p>
+      </div>
+      <p
+        style={{
+          fontSize: 12,
+          color: accent ? "rgba(255,255,255,0.7)" : "var(--color-ink3)",
+          marginTop: 6,
+        }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function MiniStatCard({
+  icon,
+  label,
+  value,
+  accent = false,
+}: {
+  icon: React.ReactNode;
   label: string;
   value: number;
-  icon: React.ReactNode;
-  tone: "accent" | "warning" | "neutral";
+  accent?: boolean;
 }) {
-  const toneBg =
-    tone === "accent"
-      ? "var(--color-accent-bg)"
-      : tone === "warning"
-        ? "var(--color-gold-bg)"
-        : "var(--color-surface2)";
-  const toneColor =
-    tone === "accent"
-      ? "var(--color-accent)"
-      : tone === "warning"
-        ? "var(--color-gold)"
-        : "var(--color-ink3)";
-
   return (
-    <div style={cardStyle}>
+    <div
+      style={{
+        background: accent ? "var(--color-accent)" : "var(--color-surface)",
+        border: accent ? "none" : "1px solid var(--color-border)",
+        borderRadius: 16,
+        padding: "14px 18px",
+        boxShadow: accent ? "var(--shadow-accent)" : "var(--shadow-sm)",
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -1161,23 +1232,16 @@ function StatCard({
           style={{
             fontSize: 11,
             fontWeight: 600,
-            color: "var(--color-ink4)",
+            color: accent ? "rgba(255,255,255,0.7)" : "var(--color-ink3)",
             textTransform: "uppercase",
-            letterSpacing: "0.08em",
+            letterSpacing: "0.05em",
           }}
         >
           {label}
         </p>
         <span
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: toneBg,
-            color: toneColor,
+            color: accent ? "rgba(255,255,255,0.7)" : "var(--color-accent)",
           }}
         >
           {icon}
@@ -1185,12 +1249,12 @@ function StatCard({
       </div>
       <p
         style={{
-          fontSize: 28,
-          fontWeight: 700,
-          color: "var(--color-ink)",
-          marginTop: 8,
+          fontSize: 26,
+          fontWeight: 800,
+          color: accent ? "white" : "var(--color-ink)",
+          lineHeight: 1,
+          marginTop: 6,
           fontVariantNumeric: "tabular-nums",
-          letterSpacing: "-0.02em",
         }}
       >
         {value}
