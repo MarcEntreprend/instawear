@@ -450,6 +450,32 @@ export default function NotificationsPage() {
     filterStatus !== "all",
   ].filter(Boolean).length;
 
+  // Compteurs non lues par catégorie (pour les dots sur les filtres)
+  const unreadByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    notifications
+      .filter((n) => n.status === "unread")
+      .forEach((n) => {
+        counts[n.category] = (counts[n.category] || 0) + 1;
+      });
+    return counts;
+  }, [notifications]);
+
+  const unreadByPriority = useMemo(() => {
+    const counts: Record<string, number> = {};
+    notifications
+      .filter((n) => n.status === "unread")
+      .forEach((n) => {
+        counts[n.priority] = (counts[n.priority] || 0) + 1;
+      });
+    return counts;
+  }, [notifications]);
+
+  const totalUnreadForFilters = Object.values(unreadByCategory).reduce(
+    (s, c) => s + c,
+    0,
+  );
+
   const resetFilters = () => {
     setFilterCategory("all");
     setFilterPriority("all");
@@ -789,7 +815,9 @@ export default function NotificationsPage() {
             options={Object.entries(CATEGORY_LABELS).map(([k, v]) => ({
               value: k,
               label: v,
+              dotCount: unreadByCategory[k] || 0,
             }))}
+            dotCount={totalUnreadForFilters}
           />
           <FilterSelect
             value={filterPriority}
@@ -801,6 +829,7 @@ export default function NotificationsPage() {
               { value: "high", label: "Haute" },
               { value: "urgent", label: "Urgente" },
             ]}
+            dotCount={totalUnreadForFilters}
           />
           <FilterSelect
             value={filterStatus}
@@ -858,18 +887,50 @@ export default function NotificationsPage() {
             {selectedIds.size} sélectionnée{selectedIds.size > 1 ? "s" : ""}
           </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-            <button
-              onClick={handleBulkMarkAsRead}
-              style={{ ...actionBtnWhite }}
-            >
-              <Eye size={13} strokeWidth={1.75} /> Marquer lue(s)
-            </button>
-            <button
-              onClick={handleBulkMarkAsUnread}
-              style={{ ...actionBtnWhite }}
-            >
-              <EyeOff size={13} strokeWidth={1.75} /> Marquer non lue(s)
-            </button>
+            {(() => {
+              const selectedNotifications = notifications.filter((n) =>
+                selectedIds.has(n.id),
+              );
+              const hasRead = selectedNotifications.some(
+                (n) => n.status === "read",
+              );
+              const hasUnread = selectedNotifications.some(
+                (n) => n.status === "unread",
+              );
+              const allRead =
+                selectedNotifications.length > 0 &&
+                selectedNotifications.every((n) => n.status === "read");
+              const allUnread =
+                selectedNotifications.length > 0 &&
+                selectedNotifications.every((n) => n.status === "unread");
+
+              return (
+                <>
+                  <button
+                    onClick={handleBulkMarkAsRead}
+                    disabled={allRead}
+                    style={{
+                      ...actionBtnWhite,
+                      opacity: allRead ? 0.4 : 1,
+                      cursor: allRead ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <Eye size={13} strokeWidth={1.75} /> Marquer lue(s)
+                  </button>
+                  <button
+                    onClick={handleBulkMarkAsUnread}
+                    disabled={allUnread}
+                    style={{
+                      ...actionBtnWhite,
+                      opacity: allUnread ? 0.4 : 1,
+                      cursor: allUnread ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <EyeOff size={13} strokeWidth={1.75} /> Marquer non lue(s)
+                  </button>
+                </>
+              );
+            })()}
             <button onClick={handleBulkArchive} style={{ ...actionBtnWhite }}>
               <Archive size={13} strokeWidth={1.75} /> Archiver
             </button>
@@ -1268,25 +1329,52 @@ function FilterSelect({
   onChange,
   options,
   placeholder,
+  dotCount,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   placeholder: string;
+  dotCount?: number;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={selectStyle}
-    >
-      <option value="all">{placeholder}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={selectStyle}
+      >
+        <option value="all">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {dotCount !== undefined && dotCount > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            background: "var(--color-accent)",
+            color: "white",
+            fontSize: 10,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          }}
+        >
+          {dotCount}
+        </span>
+      )}
+    </div>
   );
 }
 
