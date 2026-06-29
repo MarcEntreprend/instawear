@@ -41,6 +41,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 
@@ -463,16 +464,34 @@ export default function NotificationsPage() {
             <Inbox size={19} strokeWidth={1.75} />
           </div>
           <div>
-            <h2
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: "var(--color-ink)",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Notifications
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: "var(--color-ink)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Notifications
+              </h2>
+              <button
+                onClick={fetchNotifications}
+                title="Rafraîchir les notifications"
+                style={{
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 8,
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  color: "var(--color-ink2)",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <RefreshCw size={14} strokeWidth={2} />
+              </button>
+            </div>
             <p style={{ fontSize: 12.5, color: "var(--color-ink3)" }}>
               {unreadCount > 0
                 ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}`
@@ -903,27 +922,74 @@ export default function NotificationsPage() {
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <label
+          <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              fontSize: 12,
-              color: "var(--color-ink3)",
-              marginLeft: 4,
+              justifyContent: "space-between",
             }}
           >
-            <input
-              type="checkbox"
-              checked={
-                selectedIds.size === notifications.length &&
-                notifications.length > 0
-              }
-              onChange={handleSelectAll}
-              style={{ accentColor: "var(--color-accent)" }}
-            />
-            Tout sélectionner ({notifications.length})
-          </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                color: "var(--color-ink3)",
+                marginLeft: 4,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={
+                  selectedIds.size === notifications.length &&
+                  notifications.length > 0
+                }
+                onChange={handleSelectAll}
+                style={{ accentColor: "var(--color-accent)" }}
+              />
+              Tout sélectionner ({notifications.length})
+            </label>
+
+            {totalPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  style={{
+                    ...pageBtn,
+                    opacity: currentPage === 1 ? 0.4 : 1,
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  ←
+                </button>
+                <span style={{ fontSize: 12.5, color: "var(--color-ink3)" }}>
+                  {currentPage}/{totalPages}
+                </span>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  style={{
+                    ...pageBtn,
+                    opacity: currentPage === totalPages ? 0.4 : 1,
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
+                  }}
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
 
           {groupedByDay.map((group) => (
             <div
