@@ -153,6 +153,7 @@ export default function SettingsPage() {
     await saveSettings({
       apiKey: podForm.apiKey,
       storeId: podForm.storeId,
+      isConnected: true,
     });
   };
 
@@ -305,6 +306,10 @@ export default function SettingsPage() {
     keywords: string[];
   } | null>(null);
   const [keywordsInput, setKeywordsInput] = useState("");
+  const [showSyncLogs, setShowSyncLogs] = useState(false); // true or false : open or closed by default
+  const [showRefLists, setShowRefLists] = useState(false); // true or false : open or closed by default
+  const [showStoreSettings, setShowStoreSettings] = useState(false); // true or false : open or closed by default
+  const [visibleLogsCount, setVisibleLogsCount] = useState(10);
 
   // ═══════════════════════════════════════════════════════════════════════
   // Rendu (possible après tous les hooks)
@@ -361,7 +366,9 @@ export default function SettingsPage() {
         <div
           style={{
             padding: "16px 22px",
-            borderBottom: "1px solid var(--color-border)",
+            borderBottom: showStoreSettings
+              ? "1px solid var(--color-border)"
+              : "none",
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -373,29 +380,257 @@ export default function SettingsPage() {
             style={{ color: "var(--color-accent)" }}
           />
           <h3
+            onClick={() => setShowStoreSettings((prev) => !prev)}
             style={{
               fontWeight: 700,
               fontSize: 15,
               color: "var(--color-ink)",
               letterSpacing: "-0.02em",
+              cursor: "pointer",
+              userSelect: "none",
             }}
           >
             Paramètres de la boutique
           </h3>
-        </div>
-        <form
-          onSubmit={handleSaveStore}
-          style={{
-            padding: "20px 22px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-          }}
-        >
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-            className="settings-grid-2col"
+          <button
+            onClick={() => setShowStoreSettings((prev) => !prev)}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "var(--color-surface2)",
+              color: "var(--color-ink3)",
+              padding: "4px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              transition: "transform 0.2s",
+              transform: showStoreSettings ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+            title={
+              showStoreSettings
+                ? "Masquer les paramètres"
+                : "Afficher les paramètres"
+            }
           >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+        {showStoreSettings && (
+          <form
+            onSubmit={handleSaveStore}
+            style={{
+              padding: "20px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 18,
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+              }}
+              className="settings-grid-2col"
+            >
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Nom de la boutique
+                </label>
+                <input
+                  type="text"
+                  value={storeForm.storeName}
+                  onChange={(e) =>
+                    setStoreForm({ ...storeForm, storeName: e.target.value })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  placeholder="InstaWear"
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Devise
+                </label>
+                <select
+                  value={storeForm.currency}
+                  onChange={(e) =>
+                    setStoreForm({ ...storeForm, currency: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface2)",
+                    fontSize: 13,
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-body)",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="BRL">BRL (R$)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CAD">CAD (CA$)</option>
+                  <option value="CHF">CHF (CHF)</option>
+                  <option value="JPY">JPY (¥)</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Pays
+                </label>
+                <select
+                  value={storeForm.country}
+                  onChange={(e) =>
+                    setStoreForm({ ...storeForm, country: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface2)",
+                    fontSize: 13,
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-body)",
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="US">États-Unis (USD)</option>
+                  <option value="BR">Brésil (BRL)</option>
+                  <option value="CA">Canada (CAD)</option>
+                  <option value="GB">Royaume-Uni (GBP)</option>
+                  <option value="CH">Suisse (CHF)</option>
+                  <option value="FR">France (EUR)</option>
+                  <option value="JP">Japon (JPY)</option>
+                  <option value="BE">Belgique (EUR)</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Seuil livraison gratuite ({storeForm.currency})
+                </label>
+                <input
+                  type="number"
+                  value={storeForm.freeShippingThreshold}
+                  onChange={(e) =>
+                    setStoreForm({
+                      ...storeForm,
+                      freeShippingThreshold: Number(e.target.value),
+                    })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Frais de port forfaitaires ({storeForm.currency})
+                </label>
+                <input
+                  type="number"
+                  value={storeForm.shippingCost}
+                  onChange={(e) =>
+                    setStoreForm({
+                      ...storeForm,
+                      shippingCost: Number(e.target.value),
+                    })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Délai de livraison estimé
+                </label>
+                <input
+                  type="text"
+                  value={storeForm.shippingDelay}
+                  onChange={(e) =>
+                    setStoreForm({
+                      ...storeForm,
+                      shippingDelay: e.target.value,
+                    })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  placeholder="5-7 jours ouvrés"
+                />
+              </div>
+            </div>
             <div>
               <label
                 style={{
@@ -406,254 +641,79 @@ export default function SettingsPage() {
                   marginBottom: 4,
                 }}
               >
-                Nom de la boutique
+                Compte à rebours global (fin des offres limitées)
               </label>
               <input
-                type="text"
-                value={storeForm.storeName}
-                onChange={(e) =>
-                  setStoreForm({ ...storeForm, storeName: e.target.value })
+                type="datetime-local"
+                value={
+                  storeForm.globalCountdownEnd
+                    ? storeForm.globalCountdownEnd.slice(0, 16)
+                    : ""
                 }
-                className="input-base"
-                style={{ width: "100%" }}
-                placeholder="InstaWear"
-              />
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--color-ink2)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Devise
-              </label>
-              <select
-                value={storeForm.currency}
-                onChange={(e) =>
-                  setStoreForm({ ...storeForm, currency: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-surface2)",
-                  fontSize: 13,
-                  color: "var(--color-ink)",
-                  fontFamily: "var(--font-body)",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="USD">USD ($)</option>
-                <option value="BRL">BRL (R$)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="CAD">CAD (CA$)</option>
-                <option value="CHF">CHF (CHF)</option>
-                <option value="JPY">JPY (¥)</option>
-              </select>
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--color-ink2)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Pays
-              </label>
-              <select
-                value={storeForm.country}
-                onChange={(e) =>
-                  setStoreForm({ ...storeForm, country: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-surface2)",
-                  fontSize: 13,
-                  color: "var(--color-ink)",
-                  fontFamily: "var(--font-body)",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="US">États-Unis (USD)</option>
-                <option value="BR">Brésil (BRL)</option>
-                <option value="CA">Canada (CAD)</option>
-                <option value="GB">Royaume-Uni (GBP)</option>
-                <option value="CH">Suisse (CHF)</option>
-                <option value="FR">France (EUR)</option>
-                <option value="JP">Japon (JPY)</option>
-                <option value="BE">Belgique (EUR)</option>
-              </select>
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--color-ink2)",
-                  display: "block",
-                  marginBottom: 4,
-                }}
-              >
-                Seuil livraison gratuite ({storeForm.currency})
-              </label>
-              <input
-                type="number"
-                value={storeForm.freeShippingThreshold}
                 onChange={(e) =>
                   setStoreForm({
                     ...storeForm,
-                    freeShippingThreshold: Number(e.target.value),
+                    globalCountdownEnd: e.target.value
+                      ? new Date(e.target.value).toISOString()
+                      : "",
                   })
                 }
                 className="input-base"
-                style={{ width: "100%" }}
-                min={0}
-                step={0.01}
+                style={{ maxWidth: 320 }}
               />
-            </div>
-            <div>
-              <label
+              <p
                 style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--color-ink2)",
-                  display: "block",
-                  marginBottom: 4,
+                  fontSize: 11,
+                  color: "var(--color-ink4)",
+                  marginTop: 4,
                 }}
               >
-                Frais de port forfaitaires ({storeForm.currency})
-              </label>
-              <input
-                type="number"
-                value={storeForm.shippingCost}
-                onChange={(e) =>
-                  setStoreForm({
-                    ...storeForm,
-                    shippingCost: Number(e.target.value),
-                  })
-                }
-                className="input-base"
-                style={{ width: "100%" }}
-                min={0}
-                step={0.01}
-              />
+                Laissez vide pour désactiver le compte à rebours global.
+              </p>
             </div>
-            <div>
-              <label
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="submit"
+                disabled={storeSaving}
                 style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--color-ink2)",
-                  display: "block",
-                  marginBottom: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 22px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "var(--color-accent)",
+                  color: "white",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  cursor: "pointer",
+                  boxShadow: "var(--shadow-accent)",
+                  opacity: storeSaving ? 0.7 : 1,
                 }}
               >
-                Délai de livraison estimé
-              </label>
-              <input
-                type="text"
-                value={storeForm.shippingDelay}
-                onChange={(e) =>
-                  setStoreForm({ ...storeForm, shippingDelay: e.target.value })
-                }
-                className="input-base"
-                style={{ width: "100%" }}
-                placeholder="5-7 jours ouvrés"
-              />
+                {storeSaving ? (
+                  <>
+                    <RefreshCw
+                      size={15}
+                      strokeWidth={2}
+                      className="animate-spin"
+                    />
+                    Sauvegarde...
+                  </>
+                ) : (
+                  <>
+                    <Save size={15} strokeWidth={2} />
+                    Enregistrer les paramètres
+                  </>
+                )}
+              </button>
             </div>
-          </div>
-          <div>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--color-ink2)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Compte à rebours global (fin des offres limitées)
-            </label>
-            <input
-              type="datetime-local"
-              value={
-                storeForm.globalCountdownEnd
-                  ? storeForm.globalCountdownEnd.slice(0, 16)
-                  : ""
-              }
-              onChange={(e) =>
-                setStoreForm({
-                  ...storeForm,
-                  globalCountdownEnd: e.target.value
-                    ? new Date(e.target.value).toISOString()
-                    : "",
-                })
-              }
-              className="input-base"
-              style={{ maxWidth: 320 }}
-            />
-            <p
-              style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}
-            >
-              Laissez vide pour désactiver le compte à rebours global.
-            </p>
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button
-              type="submit"
-              disabled={storeSaving}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 22px",
-                borderRadius: 12,
-                border: "none",
-                background: "var(--color-accent)",
-                color: "white",
-                fontFamily: "var(--font-body)",
-                fontWeight: 700,
-                fontSize: 13.5,
-                cursor: "pointer",
-                boxShadow: "var(--shadow-accent)",
-                opacity: storeSaving ? 0.7 : 1,
-              }}
-            >
-              {storeSaving ? (
-                <>
-                  <RefreshCw
-                    size={15}
-                    strokeWidth={2}
-                    className="animate-spin"
-                  />
-                  Sauvegarde...
-                </>
-              ) : (
-                <>
-                  <Save size={15} strokeWidth={2} />
-                  Enregistrer les paramètres
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
 
-      {/* ─── Section : Gestion des API ────────────────────────────────────── */}
+      {/* ─── Section : Listes de référence (catégories, événements, styles) ─ */}
       <div
         style={{
           background: "var(--color-surface)",
@@ -666,317 +726,181 @@ export default function SettingsPage() {
         <div
           style={{
             padding: "16px 22px",
-            borderBottom: "1px solid var(--color-border)",
+            borderBottom: showRefLists
+              ? "1px solid var(--color-border)"
+              : "none",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
             gap: 10,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Wifi
-              size={18}
-              strokeWidth={2}
-              style={{ color: "var(--color-accent)" }}
-            />
-            <h3
-              style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "var(--color-ink)",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Gestion des API
-            </h3>
-            <span
-              style={{
-                display: "inline-block",
-                padding: "2px 8px",
-                borderRadius: 999,
-                fontSize: 10,
-                fontWeight: 700,
-                background: "var(--color-surface2)",
-                color: "var(--color-ink3)",
-              }}
-            >
-              {apiConnections.filter((a) => a.enabled).length}/
-              {apiConnections.length} actives
-            </span>
-          </div>
-          <button
-            onClick={handleAddApi}
+          <Tag
+            size={18}
+            strokeWidth={2}
+            style={{ color: "var(--color-accent)" }}
+          />
+          <h3
+            onClick={() => setShowRefLists((prev) => !prev)}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: 10,
-              border: "none",
-              background: "var(--color-accent)",
-              color: "white",
-              fontFamily: "var(--font-body)",
               fontWeight: 700,
-              fontSize: 12.5,
+              fontSize: 15,
+              color: "var(--color-ink)",
+              letterSpacing: "-0.02em",
               cursor: "pointer",
+              userSelect: "none",
             }}
           >
-            + Nouvelle API
+            Listes de référence
+          </h3>
+          <button
+            onClick={() => setShowRefLists((prev) => !prev)}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "var(--color-surface2)",
+              color: "var(--color-ink3)",
+              padding: "4px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              transition: "transform 0.2s",
+              transform: showRefLists ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+            title={showRefLists ? "Masquer les listes" : "Afficher les listes"}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
         </div>
-
-        <div style={{ padding: "0 0 8px" }}>
-          {apiLoading ? (
-            <div
-              style={{ display: "flex", justifyContent: "center", padding: 40 }}
-            >
-              <div
-                className="animate-spin"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  border: "3px solid var(--color-border)",
-                  borderTopColor: "var(--color-accent)",
-                }}
-              />
-            </div>
-          ) : apiConnections.length === 0 ? (
-            <div
-              style={{
-                padding: 24,
-                textAlign: "center",
-                color: "var(--color-ink4)",
-                fontSize: 13,
-              }}
-            >
-              Aucune API configurée. Ajoutez Printful, Printify ou une
-              plateforme d'affiliation.
-            </div>
-          ) : (
-            apiConnections.map((api) => (
-              <div
-                key={api.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "14px 22px",
-                  borderBottom: "1px solid var(--color-border)",
-                  gap: 14,
-                  opacity: api.enabled ? 1 : 0.55,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    minWidth: 0,
-                  }}
-                >
-                  {/* Icône plateforme */}
+        {showRefLists && (
+          <div
+            style={{
+              padding: "20px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}
+          >
+            {(["category", "event_type", "style"] as const).map((type) => {
+              const items = referenceItems.filter((r) => r.type === type);
+              const typeLabel =
+                type === "category"
+                  ? "Catégories"
+                  : type === "event_type"
+                    ? "Types d'événement"
+                    : "Styles";
+              return (
+                <div key={type}>
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: api.enabled
-                        ? "var(--color-accent-soft)"
-                        : "var(--color-surface2)",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      justifyContent: "space-between",
+                      marginBottom: 8,
                     }}
                   >
-                    {api.type === "pod" ? (
-                      <Package
-                        size={17}
-                        strokeWidth={2}
-                        style={{
-                          color: api.enabled
-                            ? "var(--color-accent)"
-                            : "var(--color-ink4)",
-                        }}
-                      />
-                    ) : (
-                      <ExternalLink
-                        size={17}
-                        strokeWidth={2}
-                        style={{
-                          color: api.enabled
-                            ? "var(--color-accent)"
-                            : "var(--color-ink4)",
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 13.5,
-                          color: "var(--color-ink)",
-                        }}
-                      >
-                        {api.name}
-                      </span>
-                      {api.enabled ? (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: "var(--color-success)",
-                            background: "var(--color-success-bg)",
-                            padding: "1px 6px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          Actif
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: "var(--color-ink4)",
-                            background: "var(--color-surface2)",
-                            padding: "1px 6px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          Inactif
-                        </span>
-                      )}
-                    </div>
-                    <p
+                    <h4
                       style={{
-                        fontSize: 11,
-                        color: "var(--color-ink3)",
-                        marginTop: 2,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: "var(--color-ink)",
                       }}
                     >
-                      {api.type === "pod" ? "Print-on-Demand" : "Affiliation"} ·{" "}
-                      {api.service}
-                    </p>
-                    {api.lastSyncAt && (
-                      <p
-                        style={{
-                          fontSize: 10,
-                          color: "var(--color-ink4)",
-                          marginTop: 1,
-                        }}
-                      >
-                        Dernière synchro :{" "}
-                        {new Date(api.lastSyncAt).toLocaleString("fr-FR")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    flexShrink: 0,
-                  }}
-                >
-                  {/* Bouton Activer/Désactiver */}
-                  <button
-                    onClick={() => handleToggleApi(api.id)}
-                    title={api.enabled ? "Désactiver" : "Activer"}
-                    style={{
-                      padding: "5px 10px",
-                      borderRadius: 8,
-                      border: "1px solid var(--color-border)",
-                      background: api.enabled
-                        ? "var(--color-surface2)"
-                        : "var(--color-surface)",
-                      color: api.enabled
-                        ? "var(--color-ink3)"
-                        : "var(--color-success)",
-                      fontWeight: 600,
-                      fontSize: 11,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {api.enabled ? "Désactiver" : "Activer"}
-                  </button>
-
-                  {/* Bouton Synchroniser (pour les POD) */}
-                  {api.type === "pod" && api.enabled && (
+                      {typeLabel}
+                    </h4>
                     <button
-                      onClick={() => handleSyncApi(api.id)}
-                      title="Synchroniser"
+                      onClick={() => handleAddRef(type)}
                       style={{
-                        padding: "5px 10px",
+                        padding: "4px 12px",
                         borderRadius: 8,
-                        border: "1px solid var(--color-border)",
-                        background: "var(--color-surface)",
-                        color: "var(--color-ink2)",
+                        border: "1px solid var(--color-accent)",
+                        background: "transparent",
+                        color: "var(--color-accent)",
                         fontWeight: 600,
-                        fontSize: 11,
+                        fontSize: 12,
                         cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
                       }}
                     >
-                      <RefreshCw size={11} strokeWidth={2} />
-                      Sync
+                      + Ajouter
                     </button>
+                  </div>
+                  {items.length === 0 ? (
+                    <p style={{ fontSize: 12, color: "var(--color-ink4)" }}>
+                      Aucun élément.
+                    </p>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 10px",
+                            borderRadius: 8,
+                            background: "var(--color-surface2)",
+                            border: "1px solid var(--color-border)",
+                            fontSize: 12,
+                            color: "var(--color-ink2)",
+                          }}
+                        >
+                          <span>{item.label}</span>
+                          <button
+                            onClick={() => handleEditRef(item)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--color-ink4)",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            <Pencil size={12} strokeWidth={2} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRef(item.id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "#ef4444",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            <Trash2 size={12} strokeWidth={2} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-
-                  {/* Bouton Modifier */}
-                  <button
-                    onClick={() => handleEditApi(api)}
-                    title="Modifier"
-                    style={{
-                      padding: "5px 10px",
-                      borderRadius: 8,
-                      border: "1px solid var(--color-border)",
-                      background: "var(--color-surface)",
-                      color: "var(--color-ink2)",
-                      fontWeight: 600,
-                      fontSize: 11,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Modifier
-                  </button>
-
-                  {/* Bouton Supprimer */}
-                  <button
-                    onClick={() => handleDeleteApi(api.id)}
-                    title="Supprimer"
-                    style={{
-                      padding: "5px 10px",
-                      borderRadius: 8,
-                      border: "1px solid #fecaca",
-                      background: "#fef2f2",
-                      color: "#ef4444",
-                      fontWeight: 600,
-                      fontSize: 11,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Supprimer
-                  </button>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ─── Modale Ajout/Modification API ────────────────────────────────── */}
-      {showApiModal && (
+      {/* Modale pour ajouter/modifier un élément de référence */}
+      {showRefModal && editingRef && (
         <div
           style={{
             position: "fixed",
@@ -994,7 +918,7 @@ export default function SettingsPage() {
               background: "rgba(26,20,10,0.5)",
               backdropFilter: "blur(4px)",
             }}
-            onClick={() => setShowApiModal(false)}
+            onClick={() => setShowRefModal(false)}
           />
           <div
             style={{
@@ -1002,46 +926,14 @@ export default function SettingsPage() {
               zIndex: 201,
               background: "var(--color-surface)",
               borderRadius: 20,
-              maxWidth: 560,
+              maxWidth: 500,
               width: "90%",
-              maxHeight: "85vh",
-              overflowY: "auto",
               padding: "28px",
               boxShadow: "var(--shadow-xl)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 20,
-              }}
-            >
-              <h3
-                style={{
-                  fontWeight: 700,
-                  fontSize: 18,
-                  color: "var(--color-ink)",
-                }}
-              >
-                {editingApi ? "Modifier l'API" : "Nouvelle connexion API"}
-              </h3>
-              <button
-                onClick={() => setShowApiModal(false)}
-                style={{
-                  background: "var(--color-surface2)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 8,
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                  color: "var(--color-ink2)",
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
             <form
-              onSubmit={handleSaveApi}
+              onSubmit={handleSaveRef}
               style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
               <div>
@@ -1054,80 +946,21 @@ export default function SettingsPage() {
                     marginBottom: 4,
                   }}
                 >
-                  Nom de la connexion
+                  Valeur (identifiant unique)
                 </label>
                 <input
                   type="text"
-                  value={apiForm.name}
+                  value={editingRef.value}
+                  disabled={!!editingRef.id}
                   onChange={(e) =>
-                    setApiForm({ ...apiForm, name: e.target.value })
+                    setEditingRef({ ...editingRef, value: e.target.value })
                   }
                   className="input-base"
                   style={{ width: "100%" }}
-                  placeholder="Ex: Printful, Printify, Amazon Merch..."
+                  placeholder="ex: tshirt"
                   required
                 />
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 16,
-                }}
-                className="settings-grid-2col"
-              >
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--color-ink2)",
-                      display: "block",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Type
-                  </label>
-                  <select
-                    value={apiForm.type}
-                    onChange={(e) =>
-                      setApiForm({
-                        ...apiForm,
-                        type: e.target.value as "pod" | "affiliate",
-                      })
-                    }
-                    className="input-base"
-                    style={{ width: "100%", cursor: "pointer" }}
-                  >
-                    <option value="pod">Print-on-Demand</option>
-                    <option value="affiliate">Affiliation</option>
-                  </select>
-                </div>
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--color-ink2)",
-                      display: "block",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Service
-                  </label>
-                  <input
-                    type="text"
-                    value={apiForm.service}
-                    onChange={(e) =>
-                      setApiForm({ ...apiForm, service: e.target.value })
-                    }
-                    className="input-base"
-                    style={{ width: "100%" }}
-                    placeholder="Printful, Printify, Awin..."
-                    required
-                  />
-                </div>
-              </div>
               <div>
                 <label
                   style={{
@@ -1138,17 +971,18 @@ export default function SettingsPage() {
                     marginBottom: 4,
                   }}
                 >
-                  URL de l'API / Endpoint
+                  Libellé affiché
                 </label>
                 <input
-                  type="url"
-                  value={apiForm.baseUrl}
+                  type="text"
+                  value={editingRef.label}
                   onChange={(e) =>
-                    setApiForm({ ...apiForm, baseUrl: e.target.value })
+                    setEditingRef({ ...editingRef, label: e.target.value })
                   }
                   className="input-base"
                   style={{ width: "100%" }}
-                  placeholder="https://api.printful.com"
+                  placeholder="ex: T-Shirt"
+                  required
                 />
               </div>
               <div>
@@ -1161,40 +995,15 @@ export default function SettingsPage() {
                     marginBottom: 4,
                   }}
                 >
-                  Clé API
+                  Mots-clés (séparés par des virgules)
                 </label>
                 <input
-                  type="password"
-                  value={apiForm.apiKey}
-                  onChange={(e) =>
-                    setApiForm({ ...apiForm, apiKey: e.target.value })
-                  }
+                  type="text"
+                  value={keywordsInput}
+                  onChange={(e) => setKeywordsInput(e.target.value)}
                   className="input-base"
                   style={{ width: "100%" }}
-                  placeholder="sk_..."
-                />
-              </div>
-              <div>
-                <label
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--color-ink2)",
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  Clé secrète / Token supplémentaire (optionnel)
-                </label>
-                <input
-                  type="password"
-                  value={apiForm.apiSecret}
-                  onChange={(e) =>
-                    setApiForm({ ...apiForm, apiSecret: e.target.value })
-                  }
-                  className="input-base"
-                  style={{ width: "100%" }}
-                  placeholder="..."
+                  placeholder="ex: t-shirt, tee, chemise"
                 />
               </div>
               <div
@@ -1207,7 +1016,7 @@ export default function SettingsPage() {
               >
                 <button
                   type="button"
-                  onClick={() => setShowApiModal(false)}
+                  onClick={() => setShowRefModal(false)}
                   style={{
                     padding: "10px 18px",
                     borderRadius: 12,
@@ -1240,7 +1049,7 @@ export default function SettingsPage() {
                   }}
                 >
                   <Save size={15} strokeWidth={2} />
-                  {editingApi ? "Mettre à jour" : "Ajouter l'API"}
+                  {editingRef.id ? "Mettre à jour" : "Ajouter"}
                 </button>
               </div>
             </form>
@@ -1250,6 +1059,7 @@ export default function SettingsPage() {
 
       {/* ─── Section 2 : Connexion Printful ──────────────────────────────── */}
       <div
+        id="printful-settings-section"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
@@ -1518,310 +1328,6 @@ export default function SettingsPage() {
         </form>
       </div>
 
-      {/* ─── Section : Listes de référence (catégories, événements, styles) ─ */}
-      <div
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: 18,
-          overflow: "hidden",
-          boxShadow: "var(--shadow-xs)",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 22px",
-            borderBottom: "1px solid var(--color-border)",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <Tag
-            size={18}
-            strokeWidth={2}
-            style={{ color: "var(--color-accent)" }}
-          />
-          <h3
-            style={{
-              fontWeight: 700,
-              fontSize: 15,
-              color: "var(--color-ink)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Listes de référence
-          </h3>
-        </div>
-        <div
-          style={{
-            padding: "20px 22px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 24,
-          }}
-        >
-          {(["category", "event_type", "style"] as const).map((type) => {
-            const items = referenceItems.filter((r) => r.type === type);
-            const typeLabel =
-              type === "category"
-                ? "Catégories"
-                : type === "event_type"
-                  ? "Types d'événement"
-                  : "Styles";
-            return (
-              <div key={type}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 8,
-                  }}
-                >
-                  <h4
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 13,
-                      color: "var(--color-ink)",
-                    }}
-                  >
-                    {typeLabel}
-                  </h4>
-                  <button
-                    onClick={() => handleAddRef(type)}
-                    style={{
-                      padding: "4px 12px",
-                      borderRadius: 8,
-                      border: "1px solid var(--color-accent)",
-                      background: "transparent",
-                      color: "var(--color-accent)",
-                      fontWeight: 600,
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    + Ajouter
-                  </button>
-                </div>
-                {items.length === 0 ? (
-                  <p style={{ fontSize: 12, color: "var(--color-ink4)" }}>
-                    Aucun élément.
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "4px 10px",
-                          borderRadius: 8,
-                          background: "var(--color-surface2)",
-                          border: "1px solid var(--color-border)",
-                          fontSize: 12,
-                          color: "var(--color-ink2)",
-                        }}
-                      >
-                        <span>{item.label}</span>
-                        <button
-                          onClick={() => handleEditRef(item)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "var(--color-ink4)",
-                            fontSize: 12,
-                            padding: 0,
-                            lineHeight: 1,
-                          }}
-                        >
-                          <Pencil size={12} strokeWidth={2} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRef(item.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: "#ef4444",
-                            fontSize: 12,
-                            padding: 0,
-                            lineHeight: 1,
-                          }}
-                        >
-                          <Trash2 size={12} strokeWidth={2} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Modale pour ajouter/modifier un élément de référence */}
-      {showRefModal && editingRef && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(26,20,10,0.5)",
-              backdropFilter: "blur(4px)",
-            }}
-            onClick={() => setShowRefModal(false)}
-          />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 201,
-              background: "var(--color-surface)",
-              borderRadius: 20,
-              maxWidth: 500,
-              width: "90%",
-              padding: "28px",
-              boxShadow: "var(--shadow-xl)",
-            }}
-          >
-            <form
-              onSubmit={handleSaveRef}
-              style={{ display: "flex", flexDirection: "column", gap: 16 }}
-            >
-              <div>
-                <label
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--color-ink2)",
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  Valeur (identifiant unique)
-                </label>
-                <input
-                  type="text"
-                  value={editingRef.value}
-                  disabled={!!editingRef.id}
-                  onChange={(e) =>
-                    setEditingRef({ ...editingRef, value: e.target.value })
-                  }
-                  className="input-base"
-                  style={{ width: "100%" }}
-                  placeholder="ex: tshirt"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--color-ink2)",
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  Libellé affiché
-                </label>
-                <input
-                  type="text"
-                  value={editingRef.label}
-                  onChange={(e) =>
-                    setEditingRef({ ...editingRef, label: e.target.value })
-                  }
-                  className="input-base"
-                  style={{ width: "100%" }}
-                  placeholder="ex: T-Shirt"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "var(--color-ink2)",
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  Mots-clés (séparés par des virgules)
-                </label>
-                <input
-                  type="text"
-                  value={keywordsInput}
-                  onChange={(e) => setKeywordsInput(e.target.value)}
-                  className="input-base"
-                  style={{ width: "100%" }}
-                  placeholder="ex: t-shirt, tee, chemise"
-                />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 8,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowRefModal(false)}
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 12,
-                    border: "1.5px solid var(--color-border2)",
-                    background: "var(--color-surface)",
-                    color: "var(--color-ink2)",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 22px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "var(--color-accent)",
-                    color: "white",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    cursor: "pointer",
-                  }}
-                >
-                  <Save size={15} strokeWidth={2} />
-                  {editingRef.id ? "Mettre à jour" : "Ajouter"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* ─── Section 3 : Journal de synchronisation ───────────────────────── */}
       <div
         style={{
@@ -1830,12 +1336,15 @@ export default function SettingsPage() {
           borderRadius: 18,
           overflow: "hidden",
           boxShadow: "var(--shadow-xs)",
+          marginBottom: 80,
         }}
       >
         <div
           style={{
             padding: "16px 22px",
-            borderBottom: "1px solid var(--color-border)",
+            borderBottom: showSyncLogs
+              ? "1px solid var(--color-border)"
+              : "none",
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -1847,77 +1356,153 @@ export default function SettingsPage() {
             style={{ color: "var(--color-ink3)" }}
           />
           <h3
+            onClick={() => {
+              setShowSyncLogs((prev) => {
+                if (prev) setVisibleLogsCount(10);
+                return !prev;
+              });
+            }}
             style={{
               fontWeight: 700,
               fontSize: 15,
               color: "var(--color-ink)",
               letterSpacing: "-0.02em",
+              cursor: "pointer",
+              userSelect: "none",
             }}
           >
             Journal de synchronisation
           </h3>
+          <button
+            onClick={() => {
+              setShowSyncLogs((prev) => {
+                if (prev) setVisibleLogsCount(10);
+                return !prev;
+              });
+            }}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "var(--color-surface2)",
+              color: "var(--color-ink3)",
+              padding: "4px 10px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              transition: "transform 0.2s",
+              transform: showSyncLogs ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+            title={showSyncLogs ? "Masquer le journal" : "Afficher le journal"}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
-        {logs && logs.length > 0 ? (
-          <div style={{ padding: "0 0 8px" }}>
-            {logs.map((log: SyncLog) => (
-              <div
-                key={log.id}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 12,
-                  padding: "10px 22px",
-                  borderBottom: "1px solid var(--color-border)",
-                  fontSize: 12.5,
-                  color: "var(--color-ink2)",
-                }}
-              >
-                <span
+        {showSyncLogs &&
+          (logs && logs.length > 0 ? (
+            <div style={{ padding: "0 0 8px" }}>
+              {logs.slice(0, visibleLogsCount).map((log: SyncLog) => (
+                <div
+                  key={log.id}
                   style={{
-                    color: LOG_STATUS_ICON[log.status]?.color,
-                    marginTop: 2,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    padding: "10px 22px",
+                    borderBottom: "1px solid var(--color-border)",
+                    fontSize: 12.5,
+                    color: "var(--color-ink2)",
                   }}
                 >
-                  {LOG_STATUS_ICON[log.status]?.icon}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600, color: "var(--color-ink)" }}>
-                    {log.status === "success"
-                      ? "Succès"
-                      : log.status === "partial"
-                        ? "Partiel"
-                        : "Erreur"}
-                  </p>
-                  <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
-                    {log.message}
-                  </p>
-                  <p
+                  <span
                     style={{
-                      fontSize: 10,
-                      color: "var(--color-ink4)",
+                      color: LOG_STATUS_ICON[log.status]?.color,
                       marginTop: 2,
                     }}
                   >
-                    {formatDate(log.syncDate)}
-                    {log.duration !== undefined && ` · ${log.duration} ms`}
-                    {log.productId && ` · Produit ${log.productId}`}
-                  </p>
+                    {LOG_STATUS_ICON[log.status]?.icon}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, color: "var(--color-ink)" }}>
+                      {log.status === "success"
+                        ? "Succès"
+                        : log.status === "partial"
+                          ? "Partiel"
+                          : "Erreur"}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
+                      {log.message}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 10,
+                        color: "var(--color-ink4)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {formatDate(log.syncDate)}
+                      {log.duration !== undefined && ` · ${log.duration} ms`}
+                      {log.productId && ` · Produit ${log.productId}`}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: 24,
-              textAlign: "center",
-              color: "var(--color-ink4)",
-              fontSize: 13,
-            }}
-          >
-            Aucune synchronisation enregistrée.
-          </div>
-        )}
+              ))}
+              {visibleLogsCount < logs.length && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    padding: "12px 0 4px",
+                  }}
+                >
+                  <button
+                    onClick={() =>
+                      setVisibleLogsCount((prev) =>
+                        Math.min(prev + 10, logs.length),
+                      )
+                    }
+                    style={{
+                      padding: "5px 16px",
+                      borderRadius: 999,
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface)",
+                      color: "var(--color-ink2)",
+                      fontWeight: 600,
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Afficher plus ({logs.length - visibleLogsCount} restants)
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: 24,
+                textAlign: "center",
+                color: "var(--color-ink4)",
+                fontSize: 13,
+              }}
+            >
+              Aucune synchronisation enregistrée.
+            </div>
+          ))}
       </div>
 
       {/* Responsive grid */}

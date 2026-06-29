@@ -290,6 +290,24 @@ export default {
 
       if (!listRes.ok) {
         const errText = await listRes.text();
+        // Si 401, la clé est invalide → on marque comme déconnecté
+        if (listRes.status === 401) {
+          await supabaseAdmin
+            .from("pod_settings")
+            .update({ is_connected: false, sync_status: "error" })
+            .eq("id", settings.id);
+        }
+        return new Response(
+          JSON.stringify({ error: `Erreur Printful: ${errText}` }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 502,
+          },
+        );
+      }
+
+      if (!listRes.ok) {
+        const errText = await listRes.text();
         return new Response(
           JSON.stringify({ error: `Erreur Printful: ${errText}` }),
           {
@@ -403,6 +421,7 @@ export default {
           last_sync_at: now,
           products_synced_count: syncedCount,
           sync_status: syncStatus,
+          is_connected: true,
         })
         .eq("id", settings.id);
 

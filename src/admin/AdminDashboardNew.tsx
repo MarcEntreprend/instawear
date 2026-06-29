@@ -1214,7 +1214,19 @@ export default function AdminDashboard({
           {section === "orders" && <OrdersPage />}
           {section === "promotions" && <PromotionsPage />}
           {section === "reports" && <ReportsPage />}
-          {section === "integrations" && <IntegrationsPage />}
+          {section === "integrations" && (
+            <IntegrationsPage
+              onNavigateToPrintfulSettings={() => {
+                navigate("settings");
+                setTimeout(() => {
+                  const el = document.getElementById(
+                    "printful-settings-section",
+                  );
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }, 300);
+              }}
+            />
+          )}
           {section === "settings" && <SettingsPage />}
           {section === "admin-users" && <AdminUsersPage />}
           {section === "help" && <HelpPage />}
