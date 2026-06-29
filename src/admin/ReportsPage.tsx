@@ -23,6 +23,8 @@ import {
   productApi,
   customerApi,
 } from "../api/supabaseApi";
+import { PLACEHOLDER_IMG } from "../constants/assets";
+import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { Order, AdminProduct, Customer } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -253,6 +255,9 @@ export default function ReportsPage() {
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
   const [weekStartsMonday, setWeekStartsMonday] = useState(true); // Lundi par défaut
   const [showSettings, setShowSettings] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   const periodOptions = [
     { label: "Auj.", days: 0 },
@@ -520,19 +525,25 @@ export default function ReportsPage() {
     const productMap = new Map(allProducts.map((p) => [p.id, p]));
     const agg: Record<
       string,
-      { title: string; orders: number; revenue: number }
+      {
+        title: string;
+        orders: number;
+        revenue: number;
+        productId: string;
+        image?: string;
+      }
     > = {};
     currentOrders.forEach((order) => {
       order.items.forEach((item) => {
         const key = item.productId;
         if (!agg[key]) {
+          const prod = productMap.get(item.productId);
           agg[key] = {
-            title:
-              item.productTitle ||
-              productMap.get(item.productId)?.title ||
-              "Inconnu",
+            title: item.productTitle || prod?.title || "Inconnu",
             orders: 0,
             revenue: 0,
+            productId: key,
+            image: prod?.image,
           };
         }
         agg[key].orders += item.quantity;
@@ -547,6 +558,8 @@ export default function ReportsPage() {
         name: p.title,
         orders: p.orders,
         revenue: `${p.revenue.toFixed(0)} ${currencySymbol}`,
+        productId: p.productId,
+        image: p.image,
       }));
   }, [currentOrders, allProducts, currencySymbol]);
 
@@ -1242,16 +1255,18 @@ export default function ReportsPage() {
             )}
           </div>
           {categorySales.length > 0 ? (
-            categorySales
-              .slice(0, 10)
-              .map((item) => (
+            categorySales.slice(0, 10).map((item) => (
+              <div
+                key={item.value}
+                title={`${item.label} — ${item.pct}% — ${item.revenue.toFixed(2)} ${currencySymbol}`}
+              >
                 <ProgressBar
-                  key={item.value}
                   label={item.label}
                   pct={item.pct}
                   color={item.color}
                 />
-              ))
+              </div>
+            ))
           ) : (
             <EmptySection message="Aucune vente sur cette période." />
           )}
@@ -1293,6 +1308,13 @@ export default function ReportsPage() {
                     justifyContent: "space-between",
                     padding: "8px 0",
                     borderBottom: "1px solid var(--color-border)",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    const fullProduct = allProducts.find(
+                      (p) => p.id === product.productId,
+                    );
+                    if (fullProduct) setQuickViewProduct(fullProduct);
                   }}
                 >
                   <div
@@ -1308,6 +1330,27 @@ export default function ReportsPage() {
                     >
                       #{index + 1}
                     </span>
+                    {/* Miniature du produit (fallback placeholder) */}
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        background: "var(--color-surface2)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={product.image || PLACEHOLDER_IMG}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
                     <div>
                       <p
                         style={{
@@ -1412,6 +1455,13 @@ export default function ReportsPage() {
                     justifyContent: "space-between",
                     padding: "10px 0",
                     borderBottom: "1px solid var(--color-border)",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    const fullProduct = allProducts.find(
+                      (p) => p.id === product.productId,
+                    );
+                    if (fullProduct) setQuickViewProduct(fullProduct);
                   }}
                 >
                   <div
@@ -1427,6 +1477,26 @@ export default function ReportsPage() {
                     >
                       #{index + 1}
                     </span>
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        background: "var(--color-surface2)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={product.image || PLACEHOLDER_IMG}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
                     <div>
                       <p
                         style={{
@@ -1673,6 +1743,13 @@ export default function ReportsPage() {
           .reports-two-col { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
+      )}
     </div>
   );
 }
