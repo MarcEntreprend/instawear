@@ -50,10 +50,12 @@ function ProgressBar({
   label,
   pct,
   color,
+  rightText,
 }: {
   label: string;
   pct: number;
   color: string;
+  rightText?: string;
 }) {
   return (
     <div
@@ -102,7 +104,7 @@ function ProgressBar({
           textAlign: "right",
         }}
       >
-        {pct}%
+        {rightText !== undefined ? rightText : `${pct}%`}
       </span>
     </div>
   );
@@ -255,6 +257,7 @@ export default function ReportsPage() {
   const [devMode, setDevMode] = useState(false); // mode test : force les boutons visibles
   const [weekStartsMonday, setWeekStartsMonday] = useState(true); // Lundi par défaut
   const [showSettings, setShowSettings] = useState(false);
+  const [showRevenueInstead, setShowRevenueInstead] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
@@ -1260,11 +1263,29 @@ export default function ReportsPage() {
                 key={item.value}
                 title={`${item.label} — ${item.pct}% — ${item.revenue.toFixed(2)} ${currencySymbol}`}
               >
-                <ProgressBar
-                  label={item.label}
-                  pct={item.pct}
-                  color={item.color}
-                />
+                <div
+                  key={item.value}
+                  title={`${item.label} — ${item.pct}% — ${item.revenue.toFixed(2)} ${currencySymbol}`}
+                  onClick={() => setShowRevenueInstead((prev) => !prev)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <ProgressBar
+                    label={item.label}
+                    pct={
+                      showRevenueInstead
+                        ? (item.revenue /
+                            categorySales.reduce((s, c) => s + c.revenue, 0)) *
+                          100
+                        : item.pct
+                    }
+                    color={item.color}
+                    rightText={
+                      showRevenueInstead
+                        ? `${item.revenue.toFixed(0)} ${currencySymbol}`
+                        : `${item.pct}%`
+                    }
+                  />
+                </div>
               </div>
             ))
           ) : (
@@ -1633,8 +1654,17 @@ export default function ReportsPage() {
                   >
                     {item.pct}%
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--color-ink3)" }}>
-                    {item.revenue.toFixed(0)} {currencySymbol}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "var(--color-ink3)",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setShowRevenueInstead((prev) => !prev)}
+                  >
+                    {showRevenueInstead
+                      ? `${item.revenue.toFixed(0)} ${currencySymbol}`
+                      : `${item.pct}%`}
                   </span>
                 </div>
               </div>
