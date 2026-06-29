@@ -974,6 +974,19 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   }
 }
 
+/* animation pulse-ring */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 92, 53, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 92, 53, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 92, 53, 0);
+  }
+}
+
 /* ------------------------- */
 
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */

@@ -303,6 +303,7 @@ export default function NotificationsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [hideArchived, setHideArchived] = useState(true);
+  const [pendingNewNotifs, setPendingNewNotifs] = useState(false); // true = clignotement du RefreshCw
   const perPage = 10;
   const { toasts, push: pushToast } = useToasts();
 
@@ -340,22 +341,35 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // ─── Compteur non lues (polling toutes les 30s) ────────────────────────
-  const [unreadCount, setUnreadCount] = useState(0);
+  // ─── Compteurs (même logique légère que la sidebar, instantanée) ─────
 
-  useEffect(() => {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [urgentCount, setUrgentCount] = useState(0);
+
+  const fetchCounts = useCallback(() => {
     notificationApi
       .getUnreadCount()
       .then(setUnreadCount)
       .catch(() => {});
-    const interval = setInterval(() => {
-      notificationApi
-        .getUnreadCount()
-        .then(setUnreadCount)
-        .catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [notifications]);
+    notificationApi
+      .list({ status: "unread", priority: "urgent", perPage: 1 })
+      .then(({ total }) => setUrgentCount(total))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30000);
+    const handler = () => {
+      fetchCounts();
+      setPendingNewNotifs(true); // déclenche l'effet ping sur le RefreshCw
+    };
+    window.addEventListener("notifications-updated", handler);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-updated", handler);
+    };
+  }, [fetchCounts]);
 
   // ─── Handlers (appels API réels) ───────────────────────────────────────
 
@@ -532,9 +546,6 @@ export default function NotificationsPage() {
       .sort((a, b) => b.count - a.count);
   }, [notifications]);
 
-  const urgentCount = notifications.filter(
-    (n) => n.status === "unread" && n.priority === "urgent",
-  ).length;
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
   // ─── Groupement par jour ──────────────────────────────────────────────
@@ -591,17 +602,32 @@ export default function NotificationsPage() {
                 Notifications
               </h2>
               <button
-                onClick={fetchNotifications}
+                onClick={() => {
+                  setPendingNewNotifs(false);
+                  fetchNotifications();
+                }}
                 title="Rafraîchir les notifications"
                 style={{
-                  background: "var(--color-surface2)",
-                  border: "1px solid var(--color-border)",
+                  background: pendingNewNotifs
+                    ? "var(--color-accent-bg)"
+                    : "var(--color-surface2)",
+                  border: `1px solid ${pendingNewNotifs ? "var(--color-accent)" : "var(--color-border)"}`,
                   borderRadius: 8,
                   padding: "4px 8px",
                   cursor: "pointer",
-                  color: "var(--color-ink2)",
+                  color: pendingNewNotifs
+                    ? "var(--color-accent)"
+                    : "var(--color-ink2)",
                   display: "flex",
                   alignItems: "center",
+                  boxShadow: pendingNewNotifs
+                    ? "0 0 0 3px rgba(255,92,53,0.25)"
+                    : "none",
+                  animation: pendingNewNotifs
+                    ? "pulse-ring 1.8s ease-out infinite"
+                    : "none",
+                  transition:
+                    "background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s",
                 }}
               >
                 <RefreshCw size={14} strokeWidth={2} />
