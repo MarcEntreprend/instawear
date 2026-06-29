@@ -735,11 +735,11 @@ export default function NotificationsPage() {
             style={searchInputStyle}
           />
         </div>
-
         <button
           onClick={() => setFiltersOpen((v) => !v)}
           style={{
             ...secondaryBtn,
+            position: "relative",
             borderColor:
               activeFilterCount > 0
                 ? "var(--color-accent)"
@@ -754,6 +754,20 @@ export default function NotificationsPage() {
                 : "var(--color-ink2)",
           }}
         >
+          {!filtersOpen && totalUnreadForFilters > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: -3,
+                left: -3,
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: "var(--color-accent)",
+                border: "1.5px solid var(--color-surface)",
+              }}
+            />
+          )}
           <SlidersHorizontal size={14} strokeWidth={1.75} />
           Filtres
           {activeFilterCount > 0 && (
@@ -783,7 +797,6 @@ export default function NotificationsPage() {
             }}
           />
         </button>
-
         <button
           onClick={() =>
             setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
@@ -824,10 +837,26 @@ export default function NotificationsPage() {
             onChange={(v) => setFilterPriority(v as any)}
             placeholder="Toutes priorités"
             options={[
-              { value: "low", label: "Basse" },
-              { value: "medium", label: "Moyenne" },
-              { value: "high", label: "Haute" },
-              { value: "urgent", label: "Urgente" },
+              {
+                value: "low",
+                label: "Basse",
+                dotCount: unreadByPriority["low"] || 0,
+              },
+              {
+                value: "medium",
+                label: "Moyenne",
+                dotCount: unreadByPriority["medium"] || 0,
+              },
+              {
+                value: "high",
+                label: "Haute",
+                dotCount: unreadByPriority["high"] || 0,
+              },
+              {
+                value: "urgent",
+                label: "Urgente",
+                dotCount: unreadByPriority["urgent"] || 0,
+              },
             ]}
             dotCount={totalUnreadForFilters}
           />
@@ -1333,7 +1362,7 @@ function FilterSelect({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; dotCount?: number }[];
   placeholder: string;
   dotCount?: number;
 }) {
@@ -1348,6 +1377,7 @@ function FilterSelect({
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
+            {o.dotCount && o.dotCount > 0 ? " ●" : ""}
           </option>
         ))}
       </select>
