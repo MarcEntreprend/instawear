@@ -72,7 +72,7 @@ function OrderStatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Stat card améliorée ───────────────────────────────────────────────────
+// ─── Stat card  ─────────
 function StatCard({
   icon,
   label,
@@ -94,88 +94,70 @@ function StatCard({
         background: accent ? "var(--color-accent)" : "var(--color-surface)",
         border: accent ? "none" : "1px solid var(--color-border)",
         borderRadius: 16,
-        padding: "18px 20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
+        padding: 20,
         boxShadow: accent ? "var(--shadow-accent)" : "var(--shadow-sm)",
-        transition: "box-shadow 0.2s ease",
       }}
     >
       <div
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: accent
-            ? "rgba(255,255,255,0.15)"
-            : "var(--color-surface2)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           color: accent ? "white" : "var(--color-accent)",
+          marginBottom: 12,
         }}
       >
         {icon}
       </div>
-      <div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <p
+          style={{
+            fontSize: 26,
+            fontWeight: 800,
+            color: accent ? "white" : "var(--color-ink)",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {value}
+        </p>
+        {delta && (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: delta.positive ? "var(--color-success)" : "#ef4444",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            {delta.positive ? (
+              <ArrowUpRight size={14} strokeWidth={2.5} />
+            ) : (
+              <ArrowDownRight size={14} strokeWidth={2.5} />
+            )}
+            {delta.value}%
+          </span>
+        )}
+      </div>
+      <p
+        style={{
+          fontSize: 12,
+          color: accent ? "rgba(255,255,255,0.7)" : "var(--color-ink3)",
+          marginTop: 6,
+        }}
+      >
+        {label}
+      </p>
+      {sub && (
         <p
           style={{
             fontSize: 11,
-            fontWeight: 600,
-            color: accent ? "rgba(255,255,255,0.7)" : "var(--color-ink3)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            marginBottom: 4,
+            color: accent ? "rgba(255,255,255,0.6)" : "var(--color-ink4)",
+            marginTop: 4,
           }}
         >
-          {label}
+          {sub}
         </p>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <p
-            style={{
-              fontSize: 26,
-              fontWeight: 800,
-              color: accent ? "white" : "var(--color-ink)",
-              letterSpacing: "-0.03em",
-              lineHeight: 1,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {value}
-          </p>
-          {delta && (
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: delta.positive ? "var(--color-success)" : "#ef4444",
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              {delta.positive ? (
-                <ArrowUpRight size={12} strokeWidth={2.5} />
-              ) : (
-                <ArrowDownRight size={12} strokeWidth={2.5} />
-              )}
-              {delta.value}%
-            </span>
-          )}
-        </div>
-        {sub && (
-          <p
-            style={{
-              fontSize: 11,
-              color: accent ? "rgba(255,255,255,0.6)" : "var(--color-ink4)",
-              marginTop: 4,
-            }}
-          >
-            {sub}
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -664,27 +646,27 @@ function DashboardHome({
         }}
       >
         <StatCard
-          icon={<Package size={17} strokeWidth={2} />}
+          icon={<Package size={20} strokeWidth={2} />}
           label="Produits en ligne"
           value={stats.productsOnline}
           sub={`${stats.productsOffline} masqués`}
           accent={true}
         />
         <StatCard
-          icon={<Users size={17} strokeWidth={2} />}
+          icon={<Users size={20} strokeWidth={2} />}
           label="Clients"
           value={stats.totalCustomers}
           sub="comptes enregistrés"
         />
         <StatCard
-          icon={<ShoppingBag size={17} strokeWidth={2} />}
+          icon={<ShoppingBag size={20} strokeWidth={2} />}
           label="Commandes aujourd'hui"
           value={stats.ordersToday}
           sub="nouvelles commandes"
           delta={ordersDelta}
         />
         <StatCard
-          icon={<TrendingUp size={17} strokeWidth={2} />}
+          icon={<TrendingUp size={20} strokeWidth={2} />}
           label="CA estimé"
           value={`${stats.revenueEstimate.toFixed(0)} ${currencySymbol}`}
           sub="toutes commandes"
@@ -692,9 +674,9 @@ function DashboardHome({
         <StatCard
           icon={
             stats.podConnected ? (
-              <Wifi size={17} strokeWidth={2} />
+              <Wifi size={20} strokeWidth={2} />
             ) : (
-              <WifiOff size={17} strokeWidth={2} />
+              <WifiOff size={20} strokeWidth={2} />
             )
           }
           label="Connexion POD"
