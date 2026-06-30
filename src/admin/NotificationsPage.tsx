@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import type { AdminSection } from "./AdminSidebar";
+import { useAdminHighlight } from "./useAdminHighlight";
 
 // ─── Types ──────────────────────────────────────
 
@@ -515,36 +516,22 @@ export default function NotificationsPage() {
       setSelectedIds(new Set(notifications.map((n) => n.id)));
     }
   };
+
+  // Dans le composant :
+  const { navigateAndHighlight } = useAdminHighlight();
+
   const handleNavigate = (notif: AdminNotification) => {
     const link = notif.metadata?.linkTo;
     if (!link) return;
 
-    const sectionMap: Record<string, AdminSection> = {
-      products: "products",
-      orders: "orders",
-      customers: "customers",
-      promotions: "promotions",
-      reports: "reports",
-      settings: "settings",
-      integrations: "integrations",
-      "admin-users": "admin-users",
-    };
-
     const match = link.match(/\/admin\/([a-z-]+)/);
-    const section = match ? sectionMap[match[1]] : null;
+    const section = match ? (match[1] as AdminSection) : null;
+    if (!section) return;
 
-    // Récupère le productId depuis les métadonnées (prioritaire sur l'URL)
-    const productId = notif.metadata?.productId;
-
-    if (section) {
-      window.dispatchEvent(
-        new CustomEvent("instawear:navigate-admin", {
-          detail: { section, params: { highlightProduct: productId } },
-        }),
-      );
-    } else {
-      pushToast(`Navigation vers : ${notif.title}`);
-    }
+    navigateAndHighlight({
+      section,
+      highlightId: notif.metadata?.productId || notif.metadata?.orderId,
+    });
   };
 
   const handleExport = () => {

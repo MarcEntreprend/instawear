@@ -21,6 +21,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import ProductFormPanel from "./ProductFormPanel";
 import PrintfulProductForm from "./PrintfulProductForm";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import { useHighlightListener } from "./useAdminHighlight";
 
 const BADGE_STYLE: Record<string, React.CSSProperties> = {
   bestseller: { background: "#fde68a", color: "#92400e" },
@@ -105,24 +106,12 @@ export default function ProductsPage() {
     string | null
   >(null);
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const productId = (e as CustomEvent).detail;
-      setHighlightedProductId(productId);
-      // Scroll après un court instant pour laisser le DOM se mettre à jour
-      setTimeout(() => {
-        const row = document.querySelector(
-          `tr[data-product-id="${productId}"]`,
-        );
-        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 150);
-      // Effacer la surbrillance après 2.5s
-      setTimeout(() => setHighlightedProductId(null), 2500);
-    };
-    window.addEventListener("instawear:highlight-product", handler);
-    return () =>
-      window.removeEventListener("instawear:highlight-product", handler);
-  }, []);
+  useHighlightListener(
+    "instawear:highlight-products",
+    setHighlightedProductId,
+    2500,
+    'tr[data-product-id="{}"]', // ← scroll automatique vers la ligne
+  );
 
   const currencySymbol = useCurrencySymbol();
 

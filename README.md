@@ -63,7 +63,8 @@ instawear/
 │   │   ├── PromotionsPage.tsx
 │   │   ├── ReportInfoModal.tsx
 │   │   ├── ReportsPage.tsx
-│   │   └── SettingsPage.tsx
+│   │   ├── SettingsPage.tsx
+│   │   └── useAdminHighlight.ts
 │   ├── api/
 │   │   ├── storageApi.ts
 │   │   └── supabaseApi.ts
