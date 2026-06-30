@@ -373,7 +373,7 @@ export default function NotificationsPage() {
   const [showNotifSettings, setShowNotifSettings] = useState(false);
   const [hideArchived, setHideArchived] = useState(true);
   const [pendingNewNotifs, setPendingNewNotifs] = useState(false); // true = clignotement du RefreshCw
-  const perPage = 10;
+  const perPage = 20;
   const { toasts, push: pushToast } = useToasts();
 
   // ─── Chargement réel depuis l'API ──────────────────────────────────────
