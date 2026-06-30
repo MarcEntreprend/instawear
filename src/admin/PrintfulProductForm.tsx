@@ -294,7 +294,8 @@ export default function PrintfulProductForm({
 
       await onSave(newProduct as AdminProduct);
 
-      // notification
+      const savedProduct = await onSave(newProduct as AdminProduct);
+      // Notification avec productId
       import("../api/supabaseApi").then(({ notificationApi }) => {
         notificationApi
           .create({
@@ -303,6 +304,7 @@ export default function PrintfulProductForm({
             category: "products",
             priority: "low",
             metadata: {
+              productId: savedProduct.id,
               productTitle: title,
               linkTo: "/admin/products",
               source: "Printful",

@@ -990,6 +990,26 @@ export default function AdminDashboard({
     help: "Aide & Support",
   };
 
+  // Écouter l’événement de navigation
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { section, params } = (e as CustomEvent).detail;
+      navigate(section);
+      if (params?.highlightProduct) {
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("instawear:highlight-product", {
+              detail: params.highlightProduct,
+            }),
+          );
+        }, 400); // laisse le temps à ProductsPage de se monter
+      }
+    };
+    window.addEventListener("instawear:navigate-admin", handler);
+    return () =>
+      window.removeEventListener("instawear:navigate-admin", handler);
+  }, [navigate]);
+
   return (
     <div
       style={{

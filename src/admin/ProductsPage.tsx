@@ -100,6 +100,30 @@ export default function ProductsPage() {
     null,
   );
 
+  //state et écouteur d’événement
+  const [highlightedProductId, setHighlightedProductId] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const productId = (e as CustomEvent).detail;
+      setHighlightedProductId(productId);
+      // Scroll après un court instant pour laisser le DOM se mettre à jour
+      setTimeout(() => {
+        const row = document.querySelector(
+          `tr[data-product-id="${productId}"]`,
+        );
+        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+      // Effacer la surbrillance après 2.5s
+      setTimeout(() => setHighlightedProductId(null), 2500);
+    };
+    window.addEventListener("instawear:highlight-product", handler);
+    return () =>
+      window.removeEventListener("instawear:highlight-product", handler);
+  }, []);
+
   const currencySymbol = useCurrencySymbol();
 
   // The product being edited (if any)
@@ -732,9 +756,19 @@ export default function ProductsPage() {
               return (
                 <tr
                   key={p.id}
+                  data-product-id={p.id}
                   style={{
                     borderBottom: "1px solid var(--color-border)",
                     opacity: p.isActive ? 1 : 0.55,
+                    transition: "background 0.3s ease, box-shadow 0.3s ease",
+                    background:
+                      highlightedProductId === p.id
+                        ? "var(--color-accent-bg)"
+                        : "transparent",
+                    boxShadow:
+                      highlightedProductId === p.id
+                        ? "inset 0 0 0 2px var(--color-accent)"
+                        : "none",
                   }}
                 >
                   {/* Flèches de réorganisation (masquées si sélection active) */}

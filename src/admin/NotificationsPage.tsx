@@ -46,8 +46,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
+import type { AdminSection } from "./AdminSidebar";
 
-// ─── Types (conservés de ta version) ──────────────────────────────────────
+// ─── Types ──────────────────────────────────────
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
 export type NotificationStatus = "unread" | "read" | "archived";
@@ -515,9 +516,34 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleNavigate = (link?: string, title?: string) => {
+  const handleNavigate = (notif: AdminNotification) => {
+    const link = notif.metadata?.linkTo;
     if (!link) return;
-    pushToast(`Navigation vers : ${title ?? link}`);
+    const sectionMap: Record<string, AdminSection> = {
+      products: "products",
+      orders: "orders",
+      customers: "customers",
+      promotions: "promotions",
+      reports: "reports",
+      settings: "settings",
+      integrations: "integrations",
+      "admin-users": "admin-users",
+    };
+    // Extrait la section du lien (ex: "/admin/products" → "products")
+    const match = link.match(/\/admin\/([a-z-]+)/);
+    const section = match ? sectionMap[match[1]] : null;
+    if (section) {
+      window.dispatchEvent(
+        new CustomEvent("instawear:navigate-admin", {
+          detail: {
+            section,
+            params: { highlightProduct: notif.metadata?.productId },
+          },
+        }),
+      );
+    } else {
+      pushToast(`Navigation vers : ${notif.title}`);
+    }
   };
 
   const handleExport = () => {
@@ -1361,7 +1387,7 @@ export default function NotificationsPage() {
                       onMarkRead={() => handleMarkAsRead(notif.id)}
                       onMarkUnread={() => handleMarkAsUnread(notif.id)}
                       onArchive={() => handleArchive(notif.id)}
-                      onNavigate={handleNavigate}
+                      onNavigate={() => handleNavigate(notif)}
                       onUnarchive={() => handleUnarchive(notif.id)}
                     />
                   ))}
@@ -1711,7 +1737,7 @@ function NotificationCard({
   onMarkUnread: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
-  onNavigate: (link?: string, title?: string) => void;
+  onNavigate: (notif: AdminNotification) => void;
 }) {
   const priorityMeta = PRIORITY_META[notification.priority];
   const isUnread = notification.status === "unread";
@@ -1726,12 +1752,9 @@ function NotificationCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={() =>
-        onNavigate(notification.metadata?.linkTo, notification.title)
-      }
+      onClick={() => onNavigate(notification)}
       onKeyDown={(e) => {
-        if (e.key === "Enter")
-          onNavigate(notification.metadata?.linkTo, notification.title);
+        if (e.key === "Enter") onNavigate(notification);
       }}
       style={{
         position: "relative",
@@ -1939,9 +1962,7 @@ function NotificationCard({
             icon={<ExternalLink size={14} strokeWidth={1.75} />}
             label="Voir"
             accent
-            onClick={() =>
-              onNavigate(notification.metadata!.linkTo, notification.title)
-            }
+            onClick={() => onNavigate(notification)}
           />
         )}
       </div>
