@@ -948,7 +948,46 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   flex-shrink: 0;
 }
 
-/* Animation pr le bell */
+/* ── Couleurs par catégorie de notification ────────────────────── */
+:root {
+  --notif-cat-orders: #3b82f6;
+  --notif-cat-orders-bg: #eff6ff;
+  --notif-cat-products: #22c55e;
+  --notif-cat-products-bg: #f0fdf4;
+  --notif-cat-customers: #f59e0b;
+  --notif-cat-customers-bg: #fffbeb;
+  --notif-cat-bonus: #a855f7;
+  --notif-cat-bonus-bg: #faf5ff;
+  --notif-cat-api: #6366f1;
+  --notif-cat-api-bg: #eef2ff;
+  --notif-cat-security: #ef4444;
+  --notif-cat-security-bg: #fef2f2;
+  --notif-cat-finance: #10b981;
+  --notif-cat-finance-bg: #ecfdf5;
+  --notif-negative: #ef4444;
+  --notif-negative-bg: #fef2f2;
+}
+
+[data-theme="dark"] {
+  --notif-cat-orders: #60a5fa;
+  --notif-cat-orders-bg: rgba(59, 130, 246, 0.12);
+  --notif-cat-products: #4ade80;
+  --notif-cat-products-bg: rgba(34, 197, 94, 0.12);
+  --notif-cat-customers: #fbbf24;
+  --notif-cat-customers-bg: rgba(245, 158, 11, 0.12);
+  --notif-cat-bonus: #c084fc;
+  --notif-cat-bonus-bg: rgba(168, 85, 247, 0.12);
+  --notif-cat-api: #818cf8;
+  --notif-cat-api-bg: rgba(99, 102, 241, 0.12);
+  --notif-cat-security: #f87171;
+  --notif-cat-security-bg: rgba(239, 68, 68, 0.12);
+  --notif-cat-finance: #34d399;
+  --notif-cat-finance-bg: rgba(16, 185, 129, 0.12);
+  --notif-negative: #f87171;
+  --notif-negative-bg: rgba(239, 68, 68, 0.12);
+}
+
+/* Animation pr le bell (Notification) */
 @keyframes bell-shake {
   0%,
   100% {
@@ -974,7 +1013,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   }
 }
 
-/* animation pulse-ring */
+/* animation pulse-ring (notification) */
 @keyframes pulse-ring {
   0% {
     box-shadow: 0 0 0 0 rgba(255, 92, 53, 0.4);

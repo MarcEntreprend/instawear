@@ -120,6 +120,34 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   finance: "Finances",
 };
 
+const CATEGORY_COLORS: Record<
+  NotificationCategory,
+  { border: string; bg: string }
+> = {
+  orders: {
+    border: "var(--notif-cat-orders)",
+    bg: "var(--notif-cat-orders-bg)",
+  },
+  products: {
+    border: "var(--notif-cat-products)",
+    bg: "var(--notif-cat-products-bg)",
+  },
+  customers: {
+    border: "var(--notif-cat-customers)",
+    bg: "var(--notif-cat-customers-bg)",
+  },
+  bonus: { border: "var(--notif-cat-bonus)", bg: "var(--notif-cat-bonus-bg)" },
+  api: { border: "var(--notif-cat-api)", bg: "var(--notif-cat-api-bg)" },
+  security: {
+    border: "var(--notif-cat-security)",
+    bg: "var(--notif-cat-security-bg)",
+  },
+  finance: {
+    border: "var(--notif-cat-finance)",
+    bg: "var(--notif-cat-finance-bg)",
+  },
+};
+
 const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
   orders: <ShoppingBag size={13} strokeWidth={1.75} />,
   products: <Package size={13} strokeWidth={1.75} />,
@@ -129,6 +157,33 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
   security: <Shield size={13} strokeWidth={1.75} />,
   finance: <CreditCard size={13} strokeWidth={1.75} />,
 };
+
+function isNegativeNotification(notification: AdminNotification): boolean {
+  const text = (
+    notification.title +
+    " " +
+    notification.description
+  ).toLowerCase();
+  const negativeWords = [
+    "échec",
+    "echec",
+    "refusé",
+    "refuse",
+    "annulé",
+    "annule",
+    "erreur",
+    "rupture",
+    "délai dépassé",
+    "delai depasse",
+    "impossible",
+    "violation",
+    "signalé",
+    "signale",
+    "fraude",
+    "suspecte",
+  ];
+  return negativeWords.some((w) => text.includes(w));
+}
 
 function getNotificationIcon(
   category: NotificationCategory,
@@ -1621,6 +1676,10 @@ function NotificationCard({
   const isUnread = notification.status === "unread";
   const isArchived = notification.status === "archived";
   const [isHovered, setIsHovered] = useState(false);
+  const negative = isNegativeNotification(notification);
+  const catColor = negative
+    ? { border: "var(--notif-negative)", bg: "var(--notif-negative-bg)" }
+    : CATEGORY_COLORS[notification.category];
 
   return (
     <div
@@ -1640,7 +1699,7 @@ function NotificationCard({
         gap: compact ? 12 : 14,
         padding: compact ? "10px 14px" : "14px 18px",
         borderRadius: 14,
-        border: `1px solid ${isUnread ? "var(--color-accent)" : "var(--color-border)"}`,
+        border: `1px solid ${isUnread ? catColor.border : "var(--color-border)"}`,
         background: "var(--color-surface)",
         opacity: isArchived ? 0.55 : 1,
         cursor: "pointer",
@@ -1667,7 +1726,7 @@ function NotificationCard({
             bottom: 12,
             width: 3,
             borderRadius: 999,
-            background: "var(--color-accent)",
+            background: catColor.border,
           }}
         />
       )}
@@ -1691,10 +1750,8 @@ function NotificationCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: isUnread
-            ? "var(--color-accent-bg)"
-            : "var(--color-surface2)",
-          color: isUnread ? "var(--color-accent)" : "var(--color-ink3)",
+          background: isUnread ? catColor.bg : "var(--color-surface2)",
+          color: isUnread ? catColor.border : "var(--color-ink3)",
           flexShrink: 0,
           transition: "background 0.2s",
         }}
