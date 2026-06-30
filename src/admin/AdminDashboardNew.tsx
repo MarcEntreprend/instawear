@@ -385,6 +385,7 @@ function DashboardHome({
 
   // Deltas réels (comparaison avec hier pour les commandes)
   const [yesterdayOrders, setYesterdayOrders] = useState<number | null>(null);
+  const [totalPending, setTotalPending] = useState<number | null>(null);
 
   useEffect(() => {
     import("../api/supabaseApi").then(({ dashboardApi }) => {
@@ -396,6 +397,29 @@ function DashboardHome({
       });
     });
   }, []);
+
+  useEffect(() => {
+    if (!stats) return;
+    const pendingCount = stats.recentOrders.filter(
+      (o) => o.status === "pending",
+    ).length;
+    if (pendingCount > 3) {
+      // S'il y a plus de 3 commandes en attente, on va chercher le total réel
+      import("../api/supabaseApi").then(({ orderApi }) => {
+        orderApi
+          .list()
+          .then((allOrders) => {
+            const count = allOrders.filter(
+              (o) => o.status === "pending",
+            ).length;
+            setTotalPending(count);
+          })
+          .catch(() => setTotalPending(pendingCount));
+      });
+    } else {
+      setTotalPending(null);
+    }
+  }, [stats]);
 
   if (loading || !stats) {
     return <SkeletonDashboard />;
@@ -522,10 +546,7 @@ function DashboardHome({
           (o) => o.status === "pending",
         );
         if (pendingOrders.length === 0) return null;
-        const handleMoveToProduction = async (orderId: string) => {
-          await orderApi.updateStatus(orderId, "in_production");
-          window.location.reload();
-        };
+        const visibleOrders = pendingOrders.slice(0, 3);
         return (
           <div
             style={{
@@ -555,8 +576,9 @@ function DashboardHome({
                 }}
               >
                 <Clock size={16} strokeWidth={2} />
-                {pendingOrders.length} commande
-                {pendingOrders.length > 1 ? "s" : ""} en attente
+                {totalPending ?? pendingOrders.length} commande
+                {(totalPending ?? pendingOrders.length) > 1 ? "s" : ""} en
+                attente
               </h3>
               <button
                 onClick={() => onNavigate("orders")}
@@ -569,13 +591,28 @@ function DashboardHome({
                   fontWeight: 600,
                   color: "#92400e",
                   cursor: "pointer",
+                  position: "relative",
                 }}
               >
+                {pendingOrders.length > 3 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -3,
+                      left: -3,
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: "var(--color-accent)",
+                      border: "1.5px solid white",
+                    }}
+                  />
+                )}
                 Voir tout
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {pendingOrders.map((order) => (
+              {visibleOrders.map((order) => (
                 <div
                   key={order.id}
                   style={{
@@ -590,7 +627,16 @@ function DashboardHome({
                 >
                   <div>
                     <button
-                      onClick={() => onNavigate("orders")}
+                      onClick={() => {
+                        onNavigate("orders");
+                        setTimeout(() => {
+                          window.dispatchEvent(
+                            new CustomEvent("instawear:highlight-orders", {
+                              detail: order.id,
+                            }),
+                          );
+                        }, 400);
+                      }}
                       style={{
                         fontWeight: 700,
                         fontSize: 13,
@@ -606,15 +652,37 @@ function DashboardHome({
                     >
                       {order.id}
                     </button>
-                    <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
+                    {/* <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
                       {order.clientName ??
                         order.clientEmail ??
-                        "Client inconnu"}{" "}
-                      – {order.totalAmount.toFixed(2)} {currencySymbol}
+                        "Client inconnu"}
+                    </p> */}
+                    <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
+                      {new Date(order.createdAt).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}{" "}
+                      •{" "}
+                      {new Date(order.createdAt).toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {/* {" "}• {order.totalAmount.toFixed(2)} {currencySymbol} */}
                     </p>
                   </div>
                   <button
-                    onClick={() => handleMoveToProduction(order.id)}
+                    onClick={() => {
+                      onNavigate("orders");
+                      setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent("instawear:highlight-orders", {
+                            detail: order.id,
+                          }),
+                        );
+                      }, 400);
+                    }}
                     style={{
                       background: "var(--color-accent)",
                       border: "none",
@@ -758,7 +826,16 @@ function DashboardHome({
               >
                 <div>
                   <button
-                    onClick={() => onNavigate("orders")}
+                    onClick={() => {
+                      onNavigate("orders");
+                      setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent("instawear:highlight-orders", {
+                            detail: order.id,
+                          }),
+                        );
+                      }, 400);
+                    }}
                     style={{
                       fontWeight: 700,
                       fontSize: 12.5,
