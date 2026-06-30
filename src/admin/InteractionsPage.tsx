@@ -147,7 +147,7 @@ export default function InteractionsPage() {
   useHighlightListener(
     "instawear:highlight-interactions",
     setHighlightedTicketId,
-    2500,
+    8000,
     'tr[data-interaction-id="{}"]',
   );
 

@@ -117,7 +117,7 @@ export default function ProductsPage() {
   useHighlightListener(
     "instawear:highlight-products",
     setHighlightedProductId,
-    2500,
+    8000,
     'tr[data-product-id="{}"]', // ← scroll automatique vers la ligne
   );
 

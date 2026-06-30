@@ -155,7 +155,7 @@ export default function CustomersPage({
   useHighlightListener(
     "instawear:highlight-customers",
     setHighlightedCustomerId,
-    2500,
+    8000,
     'tr[data-customer-id="{}"]',
   );
 

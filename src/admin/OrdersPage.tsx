@@ -111,7 +111,7 @@ export default function OrdersPage() {
   useHighlightListener(
     "instawear:highlight-orders",
     setHighlightedOrderId,
-    2500,
+    8000,
     'tr[data-order-id="{}"]',
   );
 
@@ -578,9 +578,47 @@ export default function OrdersPage() {
                   {order.id}
                 </td>
                 <td style={{ padding: "10px 14px" }}>
-                  <span style={{ fontWeight: 600, color: "var(--color-ink)" }}>
-                    {order.clientName ?? order.clientEmail ?? order.clientId}
-                  </span>
+                  {order.clientId && order.clientId !== "guest" ? (
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(
+                          new CustomEvent("instawear:navigate-admin", {
+                            detail: {
+                              section: "customers",
+                            },
+                          }),
+                        );
+                        setTimeout(() => {
+                          window.dispatchEvent(
+                            new CustomEvent("instawear:highlight-customers", {
+                              detail: order.clientId,
+                            }),
+                          );
+                        }, 400);
+                      }}
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--color-ink)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        padding: 0,
+                        textDecoration: "underline",
+                        textUnderlineOffset: 3,
+                        textDecorationColor: "var(--color-ink3)",
+                        textDecorationStyle: "dotted",
+                      }}
+                    >
+                      {order.clientName ?? order.clientEmail ?? order.clientId}
+                    </button>
+                  ) : (
+                    <span
+                      style={{ fontWeight: 600, color: "var(--color-ink)" }}
+                    >
+                      {order.clientName ?? order.clientEmail ?? order.clientId}
+                    </span>
+                  )}
                   {order.clientName && order.clientEmail && (
                     <div
                       style={{
