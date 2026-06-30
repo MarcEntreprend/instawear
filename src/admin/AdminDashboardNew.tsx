@@ -33,6 +33,7 @@ import ProductQuickViewModal from "./ProductQuickViewModal";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { orderApi, dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
+import InteractionsPage from "./InteractionsPage";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -988,6 +989,7 @@ export default function AdminDashboard({
     settings: "Paramètres",
     "admin-users": "Sécurité",
     help: "Aide & Support",
+    interactions: "Interactions clients",
   };
 
   // Écouter l’événement de navigation
@@ -1237,6 +1239,7 @@ export default function AdminDashboard({
           {section === "orders" && <OrdersPage />}
           {section === "promotions" && <PromotionsPage />}
           {section === "reports" && <ReportsPage />}
+          {section === "interactions" && <InteractionsPage />}
           {section === "integrations" && (
             <IntegrationsPage
               onNavigateToPrintfulSettings={() => {

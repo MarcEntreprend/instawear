@@ -77,6 +77,7 @@ export interface AdminNotification {
     productImage?: string;
     customerName?: string;
     customerId?: string;
+    interactionId?: string;
     amount?: number;
     currency?: string;
     linkTo?: string;
@@ -534,7 +535,8 @@ export default function NotificationsPage() {
       highlightId:
         notif.metadata?.productId ||
         notif.metadata?.orderId ||
-        notif.metadata?.customerId,
+        notif.metadata?.customerId ||
+        notif.metadata?.interactionId,
     });
   };
 

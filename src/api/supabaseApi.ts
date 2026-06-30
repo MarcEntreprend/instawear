@@ -1425,6 +1425,79 @@ export const notificationApi = {
   },
 };
 
+export const interactionApi = {
+  async list(params?: {
+    search?: string;
+    type?: string;
+    status?: string;
+  }): Promise<any[]> {
+    let query = supabase
+      .from("interactions")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    if (params?.type && params.type !== "all")
+      query = query.eq("type", params.type);
+    if (params?.status && params.status !== "all")
+      query = query.eq("status", params.status);
+    if (params?.search)
+      query = query.or(
+        `subject.ilike.%${params.search}%,customer_name.ilike.%${params.search}%,customer_email.ilike.%${params.search}%`,
+      );
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      customerEmail: row.customer_email,
+      type: row.type,
+      status: row.status,
+      subject: row.subject,
+      lastMessage: row.last_message,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      metadata: row.metadata,
+      messages: [],
+    }));
+  },
+
+  async getMessages(interactionId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("interaction_messages")
+      .select("*")
+      .eq("interaction_id", interactionId)
+      .order("timestamp", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async updateStatus(id: string, status: string): Promise<void> {
+    const { error } = await supabase
+      .from("interactions")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async addMessage(
+    interactionId: string,
+    from: "admin" | "customer",
+    text: string,
+  ): Promise<void> {
+    const { error } = await supabase.from("interaction_messages").insert({
+      interaction_id: interactionId,
+      from_field: from,
+      text,
+      timestamp: new Date().toISOString(),
+    });
+    if (error) throw error;
+    await supabase
+      .from("interactions")
+      .update({ last_message: text, updated_at: new Date().toISOString() })
+      .eq("id", interactionId);
+  },
+};
+
 export const apiConnectionsApi = {
   async list(): Promise<ApiConnection[]> {
     const { data, error } = await supabase

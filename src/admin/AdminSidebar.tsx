@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Zap,
   Bell,
+  MessageSquare,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -30,6 +31,7 @@ export type AdminSection =
   | "notifications"
   | "products"
   | "customers"
+  | "interactions"
   | "promotions"
   | "reports"
   | "integrations"
@@ -49,6 +51,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "products", label: "Produits", icon: Package },
   { id: "customers", label: "Clients", icon: Users },
+  { id: "interactions", label: "Interactions", icon: MessageSquare },
   { id: "promotions", label: "Promotions & Deals", icon: Tag },
   { id: "reports", label: "Rapports", icon: BarChart3 },
   "separator",
