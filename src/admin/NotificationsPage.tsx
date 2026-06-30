@@ -749,6 +749,7 @@ export default function NotificationsPage() {
           </div>
         </div>
 
+        {/* setting */}
         <div
           style={{
             display: "flex",
