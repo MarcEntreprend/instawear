@@ -292,8 +292,6 @@ export default function PrintfulProductForm({
         boughtLastMonth: 0,
       };
 
-      await onSave(newProduct as AdminProduct);
-
       const savedProduct = await onSave(newProduct as AdminProduct);
       // Notification avec productId
       import("../api/supabaseApi").then(({ notificationApi }) => {

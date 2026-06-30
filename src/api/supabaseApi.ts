@@ -215,25 +215,6 @@ export const productApi = {
       .single();
     if (error) throw error;
 
-    // NOTIFICATION - Nouveau produit créé (avant le return)
-    try {
-      await notificationApi.create({
-        title: "Nouveau produit créé",
-        description: `"${product.title}" ajouté au catalogue`,
-        category: "products",
-        priority: "low",
-        metadata: {
-          productId: data.id,
-          productTitle: product.title,
-          linkTo: "/admin/products",
-          source: "Système",
-        },
-        action_label: "Voir le produit",
-      });
-    } catch (e) {
-      console.warn("Échec création notification produit", e);
-    }
-
     return mapProduct(data);
 
     // NOTIFICATION - Nouveau produit créé

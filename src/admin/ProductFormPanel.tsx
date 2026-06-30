@@ -411,12 +411,30 @@ export default function ProductFormPanel({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
+    const savedProduct = await onSave({
       ...form,
       ratings: form.ratings || { score: 5, count: 0 },
       boughtLastMonth: form.boughtLastMonth || 0,
+    });
+
+    import("../api/supabaseApi").then(({ notificationApi }) => {
+      notificationApi
+        .create({
+          title: "Produit créé",
+          description: `"${form.title}" ajouté au catalogue`,
+          category: "products",
+          priority: "low",
+          metadata: {
+            productId: (savedProduct as any)?.id,
+            productTitle: form.title,
+            linkTo: "/admin/products",
+            source: "Système",
+          },
+          action_label: "Voir le produit",
+        })
+        .catch(() => {});
     });
   };
 
