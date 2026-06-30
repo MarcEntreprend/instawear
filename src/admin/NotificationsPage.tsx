@@ -76,6 +76,7 @@ export interface AdminNotification {
     productTitle?: string;
     productImage?: string;
     customerName?: string;
+    customerId?: string;
     amount?: number;
     currency?: string;
     linkTo?: string;
@@ -530,7 +531,10 @@ export default function NotificationsPage() {
 
     navigateAndHighlight({
       section,
-      highlightId: notif.metadata?.productId || notif.metadata?.orderId,
+      highlightId:
+        notif.metadata?.productId ||
+        notif.metadata?.orderId ||
+        notif.metadata?.customerId,
     });
   };
 

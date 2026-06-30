@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
+import { useHighlightListener } from "./useAdminHighlight";
 import { useCustomerDetail } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -125,6 +126,9 @@ export default function CustomersPage({
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+  const [highlightedCustomerId, setHighlightedCustomerId] = useState<
+    string | null
+  >(null);
 
   // ── Filter & sort ──────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -147,6 +151,12 @@ export default function CustomersPage({
     });
     return list;
   }, [customers, search, sortKey, sortDir]);
+  useHighlightListener(
+    "instawear:highlight-customers",
+    setHighlightedCustomerId,
+    2500,
+    'tr[data-customer-id="{}"]',
+  );
 
   const toggleSort = (key: keyof Customer) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -297,7 +307,19 @@ export default function CustomersPage({
             {filtered.map((c) => (
               <tr
                 key={c.id}
-                style={{ borderBottom: "1px solid var(--color-border)" }}
+                data-customer-id={c.id}
+                style={{
+                  borderBottom: "1px solid var(--color-border)",
+                  transition: "background 0.3s ease, box-shadow 0.3s ease",
+                  background:
+                    highlightedCustomerId === c.id
+                      ? "var(--color-accent-bg)"
+                      : "transparent",
+                  boxShadow:
+                    highlightedCustomerId === c.id
+                      ? "inset 0 0 0 2px var(--color-accent)"
+                      : "none",
+                }}
               >
                 <td style={tdStyle}>
                   <div

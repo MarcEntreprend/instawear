@@ -210,6 +210,7 @@ export default function AuthModal({
                   category: "customers",
                   priority: "low",
                   metadata: {
+                    customerId: data.user?.id ?? undefined,
                     customerName: name || email,
                     linkTo: "/admin/customers",
                     source: "Client",
