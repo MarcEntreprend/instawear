@@ -134,6 +134,7 @@ export default function Header({
     }
     const lowerTerm = term.toLowerCase();
     const matches = products
+      .filter((p) => p.isActive)
       .filter((p) => p.title.toLowerCase().includes(lowerTerm))
       .slice(0, 8);
     setFilteredSuggestions(matches);
@@ -155,7 +156,9 @@ export default function Header({
     const suggestionsList =
       searchSuggestions && searchSuggestions.length > 0
         ? searchSuggestions
-        : ["T-shirt Ligue des Champions", "Hoodie Halloween 2026"];
+        : products.filter((p) => p.isActive).map((p) => p.title);
+
+    if (suggestionsList.length === 0) return; // condition pour désactiver l’effet si la liste est vide
 
     if (!currentSuggestion) {
       const randomSuggestion =
