@@ -10,6 +10,9 @@ import {
   Save,
   X,
   RefreshCw,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import ProductQuickViewModal from "./ProductQuickViewModal";
@@ -34,6 +37,7 @@ export default function PromotionsPage() {
     bgGradient: "from-white via-indigo-50 to-white",
     tag: "⚡ PROMOTION",
     order: 0,
+    isActive: true,
     showTag: true,
     showTitle: true,
   });
@@ -49,10 +53,20 @@ export default function PromotionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Persister dans Supabase ET rafraîchir l'état local
+  // rafraîchir
   const refresh = async () => {
     try {
       const promos = await heroPromotionsApi.list();
+      for (const promo of promos) {
+        const product = allProducts.find((p) => p.id === promo.productId);
+        if (
+          (!product || product.isActive === false) &&
+          promo.isActive !== false
+        ) {
+          await heroPromotionsApi.update(promo.id, { isActive: false } as any);
+          promo.isActive = false;
+        }
+      }
       setPromotions(promos);
     } catch (e) {
       console.error(e);
@@ -157,6 +171,7 @@ export default function PromotionsPage() {
       bgGradient: "from-white via-indigo-50 to-white",
       tag: "⚡ PROMOTION",
       order: promotions.length,
+      isActive: true,
       showTag: true,
       showTitle: true,
     });
@@ -288,11 +303,13 @@ export default function PromotionsPage() {
                   required
                 >
                   <option value="">-- Sélectionner un produit --</option>
-                  {allProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
+                  {allProducts
+                    .filter((p) => p.isActive)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div>
@@ -458,6 +475,7 @@ export default function PromotionsPage() {
                       gap: 14,
                       padding: "12px 0",
                       borderBottom: "1px solid var(--color-border)",
+                      opacity: promo.isActive !== false ? 1 : 0.5,
                     }}
                   >
                     <div
@@ -543,7 +561,47 @@ export default function PromotionsPage() {
                         {product ? product.title : "Produit introuvable"}
                       </p>
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div
+                      style={{ display: "flex", gap: 6, alignItems: "center" }}
+                    >
+                      {(!product || product.isActive === false) && (
+                        <span title="Produit indisponible">
+                          <AlertTriangle
+                            size={12}
+                            style={{ color: "var(--color-ink4)" }}
+                          />
+                        </span>
+                      )}
+                      {/* Bouton Activer/Désactiver (œil) */}
+                      <button
+                        onClick={async () => {
+                          const product = getProductById(promo.productId);
+                          if (!product || product.isActive === false) {
+                            alert(
+                              "Produit introuvable ou inactif. Réactivez-le d'abord.",
+                            );
+                            return;
+                          }
+                          const newActive = !(promo.isActive ?? true);
+                          await heroPromotionsApi.update(promo.id, {
+                            isActive: newActive,
+                          } as any);
+                          await refresh();
+                        }}
+                        title={
+                          promo.isActive !== false ? "Désactiver" : "Activer"
+                        }
+                        style={{
+                          ...iconBtn,
+                          padding: "4px 8px",
+                        }}
+                      >
+                        {promo.isActive !== false ? (
+                          <Eye size={14} />
+                        ) : (
+                          <EyeOff size={14} />
+                        )}
+                      </button>
                       <button onClick={() => handleEdit(promo)} style={iconBtn}>
                         Modifier
                       </button>

@@ -234,6 +234,7 @@ export interface HeroPromotion {
   order: number;
   showTag?: boolean; // whether to display the tag/badge
   showTitle?: boolean; // whether to display the product title
+  isActive?: Boolean;
 }
 // ─── Shared filter / sort types ───────────────────────────────────────────
 export interface ProductFilters {

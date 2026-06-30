@@ -138,7 +138,7 @@ export default function App() {
             cartItems
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
-                if (!product) return null;
+                if (!product || !product.isActive) return null;
                 return {
                   product,
                   selectedColor: item.selectedColor,
@@ -732,6 +732,12 @@ export default function App() {
   // Hero Carousel banners content
   const heroBanners = React.useMemo(() => {
     return [...heroPromotions]
+      .filter((promo) => {
+        if (promo.isActive === false) return false;
+        const product = products.find((p) => p.id === promo.productId);
+        if (!product || product.isActive === false) return false;
+        return true;
+      })
       .sort((a, b) => a.order - b.order)
       .map((promo) => {
         const product = products.find((p) => p.id === promo.productId);
@@ -840,7 +846,8 @@ export default function App() {
     }
   };
 
-  const productTitles = products.map((p) => p.title);
+  // pour pouvoir Exclure les inactifs des suggestions
+  const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">

@@ -648,7 +648,10 @@ function FavouritesList({
           {items.map((fav) => (
             <tr
               key={fav.id}
-              style={{ borderBottom: "1px solid var(--color-border)" }}
+              style={{
+                borderBottom: "1px solid var(--color-border)",
+                opacity: fav.product?.isActive !== false ? 1 : 0.5,
+              }}
             >
               <td style={tdStyle}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

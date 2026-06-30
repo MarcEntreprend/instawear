@@ -146,6 +146,7 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   order: row.order,
   showTag: row.show_tag,
   showTitle: row.show_title,
+  isActive: row.is_active,
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -1106,6 +1107,7 @@ export const heroPromotionsApi = {
         tag: promo.tag,
         image: promo.image,
         order: promo.order,
+        is_active: promo.isActive !== false,
         show_tag: promo.showTag,
         show_title: promo.showTitle,
       })
@@ -1132,6 +1134,7 @@ export const heroPromotionsApi = {
         order: promo.order,
         show_tag: promo.showTag,
         show_title: promo.showTitle,
+        is_active: promo.isActive,
       })
       .eq("id", id)
       .select()
