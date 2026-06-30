@@ -86,8 +86,7 @@ instawear/
 │   ├── constants/
 │   │   └── assets.ts
 │   ├── data/
-│   │   ├── defaultProducts.ts
-│   │   └── staticData.ts
+│   │   └── faq.ts
 │   ├── hooks/
 │   │   ├── useCurrencySymbol.ts
 │   │   └── useLocalStorage.ts

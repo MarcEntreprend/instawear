@@ -298,6 +298,15 @@ export default function App() {
       .finally(() => setPromotionsLoading(false));
   }, []);
 
+  // Rafraîchir le catalogue quand l'admin modifie un produit
+  useEffect(() => {
+    const handler = () => {
+      fetchProducts();
+    };
+    window.addEventListener("storefront:invalidate", handler);
+    return () => window.removeEventListener("storefront:invalidate", handler);
+  }, []);
+
   // Écouter les changements de session Supabase (authentification)
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

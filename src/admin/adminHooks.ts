@@ -110,6 +110,7 @@ export function useProducts() {
       try {
         const p = await productApi.create(data);
         refetch();
+        window.dispatchEvent(new Event("storefront:invalidate"));
         return p;
       } finally {
         setSaving(false);
@@ -124,6 +125,7 @@ export function useProducts() {
       try {
         const p = await productApi.update(id, patch);
         refetch();
+        window.dispatchEvent(new Event("storefront:invalidate"));
         return p;
       } finally {
         setSaving(false);
@@ -136,6 +138,7 @@ export function useProducts() {
     async (id: string) => {
       await productApi.delete(id);
       refetch();
+      window.dispatchEvent(new Event("storefront:invalidate"));
     },
     [refetch],
   );
@@ -144,6 +147,7 @@ export function useProducts() {
     async (ids: string[]) => {
       await productApi.bulkDelete(ids);
       refetch();
+      window.dispatchEvent(new Event("storefront:invalidate"));
     },
     [refetch],
   );
@@ -152,6 +156,7 @@ export function useProducts() {
     async (ids: string[], isActive: boolean) => {
       await productApi.bulkSetActive(ids, isActive);
       refetch();
+      window.dispatchEvent(new Event("storefront:invalidate"));
     },
     [refetch],
   );
@@ -160,6 +165,7 @@ export function useProducts() {
     async (id: string) => {
       await productApi.duplicate(id);
       refetch();
+      window.dispatchEvent(new Event("storefront:invalidate"));
     },
     [refetch],
   );
