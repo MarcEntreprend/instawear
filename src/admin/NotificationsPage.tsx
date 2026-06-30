@@ -57,6 +57,7 @@ export type NotificationCategory =
   | "orders"
   | "products"
   | "customers"
+  | "interactions"
   | "bonus"
   | "api"
   | "security"
@@ -120,6 +121,7 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   orders: "Commandes",
   products: "Produits",
   customers: "Clients",
+  interactions: "Interactions",
   bonus: "Bonus & Promos",
   api: "API & Technique",
   security: "Sécurité",
@@ -142,6 +144,10 @@ const CATEGORY_COLORS: Record<
     border: "var(--notif-cat-customers)",
     bg: "var(--notif-cat-customers-bg)",
   },
+  interactions: {
+    border: "var(--notif-cat-interactions)",
+    bg: "var(--notif-cat-interactions-bg)",
+  },
   bonus: { border: "var(--notif-cat-bonus)", bg: "var(--notif-cat-bonus-bg)" },
   api: { border: "var(--notif-cat-api)", bg: "var(--notif-cat-api-bg)" },
   security: {
@@ -158,6 +164,7 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
   orders: <ShoppingBag size={13} strokeWidth={1.75} />,
   products: <Package size={13} strokeWidth={1.75} />,
   customers: <Users size={13} strokeWidth={1.75} />,
+  interactions: <MessageSquare size={13} strokeWidth={1.75} />,
   bonus: <Gift size={13} strokeWidth={1.75} />,
   api: <Settings size={13} strokeWidth={1.75} />,
   security: <Shield size={13} strokeWidth={1.75} />,
@@ -209,6 +216,7 @@ function getNotificationIcon(
     orders: <ShoppingBag size={17} strokeWidth={1.75} />,
     products: <Package size={17} strokeWidth={1.75} />,
     customers: <Users size={17} strokeWidth={1.75} />,
+    interactions: <MessageSquare size={17} strokeWidth={1.75} />,
     bonus: <Gift size={17} strokeWidth={1.75} />,
     api: <Settings size={17} strokeWidth={1.75} />,
     security: <Shield size={17} strokeWidth={1.75} />,
@@ -616,28 +624,29 @@ export default function NotificationsPage() {
   }, [showNotifSettings]);
 
   // ─── Catégories pour le bento stats ──────────────────────────────────
+  const [categoryBreakdownData, setCategoryBreakdownData] = useState<
+    Record<string, number>
+  >({});
+
+  useEffect(() => {
+    notificationApi
+      .getCategoryBreakdown()
+      .then(setCategoryBreakdownData)
+      .catch(() => {});
+  }, [notifications]); // se recharge quand notifications change
+
   const categoryBreakdown = useMemo(() => {
-    const counts: Record<NotificationCategory, number> = {
-      orders: 0,
-      products: 0,
-      customers: 0,
-      bonus: 0,
-      api: 0,
-      security: 0,
-      finance: 0,
-    };
-    const active = notifications.filter((n) => n.status !== "archived");
-    active.forEach((n) => counts[n.category]++);
-    const total = active.length || 1;
-    return (Object.keys(counts) as NotificationCategory[])
+    const total =
+      Object.values(categoryBreakdownData).reduce((s, c) => s + c, 0) || 1;
+    return (Object.keys(categoryBreakdownData) as NotificationCategory[])
       .map((key) => ({
         key,
-        count: counts[key],
-        pct: Math.round((counts[key] / total) * 100),
+        count: categoryBreakdownData[key],
+        pct: Math.round((categoryBreakdownData[key] / total) * 100),
       }))
       .filter((c) => c.count > 0)
       .sort((a, b) => b.count - a.count);
-  }, [notifications]);
+  }, [categoryBreakdownData]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
@@ -933,27 +942,7 @@ export default function NotificationsPage() {
           alignItems: "center",
         }}
       >
-        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
-          <Search
-            size={14}
-            strokeWidth={1.75}
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--color-ink4)",
-              pointerEvents: "none",
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Rechercher une commande, un client, un produit…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={searchInputStyle}
-          />
-        </div>
+        {" "}
         <button
           onClick={() => setFiltersOpen((v) => !v)}
           style={{
@@ -1025,6 +1014,27 @@ export default function NotificationsPage() {
           <Clock size={14} strokeWidth={1.75} />
           {sortOrder === "newest" ? "Plus récent" : "Plus ancien"}
         </button>
+        <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+          <Search
+            size={14}
+            strokeWidth={1.75}
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--color-ink4)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Rechercher une commande, un client, un produit…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={searchInputStyle}
+          />
+        </div>
       </div>
 
       {/* Panneau de filtres */}

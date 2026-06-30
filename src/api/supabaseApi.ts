@@ -1423,6 +1423,19 @@ export const notificationApi = {
     });
     return rows.join("\n");
   },
+
+  async getCategoryBreakdown(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("category")
+      .neq("status", "archived");
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((n: any) => {
+      counts[n.category] = (counts[n.category] || 0) + 1;
+    });
+    return counts;
+  },
 };
 
 export const interactionApi = {

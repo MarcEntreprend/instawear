@@ -966,6 +966,8 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   --notif-cat-finance-bg: #ecfdf5;
   --notif-negative: #ef4444;
   --notif-negative-bg: #fef2f2;
+  --notif-cat-interactions: #8b5cf6;
+  --notif-cat-interactions-bg: #f5f3ff;
 }
 
 [data-theme="dark"] {
@@ -985,6 +987,8 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   --notif-cat-finance-bg: rgba(16, 185, 129, 0.12);
   --notif-negative: #f87171;
   --notif-negative-bg: rgba(239, 68, 68, 0.12);
+  --notif-cat-interactions: #a78bfa;
+  --notif-cat-interactions-bg: rgba(139, 92, 246, 0.12);
 }
 
 /* Animation pr le bell (Notification) */
