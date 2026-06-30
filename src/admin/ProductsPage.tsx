@@ -13,6 +13,8 @@ import {
   ChevronUp,
   Package,
   RefreshCw,
+  SlidersHorizontal,
+  Settings,
 } from "lucide-react";
 import { useProducts, useReferenceLists } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
@@ -97,14 +99,20 @@ export default function ProductsPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingPrintful, setIsCreatingPrintful] = useState(false);
-  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
-    null,
-  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hideInactive, setHideInactive] = useState(() => {
+    return localStorage.getItem("products-hide-inactive") === "true";
+  });
 
   //state et écouteur d’événement
   const [highlightedProductId, setHighlightedProductId] = useState<
     string | null
   >(null);
+
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
 
   useHighlightListener(
     "instawear:highlight-products",
@@ -112,6 +120,22 @@ export default function ProductsPage() {
     2500,
     'tr[data-product-id="{}"]', // ← scroll automatique vers la ligne
   );
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleClickOutside = () => setShowSettings(false);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showSettings]);
+
+  useEffect(() => {
+    localStorage.setItem("products-hide-inactive", String(hideInactive));
+  }, [hideInactive]);
 
   const currencySymbol = useCurrencySymbol();
 
@@ -121,12 +145,37 @@ export default function ProductsPage() {
     return allProducts.find((p) => p.id === editingProductId) ?? null;
   }, [editingProductId, allProducts]);
 
+  // Compteurs pour les dots dans les filtres (basés sur tous les produits, pas filtrés)
+  const countsByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allProducts?.forEach((p) => {
+      counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return counts;
+  }, [allProducts]);
+
+  const countsByEventType = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allProducts?.forEach((p) => {
+      counts[p.eventType] = (counts[p.eventType] || 0) + 1;
+    });
+    return counts;
+  }, [allProducts]);
+
+  const countsByStyle = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allProducts?.forEach((p) => {
+      counts[p.style] = (counts[p.style] || 0) + 1;
+    });
+    return counts;
+  }, [allProducts]);
+
   // ── Filter & sort ──────────────────────────────────────────────────────
   const products = useMemo(() => {
     if (!allProducts) return [];
     let list = [...allProducts];
 
-    if (!filters.showInactive) list = list.filter((p) => p.isActive);
+    if (hideInactive) list = list.filter((p) => p.isActive);
 
     if (filters.search) {
       const s = filters.search.toLowerCase();
@@ -164,7 +213,7 @@ export default function ProductsPage() {
       return 0;
     });
     return list;
-  }, [allProducts, filters, sortKey, sortDir]);
+  }, [allProducts, filters, sortKey, sortDir, hideInactive]);
 
   // Synchroniser l'ordre manuel avec la liste filtrée (IDs uniquement, sans boucle)
   useEffect(() => {
@@ -281,6 +330,38 @@ export default function ProductsPage() {
     if (selected.size === 0) return;
     await bulkSetActive(Array.from(selected), active);
     setSelected(new Set());
+  };
+
+  // compteur
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.category) count++;
+    if (filters.eventType) count++;
+    if (filters.style) count++;
+    if (filters.material) count++;
+    if (filters.inStockOnly) count++;
+    if (!filters.showInactive) count++; // car "masquer les inactifs" est un filtre actif
+    if (filters.priceMin > 0) count++;
+    if (filters.priceMax < 200) count++;
+    if (filters.size) count++;
+    if (filters.color) count++;
+    return count;
+  }, [filters]);
+
+  const resetFilters = () => {
+    setFilters({
+      search: "",
+      category: null,
+      eventType: null,
+      style: null,
+      material: null,
+      priceMin: 0,
+      priceMax: 200,
+      inStockOnly: false,
+      size: null,
+      color: null,
+      showInactive: true,
+    });
   };
 
   const moveProduct = (id: string, direction: -1 | 1) => {
@@ -456,24 +537,140 @@ export default function ProductsPage() {
             <Package size={15} strokeWidth={2} />
             Nouveau produit Printful
           </button>
+
+          {/* Menu setting */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSettings((prev) => !prev);
+              }}
+              title="Paramètres d'affichage"
+              style={{
+                ...iconBtnStyle,
+                padding: "8px 10px",
+              }}
+            >
+              <Settings size={14} />
+            </button>
+            {showSettings && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 8,
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  boxShadow: "var(--shadow-xl)",
+                  padding: "14px 18px",
+                  zIndex: 100,
+                  minWidth: 220,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontSize: 13,
+                    color: "var(--color-ink)",
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>Masquer les inactifs</span>
+                  <button
+                    onClick={() => setHideInactive((prev) => !prev)}
+                    style={{
+                      background: hideInactive
+                        ? "var(--color-accent)"
+                        : "var(--color-surface2)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 999,
+                      width: 36,
+                      height: 20,
+                      position: "relative",
+                      cursor: "pointer",
+                      padding: 0,
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        left: hideInactive ? 18 : 2,
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        background: "white",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                        transition: "left 0.2s",
+                      }}
+                    />
+                  </button>
+                </label>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Filter bar – sticky on scroll within admin content */}
       <div
         style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 40,
           display: "flex",
-          flexWrap: "wrap",
           gap: 10,
-          padding: "14px 16px",
-          borderRadius: 16,
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
+          flexWrap: "wrap",
           alignItems: "center",
         }}
       >
+        {/* Bouton Filtres (comme dans Notifications) */}
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          style={{
+            padding: "7px 14px",
+            borderRadius: 10,
+            border: "1px solid var(--color-border)",
+            background: filtersOpen
+              ? "var(--color-accent-bg)"
+              : "var(--color-surface2)",
+            color: filtersOpen ? "var(--color-accent)" : "var(--color-ink2)",
+            fontWeight: 600,
+            fontSize: 12.5,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <SlidersHorizontal size={14} strokeWidth={1.75} />
+          Filtres
+          {activeFilterCount > 0 && (
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: "var(--color-accent)",
+                color: "white",
+                fontSize: 10,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {/* Champ recherche (toujours visible) */}
         <div
           style={{
             display: "flex",
@@ -521,145 +718,205 @@ export default function ProductsPage() {
             </button>
           )}
         </div>
-
-        {/* select barre de filtres */}
-        {(["category", "eventType", "style"] as const).map((key) => {
-          const typeMap: Record<string, string> = {
-            category: "category",
-            eventType: "event_type",
-            style: "style",
-          };
-          const options = getByType(typeMap[key]);
-          const label =
-            key === "category"
-              ? "Catégorie"
-              : key === "eventType"
-                ? "Événement"
-                : "Style";
-          return (
-            <select
-              key={key}
-              value={filters[key] ?? ""}
-              onChange={(e) =>
-                setFilters({ ...filters, [key]: e.target.value || null })
-              }
-              style={{
-                padding: "7px 12px",
-                borderRadius: 10,
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface2)",
-                fontSize: 12,
-                fontWeight: 500,
-                color: "var(--color-ink2)",
-                cursor: "pointer",
-              }}
-            >
-              <option value="">{label}</option>
-              {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          );
-        })}
-
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--color-ink3)",
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={filters.inStockOnly}
-            onChange={(e) =>
-              setFilters({ ...filters, inStockOnly: e.target.checked })
-            }
-            style={{ accentColor: "var(--color-accent)" }}
-          />
-          En stock uniquement
-        </label>
-
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--color-ink3)",
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={filters.showInactive}
-            onChange={(e) =>
-              setFilters({ ...filters, showInactive: e.target.checked })
-            }
-            style={{ accentColor: "var(--color-accent)" }}
-          />
-          Voir les inactifs
-        </label>
       </div>
 
-      {/* Bulk actions */}
-      {selected.size > 0 && (
+      {/* Panneau de filtres (collapsible) */}
+      {filtersOpen && (
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 10,
-            padding: "10px 16px",
-            borderRadius: 12,
-            background: "var(--color-accent-soft2)",
-            border: "1px solid var(--color-accent)",
-            color: "var(--color-accent)",
-            fontSize: 12.5,
-            fontWeight: 600,
-            alignItems: "center",
+            padding: 12,
+            borderRadius: 14,
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface2)",
           }}
         >
-          <span>
-            {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
-          </span>
-          <button onClick={() => handleBulkActivate(true)} style={quickBtn}>
-            Activer
-          </button>
-          <button onClick={() => handleBulkActivate(false)} style={quickBtn}>
-            Désactiver
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            style={{
-              ...quickBtn,
-              color: "#ef4444",
-              borderColor: "#fecaca",
-              background: "#fef2f2",
-            }}
+          {/* Catégorie */}
+          <select
+            value={filters.category ?? ""}
+            onChange={(e) =>
+              setFilters({ ...filters, category: e.target.value || null })
+            }
+            style={selectStyle}
           >
-            Supprimer
-          </button>
-          <button
-            onClick={() => setSelected(new Set())}
+            <option value="">Catégorie</option>
+            {getByType("category").map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+                {countsByCategory[o.value]
+                  ? ` (${countsByCategory[o.value]})`
+                  : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Événement */}
+          <select
+            value={filters.eventType ?? ""}
+            onChange={(e) =>
+              setFilters({ ...filters, eventType: e.target.value || null })
+            }
+            style={selectStyle}
+          >
+            <option value="">Événement</option>
+            {getByType("event_type").map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+                {countsByEventType[o.value]
+                  ? ` (${countsByEventType[o.value]})`
+                  : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Style */}
+          <select
+            value={filters.style ?? ""}
+            onChange={(e) =>
+              setFilters({ ...filters, style: e.target.value || null })
+            }
+            style={selectStyle}
+          >
+            <option value="">Style</option>
+            {getByType("style").map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+                {countsByStyle[o.value] ? ` (${countsByStyle[o.value]})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Checkboxes */}
+          <label
             style={{
-              ...quickBtn,
-              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
               color: "var(--color-ink3)",
-              borderColor: "var(--color-border)",
-              background: "var(--color-surface2)",
+              cursor: "pointer",
             }}
           >
-            <X size={14} style={{ marginRight: 4 }} />
-            Annuler la sélection
-          </button>
+            <input
+              type="checkbox"
+              checked={filters.inStockOnly}
+              onChange={(e) =>
+                setFilters({ ...filters, inStockOnly: e.target.checked })
+              }
+              style={{ accentColor: "var(--color-accent)" }}
+            />
+            En stock uniquement
+          </label>
+
+          {/* Réinitialiser */}
+          {activeFilterCount > 0 && (
+            <button
+              onClick={resetFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                background: "none",
+                border: "none",
+                color: "var(--color-accent)",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <X size={12} strokeWidth={2} /> Réinitialiser
+            </button>
+          )}
         </div>
       )}
+
+      {/* Barre d'actions groupées (style notifications) */}
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: selected.size > 0 ? 60 : 0,
+          opacity: selected.size > 0 ? 1 : 0,
+          transition: "max-height 0.3s ease, opacity 0.3s ease",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 16px",
+            borderRadius: 14,
+            background: "var(--color-accent)",
+            color: "white",
+            boxShadow: "var(--shadow-accent)",
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {selected.size} sélectionné{selected.size > 1 ? "s" : ""}
+          </span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            {(() => {
+              const selectedProducts = orderedProducts.filter((p) =>
+                selected.has(p.id),
+              );
+              const allActive =
+                selectedProducts.length > 0 &&
+                selectedProducts.every((p) => p.isActive);
+              const allInactive =
+                selectedProducts.length > 0 &&
+                selectedProducts.every((p) => !p.isActive);
+
+              return (
+                <>
+                  <button
+                    onClick={() => handleBulkActivate(true)}
+                    disabled={allActive}
+                    style={{
+                      ...actionBtnWhite,
+                      opacity: allActive ? 0.4 : 1,
+                      cursor: allActive ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <Eye size={13} strokeWidth={1.75} /> Activer
+                  </button>
+                  <button
+                    onClick={() => handleBulkActivate(false)}
+                    disabled={allInactive}
+                    style={{
+                      ...actionBtnWhite,
+                      opacity: allInactive ? 0.4 : 1,
+                      cursor: allInactive ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <EyeOff size={13} strokeWidth={1.75} /> Désactiver
+                  </button>
+                </>
+              );
+            })()}
+            <button onClick={handleBulkDelete} style={{ ...actionBtnWhite }}>
+              <Trash2 size={13} strokeWidth={1.75} /> Supprimer
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 4,
+              }}
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Table */}
       <div
@@ -1044,4 +1301,41 @@ const arrowBtn: React.CSSProperties = {
   cursor: "pointer",
   color: "var(--color-ink4)",
   display: "flex",
+};
+
+const selectStyle: React.CSSProperties = {
+  padding: "7px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface2)",
+  fontSize: 12,
+  fontWeight: 500,
+  color: "var(--color-ink2)",
+  cursor: "pointer",
+  outline: "none",
+};
+
+const actionBtnWhite: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "6px 12px",
+  borderRadius: 8,
+  border: "none",
+  background: "rgba(255,255,255,0.15)",
+  color: "white",
+  fontWeight: 600,
+  fontSize: 12,
+  cursor: "pointer",
+  transition: "background 0.2s",
+};
+
+const iconBtnStyle: React.CSSProperties = {
+  background: "var(--color-surface2)",
+  border: "1px solid var(--color-border)",
+  borderRadius: 8,
+  cursor: "pointer",
+  color: "var(--color-ink2)",
+  display: "flex",
+  alignItems: "center",
 };
