@@ -515,10 +515,10 @@ export default function NotificationsPage() {
       setSelectedIds(new Set(notifications.map((n) => n.id)));
     }
   };
-
   const handleNavigate = (notif: AdminNotification) => {
     const link = notif.metadata?.linkTo;
     if (!link) return;
+
     const sectionMap: Record<string, AdminSection> = {
       products: "products",
       orders: "orders",
@@ -529,16 +529,17 @@ export default function NotificationsPage() {
       integrations: "integrations",
       "admin-users": "admin-users",
     };
-    // Extrait la section du lien (ex: "/admin/products" → "products")
+
     const match = link.match(/\/admin\/([a-z-]+)/);
     const section = match ? sectionMap[match[1]] : null;
+
+    // Récupère le productId depuis les métadonnées (prioritaire sur l'URL)
+    const productId = notif.metadata?.productId;
+
     if (section) {
       window.dispatchEvent(
         new CustomEvent("instawear:navigate-admin", {
-          detail: {
-            section,
-            params: { highlightProduct: notif.metadata?.productId },
-          },
+          detail: { section, params: { highlightProduct: productId } },
         }),
       );
     } else {

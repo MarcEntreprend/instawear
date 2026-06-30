@@ -361,7 +361,12 @@ export const productApi = {
         description: `${ids.length} produit(s) ${isActive ? "activé(s)" : "désactivé(s)"}`,
         category: "products",
         priority: "medium",
-        metadata: { source: "Système", linkTo: "/admin/products" },
+        metadata: {
+          productId: ids[0], // pour le highlight
+          productIds: ids, // référence complète
+          linkTo: "/admin/products",
+          source: "Système",
+        },
         action_label: "Voir les produits",
       });
     } catch (_) {}
