@@ -52,7 +52,7 @@ export function useAdminHighlight() {
 export function useHighlightListener(
   eventName: string,
   onHighlight: (id: string) => void,
-  duration = 2500,
+  duration = 3000,
   /** Sélecteur CSS pour trouver la ligne à scroller (ex: 'tr[data-product-id]') */
   rowSelector?: string,
 ) {

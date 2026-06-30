@@ -15,6 +15,7 @@ import {
   Eye,
   ArrowLeft,
   RefreshCw,
+  MessageSquare,
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
 import { useHighlightListener } from "./useAdminHighlight";
@@ -30,7 +31,7 @@ import {
   Order,
   AdminProduct,
 } from "./adminTypes";
-import { customerApi } from "../api/supabaseApi";
+import { customerApi, interactionApi } from "../api/supabaseApi";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -421,9 +422,22 @@ function CustomerDetailPanel({
   setQuickViewProduct?: (product: AdminProduct | null) => void;
 }) {
   const { data } = useCustomerDetail(customerId);
-  const [activeTab, setActiveTab] = useState<"favorites" | "cart" | "orders">(
-    "orders",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "favorites" | "cart" | "orders" | "interactions"
+  >("orders");
+  const [interactions, setInteractions] = useState<any[]>([]);
+  const [interactionsLoading, setInteractionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === "interactions" && customerId) {
+      setInteractionsLoading(true);
+      interactionApi
+        .list({ search: customerId })
+        .then(setInteractions)
+        .catch(() => setInteractions([]))
+        .finally(() => setInteractionsLoading(false));
+    }
+  }, [activeTab, customerId]);
 
   if (!data) {
     return (
@@ -457,10 +471,10 @@ function CustomerDetailPanel({
 
   const tabs = [
     {
-      key: "favorites" as const,
-      label: "Favoris",
-      icon: <Heart size={14} />,
-      count: favourites.length,
+      key: "orders" as const,
+      label: "Commandes",
+      icon: <Package size={14} />,
+      count: orders.length,
     },
     {
       key: "cart" as const,
@@ -469,10 +483,16 @@ function CustomerDetailPanel({
       count: cart.length,
     },
     {
-      key: "orders" as const,
-      label: "Commandes",
-      icon: <Package size={14} />,
-      count: orders.length,
+      key: "favorites" as const,
+      label: "Favoris",
+      icon: <Heart size={14} />,
+      count: favourites.length,
+    },
+    {
+      key: "interactions" as const,
+      label: "Interactions",
+      icon: <MessageSquare size={14} />,
+      count: interactions.length,
     },
   ];
 
@@ -575,14 +595,21 @@ function CustomerDetailPanel({
         ))}
       </div>
 
-      {activeTab === "favorites" && (
-        <FavouritesList items={favourites} onQuickView={onQuickView} />
+      {activeTab === "orders" && (
+        <OrdersList orders={orders} onNavigate={onNavigate} />
       )}
       {activeTab === "cart" && (
         <CartList items={cart} onQuickView={onQuickView} />
       )}
-      {activeTab === "orders" && (
-        <OrdersList orders={orders} onNavigate={onNavigate} />
+      {activeTab === "favorites" && (
+        <FavouritesList items={favourites} onQuickView={onQuickView} />
+      )}
+      {activeTab === "interactions" && (
+        <InteractionsTab
+          interactions={interactions}
+          loading={interactionsLoading}
+          onNavigate={onNavigate}
+        />
       )}
       {quickViewProduct && (
         <ProductQuickViewModal
@@ -836,7 +863,16 @@ function OrdersList({
                 style={{ ...tdStyle, fontWeight: 600, fontFamily: "monospace" }}
               >
                 <button
-                  onClick={() => onNavigate?.("orders")}
+                  onClick={() => {
+                    onNavigate?.("orders");
+                    setTimeout(() => {
+                      window.dispatchEvent(
+                        new CustomEvent("instawear:highlight-orders", {
+                          detail: order.id,
+                        }),
+                      );
+                    }, 400);
+                  }}
                   style={{
                     background: "none",
                     border: "none",
@@ -871,6 +907,155 @@ function OrdersList({
               </td>
               <td style={{ ...tdStyle, textAlign: "center" }}>
                 <OrderStatusBadge status={order.status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// function interactionsTab
+function InteractionsTab({
+  interactions,
+  loading,
+  onNavigate,
+}: {
+  interactions: any[];
+  loading: boolean;
+  onNavigate?: (section: AdminSection) => void;
+}) {
+  if (loading) {
+    return (
+      <div style={centerStyle}>
+        <div
+          className="animate-spin"
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: "50%",
+            border: "2px solid var(--color-border)",
+            borderTopColor: "var(--color-accent)",
+          }}
+        />
+      </div>
+    );
+  }
+  if (interactions.length === 0)
+    return (
+      <EmptyState
+        icon={<MessageSquare size={28} />}
+        text="Aucune interaction avec ce client."
+      />
+    );
+  return (
+    <div style={cardStyle}>
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+      >
+        <thead style={theadStyle}>
+          <tr>
+            <th style={thStyle}>Sujet</th>
+            <th style={thStyle}>Type</th>
+            <th style={thStyle}>Statut</th>
+            <th style={thStyle}>Dernier message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {interactions.map((ticket: any) => (
+            <tr
+              key={ticket.id}
+              style={{ borderBottom: "1px solid var(--color-border)" }}
+            >
+              <td style={tdStyle}>
+                <p style={{ fontWeight: 600, color: "var(--color-ink)" }}>
+                  {ticket.subject}
+                </p>
+              </td>
+              <td style={tdStyle}>
+                <span style={{ fontSize: 12, color: "var(--color-ink2)" }}>
+                  {ticket.type === "complaint"
+                    ? "Réclamation"
+                    : ticket.type === "question"
+                      ? "Question"
+                      : ticket.type === "feedback"
+                        ? "Feedback"
+                        : "Fidélisation"}
+                </span>
+              </td>
+              <td style={tdStyle}>
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background:
+                      ticket.status === "open"
+                        ? "#fef3c7"
+                        : ticket.status === "in_progress"
+                          ? "#dbeafe"
+                          : ticket.status === "resolved"
+                            ? "#d1fae5"
+                            : "#f3f4f6",
+                    color:
+                      ticket.status === "open"
+                        ? "#92400e"
+                        : ticket.status === "in_progress"
+                          ? "#1e40af"
+                          : ticket.status === "resolved"
+                            ? "#065f46"
+                            : "#6b7280",
+                  }}
+                >
+                  {ticket.status === "open"
+                    ? "Ouvert"
+                    : ticket.status === "in_progress"
+                      ? "En cours"
+                      : ticket.status === "resolved"
+                        ? "Résolu"
+                        : "Fermé"}
+                </span>
+              </td>
+              <td
+                style={{ ...tdStyle, fontSize: 11, color: "var(--color-ink4)" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: 200,
+                    }}
+                  >
+                    {ticket.lastMessage || ticket.last_message || "—"}
+                  </span>
+                  <button
+                    onClick={() => onNavigate?.("interactions")}
+                    style={{
+                      background: "var(--color-surface2)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 6,
+                      padding: "3px 8px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--color-ink2)",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      marginLeft: 8,
+                    }}
+                  >
+                    Voir
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
