@@ -1150,39 +1150,41 @@ export default function NotificationsPage() {
               const selectedNotifications = notifications.filter((n) =>
                 selectedIds.has(n.id),
               );
-              const hasRead = selectedNotifications.some(
-                (n) => n.status === "read",
-              );
-              const hasUnread = selectedNotifications.some(
-                (n) => n.status === "unread",
-              );
               const allRead =
                 selectedNotifications.length > 0 &&
                 selectedNotifications.every((n) => n.status === "read");
               const allUnread =
                 selectedNotifications.length > 0 &&
                 selectedNotifications.every((n) => n.status === "unread");
+              const allArchived =
+                selectedNotifications.length > 0 &&
+                selectedNotifications.every((n) => n.status === "archived");
+              const hasArchived = selectedNotifications.some(
+                (n) => n.status === "archived",
+              );
 
               return (
                 <>
                   <button
                     onClick={handleBulkMarkAsRead}
-                    disabled={allRead}
+                    disabled={allRead || hasArchived}
                     style={{
                       ...actionBtnWhite,
-                      opacity: allRead ? 0.4 : 1,
-                      cursor: allRead ? "not-allowed" : "pointer",
+                      opacity: allRead || hasArchived ? 0.4 : 1,
+                      cursor:
+                        allRead || hasArchived ? "not-allowed" : "pointer",
                     }}
                   >
                     <Eye size={13} strokeWidth={1.75} /> Marquer lue(s)
                   </button>
                   <button
                     onClick={handleBulkMarkAsUnread}
-                    disabled={allUnread}
+                    disabled={allUnread && !allArchived}
                     style={{
                       ...actionBtnWhite,
-                      opacity: allUnread ? 0.4 : 1,
-                      cursor: allUnread ? "not-allowed" : "pointer",
+                      opacity: allUnread && !allArchived ? 0.4 : 1,
+                      cursor:
+                        allUnread && !allArchived ? "not-allowed" : "pointer",
                     }}
                   >
                     <EyeOff size={13} strokeWidth={1.75} /> Marquer non lue(s)
@@ -1930,7 +1932,7 @@ function NotificationCard({
           transition: "opacity 0.2s",
         }}
       >
-        {/* Marquer comme lue (enveloppe ouverte) */}
+        {/* Marquer comme lue (enveloppe ouverte) – uniquement si non lue */}
         {notification.status === "unread" && (
           <IconAction
             icon={<MailOpen size={14} strokeWidth={1.75} />}
@@ -1938,15 +1940,16 @@ function NotificationCard({
             onClick={onMarkRead}
           />
         )}
-        {/* Marquer comme non lue (enveloppe fermée) */}
-        {(notification.status === "read" ||
-          notification.status === "archived") && (
+
+        {/* Marquer comme non lue (enveloppe fermée) – uniquement si lue, pas si archivée */}
+        {notification.status === "read" && (
           <IconAction
             icon={<Mail size={14} strokeWidth={1.75} />}
             label="Marquer non lue"
             onClick={onMarkUnread}
           />
         )}
+
         {/* Archiver / Désarchiver */}
         {notification.status !== "archived" ? (
           <IconAction
