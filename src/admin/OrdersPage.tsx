@@ -16,6 +16,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
+import { useHighlightListener } from "./useAdminHighlight";
 import { productApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
@@ -100,9 +101,19 @@ export default function OrdersPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
+    null,
+  );
 
   // states pour le chargement et la fonction de récupération
   const [loadingQuickView, setLoadingQuickView] = useState(false);
+
+  useHighlightListener(
+    "instawear:highlight-orders",
+    setHighlightedOrderId,
+    2500,
+    'tr[data-order-id="{}"]',
+  );
 
   const handleQuickView = async (productId: string) => {
     setLoadingQuickView(true);
@@ -543,7 +554,19 @@ export default function OrdersPage() {
             {filteredOrders.map((order) => (
               <tr
                 key={order.id}
-                style={{ borderBottom: "1px solid var(--color-border)" }}
+                data-order-id={order.id}
+                style={{
+                  borderBottom: "1px solid var(--color-border)",
+                  transition: "background 0.3s ease, box-shadow 0.3s ease",
+                  background:
+                    highlightedOrderId === order.id
+                      ? "var(--color-accent-bg)"
+                      : "transparent",
+                  boxShadow:
+                    highlightedOrderId === order.id
+                      ? "inset 0 0 0 2px var(--color-accent)"
+                      : "none",
+                }}
               >
                 <td
                   style={{
