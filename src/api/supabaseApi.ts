@@ -1296,6 +1296,24 @@ export const notificationApi = {
     if (error) throw error;
   },
 
+  async unarchive(id: string): Promise<void> {
+    // Récupérer le statut précédent (on suppose qu'il était "read" ou "unread")
+    // On choisit "read" par défaut pour éviter de créer de fausses non lues
+    const { data: prev } = await supabase
+      .from("notifications")
+      .select("status")
+      .eq("id", id)
+      .single();
+    // Si la notification était archivée, on la repasse en "read" (ou conserve son état précédent si on le stockait)
+    const newStatus =
+      prev?.status === "archived" ? "read" : prev?.status || "read";
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
   async bulkMarkAsRead(ids: string[]): Promise<void> {
     const { error } = await supabase
       .from("notifications")
@@ -1316,6 +1334,14 @@ export const notificationApi = {
     const { error } = await supabase
       .from("notifications")
       .update({ status: "archived", updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) throw error;
+  },
+
+  async bulkUnarchive(ids: string[]): Promise<void> {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ status: "read", updated_at: new Date().toISOString() })
       .in("id", ids);
     if (error) throw error;
   },

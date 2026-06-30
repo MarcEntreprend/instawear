@@ -29,6 +29,8 @@ import {
   Eye,
   EyeOff,
   Archive,
+  Mail,
+  MailOpen,
   CheckCheck,
   Clock,
   Inbox,
@@ -447,6 +449,13 @@ export default function NotificationsPage() {
     fetchNotifications();
   };
 
+  const handleUnarchive = async (id: string) => {
+    await notificationApi.unarchive(id);
+    window.dispatchEvent(new Event("notifications-updated"));
+    pushToast("Notification désarchivée.");
+    fetchNotifications();
+  };
+
   const handleBulkMarkAsUnread = async () => {
     const count = selectedIds.size;
     await notificationApi.bulkMarkAsUnread([...selectedIds]);
@@ -469,6 +478,15 @@ export default function NotificationsPage() {
     await notificationApi.bulkArchive([...selectedIds]);
     window.dispatchEvent(new Event("notifications-updated"));
     pushToast(`${count} notification(s) archivée(s).`);
+    setSelectedIds(new Set());
+    fetchNotifications();
+  };
+
+  const handleBulkUnarchive = async () => {
+    const count = selectedIds.size;
+    await notificationApi.bulkUnarchive([...selectedIds]);
+    window.dispatchEvent(new Event("notifications-updated"));
+    pushToast(`${count} notification(s) désarchivée(s).`);
     setSelectedIds(new Set());
     fetchNotifications();
   };
@@ -1141,9 +1159,29 @@ export default function NotificationsPage() {
                 </>
               );
             })()}
-            <button onClick={handleBulkArchive} style={{ ...actionBtnWhite }}>
-              <Archive size={13} strokeWidth={1.75} /> Archiver
-            </button>
+            {(() => {
+              const selectedNotifications = notifications.filter((n) =>
+                selectedIds.has(n.id),
+              );
+              const allArchived =
+                selectedNotifications.length > 0 &&
+                selectedNotifications.every((n) => n.status === "archived");
+              return allArchived ? (
+                <button
+                  onClick={handleBulkUnarchive}
+                  style={{ ...actionBtnWhite }}
+                >
+                  <Mail size={13} strokeWidth={1.75} /> Désarchiver
+                </button>
+              ) : (
+                <button
+                  onClick={handleBulkArchive}
+                  style={{ ...actionBtnWhite }}
+                >
+                  <Archive size={13} strokeWidth={1.75} /> Archiver
+                </button>
+              );
+            })()}
             <button
               onClick={() => setSelectedIds(new Set())}
               style={{
@@ -1324,6 +1362,7 @@ export default function NotificationsPage() {
                       onMarkUnread={() => handleMarkAsUnread(notif.id)}
                       onArchive={() => handleArchive(notif.id)}
                       onNavigate={handleNavigate}
+                      onUnarchive={() => handleUnarchive(notif.id)}
                     />
                   ))}
                 </div>
@@ -1661,6 +1700,7 @@ function NotificationCard({
   onMarkRead,
   onMarkUnread,
   onArchive,
+  onUnarchive,
   onNavigate,
 }: {
   notification: AdminNotification;
@@ -1670,6 +1710,7 @@ function NotificationCard({
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onArchive: () => void;
+  onUnarchive: () => void;
   onNavigate: (link?: string, title?: string) => void;
 }) {
   const priorityMeta = PRIORITY_META[notification.priority];
@@ -1851,51 +1892,59 @@ function NotificationCard({
         </div>
       </div>
 
-      {!compact && (
-        <div
-          style={{
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
-            flexShrink: 0,
-            opacity: isHovered ? 1 : 0,
-            transition: "opacity 0.2s",
-          }}
-        >
-          {notification.status !== "read" && (
-            <IconAction
-              icon={<Eye size={14} strokeWidth={1.75} />}
-              label="Marquer comme lue"
-              onClick={onMarkRead}
-            />
-          )}
-          {notification.status !== "unread" &&
-            notification.status !== "archived" && (
-              <IconAction
-                icon={<EyeOff size={14} strokeWidth={1.75} />}
-                label="Marquer non lue"
-                onClick={onMarkUnread}
-              />
-            )}
-          {notification.status !== "archived" && (
-            <IconAction
-              icon={<Archive size={14} strokeWidth={1.75} />}
-              label="Archiver"
-              onClick={onArchive}
-            />
-          )}
-          {notification.metadata?.linkTo && (
-            <IconAction
-              icon={<ExternalLink size={14} strokeWidth={1.75} />}
-              label="Voir"
-              accent
-              onClick={() =>
-                onNavigate(notification.metadata!.linkTo, notification.title)
-              }
-            />
-          )}
-        </div>
-      )}
+      <div
+        style={{
+          display: "flex",
+          gap: 2,
+          alignItems: "center",
+          flexShrink: 0,
+          opacity: isHovered ? 1 : 0,
+          transition: "opacity 0.2s",
+        }}
+      >
+        {/* Marquer comme lue (enveloppe ouverte) */}
+        {notification.status === "unread" && (
+          <IconAction
+            icon={<MailOpen size={14} strokeWidth={1.75} />}
+            label="Marquer comme lue"
+            onClick={onMarkRead}
+          />
+        )}
+        {/* Marquer comme non lue (enveloppe fermée) */}
+        {(notification.status === "read" ||
+          notification.status === "archived") && (
+          <IconAction
+            icon={<Mail size={14} strokeWidth={1.75} />}
+            label="Marquer non lue"
+            onClick={onMarkUnread}
+          />
+        )}
+        {/* Archiver / Désarchiver */}
+        {notification.status !== "archived" ? (
+          <IconAction
+            icon={<Archive size={14} strokeWidth={1.75} />}
+            label="Archiver"
+            onClick={onArchive}
+          />
+        ) : (
+          <IconAction
+            icon={<Archive size={14} strokeWidth={1.75} />}
+            label="Désarchiver"
+            onClick={onUnarchive}
+          />
+        )}
+        {/* Voir */}
+        {notification.metadata?.linkTo && (
+          <IconAction
+            icon={<ExternalLink size={14} strokeWidth={1.75} />}
+            label="Voir"
+            accent
+            onClick={() =>
+              onNavigate(notification.metadata!.linkTo, notification.title)
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }
