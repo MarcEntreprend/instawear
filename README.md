@@ -72,12 +72,11 @@ instawear/
 │   ├── components/
 │   │   ├── AuthModal.tsx
 │   │   ├── CartDrawer.tsx
-│   │   ├── CheckoutModal.tsx
+│   │   ├── CheckoutFlow.tsx
 │   │   ├── FilterPanel.tsx
 │   │   ├── Header.tsx
 │   │   ├── OrderModal.tsx
 │   │   ├── OrderTrackingModal.tsx
-│   │   ├── PaymentPage.tsx
 │   │   ├── ProductCard.tsx
 │   │   ├── ProductModal.tsx
 │   │   ├── ProfileModal.tsx
