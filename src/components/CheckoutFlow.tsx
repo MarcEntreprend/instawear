@@ -904,6 +904,28 @@ interface PaymentStepProps {
   onPay: () => void;
 }
 
+interface PaymentStepProps {
+  cardNumber: string;
+  setCardNumber: (v: string) => void;
+  cardHolder: string;
+  setCardHolder: (v: string) => void;
+  cardExpiry: string;
+  setCardExpiry: (v: string) => void;
+  cardCvv: string;
+  setCardCvv: (v: string) => void;
+  saveCard: boolean;
+  setSaveCard: (v: boolean) => void;
+  errors: Record<string, string>;
+  setErrors: (e: Record<string, string>) => void;
+  paymentError: string | null;
+  processing: boolean;
+  total: number;
+  currencySymbol: string;
+  onBack: () => void;
+  onPay: () => void;
+  onStripePay: () => void;
+}
+
 function PaymentStep({
   cardNumber,
   setCardNumber,
@@ -923,13 +945,138 @@ function PaymentStep({
   currencySymbol,
   onBack,
   onPay,
+  onStripePay,
 }: PaymentStepProps) {
+  const [showCardForm, setShowCardForm] = useState(false);
+
+  // Si on n'a pas encore choisi, afficher les deux options
+  if (!showCardForm) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-up">
+        <div>
+          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+            Paiement
+          </h2>
+          <p className="text-sm text-(--color-ink3) mt-1">
+            Choisissez votre méthode de paiement.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {/* Option Stripe */}
+          <button
+            type="button"
+            onClick={onStripePay}
+            disabled={processing}
+            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0"
+            style={{
+              background: "var(--color-surface)",
+              border: "1.5px solid var(--color-border2)",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "#635BFF" }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l4.59-4.58L17 11l-6 6z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-(--color-ink)">
+                Stripe Checkout
+              </p>
+              <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                Carte bancaire, Apple Pay, Google Pay — sécurisé
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-black text-(--color-ink)">
+                {total.toFixed(2)} {currencySymbol}
+              </p>
+              <ArrowRight
+                size={15}
+                strokeWidth={2.5}
+                className="ml-auto mt-1 text-(--color-accent)"
+              />
+            </div>
+          </button>
+
+          {/* Option carte directe */}
+          <button
+            type="button"
+            onClick={() => setShowCardForm(true)}
+            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
+            style={{
+              background: "var(--color-surface)",
+              border: "1.5px solid var(--color-border2)",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--color-ink), #2b211c)",
+              }}
+            >
+              <CreditCard
+                size={20}
+                strokeWidth={1.75}
+                style={{ color: "white" }}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-(--color-ink)">
+                Paiement par carte
+              </p>
+              <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                Saisissez vos informations bancaires
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-black text-(--color-ink)">
+                {total.toFixed(2)} {currencySymbol}
+              </p>
+              <ArrowRight
+                size={15}
+                strokeWidth={2.5}
+                className="ml-auto mt-1 text-(--color-accent)"
+              />
+            </div>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={processing}
+          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
+          style={{ border: "1px solid var(--color-border)" }}
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
+        </button>
+      </div>
+    );
+  }
+
+  // Affichage du formulaire carte (comportement actuel)
   return (
     <div className="flex flex-col gap-6 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-          Paiement
-        </h2>
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            type="button"
+            onClick={() => setShowCardForm(false)}
+            className="text-(--color-ink4) hover:text-(--color-ink) transition-colors"
+          >
+            <ArrowLeft size={16} strokeWidth={2.5} />
+          </button>
+          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+            Paiement par carte
+          </h2>
+        </div>
         <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
           <Lock
             size={12}
@@ -958,9 +1105,7 @@ function PaymentStep({
         <div className="flex items-center justify-between relative z-1">
           <div
             className="w-9 h-7 rounded-md"
-            style={{
-              background: "linear-gradient(135deg, #e8d48a, #c9a84c)",
-            }}
+            style={{ background: "linear-gradient(135deg, #e8d48a, #c9a84c)" }}
           />
           <CreditCard size={20} strokeWidth={1.75} className="opacity-70" />
         </div>
@@ -1000,9 +1145,9 @@ function PaymentStep({
           error={errors.cardNumber}
           onClearError={() => {
             if (errors.cardNumber) {
-              const next = { ...errors };
-              delete next.cardNumber;
-              setErrors(next);
+              const n = { ...errors };
+              delete n.cardNumber;
+              setErrors(n);
             }
           }}
         />
@@ -1016,9 +1161,9 @@ function PaymentStep({
           error={errors.cardHolder}
           onClearError={() => {
             if (errors.cardHolder) {
-              const next = { ...errors };
-              delete next.cardHolder;
-              setErrors(next);
+              const n = { ...errors };
+              delete n.cardHolder;
+              setErrors(n);
             }
           }}
         />
@@ -1034,9 +1179,9 @@ function PaymentStep({
             error={errors.cardExpiry}
             onClearError={() => {
               if (errors.cardExpiry) {
-                const next = { ...errors };
-                delete next.cardExpiry;
-                setErrors(next);
+                const n = { ...errors };
+                delete n.cardExpiry;
+                setErrors(n);
               }
             }}
           />
@@ -1053,9 +1198,9 @@ function PaymentStep({
             error={errors.cardCvv}
             onClearError={() => {
               if (errors.cardCvv) {
-                const next = { ...errors };
-                delete next.cardCvv;
-                setErrors(next);
+                const n = { ...errors };
+                delete n.cardCvv;
+                setErrors(n);
               }
             }}
           />
@@ -1399,6 +1544,118 @@ export default function CheckoutFlow({
     setStep(s);
   };
 
+  const handleStripePay = async () => {
+    if (!validateContact()) return;
+    setProcessing(true);
+    setPaymentError(null);
+
+    const newOrderId = generateOrderId();
+    const createdAt = new Date().toISOString();
+
+    try {
+      let clientId: string | null = null;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.email) {
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("email", user.email)
+            .single();
+          if (existingCustomer) {
+            clientId = existingCustomer.id;
+          } else {
+            const { data: newCustomer } = await supabase
+              .from("customers")
+              .insert({
+                email: user.email,
+                name: user.user_metadata?.full_name || name,
+              })
+              .select("id")
+              .single();
+            clientId = newCustomer?.id ?? null;
+          }
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+
+      await orderApi.create({
+        id: newOrderId,
+        clientId,
+        clientName: name,
+        clientEmail: email || null,
+        createdAt,
+        status: "pending",
+        totalAmount: total,
+        shippingCost,
+        shippingAddress: {
+          fullName: name,
+          address: reception === "livraison" ? address : "Retrait sur place",
+          city: reception === "livraison" ? city : "",
+          zip: reception === "livraison" ? zip : "",
+          country: reception === "livraison" ? country : "FR",
+          state_code: reception === "livraison" ? stateCode : "",
+          tax_number: reception === "livraison" ? taxNumber : "",
+          phone,
+        },
+        notes: message,
+        items: cart.map((item, idx) => ({
+          id: `item-${newOrderId}-${idx}`,
+          orderId: newOrderId,
+          productId: item.product.id,
+          productTitle: item.product.title,
+          productImage: item.product.image || PLACEHOLDER_IMG,
+          selectedColor: item.selectedColor || "#000000",
+          selectedSize: item.selectedSize || "M",
+          quantity: item.quantity,
+          unitPrice: item.product.price,
+        })),
+      } as any);
+
+      // Rediriger vers Stripe Checkout
+      const stripeRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            orderId: newOrderId,
+            lineItems: cart.map((item) => ({
+              name: item.product.title,
+              image: item.product.image || PLACEHOLDER_IMG,
+              unitAmount: Math.round(item.product.price * 100),
+              quantity: item.quantity,
+              currency: "usd",
+            })),
+            customerEmail: email,
+            successUrl: `${window.location.origin}/?order=success&id=${newOrderId}`,
+            cancelUrl: `${window.location.origin}/?order=cancelled`,
+          }),
+        },
+      );
+
+      if (!stripeRes.ok) {
+        const err = await stripeRes.json();
+        throw new Error(err.error || "Erreur Stripe");
+      }
+
+      const { url } = await stripeRes.json();
+      window.location.href = url;
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(
+        err?.message || "Erreur lors de la création du paiement.",
+      );
+      setProcessing(false);
+    }
+  };
+
   const handlePay = async () => {
     if (!validatePayment()) return;
     setProcessing(true);
@@ -1652,6 +1909,7 @@ export default function CheckoutFlow({
                   currencySymbol={currencySymbol}
                   onBack={goBack}
                   onPay={handlePay}
+                  onStripePay={handleStripePay}
                 />
               )}
             </div>
