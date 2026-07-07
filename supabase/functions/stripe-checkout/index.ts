@@ -20,7 +20,7 @@ export default {
 
     try {
       const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY_TEST")!, {
-        apiVersion: "2023-10-16",
+        apiVersion: "2024-06-20",
       });
 
       const supabaseAdmin = createClient(
@@ -76,6 +76,7 @@ export default {
       }
 
       const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
         mode: "payment",
         customer_email: customerEmail || undefined,
         line_items: lineItems.map((item: any) => ({
@@ -92,7 +93,6 @@ export default {
         metadata: { orderId },
         success_url: successUrl,
         cancel_url: cancelUrl,
-        automatic_payment_methods: { enabled: true },
       });
 
       await supabaseAdmin
