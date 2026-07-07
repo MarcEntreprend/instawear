@@ -37,9 +37,21 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
 
 // ─── Props ──────────────────────────────────────────────────────────────
 
+const stripePromise = loadStripe(
+  import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+);
 interface CheckoutFlowProps {
   cart: CartItem[];
   onClose: () => void;
@@ -882,6 +894,305 @@ interface PaymentStepProps {
   onBack: () => void;
   onPay: () => void;
   onStripePay: () => void;
+  // Nouvelles props pour le formulaire carte direct
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  reception: "retrait" | "livraison";
+  address: string;
+  city: string;
+  zip: string;
+  country: string;
+  stateCode: string;
+  taxNumber: string;
+  message: string;
+  cart: CartItem[];
+  shippingCost: number;
+  currencyCode: string;
+  onStripeCardSuccess: (orderId: string) => void;
+  onStripeCardError: (msg: string) => void;
+}
+
+// ─── Formulaire Stripe pour paiement carte direct ──────────────────────
+function StripeCardForm({
+  total,
+  currencySymbol,
+  currencyCode,
+  onBack,
+  onSuccess,
+  onError,
+  orderId,
+  contactName,
+  contactEmail,
+  contactPhone,
+  reception,
+  address,
+  city,
+  zip,
+  country,
+  stateCode,
+  taxNumber,
+  message,
+  cart,
+  shippingCost,
+}: {
+  total: number;
+  currencySymbol: string;
+  currencyCode: string;
+  onBack: () => void;
+  onSuccess: (orderId: string) => void;
+  onError: (msg: string) => void;
+  orderId: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  reception: "retrait" | "livraison";
+  address: string;
+  city: string;
+  zip: string;
+  country: string;
+  stateCode: string;
+  taxNumber: string;
+  message: string;
+  cart: CartItem[];
+  shippingCost: number;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Style cohérent avec le thème (clair/sombre) via variables CSS
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  const elementOptions = {
+    style: {
+      base: {
+        fontSize: "16px",
+        color: isDark ? "#e5e5e5" : "#1a1a1a",
+        "::placeholder": {
+          color: isDark ? "#6b7280" : "#9ca3af",
+        },
+        iconColor: isDark ? "#6b7280" : "#9ca3af",
+        fontWeight: "400",
+      },
+      invalid: {
+        color: "#ef4444",
+        iconColor: "#ef4444",
+      },
+    },
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!stripe || !elements) return;
+    setProcessing(true);
+    setErrorMsg(null);
+
+    // 1. Créer un PaymentIntent via l'Edge Function
+    const piRes = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          action: "payment-intent",
+          amount: total,
+          currency: currencyCode,
+          orderId,
+        }),
+      },
+    );
+    const piData = await piRes.json();
+    if (!piRes.ok || !piData.clientSecret) {
+      setProcessing(false);
+      setErrorMsg(piData.error || "Erreur création du paiement.");
+      onError(piData.error);
+      return;
+    }
+
+    // 2. Récupérer les éléments séparés
+    const cardNumberElement = elements.getElement(CardNumberElement);
+    if (!cardNumberElement) {
+      setProcessing(false);
+      return;
+    }
+
+    // 3. Confirmer le paiement avec Stripe
+    const { error, paymentIntent } = await stripe.confirmCardPayment(
+      piData.clientSecret,
+      {
+        payment_method: {
+          card: cardNumberElement,
+        },
+      },
+    );
+
+    if (error) {
+      setProcessing(false);
+      setErrorMsg(error.message || "Échec du paiement.");
+      onError(error.message || "");
+      return;
+    }
+
+    if (paymentIntent && paymentIntent.status === "succeeded") {
+      // 4. Créer la commande dans Supabase
+      try {
+        await orderApi.create({
+          id: orderId,
+          clientId: null,
+          clientName: contactName,
+          clientEmail: contactEmail || null,
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          totalAmount: total,
+          shippingCost,
+          shippingAddress: {
+            fullName: contactName,
+            address: reception === "livraison" ? address : "Retrait sur place",
+            city: reception === "livraison" ? city : "",
+            zip: reception === "livraison" ? zip : "",
+            country: reception === "livraison" ? country : "FR",
+            state_code: reception === "livraison" ? stateCode : "",
+            tax_number: reception === "livraison" ? taxNumber : "",
+            phone: contactPhone,
+          },
+          notes: message,
+          items: cart.map((item, idx) => ({
+            id: `item-${orderId}-${idx}`,
+            orderId,
+            productId: item.product.id,
+            productTitle: item.product.title,
+            productImage: item.product.image || PLACEHOLDER_IMG,
+            selectedColor: item.selectedColor || "#000000",
+            selectedSize: item.selectedSize || "M",
+            quantity: item.quantity,
+            unitPrice: item.product.price,
+          })),
+        } as any);
+        onSuccess(orderId);
+      } catch (e: any) {
+        setProcessing(false);
+        setErrorMsg("Paiement réussi mais erreur création commande.");
+        onError(e.message);
+      }
+    } else {
+      setProcessing(false);
+      setErrorMsg("Paiement non abouti.");
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-6 animate-fade-up"
+    >
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-(--color-ink4) hover:text-(--color-ink) transition-colors"
+          >
+            <ArrowLeft size={16} strokeWidth={2.5} />
+          </button>
+          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+            Paiement par carte
+          </h2>
+        </div>
+        <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
+          <Lock
+            size={12}
+            strokeWidth={2.5}
+            style={{ color: "var(--color-success)" }}
+          />
+          Transaction sécurisée via Stripe
+        </p>
+      </div>
+
+      {/* Champs séparés */}
+      <div className="flex flex-col gap-4 max-w-sm">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+            Numéro de carte <span className="text-(--color-accent)">*</span>
+          </label>
+          <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+            <CardNumberElement options={elementOptions} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+              Expiration <span className="text-(--color-accent)">*</span>
+            </label>
+            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+              <CardExpiryElement options={elementOptions} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+              CVV <span className="text-(--color-accent)">*</span>
+            </label>
+            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+              <CardCvcElement options={elementOptions} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {errorMsg && (
+        <div
+          className="flex items-start gap-2 p-3.5 rounded-xl text-xs font-medium max-w-sm"
+          style={{
+            background: "var(--notif-negative-bg)",
+            color: "var(--notif-negative)",
+            border: "1px solid var(--notif-negative)",
+          }}
+        >
+          <AlertCircle size={15} strokeWidth={2} className="shrink-0 mt-0.5" />
+          {errorMsg}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mt-1 gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={processing}
+          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
+          style={{ border: "1px solid var(--color-border)" }}
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
+        </button>
+        <button
+          type="submit"
+          disabled={processing || !stripe}
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+            boxShadow: "var(--shadow-accent)",
+          }}
+        >
+          {processing ? (
+            <>
+              <Loader2 size={15} strokeWidth={2.5} className="animate-spin" />
+              Traitement en cours…
+            </>
+          ) : (
+            <>
+              <Lock size={13} strokeWidth={2.5} />
+              Payer {total.toFixed(2)} {currencySymbol}
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function PaymentStep({
@@ -904,10 +1215,27 @@ function PaymentStep({
   onBack,
   onPay,
   onStripePay,
+  contactName,
+  contactEmail,
+  contactPhone,
+  reception,
+  address,
+  city,
+  zip,
+  country,
+  stateCode,
+  taxNumber,
+  message,
+  cart,
+  shippingCost,
+  currencyCode,
+  onStripeCardSuccess,
+  onStripeCardError,
 }: PaymentStepProps) {
   const [showCardForm, setShowCardForm] = useState(false);
+  const [localOrderId] = useState(generateOrderId());
 
-  // Si on n'a pas encore choisi, afficher les deux options
+  // Étape 1 : choix de la méthode
   if (!showCardForm) {
     return (
       <div className="flex flex-col gap-6 animate-fade-up">
@@ -921,7 +1249,7 @@ function PaymentStep({
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* Option Stripe */}
+          {/* Option Stripe Checkout */}
           <button
             type="button"
             onClick={onStripePay}
@@ -1019,210 +1347,32 @@ function PaymentStep({
     );
   }
 
-  // Affichage du formulaire carte (comportement actuel)
+  // Étape 2 : formulaire carte Stripe
   return (
-    <div className="flex flex-col gap-6 animate-fade-up">
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            type="button"
-            onClick={() => setShowCardForm(false)}
-            className="text-(--color-ink4) hover:text-(--color-ink) transition-colors"
-          >
-            <ArrowLeft size={16} strokeWidth={2.5} />
-          </button>
-          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-            Paiement par carte
-          </h2>
-        </div>
-        <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
-          <Lock
-            size={12}
-            strokeWidth={2.5}
-            style={{ color: "var(--color-success)" }}
-          />
-          Transaction chiffrée et sécurisée
-        </p>
-      </div>
-
-      <div
-        className="relative w-full max-w-sm aspect-[1.586/1] rounded-2xl p-5 flex flex-col justify-between text-white overflow-hidden select-none"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-ink) 0%, #2b211c 55%, var(--color-accent-hover) 130%)",
-          boxShadow: "var(--shadow-lg)",
-        }}
-      >
-        <div
-          className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-20 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(circle, var(--color-accent), transparent 70%)",
-          }}
-        />
-        <div className="flex items-center justify-between relative z-1">
-          <div
-            className="w-9 h-7 rounded-md"
-            style={{ background: "linear-gradient(135deg, #e8d48a, #c9a84c)" }}
-          />
-          <CreditCard size={20} strokeWidth={1.75} className="opacity-70" />
-        </div>
-        <div className="relative z-1">
-          <p className="font-mono text-lg tracking-[0.12em]">
-            {cardPreviewNumber(cardNumber)}
-          </p>
-        </div>
-        <div className="flex items-end justify-between relative z-1">
-          <div>
-            <p className="text-[8px] uppercase tracking-widest opacity-60 mb-0.5">
-              Titulaire
-            </p>
-            <p className="text-xs font-bold uppercase tracking-wide">
-              {cardHolder || "Votre nom"}
-            </p>
-          </div>
-          <div>
-            <p className="text-[8px] uppercase tracking-widest opacity-60 mb-0.5">
-              Exp.
-            </p>
-            <p className="text-xs font-bold">{cardExpiry || "MM/AA"}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 max-w-sm">
-        <TextField
-          label="Numéro de carte"
-          required
-          icon={CreditCard}
-          value={cardNumber}
-          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-          placeholder="1234 5678 9012 3456"
-          autoComplete="cc-number"
-          inputMode="numeric"
-          error={errors.cardNumber}
-          onClearError={() => {
-            if (errors.cardNumber) {
-              const n = { ...errors };
-              delete n.cardNumber;
-              setErrors(n);
-            }
-          }}
-        />
-        <TextField
-          label="Titulaire de la carte"
-          required
-          value={cardHolder}
-          onChange={(e) => setCardHolder(e.target.value)}
-          placeholder="JOHN DOE"
-          autoComplete="cc-name"
-          error={errors.cardHolder}
-          onClearError={() => {
-            if (errors.cardHolder) {
-              const n = { ...errors };
-              delete n.cardHolder;
-              setErrors(n);
-            }
-          }}
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <TextField
-            label="Expiration"
-            required
-            value={cardExpiry}
-            onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-            placeholder="MM/AA"
-            autoComplete="cc-exp"
-            inputMode="numeric"
-            error={errors.cardExpiry}
-            onClearError={() => {
-              if (errors.cardExpiry) {
-                const n = { ...errors };
-                delete n.cardExpiry;
-                setErrors(n);
-              }
-            }}
-          />
-          <TextField
-            label="CVV"
-            required
-            value={cardCvv}
-            onChange={(e) =>
-              setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
-            }
-            placeholder="123"
-            autoComplete="cc-csc"
-            inputMode="numeric"
-            error={errors.cardCvv}
-            onClearError={() => {
-              if (errors.cardCvv) {
-                const n = { ...errors };
-                delete n.cardCvv;
-                setErrors(n);
-              }
-            }}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-xs font-semibold text-(--color-ink2) cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={saveCard}
-            onChange={(e) => setSaveCard(e.target.checked)}
-            style={{ accentColor: "var(--color-accent)" }}
-          />
-          Mémoriser cette carte pour mes prochaines commandes
-        </label>
-      </div>
-
-      {paymentError && (
-        <div
-          className="flex items-start gap-2 p-3.5 rounded-xl text-xs font-medium max-w-sm"
-          style={{
-            background: "var(--notif-negative-bg)",
-            color: "var(--notif-negative)",
-            border: "1px solid var(--notif-negative)",
-          }}
-        >
-          <AlertCircle size={15} strokeWidth={2} className="shrink-0 mt-0.5" />
-          {paymentError}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between mt-1 gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={processing}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
-          style={{ border: "1px solid var(--color-border)" }}
-        >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
-        </button>
-        <button
-          type="button"
-          onClick={onPay}
-          disabled={processing}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-            boxShadow: "var(--shadow-accent)",
-          }}
-        >
-          {processing ? (
-            <>
-              <Loader2 size={15} strokeWidth={2.5} className="animate-spin" />
-              Traitement en cours…
-            </>
-          ) : (
-            <>
-              <Lock size={13} strokeWidth={2.5} />
-              Payer {total.toFixed(2)} {currencySymbol}
-            </>
-          )}
-        </button>
-      </div>
-    </div>
+    <Elements stripe={stripePromise}>
+      <StripeCardForm
+        orderId={localOrderId}
+        total={total}
+        currencySymbol={currencySymbol}
+        currencyCode={currencyCode}
+        contactName={contactName}
+        contactEmail={contactEmail}
+        contactPhone={contactPhone}
+        reception={reception}
+        address={address}
+        city={city}
+        zip={zip}
+        country={country}
+        stateCode={stateCode}
+        taxNumber={taxNumber}
+        message={message}
+        cart={cart}
+        shippingCost={shippingCost}
+        onBack={() => setShowCardForm(false)}
+        onSuccess={(orderId) => onStripeCardSuccess(orderId)}
+        onError={(msg) => onStripeCardError(msg)}
+      />
+    </Elements>
   );
 }
 
@@ -1898,6 +2048,28 @@ export default function CheckoutFlow({
                   onBack={goBack}
                   onPay={handlePay}
                   onStripePay={handleStripePay}
+                  contactName={name}
+                  contactEmail={email}
+                  contactPhone={phone}
+                  reception={reception}
+                  address={address}
+                  city={city}
+                  zip={zip}
+                  country={country}
+                  stateCode={stateCode}
+                  taxNumber={taxNumber}
+                  message={message}
+                  cart={cart}
+                  shippingCost={shippingCost}
+                  currencyCode={currencyCode}
+                  onStripeCardSuccess={(newOrderId: string) => {
+                    setOrderId(newOrderId);
+                    setStep(4);
+                    onSuccess();
+                  }}
+                  onStripeCardError={(msg: string) => {
+                    setPaymentError(msg);
+                  }}
                 />
               )}
             </div>

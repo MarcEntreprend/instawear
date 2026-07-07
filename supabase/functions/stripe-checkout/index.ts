@@ -1,6 +1,8 @@
 // supabase/functions/stripe-checkout/index.ts
 // @ts-nocheck
 
+// @ts-nocheck
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13";
 
@@ -27,8 +29,45 @@ export default {
       );
 
       const body = await req.json().catch(() => ({}));
-      const { orderId, lineItems, customerEmail, successUrl, cancelUrl } = body;
+      const {
+        action,
+        orderId,
+        lineItems,
+        customerEmail,
+        successUrl,
+        cancelUrl,
+        amount,
+        currency,
+      } = body;
 
+      // ── Nouveau : PaymentIntent pour carte directe ──
+      if (action === "payment-intent") {
+        if (!amount || !currency) {
+          return new Response(
+            JSON.stringify({ error: "amount et currency requis" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100),
+          currency,
+          payment_method_types: ["card"],
+          metadata: { orderId: orderId || "" },
+        });
+
+        return new Response(
+          JSON.stringify({ clientSecret: paymentIntent.client_secret }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // ── Comportement existant : Stripe Checkout ──
       if (!orderId || !lineItems || !successUrl || !cancelUrl) {
         return new Response(JSON.stringify({ error: "Paramètres manquants" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -36,7 +75,6 @@ export default {
         });
       }
 
-      // Créer la session Stripe Checkout
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
@@ -48,18 +86,15 @@ export default {
               name: item.name,
               images: item.image ? [item.image] : [],
             },
-            unit_amount: item.unitAmount, // en cents
+            unit_amount: item.unitAmount,
           },
           quantity: item.quantity,
         })),
-        metadata: {
-          orderId,
-        },
+        metadata: { orderId },
         success_url: successUrl,
         cancel_url: cancelUrl,
       });
 
-      // Optionnel : enregistrer l'ID de session dans la commande
       await supabaseAdmin
         .from("orders")
         .update({ external_order_id: session.id, status: "pending" })
