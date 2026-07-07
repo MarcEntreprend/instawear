@@ -947,11 +947,11 @@ export const storeSettingsApi = {
       .eq("id", true)
       .single();
     if (error || !data) {
-      // Valeurs par défaut si la ligne n'existe pas encore
+      // Valeurs par défaut orientées US si la ligne n'existe pas encore
       return {
         storeName: "InstaWear",
-        currency: "EUR",
-        country: "FR",
+        currency: "USD",
+        country: "US",
         freeShippingThreshold: 35,
         shippingCost: 4.99,
         shippingDelay: "3-5 jours ouvrés",

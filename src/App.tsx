@@ -87,6 +87,9 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [stripeConfirmOrderId, setStripeConfirmOrderId] = useState<
+    string | null
+  >(null);
   const [trackingOpen, setTrackingOpen] = useState(false);
 
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -814,6 +817,67 @@ export default function App() {
       }
     }, 200); // délai augmenté à 200ms
   };
+
+  // Gestion du retour de Stripe Checkout (success / cancel)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderStatus = params.get("order");
+    const orderId = params.get("id");
+
+    if (!orderStatus || !orderId) return;
+
+    const handleReturn = async () => {
+      if (orderStatus === "success") {
+        try {
+          const { data: order, error } = await supabase
+            .from("orders")
+            .select("status, client_email")
+            .eq("id", orderId)
+            .single();
+
+          if (error || !order) {
+            showToast("Commande introuvable.", "error");
+            return;
+          }
+
+          if (order.status !== "paid" && order.status !== "pending") {
+            showToast("Paiement non confirmé. Contactez le support.", "error");
+            return;
+          }
+
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (
+            user?.email &&
+            order.client_email &&
+            order.client_email !== user.email
+          ) {
+            showToast("Cette commande ne vous appartient pas.", "error");
+            return;
+          }
+
+          // Vider le panier et afficher l'écran de confirmation
+          setCart([]);
+          setCartLoaded(false);
+          setStripeConfirmOrderId(orderId);
+        } catch (e) {
+          console.error("Erreur vérification commande Stripe", e);
+          showToast("Erreur lors de la vérification du paiement.", "error");
+        }
+      } else if (orderStatus === "cancelled") {
+        showToast("Paiement annulé. Votre panier est conservé.", "info");
+      }
+
+      // Nettoyer les paramètres de l'URL sans recharger la page
+      const url = new URL(window.location.href);
+      url.searchParams.delete("order");
+      url.searchParams.delete("id");
+      window.history.replaceState({}, "", url.toString());
+    };
+
+    handleReturn();
+  }, []);
 
   const handleOpenFavorites = () => {
     setShowFavoritesOnly(true);
@@ -2705,6 +2769,18 @@ export default function App() {
               "success",
             );
           }}
+        />
+      )}
+
+      {/* Mode confirmation après retour Stripe */}
+      {stripeConfirmOrderId && (
+        <CheckoutFlow
+          cart={[]}
+          onUpdateQty={() => {}}
+          onRemoveItem={() => {}}
+          onClose={() => setStripeConfirmOrderId(null)}
+          onSuccess={() => {}}
+          confirmModeOrderId={stripeConfirmOrderId}
         />
       )}
 

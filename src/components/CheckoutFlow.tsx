@@ -45,8 +45,8 @@ interface CheckoutFlowProps {
   onClose: () => void;
   onUpdateQty: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
-  /** Appelé une fois la commande créée avec succès (vide le panier côté App.tsx) */
   onSuccess: () => void;
+  confirmModeOrderId?: string; // si fourni, affiche directement la confirmation
 }
 
 type StepId = 1 | 2 | 3 | 4;
@@ -881,48 +881,6 @@ interface PaymentStepProps {
   currencySymbol: string;
   onBack: () => void;
   onPay: () => void;
-}
-
-interface PaymentStepProps {
-  cardNumber: string;
-  setCardNumber: (v: string) => void;
-  cardHolder: string;
-  setCardHolder: (v: string) => void;
-  cardExpiry: string;
-  setCardExpiry: (v: string) => void;
-  cardCvv: string;
-  setCardCvv: (v: string) => void;
-  saveCard: boolean;
-  setSaveCard: (v: boolean) => void;
-  errors: Record<string, string>;
-  setErrors: (e: Record<string, string>) => void;
-  paymentError: string | null;
-  processing: boolean;
-  total: number;
-  currencySymbol: string;
-  onBack: () => void;
-  onPay: () => void;
-}
-
-interface PaymentStepProps {
-  cardNumber: string;
-  setCardNumber: (v: string) => void;
-  cardHolder: string;
-  setCardHolder: (v: string) => void;
-  cardExpiry: string;
-  setCardExpiry: (v: string) => void;
-  cardCvv: string;
-  setCardCvv: (v: string) => void;
-  saveCard: boolean;
-  setSaveCard: (v: boolean) => void;
-  errors: Record<string, string>;
-  setErrors: (e: Record<string, string>) => void;
-  paymentError: string | null;
-  processing: boolean;
-  total: number;
-  currencySymbol: string;
-  onBack: () => void;
-  onPay: () => void;
   onStripePay: () => void;
 }
 
@@ -1424,9 +1382,37 @@ export default function CheckoutFlow({
   onUpdateQty,
   onRemoveItem,
   onSuccess,
+  confirmModeOrderId,
 }: CheckoutFlowProps) {
   const currencySymbol = useCurrencySymbol();
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // ── Mode confirmation Stripe ─────────────────────────────────
+  if (confirmModeOrderId) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+      navigator.clipboard.writeText(confirmModeOrderId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    };
+
+    return (
+      <div
+        className="fixed inset-0 z-60 flex items-center justify-center p-4"
+        style={{ background: "var(--color-bg)" }}
+      >
+        <div className="max-w-xl w-full mx-auto px-4 sm:px-6 py-10">
+          <ConfirmationStep
+            orderId={confirmModeOrderId}
+            email=""
+            copied={copied}
+            onCopy={handleCopy}
+            onClose={onClose}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const [step, setStep] = useState<StepId>(1);
 
@@ -1462,17 +1448,19 @@ export default function CheckoutFlow({
     threshold: 35,
     cost: 4.99,
   });
+  const [currencyCode, setCurrencyCode] = useState("usd");
 
   // Charger pays par défaut + seuils de livraison depuis store_settings
   useEffect(() => {
     storeSettingsApi
       .get()
       .then((s) => {
-        setCountry(s.country || "FR");
+        setCountry(s.country || "US");
         setShippingSettings({
           threshold: s.freeShippingThreshold ?? 35,
           cost: s.shippingCost ?? 4.99,
         });
+        setCurrencyCode((s.currency || "usd").toLowerCase());
       })
       .catch(() => {});
   }, []);

@@ -97,8 +97,8 @@ export default function SettingsPage() {
   });
   const [storeForm, setStoreForm] = useState<StoreSettings>({
     storeName: "",
-    currency: "EUR",
-    country: "FR",
+    currency: "USD",
+    country: "US",
     freeShippingThreshold: 35,
     shippingCost: 4.99,
     shippingDelay: "5-7 jours ouvrés",
