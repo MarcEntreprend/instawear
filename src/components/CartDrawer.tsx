@@ -181,6 +181,10 @@ export default function CartDrawer({
                   >
                     <img
                       src={item.product.image || PLACEHOLDER_IMG}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          PLACEHOLDER_IMG;
+                      }}
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />

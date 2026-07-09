@@ -121,24 +121,46 @@ export default function Header({
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [filteredSuggestions, setFilteredSuggestions] = useState<Product[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
   // fonction pour mettre à jour les suggestions
   const updateSuggestions = (term: string) => {
+    // Nettoyer tout timer en cours
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+
     if (term.trim().length === 0) {
       setFilteredSuggestions([]);
       setShowSuggestions(false);
+      setSearchLoading(false);
       return;
     }
+
     const lowerTerm = term.toLowerCase();
     const matches = products
       .filter((p) => p.isActive)
       .filter((p) => p.title.toLowerCase().includes(lowerTerm))
       .slice(0, 8);
-    setFilteredSuggestions(matches);
-    setShowSuggestions(matches.length > 0);
+
+    if (matches.length > 0) {
+      setFilteredSuggestions(matches);
+      setShowSuggestions(true);
+      setSearchLoading(false);
+    } else {
+      // Aucune correspondance → afficher d'abord une animation « … »
+      setFilteredSuggestions([]);
+      setShowSuggestions(true);
+      setSearchLoading(true);
+      searchTimerRef.current = setTimeout(() => {
+        setSearchLoading(false);
+      }, 1200);
+    }
   };
 
   useEffect(() => {
@@ -215,6 +237,13 @@ export default function Header({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
+
+  // Nettoyer le timer de recherche au démontage
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
 
   // Logique de soumission de la recherche
   const handleSubmit = (e: React.FormEvent) => {
@@ -456,7 +485,13 @@ export default function Header({
                       inputRef.current?.blur();
                     }
                   }}
-                  placeholder={searchFocused || searchVal ? "" : typedText}
+                  placeholder={
+                    searchFocused || searchVal
+                      ? ""
+                      : products.length === 0
+                        ? "Rechercher un article..."
+                        : typedText
+                  }
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
                   style={{
                     color: "var(--color-ink)",
@@ -481,64 +516,80 @@ export default function Header({
           </div>
 
           {/* affichage de la liste de suggestions */}
-          {showSuggestions && filteredSuggestions.length > 0 && (
+          {showSuggestions && (
             <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
-              {filteredSuggestions.map((p) => {
-                const index = p.title
-                  .toLowerCase()
-                  .indexOf(searchVal.toLowerCase());
-                const before = p.title.substring(0, index);
-                const match = p.title.substring(
-                  index,
-                  index + searchVal.length,
-                );
-                const after = p.title.substring(index + searchVal.length);
-                const categoryLabel =
-                  p.category === "tshirt"
-                    ? "T-Shirt"
-                    : p.category === "hoodie"
-                      ? "Hoodie"
-                      : p.category === "accessory"
-                        ? "Accessoire"
-                        : p.category === "mug"
-                          ? "Mug"
-                          : p.category;
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <span className="text-sm text-gray-500 animate-pulse">
+                    Recherche en cours...
+                  </span>
+                </div>
+              ) : filteredSuggestions.length > 0 ? (
+                filteredSuggestions.map((p) => {
+                  const index = p.title
+                    .toLowerCase()
+                    .indexOf(searchVal.toLowerCase());
+                  const before = p.title.substring(0, index);
+                  const match = p.title.substring(
+                    index,
+                    index + searchVal.length,
+                  );
+                  const after = p.title.substring(index + searchVal.length);
+                  const categoryLabel =
+                    p.category === "tshirt"
+                      ? "T-Shirt"
+                      : p.category === "hoodie"
+                        ? "Hoodie"
+                        : p.category === "accessory"
+                          ? "Accessoire"
+                          : p.category === "mug"
+                            ? "Mug"
+                            : p.category;
 
-                return (
-                  <button
-                    key={p.id}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between gap-2 text-sm border-b border-gray-100 last:border-0"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setSearchVal(p.title);
-                      onSearch(p.title);
-                      setShowSuggestions(false);
-                      inputRef.current?.blur();
-                    }}
-                  >
-                    <span
-                      className="truncate"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      {before}
-                      <strong style={{ color: "var(--color-accent)" }}>
-                        {match}
-                      </strong>
-                      {after}
-                    </span>
-                    <span
-                      className="text-xs shrink-0 px-2 py-0.5 rounded-full"
-                      style={{
-                        background: "var(--color-surface2)",
-                        color: "var(--color-ink3)",
-                        border: "1px solid var(--color-border)",
+                  return (
+                    <button
+                      key={p.id}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-100 last:border-0"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSearchVal(p.title);
+                        onSearch(p.title);
+                        setShowSuggestions(false);
+                        inputRef.current?.blur();
                       }}
                     >
-                      {categoryLabel}
-                    </span>
-                  </button>
-                );
-              })}
+                      <div className="mx-auto flex items-center gap-3 w-fit max-w-full">
+                        <span
+                          className="truncate max-w-55"
+                          style={{ color: "var(--color-ink)" }}
+                        >
+                          {before}
+                          <strong style={{ color: "var(--color-accent)" }}>
+                            {match}
+                          </strong>
+                          {after}
+                        </span>
+                        <span
+                          className="text-xs shrink-0 px-2 py-0.5 rounded-full"
+                          style={{
+                            background: "var(--color-surface2)",
+                            color: "var(--color-ink3)",
+                            border: "1px solid var(--color-border)",
+                          }}
+                        >
+                          {categoryLabel}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center py-4">
+                  <span className="text-sm text-gray-500">
+                    Aucun résultat pour « {searchVal} »
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

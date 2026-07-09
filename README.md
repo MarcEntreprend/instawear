@@ -97,7 +97,8 @@ instawear/
 │   ├── hooks/
 │   │   ├── useCurrencySymbol.ts
 │   │   ├── useLocalStorage.ts
-│   │   └── useShippingSettings.ts
+│   │   ├── useShippingSettings.ts
+│   │   └── useTabBadge.ts
 │   ├── lib/
 │   │   └── supabaseClient.ts
 │   ├── App.tsx

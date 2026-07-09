@@ -8,6 +8,7 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 interface CatalogSectionProps {
   filteredProducts: Product[];
   loadingProducts: boolean;
+  networkError?: boolean;
   favorites: string[];
   dealExpired: boolean;
   dealFadingOut: boolean;
@@ -30,6 +31,7 @@ interface CatalogSectionProps {
 export default function CatalogSection({
   filteredProducts,
   loadingProducts,
+  networkError = false,
   favorites,
   dealExpired,
   dealFadingOut,
@@ -127,6 +129,28 @@ export default function CatalogSection({
           <p className="text-gray-500 text-sm">
             Chargement des collections InstaWear...
           </p>
+        </div>
+      ) : networkError ? (
+        <div className="py-16 text-center border border-dashed border-red-200 rounded-2xl bg-red-50/30 max-w-lg mx-auto">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+            <RefreshCw className="w-6 h-6 text-red-500" />
+          </div>
+          <p className="font-bold text-gray-900 mb-1">
+            Oups ! Une erreur inattendue s'est produite
+          </p>
+          <p className="text-gray-500 text-sm mb-4">
+            Veuillez réessayer plus tard ou retourner à la page d'accueil.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
+            style={{
+              background: "var(--color-accent)",
+              color: "white",
+            }}
+          >
+            Réessayer
+          </button>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="py-16 text-center border border-dashed border-gray-200 rounded-2xl bg-white/20 max-w-lg mx-auto">

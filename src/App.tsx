@@ -37,6 +37,7 @@ export default function App() {
   // Store States
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [networkError, setNetworkError] = useState(false);
 
   // Auth, Admin & Profile States
   const [showAuthModal, setShowAuthModal] = useState(false); // AuthModal States
@@ -351,12 +352,14 @@ export default function App() {
   // Récupère les produits depuis Supabase (base de données réelle)
   const fetchProducts = async () => {
     setLoadingProducts(true);
+    setNetworkError(false);
     try {
       const data = await productApi.list();
       setProducts(data);
     } catch (err) {
-      console.warn("Erreur chargement produits Supabase, fallback vide :", err);
+      console.warn("Erreur chargement produits Supabase :", err);
       setProducts([]);
+      setNetworkError(true);
     } finally {
       setLoadingProducts(false);
     }
@@ -725,6 +728,7 @@ export default function App() {
           <CatalogSection
             filteredProducts={filteredProducts}
             loadingProducts={loadingProducts}
+            networkError={networkError}
             favorites={favorites}
             dealExpired={dealExpired}
             dealFadingOut={dealFadingOut}

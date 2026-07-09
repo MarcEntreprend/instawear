@@ -67,6 +67,9 @@ export default function StoreProductCard({
       >
         <img
           src={product.image || PLACEHOLDER_IMG}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG;
+          }}
           alt={product.title}
           className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
         />
