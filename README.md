@@ -38,6 +38,7 @@ instawear/
 │   ├── assets.json
 │   ├── products.json
 │   └── settings.json
+├── dist/
 ├── node_modules/
 ├── public/
 │   ├── InstaWear-logo-settings.png
@@ -70,16 +71,23 @@ instawear/
 │   │   ├── storageApi.ts
 │   │   └── supabaseApi.ts
 │   ├── components/
+│   │   ├── AboutSection.tsx
 │   │   ├── AuthModal.tsx
 │   │   ├── CartDrawer.tsx
+│   │   ├── CatalogSection.tsx
 │   │   ├── CheckoutFlow.tsx
-│   │   ├── FilterPanel.tsx
+│   │   ├── DealsSection.tsx
+│   │   ├── FaqSection.tsx
+│   │   ├── Footer.tsx
 │   │   ├── Header.tsx
+│   │   ├── HeroCarousel.tsx
 │   │   ├── OrderModal.tsx
 │   │   ├── OrderTrackingModal.tsx
-│   │   ├── ProductCard.tsx
+│   │   ├── ProductDetailModal.tsx
 │   │   ├── ProductModal.tsx
 │   │   ├── ProfileModal.tsx
+│   │   ├── ReassuranceBar.tsx
+│   │   ├── StoreProductCard.tsx
 │   │   ├── TagInput.tsx
 │   │   └── ToastContainer.tsx
 │   ├── constants/
@@ -88,7 +96,8 @@ instawear/
 │   │   └── faq.ts
 │   ├── hooks/
 │   │   ├── useCurrencySymbol.ts
-│   │   └── useLocalStorage.ts
+│   │   ├── useLocalStorage.ts
+│   │   └── useShippingSettings.ts
 │   ├── lib/
 │   │   └── supabaseClient.ts
 │   ├── App.tsx
@@ -113,15 +122,21 @@ instawear/
 │       │   └── index.ts
 │       ├── reset-password/
 │       │   └── index.ts
+│       ├── stripe-checkout/
+│       │   └── index.ts
+│       ├── stripe-webhook/
+│       │   └── index.ts
 │       └── sync-printful/
 │           ├── .npmrc
 │           ├── deno.json
 │           └── index.ts
 ├── .env
 ├── .env.example
+├── .env.local
 ├── .gitignore
 ├── AGENT.md
 ├── Doc-specification-technique.md
+├── fixes and improvements.md
 ├── index.html
 ├── metadata.json
 ├── package-lock.json
@@ -131,3 +146,126 @@ instawear/
 ├── tsconfig.json
 └── vite.config.ts
 ```
+
+# Fixes & Improvements
+
+pour ces bugs, il faut d abord verifier si vraiment le ou les problemes cités existent, ensuite les resoudres.
+
+## ton Role, @Deepseek :
+
+```
+->>>> tu es un senior dans les top 0,1% expert dans le domaine et tu sais la bonne approche infaillible. Tu peux me demander de te montrer des fichiers, me poser questions pour clarifier tt ce que tu veux jusqua ce que tu sois au moins 95% confiant de tes réponses. si t es pas au moins 95% confiant, demande moi ce dont tu as besoin
+Simple, efficace, sans dettes techniques
+
+# AGENT.md
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to my request.
+
+## 4. Goal-Driven Execution
+```
+
+## 🐛 Bugs
+
+### Panier
+
+- [ ] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
+- [ ] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
+- [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
+- [ ] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
+- [ ] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
+
+### Header
+
+- [ ] **Logo / nom InstaWear** : le clic doit rafraîchir la page (pas seulement rester sur place)
+- [ ] **Barre de recherche** : le clic sur un résultat doit rediriger vers le produit
+
+### Order Page
+
+- [ ] **Bouton "Envoyer à Printful"** : ajouter une animation de chargement (spinner) pendant l'envoi
+- [ ] **Changement de statut "En production"** : doit avoir la même action que le bouton "Envoyer à Printful" du modal
+- [ ] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
+
+### Notifications
+
+- [ ] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
+- [ ] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues (comme WhatsApp)
+
+### Sidebar (panier)
+
+- [ ] **Fermeture au clic extérieur** : fermer le drawer quand on clique en dehors
+
+### Offline / Erreurs
+
+- [ ] **Fallback réseau** : message générique "Oups ! Une erreur inattendue…" quand il n'y a pas d'internet
+- [ ] **Fallback images** : image par défaut quand le chargement échoue
+- [ ] **Placeholder barre de recherche** : texte générique quand aucun produit n'est chargé
+
+### Stripe Checkout
+
+- [ ] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
+
+---
+
+## ✨ Améliorations
+
+### UX / UI
+
+- [ ] **Animations réactives** : standardiser les effets hover/click sur tous les boutons (pills, liens, CTA)
+- [ ] **Icône animée** : point/badge animé dans le menu latéral admin quand une action est en cours
+
+### Email
+
+- [ ] **Remplacer Telegram par email** : envoyer la confirmation de commande par email (pas seulement Telegram)
+
+### Produits
+
+- [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
+- [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
+
+### Footer
+
+- [ ] **Newsletter** : repenser l'intérêt pour le client (offres, bonus, exclusivités)
+- [ ] **Liens** : vérifier et compléter les liens (Mentions légales, CGU, etc.)
+
+### Interface utilisateur
+
+- [ ] **Espace client** : permettre aux utilisateurs de voir leurs commandes, suivis, etc.
