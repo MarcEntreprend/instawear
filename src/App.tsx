@@ -47,6 +47,7 @@ import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
+import CartDrawer from "./components/CartDrawer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
 import { LOGO_URL, PLACEHOLDER_IMG } from "./constants/assets";
 
@@ -2185,258 +2186,23 @@ export default function App() {
 
       {/* Slide-over Shopping Cart drawer */}
       {cartOpen && (
-        <div
-          className="fixed inset-y-0 right-0 z-55 w-full max-w-md bg-white border-l border-gray-200 shadow-2xl flex flex-col justify-between p-6 animate-in slide-in-from-right duration-300"
-          id="drawer-shopping-cart"
-        >
-          <div>
-            <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
-              <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
-                <ShoppingBag className="w-5.5 h-5.5 text-(--color-accent)" />
-                Votre Panier Choice
-              </h3>
-              <button
-                onClick={() => setCartOpen(false)}
-                className="text-gray-500 hover:text-gray-900"
-                id="btn-close-cart-panel"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {orderCompleted ? (
-              <div className="py-12 text-center flex flex-col items-center justify-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                  <Check className="w-8 h-8 text-emerald-600 animate-bounce" />
-                </div>
-                <div>
-                  <h4 className="font-black text-gray-900 text-lg">
-                    Commande en cours d&apos;envoi !
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-2 max-w-xs mx-auto leading-relaxed">
-                    Nous validons votre transaction de test sécurisée. Le design
-                    est en cours de transmission à notre atelier Printful...
-                  </p>
-                </div>
-                <div className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2 uppercase font-mono text-[10px] text-gray-500 max-w-xs text-left leading-normal space-y-1">
-                  <p className="font-bold text-gray-500">
-                    &gt;_ STAGE_PRINT_LOG
-                  </p>
-                  <p>&gt; Connection established with usine</p>
-                  <p>&gt; Transmission of design: active</p>
-                </div>
-              </div>
-            ) : cart.length === 0 ? (
-              <div className="py-16 text-center text-gray-500 flex flex-col items-center justify-center">
-                <ShoppingBag className="w-12 h-12 text-gray-700 mb-2" />
-                <p className="font-bold text-gray-500">Votre panier est vide</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Parcourez nos collections exclusives pour ajouter des
-                  articles.
-                </p>
-                <button
-                  onClick={() => {
-                    setCartOpen(false);
-                    setActiveTab("store");
-                  }}
-                  className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
-                  style={{
-                    background: "transparent",
-                    color: "var(--color-accent)",
-                    border: "1.5px solid var(--color-accent)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--color-accent)";
-                    e.currentTarget.style.color = "white";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "var(--color-accent)";
-                  }}
-                >
-                  Continuer mes achats
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
-                {cart.map((item, idx) => {
-                  const isActive = item.product.isActive;
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex gap-3 bg-gray-50 rounded-xl p-3 border border-gray-200 relative ${!isActive ? "opacity-60" : ""}`}
-                    >
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(item.product);
-                          setActiveGalleryIndex(0);
-                        }}
-                        className="w-16 h-20 bg-white rounded-lg overflow-hidden shrink-0 border-none p-0 cursor-pointer"
-                        disabled={!isActive}
-                      >
-                        <img
-                          src={item.product.image || PLACEHOLDER_IMG}
-                          alt={item.product.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">
-                            {item.product.brand}
-                          </p>
-                          <button
-                            onClick={() => {
-                              setSelectedProduct(item.product);
-                              setActiveGalleryIndex(0);
-                            }}
-                            className="text-left bg-transparent border-none p-0 cursor-pointer hover:underline w-full"
-                            disabled={!isActive}
-                          >
-                            <h4 className="text-xs text-gray-900 font-bold line-clamp-1">
-                              {item.product.title}
-                            </h4>
-                          </button>
-
-                          <div className="flex items-center gap-2 mt-1 select-none">
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-gray-200 block"
-                              style={{ backgroundColor: item.selectedColor }}
-                            ></span>
-                            <span className="text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200 uppercase font-semibold">
-                              Taille: {item.selectedSize}
-                            </span>
-                          </div>
-                        </div>
-
-                        {!isActive && (
-                          <p className="text-[10px] text-rose-500 font-medium mt-1">
-                            Cet article n'est pas disponible pour le moment.
-                          </p>
-                        )}
-
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs font-black text-gray-900">
-                            {item.product.price.toFixed(2)} {currencySymbol}
-                          </span>
-
-                          {isActive ? (
-                            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded px-1">
-                              <button
-                                onClick={() => updateCartQty(idx, -1)}
-                                className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
-                              >
-                                -
-                              </button>
-                              <span className="text-xs text-gray-900 font-bold px-1.5">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => updateCartQty(idx, 1)}
-                                className="text-gray-500 hover:text-gray-900 px-2 py-0.5 text-xs font-black"
-                              >
-                                +
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-rose-400 border border-rose-200 bg-rose-50 px-2 py-0.5 rounded">
-                              Indisponible
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {isActive && (
-                        <button
-                          onClick={() => removeFromCart(idx)}
-                          className="absolute top-2 right-2 text-gray-600 hover:text-rose-400"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {!orderCompleted && cart.length > 0 && (
-            <div className="border-t border-gray-200 pt-4 space-y-4">
-              <div className="space-y-1.5 text-xs text-gray-500">
-                <div className="flex justify-between items-center">
-                  <span>Sous-total articles :</span>
-                  <span className="font-bold text-gray-900">
-                    {cartTotal.toFixed(2)} {currencySymbol}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-(--color-accent) font-medium">
-                  <span>Livraison Choice suivie :</span>
-                  <span>{cartTotal >= 35 ? "GRATUITE" : "4.99 $"}</span>
-                </div>
-                <div className="flex justify-between items-center border-t border-gray-200 pt-2.5 text-sm">
-                  <span className="font-extrabold text-gray-900">
-                    Montant Total :
-                  </span>
-                  <span className="font-black text-gray-900 text-base">
-                    {cartTotal >= 35
-                      ? cartTotal.toFixed(2)
-                      : (cartTotal + 4.99).toFixed(2)}{" "}
-                    $
-                  </span>
-                </div>
-              </div>
-
-              {cartTotal < 35 && (
-                <div className="p-3 bg-violet-950/40 border border-violet-800/40 rounded-xl text-[11px] text-violet-600">
-                  <p className="font-semibold">
-                    💡 Astuce d&apos;expédition Choice
-                  </p>
-                  <p className="mt-0.5">
-                    Ajoutez encore{" "}
-                    <strong className="text-gray-900">
-                      {(35 - cartTotal).toFixed(2)} {currencySymbol}
-                    </strong>{" "}
-                    d&apos;articles pour débloquer la livraison gratuite !
-                  </p>
-                </div>
-              )}
-
-              {cart.some((item) => item.product.isActive) ? (
-                <button
-                  onClick={() => {
-                    setCartOpen(false);
-                    setCheckoutOpen(true);
-                  }}
-                  className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-sm p-4 rounded-xl uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1.5 select-none"
-                  id="btn-fast-checkout"
-                >
-                  Passer la commande
-                </button>
-              ) : (
-                <div className="text-center">
-                  <p className="text-xs text-rose-500 font-medium mb-2">
-                    Aucun article disponible pour commander.
-                  </p>
-                  <button
-                    disabled
-                    className="w-full bg-gray-200 text-gray-400 font-black text-sm p-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
-                  >
-                    Passer la commande
-                  </button>
-                </div>
-              )}
-
-              <p className="text-[10px] text-gray-500 text-center leading-relaxed">
-                Paiement de démonstration crypté en 256 bits. Les vêtements
-                seront automatiquement mappés et envoyés en fabrication à notre
-                atelier Printful.
-              </p>
-            </div>
-          )}
-        </div>
+        <CartDrawer
+          cart={cart}
+          onClose={() => setCartOpen(false)}
+          onUpdateQty={updateCartQty}
+          onRemove={removeFromCart}
+          onCheckout={() => {
+            setCartOpen(false);
+            setCheckoutOpen(true);
+          }}
+          onSelectProduct={(productId: string) => {
+            const product = products.find((p) => p.id === productId);
+            if (product) {
+              setSelectedProduct(product);
+              setActiveGalleryIndex(0);
+            }
+          }}
+        />
       )}
 
       {/* Global Brand Footer avec logo officiel */}

@@ -3,6 +3,7 @@
 import React from "react";
 import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useShippingSettings } from "../hooks/useShippingSettings";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { CartItem } from "../types";
 
@@ -27,8 +28,9 @@ export default function CartDrawer({
     (a, item) => a + item.product.price * item.quantity,
     0,
   );
-  const freeShipping = total >= 35;
-  const remaining = Math.max(0, 35 - total);
+  const { cost: shippingCost, threshold } = useShippingSettings();
+  const freeShipping = total >= threshold;
+  const remaining = Math.max(0, threshold - total);
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
   const currencySymbol = useCurrencySymbol();
 
@@ -307,7 +309,9 @@ export default function CartDrawer({
                 >
                   <span>Livraison</span>
                   <span>
-                    {freeShipping ? "Gratuite" : `4,99 ${currencySymbol}`}
+                    {freeShipping
+                      ? "Gratuite"
+                      : `${shippingCost.toFixed(2)} ${currencySymbol}`}
                   </span>
                 </div>
                 <div
@@ -319,7 +323,7 @@ export default function CartDrawer({
                 >
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {(total + (freeShipping ? 0 : 4.99)).toFixed(2)}{" "}
+                    {(total + (freeShipping ? 0 : shippingCost)).toFixed(2)}{" "}
                     {currencySymbol}
                   </span>
                 </div>
@@ -327,21 +331,15 @@ export default function CartDrawer({
 
               <button
                 onClick={onCheckout}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-base text-gray-900 transition-all duration-200"
+                className="w-full flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
                 style={{
-                  background: "var(--color-accent)",
+                  background:
+                    "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
                   boxShadow: "var(--shadow-accent)",
-                  fontFamily: "var(--font-sans)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
                 Commander
-                <ArrowRight size={17} strokeWidth={2} />
+                <ArrowRight size={15} strokeWidth={2.5} />
               </button>
 
               <p
