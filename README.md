@@ -41,6 +41,7 @@ instawear/
 ├── dist/
 ├── node_modules/
 ├── public/
+│   ├── globe-off.svg
 │   ├── InstaWear-logo-settings.png
 │   ├── InstaWear-logo-wh-middle-no-BG.png
 │   ├── InstaWear-logo.png
