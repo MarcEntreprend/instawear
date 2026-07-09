@@ -7,17 +7,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Sparkles,
   ShieldCheck,
   Truck,
   RefreshCw,
-  Star,
-  Plus,
-  Eye,
-  Heart,
-  Clock,
-  X,
-  CheckCircle,
   HelpCircle,
   ChevronRight,
 } from "lucide-react";
@@ -38,6 +30,7 @@ import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
+import CatalogSection from "./components/CatalogSection";
 import { PLACEHOLDER_IMG } from "./constants/assets";
 
 // ── Product delivery info visibility switch ──
@@ -815,363 +808,31 @@ export default function App() {
               </section>
             )}
 
-          {/* Active Filtering Criteria Breadcrumb */}
-          {(searchTerm || selectedCategory || selectedEventType) && (
-            <section
-              id="section-filters"
-              className="section-container w-full px-4 scroll-mt-28"
-            >
-              <div className="bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-gray-500">Filtres actifs :</span>
-                  {searchTerm && (
-                    <span className="bg-gray-100 text-gray-900 font-bold px-2.5 py-1 rounded-md border border-gray-200 flex items-center gap-1.5">
-                      Recherche : &quot;{searchTerm}&quot;
-                      <X
-                        className="w-3.5 h-3.5 text-gray-500 hover:text-gray-900 cursor-pointer"
-                        onClick={() => setSearchTerm("")}
-                      />
-                    </span>
-                  )}
-                  {selectedCategory && (
-                    <span className="bg-gray-100 text-gray-900 font-bold px-2.5 py-1 rounded-md border border-gray-200 flex items-center gap-1.5 uppercase">
-                      Catégorie : {selectedCategory}
-                      <X
-                        className="w-3.5 h-3.5 text-gray-500 hover:text-gray-900 cursor-pointer"
-                        onClick={() => setSelectedCategory(null)}
-                      />
-                    </span>
-                  )}
-                  {selectedEventType && (
-                    <span className="bg-gray-100 text-gray-900 font-bold px-2.5 py-1 rounded-md border border-gray-200 flex items-center gap-1.5 uppercase">
-                      Événement : {selectedEventType}
-                      <X
-                        className="w-3.5 h-3.5 text-gray-500 hover:text-gray-900 cursor-pointer"
-                        onClick={() => setSelectedEventType(null)}
-                      />
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory(null);
-                    setSelectedEventType(null);
-                  }}
-                  className="text-xs text-rose-400 hover:text-rose-600 font-extrabold hover:underline"
-                >
-                  Effacer tout
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* Core eCommerce Products Listing */}
-          <section
-            id="section-catalog"
-            className="section-container w-full px-4 scroll-mt-28"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-200 pb-3">
-              <div>
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-(--color-accent) animate-pulse" />
-                  Collection
-                </h2>
-                <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                  <span>T-Shirts, Hoodies & Accessoires Événementiels</span>
-                  <span className="sm:hidden text-gray-400 font-medium ml-auto">
-                    ({filteredProducts.length})
-                  </span>
-                </p>
-              </div>
-              <div className="text-xs font-semibold text-gray-500 hidden sm:block">
-                Affichage de{" "}
-                <span className="text-gray-900 font-bold">
-                  {filteredProducts.length}
-                </span>{" "}
-                articles
-              </div>
-            </div>
-
-            {loadingProducts ? (
-              <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-                <RefreshCw className="w-8 h-8 text-(--color-accent) animate-spin" />
-                <p className="text-gray-500 text-sm">
-                  Chargement des collections InstaWear...
-                </p>
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="py-16 text-center border border-dashed border-gray-200 rounded-2xl bg-white/20 max-w-lg mx-auto">
-                <img
-                  src={PLACEHOLDER_IMG}
-                  alt="Aucun résultat"
-                  className="w-12 h-12 mx-auto mb-2 opacity-50"
-                />
-                <p className="font-bold text-gray-900 mb-1">
-                  Aucun article ne correspond à votre recherche
-                </p>
-                <p className="text-gray-500 text-sm mb-4">
-                  Modifiez vos filtres ou lancez une autre recherche !
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory(null);
-                    setSelectedEventType(null);
-                  }}
-                  className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
-                  style={{
-                    background: "transparent",
-                    color: "var(--color-accent)",
-                    border: "1.5px solid var(--color-accent)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--color-accent)";
-                    e.currentTarget.style.color = "white";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "var(--color-accent)";
-                  }}
-                >
-                  Voir la collection
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                {filteredProducts.map((product) => {
-                  return (
-                    <div
-                      key={product.id}
-                      className="bg-white/60 border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5 transition-all text-left flex flex-col justify-between h-full relative"
-                      id={`product-card-${product.id}`}
-                    >
-                      <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
-                        {product.isBestSeller && (
-                          <span className="bg-amber-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow">
-                            Best Seller
-                          </span>
-                        )}
-                        {product.isLimitedTime &&
-                          (!dealExpired || dealFadingOut) && (
-                            <span
-                              className={`bg-rose-500 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
-                            >
-                              Limited Deal
-                            </span>
-                          )}
-                        {product.eventType === "discount" && (
-                          <span className="bg-white text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
-                            Promotions{" "}
-                            <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
-                          </span>
-                        )}
-                      </div>
-
-                      <div
-                        onClick={() => {
-                          setSelectedProduct(product);
-                        }}
-                        className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
-                      >
-                        <img
-                          src={product.image || PLACEHOLDER_IMG}
-                          alt={product.title}
-                          className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-                          <span className="bg-white/95 dark:bg-gray-900/90 dark:text-gray-100 text-gray-900 font-bold text-xs px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl flex items-center gap-1.5">
-                            <Eye className="w-3.5 h-3.5 text-(--color-accent)" />
-                            Aperçu rapide
-                          </span>
-                        </div>
-                        {/* Pilule couleurs sur l'image */}
-                        <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
-                          {product.colors.length <= 3 ? (
-                            product.colors.map((c, idx) => (
-                              <span
-                                key={idx}
-                                className="w-3 h-3 rounded-full border border-gray-200 block"
-                                style={{ backgroundColor: c }}
-                                title={product.colorNames?.[idx] || c}
-                              />
-                            ))
-                          ) : (
-                            <>
-                              {product.colors.slice(0, 2).map((c, idx) => (
-                                <span
-                                  key={idx}
-                                  className="w-3 h-3 rounded-full border border-gray-200 block"
-                                  style={{ backgroundColor: c }}
-                                  title={product.colorNames?.[idx] || c}
-                                />
-                              ))}
-                              <span
-                                className="color-wheel"
-                                title={`+${product.colors.length - 2} couleurs`}
-                              />
-                            </>
-                          )}
-                        </div>
-                        {/* Heart button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(product.id);
-                          }}
-                          disabled={!product.isActive}
-                          className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-110"
-                          style={{
-                            background: favorites.includes(product.id)
-                              ? "var(--color-accent)"
-                              : "rgba(255,255,255,0.9)",
-                            backdropFilter: "blur(8px)",
-                            border: `1px solid ${favorites.includes(product.id) ? "transparent" : "var(--color-border)"}`,
-                            zIndex: 5,
-                            opacity: product.isActive ? 1 : 0.4,
-                            cursor: product.isActive
-                              ? "pointer"
-                              : "not-allowed",
-                          }}
-                          aria-label={
-                            favorites.includes(product.id)
-                              ? "Retirer des favoris"
-                              : "Ajouter aux favoris"
-                          }
-                        >
-                          <Heart
-                            size={14}
-                            strokeWidth={2}
-                            style={{
-                              color: favorites.includes(product.id)
-                                ? "white"
-                                : "var(--color-ink2)",
-                              fill: favorites.includes(product.id)
-                                ? "white"
-                                : "none",
-                            }}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="px-3 pt-2 pb-3 flex-1 flex flex-col justify-between">
-                        <div>
-                          {/* <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">
-                            {product.brand}
-                          </p> */}
-                          <h4
-                            onClick={() => {
-                              setSelectedProduct(product);
-                            }}
-                            className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
-                          >
-                            {product.title}
-                          </h4>
-
-                          <div className="flex items-center gap-1.5 mt-2 text-xs">
-                            <div className="flex items-center text-amber-400 text-[11px]">
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
-                              <span className="font-bold ml-0.5 mt-0.5">
-                                {product.ratings.score.toFixed(1)}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-gray-500">
-                              ({product.ratings.count})
-                            </span>
-                            <span className="text-[10px] text-gray-600">|</span>
-                            <span className="text-[10px] text-(--color-accent) font-sans tracking-wide">
-                              {product.boughtLastMonth}+ achetés
-                            </span>
-                          </div>
-
-                          {product.isLimitedTime &&
-                            (!dealExpired || dealFadingOut) && (
-                              <div
-                                className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
-                              >
-                                <span className="font-bold flex items-center gap-1">
-                                  <Clock className="w-3 h-3 text-rose-400 shrink-0" />{" "}
-                                  Fin de l&apos;offre
-                                </span>
-                                <span className="font-mono font-bold text-rose-600">
-                                  {countdownString}
-                                </span>
-                              </div>
-                            )}
-
-                          <div className="flex items-baseline gap-2 mt-2 mb-0.5">
-                            <span className="text-lg font-black text-gray-900 font-sans">
-                              {product.price.toFixed(2)}{" "}
-                              <span className="text-[11px] font-medium text-gray-500">
-                                {currencySymbol}
-                              </span>
-                            </span>
-                            {product.originalPrice && (
-                              <span className="text-xs text-gray-500 line-through">
-                                {product.originalPrice.toFixed(2)}{" "}
-                                {currencySymbol}
-                                {product.originalPrice.toFixed(2)}{" "}
-                                {currencySymbol}
-                              </span>
-                            )}
-                          </div>
-
-                          {SHOW_PRODUCT_DELIVERY_INFO && (
-                            <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
-                              <p className="text-(--color-accent) font-semibold flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" /> Rejoindre
-                                Choice
-                              </p>
-                              <p>
-                                Livraison estimée pour{" "}
-                                <span className="text-gray-900 font-semibold">
-                                  {getDeliverEstimateString(4)}
-                                </span>
-                              </p>
-                              <p className="text-gray-500">
-                                Livraison suivie et sécurisée depuis l&apos;UE
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {product.isActive ? (
-                          <button
-                            onClick={() =>
-                              addToCart(
-                                product,
-                                product.colors?.[0] || "#000000",
-                                "M",
-                              )
-                            }
-                            className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
-                            id={`btn-add-cart-list-${product.id}`}
-                          >
-                            <Plus className="w-3.5 h-3.5 text-white" />
-                            Ajouter au panier
-                          </button>
-                        ) : (
-                          <div className="text-center mt-1">
-                            <p className="text-[10px] text-rose-500 font-medium mb-1">
-                              Cet article n'est pas disponible pour le moment.
-                            </p>
-                            <button
-                              disabled
-                              className="w-full bg-gray-200 text-gray-400 font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Ajouter au panier
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <CatalogSection
+            filteredProducts={filteredProducts}
+            loadingProducts={loadingProducts}
+            favorites={favorites}
+            dealExpired={dealExpired}
+            dealFadingOut={dealFadingOut}
+            countdownString={countdownString}
+            currencySymbol={currencySymbol}
+            showDeliveryInfo={SHOW_PRODUCT_DELIVERY_INFO}
+            getDeliverEstimateString={getDeliverEstimateString}
+            onToggleFavorite={toggleFavorite}
+            onAddToCart={addToCart}
+            onSelectProduct={(product) => setSelectedProduct(product)}
+            onClearFilters={() => {
+              setSearchTerm("");
+              setSelectedCategory(null);
+              setSelectedEventType(null);
+            }}
+            searchTerm={searchTerm}
+            selectedCategory={selectedCategory}
+            selectedEventType={selectedEventType}
+            setSearchTerm={setSearchTerm}
+            setSelectedCategory={setSelectedCategory}
+            setSelectedEventType={setSelectedEventType}
+          />
 
           {/* About Section - Premium Story (visuel V2 avec max-w-4xl) */}
           <section
