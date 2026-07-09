@@ -14,6 +14,7 @@ import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
+import { useTabBadge } from "./hooks/useTabBadge";
 import { Product, CartItem } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
@@ -90,6 +91,8 @@ export default function App() {
   const [promotionsLoading, setPromotionsLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  useTabBadge(cart, isAdmin); // Badge notifications dans l'onglet
+
   const [cartLoaded, setCartLoaded] = useState(false);
 
   // Caches locaux pour éviter les erreurs 406 sur admin_users et customers

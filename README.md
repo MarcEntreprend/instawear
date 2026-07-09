@@ -226,12 +226,12 @@ The test: Every changed line should trace directly to my request.
 
 ### Notifications
 
-- [ ] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
-- [ ] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues (comme WhatsApp)
+- [*] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
+- [x] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues, OU le nombre d item dans cart (comme WhatsApp)
 
 ### Sidebar (panier)
 
-- [ ] **Fermeture au clic extérieur** : fermer le drawer quand on clique en dehors
+- [x] **Fermeture au clic extérieur** : fermer le drawer quand on clique en dehors
 
 ### Offline / Erreurs
 
