@@ -686,6 +686,7 @@ function ContactStep({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TextField
           label="Nom complet"
+          id="name"
           required
           icon={User}
           value={name}
@@ -693,9 +694,17 @@ function ContactStep({
           placeholder="John Doe"
           autoComplete="name"
           error={errors.name}
+          onClearError={() => {
+            if (errors.name) {
+              const next = { ...errors };
+              delete next.name;
+              setErrors(next);
+            }
+          }}
         />
         <TextField
           label="Téléphone"
+          id="phone"
           required
           icon={Phone}
           value={phone}
@@ -703,11 +712,19 @@ function ContactStep({
           placeholder="+1 (212) 555-1234"
           autoComplete="tel"
           error={errors.phone}
+          onClearError={() => {
+            if (errors.phone) {
+              const next = { ...errors };
+              delete next.phone;
+              setErrors(next);
+            }
+          }}
         />
       </div>
 
       <TextField
         label="Email"
+        id="email"
         required
         icon={Mail}
         type="email"
@@ -716,12 +733,20 @@ function ContactStep({
         placeholder="john@exemple.com"
         autoComplete="email"
         error={errors.email}
+        onClearError={() => {
+          if (errors.email) {
+            const next = { ...errors };
+            delete next.email;
+            setErrors(next);
+          }
+        }}
       />
 
       {reception === "livraison" && (
         <div className="flex flex-col gap-4 pt-1 animate-fade-up">
           <TextField
             label="Adresse"
+            id="address"
             required
             icon={MapPin}
             value={address}
@@ -740,6 +765,7 @@ function ContactStep({
           <div className="grid grid-cols-2 gap-4">
             <TextField
               label="Ville"
+              id="city"
               required
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -756,6 +782,7 @@ function ContactStep({
             />
             <TextField
               label="Code postal"
+              id="zip"
               required
               value={zip}
               onChange={(e) => setZip(e.target.value)}
@@ -796,6 +823,7 @@ function ContactStep({
           {needsState && (
             <TextField
               label={country === "BR" ? "État (UF)" : "État / Province"}
+              id="stateCode"
               required
               value={stateCode}
               onChange={(e) => setStateCode(e.target.value.toUpperCase())}
@@ -816,6 +844,7 @@ function ContactStep({
           {country === "BR" && (
             <TextField
               label="CPF ou CNPJ"
+              id="taxNumber"
               required
               value={taxNumber}
               onChange={(e) => setTaxNumber(e.target.value)}
@@ -872,7 +901,9 @@ function ContactStep({
       </div>
     </div>
   );
-} // ─── Step 3 : Paiement ──────────────────────────────────────────────────
+}
+
+// ─── Step 3 : Paiement ──────────────────────────────────────────────────
 
 interface PaymentStepProps {
   cardNumber: string;
@@ -1652,6 +1683,23 @@ export default function CheckoutFlow({
         e.taxNumber = "Le CPF/CNPJ est requis.";
     }
     setErrors(e);
+
+    // Scroll automatique vers le premier champ invalide
+    if (Object.keys(e).length > 0) {
+      setTimeout(() => {
+        const firstError = Object.keys(e)[0];
+        const input = document.querySelector(
+          `[name="${firstError}"], [id="${firstError}"]`,
+        );
+        if (input) {
+          (input as HTMLElement).scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      }, 50);
+    }
+
     return Object.keys(e).length === 0;
   };
 
