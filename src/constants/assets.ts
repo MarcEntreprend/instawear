@@ -16,3 +16,6 @@ export const LOGO_SETTINGS_URL = "/InstaWear-logo-settings.png";
 
 // Image placeholder pour les produits (si pas d'image fournie)
 export const PLACEHOLDER_IMG = "/Instawear-missing-item.svg";
+
+// Icon for no internet
+export const NO_INTERNET = "/globe-off.svg";

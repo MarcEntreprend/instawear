@@ -3,7 +3,7 @@
 import { Sparkles, RefreshCw, X } from "lucide-react";
 import StoreProductCard from "./StoreProductCard";
 import type { Product } from "../types";
-import { PLACEHOLDER_IMG } from "../constants/assets";
+import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
 
 interface CatalogSectionProps {
   filteredProducts: Product[];
@@ -133,13 +133,17 @@ export default function CatalogSection({
       ) : networkError ? (
         <div className="py-16 text-center border border-dashed border-red-200 rounded-2xl bg-red-50/30 max-w-lg mx-auto">
           <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
-            <RefreshCw className="w-6 h-6 text-red-500" />
+            <img
+              src={NO_INTERNET}
+              alt="Erreur réseau"
+              className="w-6 h-6 opacity-50"
+            />
           </div>
           <p className="font-bold text-gray-900 mb-1">
             Oups ! Une erreur inattendue s'est produite
           </p>
           <p className="text-gray-500 text-sm mb-4">
-            Veuillez réessayer plus tard ou retourner à la page d'accueil.
+            Veuillez réessayer plus tard
           </p>
           <button
             onClick={() => window.location.reload()}
