@@ -104,6 +104,10 @@ export default function OrdersPage() {
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     null,
   );
+  const [sendingToPrintful, setSendingToPrintful] = useState(false);
+  const [sendingOrderIds, setSendingOrderIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // states pour le chargement et la fonction de récupération
   const [loadingQuickView, setLoadingQuickView] = useState(false);
@@ -193,7 +197,28 @@ export default function OrdersPage() {
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const handleStatusChange = async (orderId: string, newStatus: string) => {
-    await updateStatus(orderId, newStatus as any);
+    if (newStatus === "in_production") {
+      // Envoi à Printful avant changement de statut
+      if (sendingOrderIds.has(orderId)) return; // déjà en cours
+      setSendingOrderIds((prev) => new Set(prev).add(orderId));
+      try {
+        const { podApi } = await import("../api/supabaseApi");
+        await podApi.createOrder(orderId);
+        // Si succès, on met à jour le statut
+        await updateStatus(orderId, "in_production");
+      } catch (e: any) {
+        alert("Erreur d'envoi à Printful : " + (e.message || ""));
+        // On ne change pas le statut en cas d'échec
+      } finally {
+        setSendingOrderIds((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+      }
+    } else {
+      await updateStatus(orderId, newStatus as any);
+    }
   };
 
   const handleExport = async () => {
@@ -692,28 +717,42 @@ export default function OrdersPage() {
                     >
                       <Eye size={14} strokeWidth={2} />
                     </button>
-                    <select
-                      value={order.status}
-                      onChange={(e) =>
-                        handleStatusChange(order.id, e.target.value)
-                      }
-                      style={{
-                        padding: "4px 8px",
-                        borderRadius: 8,
-                        border: "1px solid var(--color-border)",
-                        background: "var(--color-surface2)",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "var(--color-ink2)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {Object.keys(ORDER_STATUS_LABEL).map((key) => (
-                        <option key={key} value={key}>
-                          {ORDER_STATUS_LABEL[key].label}
-                        </option>
-                      ))}
-                    </select>
+                    {sendingOrderIds.has(order.id) ? (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                          color: "var(--color-accent)",
+                        }}
+                      >
+                        <RefreshCw size={12} className="animate-spin" /> Envoi…
+                      </span>
+                    ) : (
+                      <select
+                        value={order.status}
+                        onChange={(e) =>
+                          handleStatusChange(order.id, e.target.value)
+                        }
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 8,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--color-surface2)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "var(--color-ink2)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {Object.keys(ORDER_STATUS_LABEL).map((key) => (
+                          <option key={key} value={key}>
+                            {ORDER_STATUS_LABEL[key].label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -868,33 +907,54 @@ export default function OrdersPage() {
                           )
                         )
                           return;
+                        setSendingToPrintful(true);
                         try {
                           const { podApi } = await import("../api/supabaseApi");
                           await podApi.createOrder(selectedOrder.id);
+                          // Recharger les commandes depuis Supabase pour mettre à jour le tableau et le select
+                          await refetch();
                           alert(
                             "Commande envoyée à Printful (statut mis à jour).",
                           );
                           setSelectedOrder(null);
                         } catch (e: any) {
                           alert("Erreur : " + (e.message || ""));
+                        } finally {
+                          setSendingToPrintful(false);
                         }
                       }}
+                      disabled={sendingToPrintful}
                       style={{
                         padding: "6px 14px",
                         borderRadius: 8,
                         border: "1px solid var(--color-accent)",
-                        background: "var(--color-accent)",
-                        color: "white",
+                        background: sendingToPrintful
+                          ? "var(--color-surface2)"
+                          : "var(--color-accent)",
+                        color: sendingToPrintful
+                          ? "var(--color-ink3)"
+                          : "white",
                         fontWeight: 700,
                         fontSize: 12,
-                        cursor: "pointer",
+                        cursor: sendingToPrintful ? "not-allowed" : "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
+                        opacity: sendingToPrintful ? 0.7 : 1,
                       }}
                     >
-                      <Package size={14} strokeWidth={2} />
-                      Envoyer à Printful
+                      {sendingToPrintful ? (
+                        <RefreshCw
+                          size={14}
+                          strokeWidth={2}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Package size={14} strokeWidth={2} />
+                      )}
+                      {sendingToPrintful
+                        ? "Envoi en cours…"
+                        : "Envoyer à Printful"}
                     </button>
                   </div>
                 )}

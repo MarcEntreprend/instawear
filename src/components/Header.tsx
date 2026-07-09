@@ -220,10 +220,8 @@ export default function Header({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchVal);
-    if (searchVal.trim()) {
-      onScrollToSection("filters");
-    }
     inputRef.current?.blur();
+    // Le scroll automatique sera déclenché par le useEffect dans App.tsx
   };
 
   // Logique de navigation structurée (v3)
@@ -243,12 +241,12 @@ export default function Header({
   const handlePill = (pill: any) => {
     onSelectCategory(pill.category ?? null);
     onSelectEventType(pill.eventType ?? null);
-    // Si un filtre est activé → scroll vers les filtres, sinon vers le catalogue
-    if (pill.eventType || pill.category) {
-      onScrollToSection("filters");
-    } else {
+
+    // Pour "Tout voir" (aucun filtre), on scrolle directement vers le catalogue
+    if (!pill.eventType && !pill.category) {
       onScrollToSection("catalog");
     }
+    // Les autres pilules déclencheront le useEffect via le changement d'état
   };
 
   const isPillActive = (pill: any) => {
@@ -291,12 +289,10 @@ export default function Header({
         }}
       >
         <nav className="w-full px-4 py-3 flex items-center gap-3">
-          {/* Logo (visuel v2)  */}
+          {/* Logo */}
           <button
             onClick={() => {
-              onSelectCategory(null);
-              onSelectEventType(null);
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              window.location.href = "/";
             }}
             className="flex items-center gap-2 shrink-0 group"
             aria-label="InstaWear — Accueil"

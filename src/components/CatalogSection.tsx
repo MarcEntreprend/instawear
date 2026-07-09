@@ -77,7 +77,10 @@ export default function CatalogSection({
 
       {/* Filtres actifs */}
       {(searchTerm || selectedCategory || selectedEventType) && (
-        <div className="mb-4 bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
+        <div
+          id="section-filters"
+          className="scroll-mt-36 mb-4 bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-gray-500">Filtres actifs :</span>
             {searchTerm && (

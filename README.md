@@ -207,22 +207,22 @@ The test: Every changed line should trace directly to my request.
 
 ### Panier
 
-- [ ] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
-- [ ] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
-- [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
-- [ ] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
-- [ ] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
+- [0] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
+- [x] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
+- [0] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
+- [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
+- [x] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
 
 ### Header
 
-- [ ] **Logo / nom InstaWear** : le clic doit rafraîchir la page (pas seulement rester sur place)
-- [ ] **Barre de recherche** : le clic sur un résultat doit rediriger vers le produit
+- [x] **Logo / nom InstaWear** : le clic doit rafraîchir la page (pas seulement rester sur place)
+- [x] **Barre de recherche** : le clic sur un résultat doit rediriger vers le produit
 
 ### Order Page
 
-- [ ] **Bouton "Envoyer à Printful"** : ajouter une animation de chargement (spinner) pendant l'envoi
-- [ ] **Changement de statut "En production"** : doit avoir la même action que le bouton "Envoyer à Printful" du modal
-- [ ] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
+- [x] **Bouton "Envoyer à Printful"** : ajouter une animation de chargement (spinner) pendant l'envoi
+- [x] **Changement de statut "En production"** : doit avoir la même action que le bouton "Envoyer à Printful" du modal
+- [*] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
 
 ### Notifications
 
@@ -242,6 +242,7 @@ The test: Every changed line should trace directly to my request.
 ### Stripe Checkout
 
 - [ ] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
+- [ ] **simuler email** : qd purchase confirmé par stripe
 
 ---
 

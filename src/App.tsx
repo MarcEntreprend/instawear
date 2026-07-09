@@ -200,6 +200,7 @@ export default function App() {
   // Système de toasts enrichi (file d'attente)
   const [toasts, setToasts] = useState<Toast[]>([]);
   let toastIdCounter = useRef(0);
+  const isInitialMount = useRef(true);
 
   // Charger une fois la liste des admins et des clients pour éviter les requêtes 406
   useEffect(() => {
@@ -480,20 +481,26 @@ export default function App() {
       | "contact"
       | "filters",
   ) => {
-    setActiveTab("store");
-    setTimeout(() => {
-      const idMap: Record<string, string> = {
-        catalog: "section-catalog",
-        about: "section-about",
-        faq: "section-faq",
-        filters: "section-filters",
-      };
-      const id = idMap[section];
-      if (id) {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const idMap: Record<string, string> = {
+      catalog: "section-catalog",
+      about: "section-about",
+      faq: "section-faq",
+      filters: "section-filters",
+    };
+    const id = idMap[section];
+    if (!id) return;
+
+    const tryScroll = (attempts: number) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (attempts < 20) {
+        // Jusqu'à 1 seconde (20 × 50ms)
+        setTimeout(() => tryScroll(attempts + 1), 50);
       }
-    }, 200); // délai augmenté à 200ms
+    };
+
+    tryScroll(0);
   };
 
   // Gestion du retour de Stripe Checkout (success / cancel)
@@ -556,6 +563,32 @@ export default function App() {
 
     handleReturn();
   }, []);
+
+  // Scroll automatique vers les filtres ou le catalogue quand un filtre change
+  useEffect(() => {
+    // Ignorer le tout premier montage (pour ne pas scroller à l'arrivée)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const hasActiveFilter =
+      searchTerm.trim() || selectedCategory || selectedEventType;
+
+    const targetId = hasActiveFilter ? "section-filters" : "section-catalog";
+
+    const tryScroll = (attempts: number) => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (attempts < 20) {
+        setTimeout(() => tryScroll(attempts + 1), 50);
+      }
+    };
+
+    const timer = setTimeout(() => tryScroll(0), 100);
+    return () => clearTimeout(timer);
+  }, [searchTerm, selectedCategory, selectedEventType]);
 
   const handleOpenFavorites = () => {
     setShowFavoritesOnly(true);
@@ -650,6 +683,7 @@ export default function App() {
         products={products}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
+        // onSelectProduct={(product) => setSelectedProduct(product)}
       />
 
       {/* Toast system */}
