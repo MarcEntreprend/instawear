@@ -12,14 +12,11 @@ import {
   Truck,
   RefreshCw,
   Star,
-  Info,
   Plus,
-  Trash2,
   Eye,
   Heart,
   Clock,
   Check,
-  Send,
   ShoppingBag,
   X,
   CheckCircle,
@@ -27,8 +24,6 @@ import {
   Layers,
   Code,
   Calendar,
-  ArrowRight,
-  ChevronLeft,
   ChevronRight,
   Mail,
   Instagram,
@@ -47,7 +42,10 @@ import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { Product, CartItem, PrintfulSettings } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
+import ProductDetailModal from "./components/ProductDetailModal";
+import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
+import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
 import { LOGO_URL, PLACEHOLDER_IMG } from "./constants/assets";
 
@@ -77,12 +75,6 @@ export default function App() {
   // Layout View States
   const [activeTab, setActiveTab] = useState<"store" | "admin">("store");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
-  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-
-  // Active buying variant selectors
-  const [pickedColor, setPickedColor] = useState<string>("");
-  const [pickedSize, setPickedSize] = useState<string>("M");
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
@@ -262,15 +254,6 @@ export default function App() {
 
   // Printful test endpoints loading
   const [isSyncingPrintful, setIsSyncingPrintful] = useState(false);
-
-  // Frontpage Banner States
-  const [bannerIndex, setBannerIndex] = useState(0);
-  // const [countdownString, setCountdownString] = useState("04:38:55"); // -> compteur est une heure UTC inversée
-
-  // Newsletter state
-  const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
-  const [validEmail, setValidEmail] = useState(false);
 
   // Charger une fois la liste des admins et des clients pour éviter les requêtes 406
   useEffect(() => {
@@ -771,29 +754,6 @@ export default function App() {
 
   const isSingleBanner = heroBanners.length <= 1;
 
-  // timing pour le slide auto du carroussel :
-  const [autoPlayPaused, setAutoPlayPaused] = useState(false);
-  const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Autoplay Hero Carousel - l'auto-slide
-  useEffect(() => {
-    if (autoPlayPaused) return;
-    const timer = setInterval(() => {
-      setBannerIndex((prev) => (prev + 1) % heroBanners.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [heroBanners.length, autoPlayPaused]);
-
-  // fonction pauseAutoPlay
-  const pauseAutoPlay = (duration = 8000) => {
-    setAutoPlayPaused(true);
-    if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
-    autoPlayTimeoutRef.current = setTimeout(
-      () => setAutoPlayPaused(false),
-      duration,
-    );
-  };
-
   const scrollToSection = (
     section:
       | "catalog"
@@ -985,206 +945,18 @@ export default function App() {
           id="view-customer-storefront"
         >
           {/* Dynamic Hero Carousel Banner */}
-          {!promotionsLoading && heroBanners.length > 0 && (
-            <section
-              className="relative section-container mt-6 px-4"
-              onMouseEnter={() => setAutoPlayPaused(true)}
-              onMouseLeave={() => setAutoPlayPaused(false)}
-            >
-              <div
-                className={`w-full rounded-2xl bg-linear-to-r ${heroBanners[bannerIndex].bgGradient} overflow-hidden border border-gray-200 relative min-h-90 md:min-h-105 transition-all duration-700`}
-              >
-                {/* Boutons de navigation (masqués si un seul élément) */}
-                {!isSingleBanner && (
-                  <>
-                    <button
-                      onClick={() => {
-                        pauseAutoPlay();
-                        setBannerIndex(
-                          (prev) =>
-                            (prev - 1 + heroBanners.length) %
-                            heroBanners.length,
-                        );
-                      }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        pauseAutoPlay();
-                        setBannerIndex(
-                          (prev) => (prev + 1) % heroBanners.length,
-                        );
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                    {/* Zones tactiles */}
-                    <button
-                      onClick={() => {
-                        pauseAutoPlay();
-                        setBannerIndex(
-                          (prev) =>
-                            (prev - 1 + heroBanners.length) %
-                            heroBanners.length,
-                        );
-                      }}
-                      className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-                      aria-label="Diapositive précédente"
-                    />
-                    <button
-                      onClick={() => {
-                        pauseAutoPlay();
-                        setBannerIndex(
-                          (prev) => (prev + 1) % heroBanners.length,
-                        );
-                      }}
-                      className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-                      aria-label="Diapositive suivante"
-                    />
-                  </>
-                )}
-
-                {/* Desktop : layout côte à côte */}
-                <div className="hidden md:flex items-center min-h-90 md:min-h-105">
-                  <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
-                    {heroBanners[bannerIndex].showTag &&
-                      heroBanners[bannerIndex].tag && (
-                        <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
-                          {heroBanners[bannerIndex].tag}
-                        </span>
-                      )}
-                    {heroBanners[bannerIndex].showTitle &&
-                      heroBanners[bannerIndex].title && (
-                        <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                          {heroBanners[bannerIndex].title}
-                        </p>
-                      )}
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight text-gray-900 font-sans max-w-lg text-glow-white-strong">
-                      {heroBanners[bannerIndex].headline}
-                    </h1>
-                    <p className="text-sm text-gray-600 mt-3 max-w-md leading-relaxed font-sans text-glow-white">
-                      {heroBanners[bannerIndex].sub}
-                    </p>
-                    <button
-                      onClick={() => {
-                        const banner = heroBanners[bannerIndex];
-                        if (banner.productId) {
-                          const target = products.find(
-                            (p) => p.id === banner.productId,
-                          );
-                          if (target) {
-                            setSelectedProduct(target);
-                            setActiveGalleryIndex(0);
-                          }
-                        } else {
-                          if (bannerIndex === 1) setSelectedEventType("sport");
-                          else if (bannerIndex === 2)
-                            setSelectedEventType("culture");
-                          else {
-                            setSelectedEventType(null);
-                            setSelectedCategory(null);
-                          }
-                        }
-                      }}
-                      className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
-                    >
-                      <span>{heroBanners[bannerIndex].cta}</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-                  <div className="relative flex-1 h-full flex items-center justify-center p-8 overflow-hidden select-none">
-                    <div className="absolute inset-0 bg-radial-gradient from-transparent to-slate-950 opacity-40"></div>
-                    <div className="relative z-1 w-52 h-52 md:w-72 md:h-72 rounded-full bg-indigo-500/10 border border-indigo-500/20 blur-xl animate-pulse"></div>
-                    <img
-                      src={heroBanners[bannerIndex].image}
-                      alt={heroBanners[bannerIndex].headline}
-                      className="absolute inset-0 z-2 w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-200 rotate-2 hover:rotate-0 transition-transform duration-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Mobile : image en arrière-plan, texte superposé */}
-                <div className="flex md:hidden relative min-h-90">
-                  {/* Image à droite avec fondu à gauche */}
-                  <div className="absolute inset-y-0 right-0 w-3/5 overflow-hidden">
-                    <img
-                      src={heroBanners[bannerIndex].image}
-                      alt={heroBanners[bannerIndex].headline}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-linear-to-l from-transparent via-white/70 to-white"></div>
-                  </div>
-                  {/* Texte superposé à gauche */}
-                  <div className="relative z-10 pt-4 px-6 flex flex-col min-h-90 w-full">
-                    {heroBanners[bannerIndex].showTag &&
-                      heroBanners[bannerIndex].tag && (
-                        <span className="bg-indigo-600/30 border border-indigo-500/50 text-indigo-600 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3 self-start">
-                          {heroBanners[bannerIndex].tag}
-                        </span>
-                      )}
-                    {heroBanners[bannerIndex].showTitle &&
-                      heroBanners[bannerIndex].title && (
-                        <p className="text-xs uppercase tracking-widest font-black text-(--color-accent) mb-1.5">
-                          {heroBanners[bannerIndex].title}
-                        </p>
-                      )}
-                    <h1 className="text-2xl sm:text-3xl font-black leading-tight text-gray-900 font-sans max-w-[70%] text-glow-white-strong">
-                      {heroBanners[bannerIndex].headline}
-                    </h1>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-auto mb-20 leading-snug font-sans max-w-[75%] text-glow-white">
-                      {heroBanners[bannerIndex].sub}
-                    </p>
-                    {/* Button CTA */}
-                    <button
-                      onClick={() => {
-                        const banner = heroBanners[bannerIndex];
-                        if (banner.productId) {
-                          const target = products.find(
-                            (p) => p.id === banner.productId,
-                          );
-                          if (target) {
-                            setSelectedProduct(target);
-                            setActiveGalleryIndex(0);
-                          }
-                        } else {
-                          if (bannerIndex === 1) setSelectedEventType("sport");
-                          else if (bannerIndex === 2)
-                            setSelectedEventType("culture");
-                          else {
-                            setSelectedEventType(null);
-                            setSelectedCategory(null);
-                          }
-                        }
-                      }}
-                      className="mt-6 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-sans font-black text-xs px-6 py-3.5 rounded-full btn-glow-white transition-all text-center uppercase tracking-wider flex items-center gap-2 group"
-                    >
-                      <span>{heroBanners[bannerIndex].cta}</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Slider index (masqué si un seul élément) */}
-                {!isSingleBanner && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-                    {heroBanners.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          pauseAutoPlay();
-                          setBannerIndex(i);
-                        }}
-                        className={`h-1.5 rounded-full transition-all ${bannerIndex === i ? "w-6 bg-white" : "w-1.5 bg-slate-600"}`}
-                      ></button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
+          <HeroCarousel
+            banners={heroBanners}
+            loading={promotionsLoading}
+            onBannerAction={(banner) => {
+              if (banner.productId) {
+                const target = products.find((p) => p.id === banner.productId);
+                if (target) {
+                  setSelectedProduct(target);
+                }
+              }
+            }}
+          />
 
           {/* Core Today deals segment & countdown triggers */}
           {(!dealExpired || dealFadingOut) &&
@@ -1262,7 +1034,6 @@ export default function App() {
                           key={item.id}
                           onClick={() => {
                             setSelectedProduct(item);
-                            setActiveGalleryIndex(0);
                           }}
                           className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
                         >
@@ -1455,7 +1226,6 @@ export default function App() {
                       <div
                         onClick={() => {
                           setSelectedProduct(product);
-                          setActiveGalleryIndex(0);
                         }}
                         className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
                       >
@@ -1547,7 +1317,6 @@ export default function App() {
                           <h4
                             onClick={() => {
                               setSelectedProduct(product);
-                              setActiveGalleryIndex(0);
                             }}
                             className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
                           >
@@ -1822,366 +1591,24 @@ export default function App() {
 
       {/* Product Detailed Sheet Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div
-            className="bg-white border border-gray-200 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
-            id="modal-product-details"
-          >
-            <button
-              onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900 w-9 h-9 rounded-full flex items-center justify-center transition-all z-10"
-              id="btn-close-details-modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
-              <div>
-                <div className="aspect-4/5 bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 relative">
-                  {selectedProduct.isBestSeller && (
-                    <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow">
-                      BEST SELLER
-                    </span>
-                  )}
-                  {selectedProduct.isLimitedTime &&
-                    (!dealExpired || dealFadingOut) && (
-                      <span
-                        className={`absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
-                      >
-                        LIMITED time
-                      </span>
-                    )}
-
-                  <img
-                    src={(() => {
-                      // Fusionne l'image principale + la galerie en un seul tableau
-                      const allImages = [
-                        selectedProduct.image || PLACEHOLDER_IMG,
-                        ...(selectedProduct.gallery || []),
-                      ];
-                      return allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
-                    })()}
-                    alt={selectedProduct.title}
-                    className="w-full h-full object-cover"
-                    style={{ filter: "none" }}
-                  />
-                </div>
-
-                {(() => {
-                  const allImages = [
-                    selectedProduct.image || PLACEHOLDER_IMG,
-                    ...(selectedProduct.gallery || []),
-                  ];
-                  if (allImages.length <= 1) return null;
-                  return (
-                    <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
-                      {allImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => setActiveGalleryIndex(idx)}
-                          className={`aspect-square rounded-lg overflow-hidden border cursor-pointer transition-all ${activeGalleryIndex === idx ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 hover:border-gray-200"}`}
-                        >
-                          <img
-                            src={img}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                <div className="mt-4 p-3 bg-gray-50/40 border border-gray-200 rounded-xl flex items-center gap-2.5 text-xs text-gray-500">
-                  <ShieldCheck className="w-4 h-4 text-(--color-accent)" />
-                  <p>
-                    Garanti sans substances toxiques - Impression certifiée
-                    OEKO-TEX®
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] bg-gray-100 px-3 py-1 rounded text-gray-500 uppercase tracking-widest font-bold">
-                    {selectedProduct.brand} ORIGINAL
-                  </span>
-
-                  <h3 className="text-xl md:text-2xl font-black text-gray-900 mt-2 leading-tight">
-                    {selectedProduct.title}
-                  </h3>
-
-                  <div className="flex items-center gap-2 mt-3 text-xs">
-                    <div className="flex items-center text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3.5 h-3.5 ${i < Math.floor(selectedProduct.ratings.score) ? "fill-amber-400 text-amber-400" : "text-gray-600"}`}
-                        />
-                      ))}
-                      <span className="font-extrabold ml-1 pt-0.5">
-                        {selectedProduct.ratings.score.toFixed(1)}/5.0
-                      </span>
-                    </div>
-                    <span className="text-gray-500">
-                      ({selectedProduct.ratings.count} évaluations vérifiées)
-                    </span>
-                  </div>
-
-                  <div className="flex items-baseline gap-2 mt-4 p-4 bg-gray-50/60 rounded-xl border border-gray-200">
-                    <div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                        Prix de l&apos;événement
-                      </p>
-                      <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
-                        {selectedProduct.price.toFixed(2)} {currencySymbol}
-                      </p>
-                    </div>
-                    {selectedProduct.originalPrice && (
-                      <div className="text-xs text-gray-500 leading-normal pl-2 border-l border-gray-200">
-                        <p className="line-through">
-                          {selectedProduct.originalPrice.toFixed(2)}{" "}
-                          {currencySymbol}
-                        </p>
-                        <p className="text-rose-400 font-semibold">
-                          -
-                          {Math.round(
-                            (1 -
-                              selectedProduct.price /
-                                selectedProduct.originalPrice) *
-                              100,
-                          )}
-                          % de réduction
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-5 text-xs text-gray-600 leading-relaxed space-y-2 font-sans border-b border-gray-200 pb-5">
-                    <p className="font-bold text-gray-500 uppercase tracking-wider">
-                      Fiche technique du vêtement :
-                    </p>
-                    {selectedProduct.fullDescription ? (
-                      <div className="whitespace-pre-line text-gray-600 font-sans space-y-1">
-                        {selectedProduct.fullDescription}
-                      </div>
-                    ) : (
-                      <p className="italic text-gray-500">
-                        {selectedProduct.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                      Couleur :{" "}
-                      {pickedColor
-                        ? selectedProduct.colorNames?.[
-                            selectedProduct.colors.indexOf(pickedColor)
-                          ] || pickedColor
-                        : "Sélectionner"}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedProduct.colors.map((c, idx) => {
-                        const isPicked =
-                          pickedColor === c || (!pickedColor && idx === 0);
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              setPickedColor(c);
-                              if (!pickedColor && idx === 0) setPickedColor(c);
-                            }}
-                            className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md shadow-cyan-400/20" : "border-gray-200 hover:border-gray-200"}`}
-                            style={{ backgroundColor: c }}
-                            title={selectedProduct.colorNames?.[idx] || ""}
-                          ></button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        Taille : {pickedSize}
-                      </label>
-                      <button
-                        onClick={() => setSizeGuideOpen(!sizeGuideOpen)}
-                        className="text-[10px] text-(--color-accent) hover:underline flex items-center gap-1"
-                      >
-                        <Info className="w-3 h-3" /> Guide des tailles
-                      </button>
-                    </div>
-
-                    {sizeGuideOpen && (
-                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-[10px] text-gray-500 mb-3 animate-in fade-in">
-                        <p className="font-bold text-gray-900">
-                          Mesures de la coupe unisexe (cm) :
-                        </p>
-                        <table className="w-full text-left mt-1 border-collapse text-gray-600">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="py-1">Taille</th>
-                              <th>Buste (A)</th>
-                              <th>Longueur (B)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className="py-0.5">S</td>
-                              <td>48 cm</td>
-                              <td>69 cm</td>
-                            </tr>
-                            <tr>
-                              <td className="py-0.5">M</td>
-                              <td>51 cm</td>
-                              <td>72 cm</td>
-                            </tr>
-                            <tr>
-                              <td className="py-0.5">L</td>
-                              <td>54 cm</td>
-                              <td>74 cm</td>
-                            </tr>
-                            <tr>
-                              <td className="py-0.5">XL</td>
-                              <td>57 cm</td>
-                              <td>76 cm</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedProduct.sizes.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setPickedSize(s)}
-                          className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg) text-cyan-300" : "border-gray-200 hover:border-gray-200 text-gray-600 bg-gray-50/60"}`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-3">
-                  <div className="p-3.5 bg-gray-50/60 rounded-xl border border-gray-200 text-xs text-gray-600 font-sans">
-                    <p className="text-(--color-accent) font-black flex items-center gap-1 mb-1">
-                      <Truck className="w-3.5 h-3.5 text-(--color-accent)" />{" "}
-                      Options de livraison Prime Choice
-                    </p>
-                    <p>
-                      Frais d&apos;expédition :{" "}
-                      <span className="text-emerald-600 font-bold">
-                        GRATUIT dès 35$ d&apos;achat !
-                      </span>
-                    </p>
-                    <p className="text-gray-500 mt-1">
-                      Fabriqué sous 24h puis livré chez vous le{" "}
-                      <strong className="text-gray-900">
-                        {getDeliverEstimateString(4)}
-                      </strong>
-                    </p>
-                  </div>
-
-                  {/* Favorite button in modal */}
-                  <button
-                    onClick={() => toggleFavorite(selectedProduct.id)}
-                    className="p-3 rounded-xl transition-all duration-150 mb-2"
-                    style={{
-                      background: favorites.includes(selectedProduct.id)
-                        ? "#FEF2F2"
-                        : "var(--color-surface2)",
-                      border: `1.5px solid ${favorites.includes(selectedProduct.id) ? "#FECACA" : "var(--color-border)"}`,
-                      color: favorites.includes(selectedProduct.id)
-                        ? "#EF4444"
-                        : "var(--color-ink3)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "fit-content",
-                    }}
-                  >
-                    <Heart
-                      size={18}
-                      strokeWidth={2}
-                      fill={
-                        favorites.includes(selectedProduct.id)
-                          ? "#EF4444"
-                          : "none"
-                      }
-                    />
-                    {favorites.includes(selectedProduct.id)
-                      ? "Retirer des favoris"
-                      : "Ajouter aux favoris"}
-                  </button>
-
-                  {/*   Ajouter au panier Button */}
-                  {selectedProduct.isActive ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          addToCart(
-                            selectedProduct,
-                            pickedColor ||
-                              selectedProduct.colors?.[0] ||
-                              "#000000",
-                            pickedSize,
-                          );
-                        }}
-                        className="flex-1 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/10 hover:shadow-cyan-400/20"
-                        id="btn-modal-add-cart"
-                      >
-                        Ajouter au panier
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          addToCart(
-                            selectedProduct,
-                            pickedColor ||
-                              selectedProduct.colors?.[0] ||
-                              "#000000",
-                            pickedSize,
-                          );
-                          setCartOpen(true);
-                          setSelectedProduct(null);
-                        }}
-                        className="flex-1 bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg hover:shadow-amber-400/20"
-                        id="btn-modal-fast-buy"
-                      >
-                        Acheter maintenant
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center mt-2">
-                      <p className="text-xs text-rose-500 font-medium mb-3">
-                        Cet article n'est pas disponible pour le moment.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          disabled
-                          className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
-                        >
-                          Ajouter au panier
-                        </button>
-                        <button
-                          disabled
-                          className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider cursor-not-allowed"
-                        >
-                          Acheter maintenant
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ProductDetailModal
+          product={selectedProduct}
+          currencySymbol={currencySymbol}
+          favorites={favorites}
+          onClose={() => setSelectedProduct(null)}
+          onToggleFavorite={toggleFavorite}
+          onAddToCart={(p, c, s) => {
+            addToCart(p, c, s);
+          }}
+          onBuyNow={(p, c, s) => {
+            addToCart(p, c, s);
+            setCartOpen(true);
+            setSelectedProduct(null);
+          }}
+          dealExpired={dealExpired}
+          dealFadingOut={dealFadingOut}
+          getDeliverEstimateString={getDeliverEstimateString}
+        />
       )}
 
       {/* Slide-over Shopping Cart drawer */}
@@ -2199,278 +1626,18 @@ export default function App() {
             const product = products.find((p) => p.id === productId);
             if (product) {
               setSelectedProduct(product);
-              setActiveGalleryIndex(0);
             }
           }}
         />
       )}
 
       {/* Global Brand Footer avec logo officiel */}
-      <footer className="bg-gray-50 border-t border-gray-200 py-12 px-4 mt-auto">
-        <div
-          className={`section-container grid grid-cols-1 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"} gap-8`}
-        >
-          <div className="space-y-4">
-            <div className="flex items-center gap-1.5">
-              <img
-                src={LOGO_URL}
-                alt="InstaWear Logo"
-                className="w-8 h-8 rounded-lg object-cover"
-              />
-              <span className="font-black text-lg text-gray-900">
-                InstaWear
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed font-sans">
-              Le premier marketplace autonome d&apos;impression à la demande
-              calibré pour les événements mondiaux.
-            </p>
-            <div className="flex items-center gap-3">
-              <a
-                href="#"
-                className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-              >
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-              >
-                <Instagram className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-              >
-                <Facebook className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-              Événements
-            </h4>
-            <ul className="space-y-2.5 text-xs text-gray-500">
-              <li>
-                <button
-                  onClick={() => {
-                    setSelectedEventType("sport");
-                    setActiveTab("store");
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Ligue de Champions finals
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    setSelectedEventType("culture");
-                    setActiveTab("store");
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Carnaval de Rio Neon
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    setSelectedEventType("culture");
-                    setActiveTab("store");
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Oktoberfest bavarois
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    setSelectedEventType("saisonnier");
-                    setActiveTab("store");
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
-                >
-                  Halloween Glow
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {isAdmin && (
-            <div>
-              <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-                Créateur Hub
-              </h4>
-              <ul className="space-y-2.5 text-xs text-gray-500">
-                <li>
-                  <button
-                    onClick={() => {
-                      setActiveTab("admin");
-                      setTimeout(() => {
-                        document
-                          .getElementById("view-creator-dashboard")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }, 100);
-                    }}
-                    className="hover:text-(--color-accent) transition-colors"
-                  >
-                    Formulaire de design POD
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => {
-                      setActiveTab("admin");
-                      setTimeout(() => {
-                        document
-                          .getElementById("view-creator-dashboard")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }, 100);
-                    }}
-                    className="hover:text-(--color-accent) transition-colors"
-                  >
-                    Configuration API Printful
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => {
-                      setActiveTab("admin");
-                      setTimeout(() => {
-                        document
-                          .getElementById("view-creator-dashboard")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }, 100);
-                    }}
-                    className="hover:text-(--color-accent) transition-colors"
-                  >
-                    Zéro Budget guide
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => {
-                      setActiveTab("admin");
-                      setTimeout(() => {
-                        document
-                          .getElementById("view-creator-dashboard")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }, 100);
-                    }}
-                    className="hover:text-(--color-accent) transition-colors"
-                  >
-                    Générateur Gemini AI
-                  </button>
-                </li>
-              </ul>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">
-              Abonnement Newsletter
-            </h4>
-            <p className="text-xs text-gray-500 leading-relaxed font-sans">
-              Abonnez-vous pour être alerté en amont des collections limitées de
-              chaque futur événement !
-            </p>
-            {newsletterSubscribed ? (
-              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded text-xs">
-                ✓ Merci ! Vous êtes officiellement sur la liste d&apos;alerte.
-              </div>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (newsletterEmail) {
-                    setNewsletterSubscribed(true);
-                    setTimeout(() => {
-                      setNewsletterSubscribed(false);
-                      setNewsletterEmail("");
-                      setValidEmail(false);
-                    }, 5000);
-                  }
-                }}
-                className="flex items-center gap-1"
-              >
-                <input
-                  type="email"
-                  placeholder="votre-email@adresse.com"
-                  value={newsletterEmail}
-                  onChange={(e) => {
-                    setNewsletterEmail(e.target.value);
-                    setValidEmail(
-                      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value),
-                    );
-                  }}
-                  className="bg-white border border-gray-200 rounded p-2 text-xs text-gray-900 flex-1 focus:border-cyan-400 focus:outline-none"
-                  required
-                />
-                <button
-                  type="submit"
-                  className="p-2 rounded transition-all duration-200"
-                  style={{
-                    background: validEmail
-                      ? "var(--color-accent)"
-                      : "transparent",
-                    color: validEmail ? "white" : "var(--color-accent)",
-                    border: validEmail
-                      ? "1.5px solid var(--color-accent)"
-                      : "1.5px solid var(--color-accent)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-
-        <div className="section-container mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
-          <p>
-            © 2026 InstaWear Inc. Tous droits réservés. Propulsé par Cloud Run,
-            Next.js commerce & l&apos;API Printful.
-          </p>
-          <div className="flex gap-4">
-            <a href="#" className="hover:underline">
-              Mentions légales
-            </a>
-            <span>•</span>
-            <a href="#" className="hover:underline">
-              Politique d&apos;impression Choice
-            </a>
-            <span>•</span>
-            <a href="#" className="hover:underline">
-              CGU Créateurs
-            </a>
-            <span>•</span>
-            {isAdmin && (
-              <button
-                onClick={() => setShowNewAdmin(true)}
-                className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
-              >
-                Menu Admin (Bêta)
-              </button>
-            )}
-          </div>
-        </div>
-      </footer>
+      <Footer
+        isAdmin={isAdmin}
+        onSelectEventType={setSelectedEventType}
+        onNavigate={setActiveTab}
+        onOpenAdmin={() => setShowNewAdmin(true)}
+      />
 
       {showAuthModal && (
         <AuthModal
@@ -2558,7 +1725,6 @@ export default function App() {
             const product = products.find((p) => p.id === productId);
             if (product) {
               setSelectedProduct(product);
-              setActiveGalleryIndex(0);
             }
           }}
         />
