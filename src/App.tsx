@@ -16,19 +16,10 @@ import {
   Eye,
   Heart,
   Clock,
-  Check,
-  ShoppingBag,
   X,
   CheckCircle,
   HelpCircle,
-  Layers,
-  Code,
-  Calendar,
   ChevronRight,
-  Mail,
-  Instagram,
-  Twitter,
-  Facebook,
 } from "lucide-react";
 import Header from "./components/Header";
 import { FAQS } from "./data/faq";
@@ -39,7 +30,7 @@ import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
-import { Product, CartItem, PrintfulSettings } from "./types";
+import { Product, CartItem } from "./types";
 import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
 import ProductDetailModal from "./components/ProductDetailModal";
@@ -47,7 +38,7 @@ import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
-import { LOGO_URL, PLACEHOLDER_IMG } from "./constants/assets";
+import { PLACEHOLDER_IMG } from "./constants/assets";
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes
@@ -176,8 +167,6 @@ export default function App() {
     syncCart();
   }, [cart, isAdmin, isUser]);
 
-  const [orderCompleted, setOrderCompleted] = useState(false);
-
   const [dealExpired, setDealExpired] = useState(false);
   const [dealFadingOut, setDealFadingOut] = useState(false); // état de transition
 
@@ -201,15 +190,6 @@ export default function App() {
     }
   }, [activeTab, isAdmin]);
 
-  // Admin Studio States
-  const [printfulSettings, setPrintfulSettings] = useState<PrintfulSettings>({
-    apiKey: "",
-    isConnected: false,
-    storeName: "Boutique InstaWear",
-    syncStatus: "idle",
-    productsSyncedCount: 0,
-  });
-
   // Favoris
   const [favorites, setFavorites] = useState<string[]>([]);
   // Charger les favoris de l'utilisateur connecté
@@ -230,30 +210,9 @@ export default function App() {
     loadFavorites();
   }, [isAdmin, isUser, allCustomers]); // se recharge quand l'état de connexion change ou quand le cache clients est prêt
 
-  // New design creation details
-  const [newDesignPrompt, setNewDesignPrompt] = useState("");
-  const [newDesignTitle, setNewDesignTitle] = useState("");
-  const [newDesignDesc, setNewDesignDesc] = useState("");
-  const [newDesignTags, setNewDesignTags] = useState<string[]>([]);
-  const [newDesignPrice, setNewDesignPrice] = useState("24.99");
-  const [newDesignCategory, setNewDesignCategory] = useState<
-    "tshirt" | "hoodie" | "accessory" | "mug"
-  >("tshirt");
-  const [newDesignEventType, setNewDesignEventType] = useState<
-    "sport" | "culture" | "saisonnier" | "live"
-  >("culture");
-  const [newDesignStyle, setNewDesignStyle] = useState<
-    "cute" | "street" | "commute" | "cozy" | "retro"
-  >("street");
-  const [newDesignImg, setNewDesignImg] = useState(PLACEHOLDER_IMG);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [isSavingDesign, setIsSavingDesign] = useState(false);
   // Système de toasts enrichi (file d'attente)
   const [toasts, setToasts] = useState<Toast[]>([]);
   let toastIdCounter = useRef(0);
-
-  // Printful test endpoints loading
-  const [isSyncingPrintful, setIsSyncingPrintful] = useState(false);
 
   // Charger une fois la liste des admins et des clients pour éviter les requêtes 406
   useEffect(() => {
@@ -428,198 +387,6 @@ export default function App() {
     }
   };
 
-  // Trigger Gemini client to generate title, bulleted desc & tags
-  const generateAiDesignContent = async () => {
-    if (!newDesignPrompt.trim()) {
-      showToast(
-        "Veuillez d’abord saisir une idée ou un prompt pour l’IA.",
-        "error",
-      );
-      return;
-    }
-
-    setIsGeneratingAi(true);
-    try {
-      const res = await fetch("/api/gemini/generate-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: newDesignPrompt,
-          category: newDesignCategory,
-          eventType: newDesignEventType,
-          style: newDesignStyle,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setNewDesignTitle(data.title || "");
-        setNewDesignDesc(data.description || "");
-        setNewDesignTags(data.tags || []);
-        showToast(
-          "🪄 Design optimisé généré avec succès par Gemini !",
-          "success",
-        );
-      } else {
-        if (data.demoFallback) {
-          setNewDesignTitle(data.demoFallback.title);
-          setNewDesignDesc(data.demoFallback.description);
-          setNewDesignTags(data.demoFallback.tags);
-          showToast(
-            "Mode Démo: Clé Gemini non configurée dans l'onglet Settings. Génération factice.",
-            "info",
-          );
-        } else {
-          showToast(
-            data.error || "Erreur lors de la génération avec l'IA.",
-            "error",
-          );
-        }
-      }
-    } catch (err: any) {
-      showToast("Erreur réseau lors de la liaison au service Gemini.", "error");
-    } finally {
-      setIsGeneratingAi(false);
-    }
-  };
-
-  // Submit custom product design
-  const handleSaveDesign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDesignTitle || !newDesignDesc) {
-      showToast(
-        "Le titre et la description du design sont obligatoires.",
-        "error",
-      );
-      return;
-    }
-
-    setIsSavingDesign(true);
-    try {
-      const colors = ["#1E1E1E", "#FFFFFF"];
-      const colorNames = ["Noir Intense", "Blanc Pur"];
-      if (newDesignEventType === "live" || newDesignEventType === "culture") {
-        colors.push("#FF00FF", "#00FFFF");
-        colorNames.push("Fuchsia Disco", "Néon Électrique");
-      }
-
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newDesignTitle,
-          description: newDesignTitle,
-          fullDescription: newDesignDesc,
-          eventType: newDesignEventType,
-          category: newDesignCategory,
-          style: newDesignStyle,
-          price: Number(newDesignPrice) || 24.99,
-          image: newDesignImg,
-          tags: newDesignTags,
-          colors,
-          colorNames,
-        }),
-      });
-
-      if (res.ok) {
-        showToast(
-          "🎉 Nouveau design enregistré dans votre catalogue d'impression !",
-          "success",
-        );
-        setNewDesignPrompt("");
-        setNewDesignTitle("");
-        setNewDesignDesc("");
-        setNewDesignTags([]);
-
-        await fetchProducts();
-
-        if (printfulSettings.isConnected) {
-          triggerPrintfulSync();
-        }
-      } else {
-        showToast("Erreur lors de la création du produit.", "error");
-      }
-    } catch (err) {
-      showToast("Erreur réseau.", "error");
-    } finally {
-      setIsSavingDesign(false);
-    }
-  };
-
-  // Delete a customized design
-  const handleDeleteProduct = async (id: string) => {
-    if (
-      window.confirm("Voulez-vous vraiment supprimer ce design personnalisé ?")
-    ) {
-      try {
-        const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-        if (res.ok) {
-          showToast("Design retiré avec succès.", "info");
-          fetchProducts();
-        } else {
-          showToast("Impossible de supprimer ce produit.", "error");
-        }
-      } catch (err) {
-        showToast("Erreur de connexion.", "error");
-      }
-    }
-  };
-
-  // Save Printful API credentials
-  const handleSavePrintfulSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/printful/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(printfulSettings),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPrintfulSettings(data);
-        if (data.isConnected) {
-          showToast(
-            "🔌 Connecté avec succès à Printful ! Synchronisation disponible.",
-            "success",
-          );
-        } else {
-          showToast("Paramètres mis à jour.", "info");
-        }
-      }
-    } catch (err) {
-      showToast(
-        "Erreur lors de la mise à jour des paramètres Printful.",
-        "error",
-      );
-    }
-  };
-
-  // Simulate Printful / Printify Catalog Sync
-  const triggerPrintfulSync = async () => {
-    if (!printfulSettings.apiKey) {
-      showToast("Veuillez d'abord renseigner votre Clé API Printful.", "error");
-      return;
-    }
-    setIsSyncingPrintful(true);
-    try {
-      const res = await fetch("/api/printful/sync", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setPrintfulSettings(data);
-        showToast(
-          `🔄 Synchronisation complète ! ${data.productsSyncedCount} designs sont linkés avec votre compte usine. Direct-to-Consumer actif !`,
-          "success",
-        );
-      } else {
-        showToast("Erreur lors de la synchronisation usine.", "error");
-      }
-    } catch (err) {
-      showToast("Erreur réseau lors de la communication Printful.", "error");
-    } finally {
-      setIsSyncingPrintful(false);
-    }
-  };
-
   // Filter products by all selection constraints
   const filteredProducts = products.filter((product) => {
     // Exclure les produits inactifs du catalogue
@@ -694,25 +461,6 @@ export default function App() {
     }
   };
 
-  const cartTotal = cart.reduce(
-    (acc, item) => acc + item.product.price * item.quantity,
-    0,
-  );
-
-  // const simulateCheckout = () => {
-  //   if (cart.length === 0) return;
-  //   setOrderCompleted(true);
-  //   setTimeout(() => {
-  //     setCart([]);
-  //     setOrderCompleted(false);
-  //     setCartOpen(false);
-  //     showToast(
-  //       "🚀 Commande reçue ! Envoyée automatiquement en production à l'atelier d'impression Printful !",
-  //       "success",
-  //     );
-  //   }, 4000);
-  // };
-
   // Helper date generators for delivery estimates
   const getDeliverEstimateString = (daysOffset: number) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -751,8 +499,6 @@ export default function App() {
         };
       });
   }, [heroPromotions, products]);
-
-  const isSingleBanner = heroBanners.length <= 1;
 
   const scrollToSection = (
     section:
