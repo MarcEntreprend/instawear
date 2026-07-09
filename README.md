@@ -236,9 +236,9 @@ The test: Every changed line should trace directly to my request.
 
 ### Offline / Erreurs
 
-- [ ] **Fallback réseau** : message générique "Oups ! Une erreur inattendue…" quand il n'y a pas d'internet
-- [ ] **Fallback images** : image par défaut quand le chargement échoue
-- [ ] **Placeholder barre de recherche** : texte générique quand aucun produit n'est chargé
+- [x] **Fallback réseau** : message générique "Oups ! Une erreur inattendue…" quand il n'y a pas d'internet
+- [x] **Fallback images** : image par défaut quand le chargement échoue
+- [x] **Placeholder barre de recherche** : texte générique quand aucun produit n'est chargé
 
 ### Stripe Checkout
 

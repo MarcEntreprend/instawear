@@ -628,6 +628,127 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
 
+/* ── Confetti Button ────────────────────────────────────────── */
+.confetti-button {
+  cursor: pointer;
+  position: relative;
+  --confetti-color: var(--color-accent);
+  --text-color: 255 255 255;
+}
+.confetti-button::before,
+.confetti-button::after {
+  position: absolute;
+  content: "";
+  display: none;
+  width: 140%;
+  max-width: 160px;
+  height: 100%;
+  left: -20%;
+  z-index: 1;
+  pointer-events: none;
+  transition: all ease-in-out 0.8s;
+  background-repeat: no-repeat;
+}
+.confetti-button::before {
+  content: attr(data-confetti-text);
+  top: -85%;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  transform: rotate(-8deg);
+  color: var(--color-ink);
+  background-image:
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(
+      circle,
+      transparent 20%,
+      var(--confetti-color) 20%,
+      transparent 30%
+    ),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(
+      circle,
+      transparent 10%,
+      var(--confetti-color) 15%,
+      transparent 20%
+    ),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%);
+  background-size:
+    10% 10%,
+    20% 20%,
+    15% 15%,
+    20% 20%,
+    18% 18%,
+    10% 10%,
+    15% 15%,
+    10% 10%,
+    18% 18%;
+  background-position:
+    5% 10%,
+    20% 80%,
+    40% 30%,
+    60% 70%,
+    80% 20%,
+    15% 60%,
+    70% 50%,
+    90% 15%,
+    50% 85%;
+}
+.confetti-button::after {
+  bottom: -75%;
+  background-image:
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(
+      circle,
+      transparent 10%,
+      var(--confetti-color) 15%,
+      transparent 20%
+    ),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
+    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%);
+  background-size:
+    15% 15%,
+    20% 20%,
+    18% 18%,
+    20% 20%,
+    15% 15%,
+    10% 10%,
+    20% 20%;
+  background-position:
+    10% 15%,
+    30% 70%,
+    50% 40%,
+    70% 80%,
+    90% 10%,
+    25% 55%,
+    80% 35%;
+}
+.confetti-button:active::before,
+.confetti-button:active::after,
+.confetti-button.active::before,
+.confetti-button.active::after {
+  display: block;
+  animation: confettiFadeIn 0.6s ease-out forwards;
+}
+
+@keyframes confettiFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* ── Live dot ───────────────────────────────────────────────── */
 .live-dot {
   position: relative;

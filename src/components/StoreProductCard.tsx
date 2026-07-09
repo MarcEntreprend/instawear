@@ -214,11 +214,15 @@ export default function StoreProductCard({
 
         {product.isActive ? (
           <button
-            onClick={() =>
-              onAddToCart(product, product.colors?.[0] || "#000000", "M")
-            }
-            className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              btn.classList.add("active");
+              setTimeout(() => btn.classList.remove("active"), 500);
+              onAddToCart(product, product.colors?.[0] || "#000000", "M");
+            }}
+            className="confetti-button w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
             id={`btn-add-cart-list-${product.id}`}
+            // data-confetti-text="Ajouté !"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
             Ajouter au panier
