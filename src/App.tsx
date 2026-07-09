@@ -6,15 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ShieldCheck,
-  Truck,
-  RefreshCw,
-  HelpCircle,
-  ChevronRight,
-} from "lucide-react";
 import Header from "./components/Header";
-import { FAQS } from "./data/faq";
 import AuthModal from "./components/AuthModal";
 import CheckoutFlow from "./components/CheckoutFlow";
 import OrderTrackingModal from "./components/OrderTrackingModal";
@@ -32,6 +24,10 @@ import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
 import CatalogSection from "./components/CatalogSection";
 import { PLACEHOLDER_IMG } from "./constants/assets";
+import DealsSection from "./components/DealsSection";
+import AboutSection from "./components/AboutSection";
+import ReassuranceBar from "./components/ReassuranceBar";
+import FaqSection from "./components/FaqSection";
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes
@@ -162,8 +158,6 @@ export default function App() {
 
   const [dealExpired, setDealExpired] = useState(false);
   const [dealFadingOut, setDealFadingOut] = useState(false); // état de transition
-
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null); // état pour l'accordéon
 
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
   const [showNewAdmin, setShowNewAdmin] = useState(false);
@@ -297,22 +291,6 @@ export default function App() {
       authListener?.subscription.unsubscribe();
     };
   }, [cacheReady]); // Se lance au montage ET quand le cache est prêt
-
-  // Sync Promo Timer every second
-
-  // -> compteur est une heure UTC inversée (il compte ce qui reste avant minuit UTC).
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     const now = new Date();
-  //     const hours = 23 - now.getUTCHours();
-  //     const minutes = 59 - now.getUTCMinutes();
-  //     const seconds = 59 - now.getUTCSeconds();
-  //     setCountdownString(
-  //       `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-  //     );
-  //   }, 1000);
-  //   return () => clearInterval(interval);
-  // }, []);
 
   // Fermer le profil et réinitialiser quand on passe en admin
   useEffect(() => {
@@ -697,116 +675,15 @@ export default function App() {
             }}
           />
 
-          {/* Core Today deals segment & countdown triggers */}
-          {(!dealExpired || dealFadingOut) &&
-            products.filter((p) => p.dealActive && p.isActive).length > 0 && (
-              <section
-                className={`section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
-              >
-                <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
-                  <div>
-                    <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-                      🔥 SUPER DEAL DU JOUR
-                    </span>
-                    <h3 className="text-2xl font-black mt-3 leading-tight">
-                      Offre Spéciale Coupe d&apos;Europe
-                    </h3>
-                    <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-                      Profitez de prix réduits exclusifs sur notre collection de
-                      t-shirts et sweats de sport IA avant le coup d&apos;envoi
-                      du prochain grand match !
-                    </p>
-                  </div>
-
-                  <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-                      L&apos;offre se termine dans :
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                        {countdownString.split(":")[0]}
-                      </span>
-                      <span className="text-gray-500 font-bold">:</span>
-                      <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                        {countdownString.split(":")[1]}
-                      </span>
-                      <span className="text-gray-500 font-bold">:</span>
-                      <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                        {countdownString.split(":")[2]}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setSelectedEventType("sport");
-                    }}
-                    className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
-                  >
-                    Parcourir les offres sportives &rarr;
-                  </button>
-                </div>
-
-                {/* Quick Bundle Selection */}
-                <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
-                    <div>
-                      <h3 className="text-lg font-black tracking-wide text-gray-900">
-                        🛍️ Packs Choice en Promo
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Complétez votre look et économisez sur les frais
-                        d&apos;impression !
-                      </p>
-                    </div>
-                    <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-                      DÈS 5.99$ L&apos;ACCESSOIRE
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                    {products
-                      .filter((p) => p.dealActive && p.isActive)
-                      .slice(0, 4)
-                      .map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedProduct(item);
-                          }}
-                          className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
-                        >
-                          <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
-                            <img
-                              src={item.image || PLACEHOLDER_IMG}
-                              alt={item.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          </div>
-                          <div className="mt-2 text-left">
-                            <p className="text-[10px] text-gray-500 font-bold uppercase truncate">
-                              {item.brand}
-                            </p>
-                            <p className="text-xs text-gray-900 mt-0.5 font-bold truncate">
-                              {item.title}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-xs font-black text-gray-900">
-                                {item.price} {currencySymbol}
-                              </span>
-                              {item.originalPrice && (
-                                <span className="text-[10px] text-gray-500 line-through">
-                                  {item.originalPrice} {currencySymbol}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </section>
-            )}
+          <DealsSection
+            dealExpired={dealExpired}
+            dealFadingOut={dealFadingOut}
+            countdownString={countdownString}
+            currencySymbol={currencySymbol}
+            products={products}
+            onSelectEventType={setSelectedEventType}
+            onSelectProduct={(product) => setSelectedProduct(product)}
+          />
 
           <CatalogSection
             filteredProducts={filteredProducts}
@@ -834,160 +711,9 @@ export default function App() {
             setSelectedEventType={setSelectedEventType}
           />
 
-          {/* About Section - Premium Story (visuel V2 avec max-w-4xl) */}
-          <section
-            id="section-about"
-            className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
-          >
-            <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
-              <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
-                🎨 NOTRE HISTOIRE
-              </span>
-              <h3 className="text-3xl font-black text-gray-900 leading-tight">
-                À Propos d&apos;InstaWear
-              </h3>
-              <p className="text-sm text-gray-600 mt-4 leading-relaxed max-w-2xl font-sans">
-                InstaWear a été fondé par un collectif d&apos;adeptes de pop
-                culture, de fans de sport et d&apos;ingénieurs passionnés
-                d&apos;intelligence artificielle. Notre mission : vous permettre
-                de porter l&apos;énergie des événements mondiaux en temps réel.
-              </p>
-              <p className="text-sm text-gray-500 mt-2.5 leading-relaxed max-w-2xl font-sans">
-                Chaque pièce est fabriquée sur mesure pour vous : nous nous
-                connectons directement aux usines d&apos;impression Printful.
-                Zéro vêtements produits en excès, zéro gaspillage de stock. Nous
-                croyons en la mode circulaire et réactive. C&apos;est le
-                Print-on-Demand du futur.
-              </p>
-              <div className="flex gap-4 sm:gap-8 md:gap-12 mt-8 text-center bg-gray-50/60 p-4 sm:p-6 rounded-2xl border border-gray-200">
-                <div>
-                  <p className="text-3xl font-black text-(--color-accent) font-sans">
-                    100%
-                  </p>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-                    Coton Bio certifié
-                  </p>
-                </div>
-                <div className="border-l border-gray-200"></div>
-                <div>
-                  <p className="text-3xl font-black text-indigo-400 font-sans">
-                    0
-                  </p>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-                    Stock détruit
-                  </p>
-                </div>
-                <div className="border-l border-gray-200"></div>
-                <div>
-                  <p className="text-3xl font-black text-amber-500 font-sans">
-                    24h
-                  </p>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-                    Création &rarr; Print
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Reassurance/Value Proposition Bar */}
-          <section className="bg-white border-y border-gray-200 py-6 px-4">
-            <div className="section-container grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-center">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-2">
-                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0 border border-violet-500/20">
-                  <Truck className="w-5 h-5 text-violet-400" />
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-                    📦 Free Delivery over 35$
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Livraison suivie gratuite sur tous les vêtements Choice.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-2 border-y md:border-y-0 md:border-x border-gray-200">
-                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0 border border-cyan-500/20">
-                  <ShieldCheck className="w-5 h-5 text-(--color-accent)" />
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-                    🔒 Satisfait ou Remboursé
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Retour facile et remboursement sans tracas sous 14 jours.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 p-2">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                  <RefreshCw className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-                    🌱 Print-on-Demand Durable
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Zéro surproduction. Chaque vêtement est imprimé juste après
-                    achat !
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* FAQ Section */}
-          <section
-            id="section-faq"
-            className="section-container w-full px-4 scroll-mt-28"
-          >
-            <div className="max-w-2xl mx-auto">
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
-                <HelpCircle className="w-6 h-6 text-(--color-accent)" />
-                Foire Aux Questions
-              </h2>
-              <div className="flex flex-col gap-3">
-                {FAQS.map((faq, idx) => (
-                  <div
-                    key={faq.id}
-                    className="rounded-xl overflow-hidden"
-                    style={{
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                    }}
-                  >
-                    <button
-                      onClick={() =>
-                        setOpenFaqIndex(openFaqIndex === idx ? null : idx)
-                      }
-                      className="w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-semibold text-sm transition-colors"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      <span>{faq.question}</span>
-                      <ChevronRight
-                        size={16}
-                        strokeWidth={2}
-                        className={`transition-transform duration-200 shrink-0 ${
-                          openFaqIndex === idx ? "rotate-90" : ""
-                        }`}
-                        style={{ color: "var(--color-accent)" }}
-                      />
-                    </button>
-                    {openFaqIndex === idx && (
-                      <div
-                        className="px-5 pb-4 text-sm leading-relaxed animate-fade-up"
-                        style={{ color: "var(--color-ink2)" }}
-                      >
-                        {faq.answer}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+          <AboutSection />
+          <ReassuranceBar />
+          <FaqSection />
         </main>
       )}
 
