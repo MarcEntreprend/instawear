@@ -126,6 +126,43 @@ function isExpiryValid(expiry: string): boolean {
   return true;
 }
 
+function sendTelegramNotification(
+  orderId: string,
+  name: string,
+  phone: string,
+  email: string,
+  reception: string,
+  address: string,
+  city: string,
+  zip: string,
+  country: string,
+  cart: CartItem[],
+  total: number,
+  currencySymbol: string,
+) {
+  const telegramMsg =
+    `🛒 *COMMANDE INSTAWEAR*\n\n` +
+    `🔑 *Réf. commande :* ${orderId}\n\n` +
+    `*Client :* ${name}\n` +
+    `*Téléphone :* ${phone}\n` +
+    `*Email :* ${email}\n` +
+    `*Réception :* ${reception === "retrait" ? "Retrait sur place" : "Livraison"}\n` +
+    (reception === "livraison"
+      ? `*Adresse :* ${address}, ${city} ${zip}, ${country}\n`
+      : "") +
+    `\n📦 *Articles :*\n` +
+    cart
+      .map(
+        (item) =>
+          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) ×${item.quantity} = ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
+      )
+      .join("\n") +
+    `\n\n💰 *Total :* ${total.toFixed(2)} ${currencySymbol}`;
+
+  const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
+  window.open(telegramUrl, "_blank");
+}
+
 function generateOrderId(): string {
   const year = new Date().getFullYear();
   const seq = Math.floor(Math.random() * 9000) + 1000;
@@ -1104,6 +1141,20 @@ function StripeCardForm({
             unitPrice: item.product.price,
           })),
         } as any);
+        sendTelegramNotification(
+          orderId,
+          contactName,
+          contactPhone,
+          contactEmail,
+          reception,
+          address,
+          city,
+          zip,
+          country,
+          cart,
+          total,
+          currencySymbol,
+        );
         onSuccess(orderId);
       } catch (e: any) {
         setProcessing(false);
@@ -1292,32 +1343,53 @@ function PaymentStep({
               boxShadow: "var(--shadow-sm)",
             }}
           >
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "#635BFF" }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l4.59-4.58L17 11l-6 6z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-(--color-ink)">
-                Stripe Checkout
-              </p>
-              <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                Carte bancaire, Apple Pay, Google Pay — sécurisé
-              </p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-sm font-black text-(--color-ink)">
-                {total.toFixed(2)} {currencySymbol}
-              </p>
-              <ArrowRight
-                size={15}
-                strokeWidth={2.5}
-                className="ml-auto mt-1 text-(--color-accent)"
-              />
-            </div>
+            {processing ? (
+              <>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "#635BFF" }}
+                >
+                  <Loader2 size={24} className="animate-spin text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-(--color-ink)">
+                    Redirection vers Stripe…
+                  </p>
+                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                    Vous allez être redirigé vers la page de paiement sécurisée
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "#635BFF" }}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l4.59-4.58L17 11l-6 6z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-(--color-ink)">
+                    Stripe Checkout
+                  </p>
+                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                    Carte bancaire, Apple Pay, Google Pay — sécurisé
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-black text-(--color-ink)">
+                    {total.toFixed(2)} {currencySymbol}
+                  </p>
+                  <ArrowRight
+                    size={15}
+                    strokeWidth={2.5}
+                    className="ml-auto mt-1 text-(--color-accent)"
+                  />
+                </div>
+              </>
+            )}
           </button>
 
           {/* Option carte directe */}
@@ -1801,6 +1873,21 @@ export default function CheckoutFlow({
         })),
       } as any);
 
+      sendTelegramNotification(
+        newOrderId,
+        name,
+        phone,
+        email,
+        reception,
+        address,
+        city,
+        zip,
+        country,
+        cart,
+        total,
+        currencySymbol,
+      );
+
       // Rediriger vers Stripe Checkout
       const stripeRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
@@ -1919,28 +2006,21 @@ export default function CheckoutFlow({
           .createOrder(newOrderId)
           .catch((e) => console.warn("[Printful] Erreur envoi commande:", e));
 
-        // Envoyer un récapitulatif via Telegram (simule la confirmation admin)
-        const telegramMsg =
-          `🛒 *COMMANDE INSTAWEAR*\n\n` +
-          `🔑 *Réf. commande :* ${newOrderId}\n\n` +
-          `*Client :* ${name}\n` +
-          `*Téléphone :* ${phone}\n` +
-          `*Email :* ${email}\n` +
-          `*Réception :* ${reception === "retrait" ? "Retrait sur place" : "Livraison"}\n` +
-          (reception === "livraison"
-            ? `*Adresse :* ${address}, ${city} ${zip}, ${country}\n`
-            : "") +
-          `\n📦 *Articles :*\n` +
-          cart
-            .map(
-              (item) =>
-                `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) ×${item.quantity} = ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
-            )
-            .join("\n") +
-          `\n\n💰 *Total :* ${total.toFixed(2)} ${currencySymbol}`;
-
-        const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
-        window.open(telegramUrl, "_blank");
+        // Envoyer un récapitulatif via Telegram
+        sendTelegramNotification(
+          newOrderId,
+          name,
+          phone,
+          email,
+          reception,
+          address,
+          city,
+          zip,
+          country,
+          cart,
+          total,
+          currencySymbol,
+        );
       })();
 
       // Délai minimum pour un retour visuel crédible, pendant que le

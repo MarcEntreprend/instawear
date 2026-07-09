@@ -242,8 +242,8 @@ The test: Every changed line should trace directly to my request.
 
 ### Stripe Checkout
 
-- [ ] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
-- [ ] **simuler email** : qd purchase confirmé par stripe
+- [x] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
+- [x] **simuler email** : qd purchase confirmé par stripe
 
 ---
 
