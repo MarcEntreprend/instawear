@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
+import AccountPage from "./components/AccountPage";
 import CheckoutFlow from "./components/CheckoutFlow";
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
@@ -46,6 +47,7 @@ export default function App() {
   const [userName, setUserName] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAccountPage, setShowAccountPage] = useState(false);
 
   // Selection/Filtering States
   const [searchTerm, setSearchTerm] = useState("");
@@ -683,6 +685,7 @@ export default function App() {
           setShowFavoritesOnly(false);
           setActiveTab("store");
         }}
+        onOpenAccount={() => setShowAccountPage(true)}
         onScrollToSection={scrollToSection}
         onOpenTracking={() => setTrackingOpen(true)}
         searchSuggestions={productTitles}
@@ -853,6 +856,13 @@ export default function App() {
             setShowFavoritesOnly(false);
             setActiveTab("store");
           }}
+        />
+      )}
+
+      {showAccountPage && (
+        <AccountPage
+          allCustomers={allCustomers}
+          onClose={() => setShowAccountPage(false)}
         />
       )}
 

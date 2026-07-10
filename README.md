@@ -74,6 +74,7 @@ instawear/
 │   ├── components/
 │   │   ├── AboutSection.tsx
 │   │   ├── AuthModal.tsx
+│   │   ├── AccountPage.tsx
 │   │   ├── CartDrawer.tsx
 │   │   ├── CatalogSection.tsx
 │   │   ├── CheckoutFlow.tsx

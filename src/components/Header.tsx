@@ -30,6 +30,7 @@ interface HeaderProps {
   onSelectEventType: (type: string | null) => void;
   currentEventType: string | null;
   currentCategory: string | null;
+  onOpenAccount?: () => void;
   onScrollToSection: (
     section:
       | "catalog"
@@ -104,6 +105,7 @@ export default function Header({
   isUserLoggedIn,
   onLogout,
   onOpenProfile,
+  onOpenAccount,
   onScrollToSection,
   onOpenTracking,
   searchSuggestions,
@@ -695,6 +697,16 @@ export default function Header({
                 title="Connexion / Inscription"
               >
                 <User size={20} strokeWidth={1.8} />
+              </button>
+            )}
+
+            {isUserLoggedIn && (
+              <button
+                onClick={onOpenAccount}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
+              >
+                <User size={16} />
+                Compte
               </button>
             )}
 
