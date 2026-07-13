@@ -1,14 +1,12 @@
 // src/components/CheckoutFlow.tsx
 
 /**
- * Flux de commande unifié InstaWear.
- * Remplace CheckoutModal.tsx + PaymentPage.tsx par un parcours unique
- * en 4 étapes : Panier → Livraison & contact → Paiement → Confirmation.
+ * Unified checkout flow for InstaWear.
+ * Replaces CheckoutModal.tsx + PaymentPage.tsx with a single 4-step
+ * journey: Cart → Shipping → Payment → Confirmation.
  *
- * Paiement carte simulé (aucun PSP réel branché) : la commande est créée
- * dans Supabase et transmise à Printful exactement comme avant, mais le
- * canal de confirmation devient un email simulé au client + la notification
- * admin déjà gérée par orderApi.create().
+ * Stripe handles both the hosted Checkout and direct card payments.
+ * Orders are saved to Supabase and forwarded to Printful via webhook.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -58,15 +56,15 @@ interface CheckoutFlowProps {
   onUpdateQty: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
   onSuccess: () => void;
-  confirmModeOrderId?: string; // si fourni, affiche directement la confirmation
+  confirmModeOrderId?: string; // when set, display confirmation directly
 }
 
 type StepId = 1 | 2 | 3 | 4;
 
 const STEPS: { id: StepId; label: string }[] = [
-  { id: 1, label: "Panier" },
-  { id: 2, label: "Livraison" },
-  { id: 3, label: "Paiement" },
+  { id: 1, label: "Cart" },
+  { id: 2, label: "Shipping" },
+  { id: 3, label: "Payment" },
   { id: 4, label: "Confirmation" },
 ];
 
@@ -90,7 +88,7 @@ function cardPreviewNumber(formatted: string): string {
   const digits = formatted.replace(/\D/g, "");
   const groups: string[] = [];
   for (let i = 0; i < 4; i++) {
-    groups.push(digits.slice(i * 4, i * 4 + 4).padEnd(4, "•"));
+    groups.push(digits.slice(i * 4, i * 4 + 4).padEnd(4, "\u2022"));
   }
   return groups.join("  ");
 }
@@ -141,23 +139,23 @@ function sendTelegramNotification(
   currencySymbol: string,
 ) {
   const telegramMsg =
-    `🛒 *COMMANDE INSTAWEAR*\n\n` +
-    `🔑 *Réf. commande :* ${orderId}\n\n` +
-    `*Client :* ${name}\n` +
-    `*Téléphone :* ${phone}\n` +
-    `*Email :* ${email}\n` +
-    `*Réception :* ${reception === "retrait" ? "Retrait sur place" : "Livraison"}\n` +
+    `\u{1F6D2} *INSTAWEAR ORDER*\n\n` +
+    `\u{1F511} *Order #:* ${orderId}\n\n` +
+    `*Customer:* ${name}\n` +
+    `*Phone:* ${phone}\n` +
+    `*Email:* ${email}\n` +
+    `*Reception:* ${reception === "retrait" ? "Pickup" : "Delivery"}\n` +
     (reception === "livraison"
-      ? `*Adresse :* ${address}, ${city} ${zip}, ${country}\n`
+      ? `*Address:* ${address}, ${city} ${zip}, ${country}\n`
       : "") +
-    `\n📦 *Articles :*\n` +
+    `\n\u{1F4E6} *Items:*\n` +
     cart
       .map(
         (item) =>
-          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) ×${item.quantity} = ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
+          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) \u00D7${item.quantity} = ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
       )
       .join("\n") +
-    `\n\n💰 *Total :* ${total.toFixed(2)} ${currencySymbol}`;
+    `\n\n\u{1F4B0} *Total:* ${total.toFixed(2)} ${currencySymbol}`;
 
   const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
   window.open(telegramUrl, "_blank");
@@ -334,7 +332,7 @@ function OrderSummaryPanel({
                 strokeWidth={2}
                 className="text-(--color-accent)"
               />
-              Résumé ({itemCount})
+              Summary ({itemCount})
             </span>
             <span className="font-black text-sm text-(--color-ink)">
               {total.toFixed(2)} {currencySymbol}
@@ -348,7 +346,7 @@ function OrderSummaryPanel({
                 strokeWidth={2}
                 className="text-(--color-accent)"
               />
-              Résumé de la commande
+              Order Summary
             </h3>
 
             <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4">
@@ -375,7 +373,7 @@ function OrderSummaryPanel({
                       {item.product.title}
                     </p>
                     <p className="text-[10px] text-(--color-ink3)">
-                      {item.selectedSize} · {item.quantity} ×{" "}
+                      {item.selectedSize} \u00B7 {item.quantity} \u00D7{" "}
                       {item.product.price.toFixed(2)} {currencySymbol}
                     </p>
                   </div>
@@ -392,7 +390,7 @@ function OrderSummaryPanel({
               style={{ borderTop: "1px solid var(--color-border)" }}
             >
               <div className="flex justify-between text-(--color-ink3)">
-                <span>Sous-total</span>
+                <span>Subtotal</span>
                 <span>
                   {cartTotal.toFixed(2)} {currencySymbol}
                 </span>
@@ -407,18 +405,18 @@ function OrderSummaryPanel({
                 }}
               >
                 <span>
-                  Livraison{reception === "retrait" ? " (retrait)" : ""}
+                  Shipping{reception === "retrait" ? " (pickup)" : ""}
                 </span>
                 <span>
                   {shippingCost === 0
-                    ? "Gratuite"
+                    ? "Free"
                     : `${shippingCost.toFixed(2)} ${currencySymbol}`}
                 </span>
               </div>
               {shippingCost > 0 && reception === "livraison" && (
                 <p className="text-[10px] text-(--color-accent) mt-0.5">
-                  Plus que {(threshold - cartTotal).toFixed(2)} {currencySymbol}{" "}
-                  pour la livraison gratuite
+                  {(threshold - cartTotal).toFixed(2)} {currencySymbol} away
+                  from free shipping
                 </p>
               )}
               <div
@@ -438,7 +436,7 @@ function OrderSummaryPanel({
   );
 }
 
-// ─── Step 1 : Panier ────────────────────────────────────────────────────
+// ─── Step 1 : Cart ────────────────────────────────────────────────────
 
 function CartReviewStep({
   cart,
@@ -457,10 +455,10 @@ function CartReviewStep({
     <div className="flex flex-col gap-5 animate-fade-up">
       <div>
         <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-          Votre panier
+          Your Cart
         </h2>
         <p className="text-sm text-(--color-ink3) mt-1">
-          Vérifiez vos articles avant de continuer.
+          Review your items before continuing.
         </p>
       </div>
 
@@ -543,7 +541,7 @@ function CartReviewStep({
             <button
               type="button"
               onClick={() => onRemoveItem(idx)}
-              aria-label="Retirer l'article"
+              aria-label="Remove item"
               className="self-start text-(--color-ink4) hover:text-rose-500 transition-colors p-1"
             >
               <Trash2 size={15} strokeWidth={2} />
@@ -562,14 +560,14 @@ function CartReviewStep({
           boxShadow: "var(--shadow-accent)",
         }}
       >
-        Continuer vers la livraison
+        Continue to Shipping
         <ArrowRight size={15} strokeWidth={2.5} />
       </button>
     </div>
   );
 }
 
-// ─── Step 2 : Livraison & contact ──────────────────────────────────────
+// ─── Step 2 : Shipping & Contact ──────────────────────────────────────
 
 interface ContactStepProps {
   name: string;
@@ -634,10 +632,10 @@ function ContactStep({
     <div className="flex flex-col gap-6 animate-fade-up">
       <div>
         <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-          Livraison & contact
+          Shipping &amp; Contact
         </h2>
         <p className="text-sm text-(--color-ink3) mt-1">
-          Où et comment souhaitez-vous recevoir votre commande ?
+          Where and how would you like to receive your order?
         </p>
       </div>
 
@@ -674,9 +672,9 @@ function ContactStep({
                     : "var(--color-ink)",
               }}
             >
-              Livraison
+              Delivery
             </p>
-            <p className="text-[10px] text-(--color-ink4)">À votre adresse</p>
+            <p className="text-[10px] text-(--color-ink4)">To your address</p>
           </div>
         </button>
         <button
@@ -711,18 +709,16 @@ function ContactStep({
                     : "var(--color-ink)",
               }}
             >
-              Retrait
+              Pickup
             </p>
-            <p className="text-[10px] text-(--color-ink4)">
-              Sur place, gratuit
-            </p>
+            <p className="text-[10px] text-(--color-ink4)">On site, free</p>
           </div>
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TextField
-          label="Nom complet"
+          label="Full Name"
           id="name"
           required
           icon={User}
@@ -740,7 +736,7 @@ function ContactStep({
           }}
         />
         <TextField
-          label="Téléphone"
+          label="Phone"
           id="phone"
           required
           icon={Phone}
@@ -767,7 +763,7 @@ function ContactStep({
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="john@exemple.com"
+        placeholder="john@example.com"
         autoComplete="email"
         error={errors.email}
         onClearError={() => {
@@ -782,7 +778,7 @@ function ContactStep({
       {reception === "livraison" && (
         <div className="flex flex-col gap-4 pt-1 animate-fade-up">
           <TextField
-            label="Adresse"
+            label="Address"
             id="address"
             required
             icon={MapPin}
@@ -801,7 +797,7 @@ function ContactStep({
           />
           <div className="grid grid-cols-2 gap-4">
             <TextField
-              label="Ville"
+              label="City"
               id="city"
               required
               value={city}
@@ -818,7 +814,7 @@ function ContactStep({
               }}
             />
             <TextField
-              label="Code postal"
+              label="ZIP Code"
               id="zip"
               required
               value={zip}
@@ -838,7 +834,7 @@ function ContactStep({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              Pays <span className="text-(--color-accent)">*</span>
+              Country <span className="text-(--color-accent)">*</span>
             </label>
             <select
               value={country}
@@ -846,20 +842,20 @@ function ContactStep({
               className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
               style={{ border: "1.5px solid var(--color-border2)" }}
             >
-              <option value="US">États-Unis</option>
+              <option value="US">United States</option>
               <option value="CA">Canada</option>
-              <option value="GB">Royaume-Uni</option>
+              <option value="GB">United Kingdom</option>
               <option value="FR">France</option>
-              <option value="CH">Suisse</option>
-              <option value="BE">Belgique</option>
-              <option value="BR">Brésil</option>
-              <option value="JP">Japon</option>
+              <option value="CH">Switzerland</option>
+              <option value="BE">Belgium</option>
+              <option value="BR">Brazil</option>
+              <option value="JP">Japan</option>
             </select>
           </div>
 
           {needsState && (
             <TextField
-              label={country === "BR" ? "État (UF)" : "État / Province"}
+              label={country === "BR" ? "State (UF)" : "State / Province"}
               id="stateCode"
               required
               value={stateCode}
@@ -880,7 +876,7 @@ function ContactStep({
 
           {country === "BR" && (
             <TextField
-              label="CPF ou CNPJ"
+              label="CPF or CNPJ"
               id="taxNumber"
               required
               value={taxNumber}
@@ -902,7 +898,7 @@ function ContactStep({
 
       <div className="flex flex-col gap-1.5">
         <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-          Message (optionnel)
+          Message (optional)
         </label>
         <textarea
           value={message}
@@ -910,7 +906,7 @@ function ContactStep({
           rows={3}
           className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none bg-(--color-surface) text-(--color-ink) placeholder:text-(--color-ink4)"
           style={{ border: "1.5px solid var(--color-border2)" }}
-          placeholder="Instructions de livraison, personnalisation..."
+          placeholder="Delivery instructions, personalization..."
         />
       </div>
 
@@ -921,7 +917,7 @@ function ContactStep({
           className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2)"
           style={{ border: "1px solid var(--color-border)" }}
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
+          <ArrowLeft size={14} strokeWidth={2.5} /> Back
         </button>
         <button
           type="button"
@@ -933,14 +929,14 @@ function ContactStep({
             boxShadow: "var(--shadow-accent)",
           }}
         >
-          Continuer vers le paiement <ArrowRight size={15} strokeWidth={2.5} />
+          Continue to Payment <ArrowRight size={15} strokeWidth={2.5} />
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Step 3 : Paiement ──────────────────────────────────────────────────
+// ─── Step 3 : Payment ──────────────────────────────────────────────────
 
 interface PaymentStepProps {
   cardNumber: string;
@@ -981,7 +977,7 @@ interface PaymentStepProps {
   onStripeCardError: (msg: string) => void;
 }
 
-// ─── Formulaire Stripe pour paiement carte direct ──────────────────────
+// ─── Stripe direct card form ───────────────────────────────────────────
 function StripeCardForm({
   total,
   currencySymbol,
@@ -1057,7 +1053,7 @@ function StripeCardForm({
     setProcessing(true);
     setErrorMsg(null);
 
-    // 1. Créer un PaymentIntent via l'Edge Function
+    // 1. Create PaymentIntent via Edge Function
     const piRes = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
       {
@@ -1077,19 +1073,18 @@ function StripeCardForm({
     const piData = await piRes.json();
     if (!piRes.ok || !piData.clientSecret) {
       setProcessing(false);
-      setErrorMsg(piData.error || "Erreur création du paiement.");
+      setErrorMsg(piData.error || "Payment creation failed.");
       onError(piData.error);
       return;
     }
 
-    // 2. Récupérer les éléments séparés
     const cardNumberElement = elements.getElement(CardNumberElement);
     if (!cardNumberElement) {
       setProcessing(false);
       return;
     }
 
-    // 3. Confirmer le paiement avec Stripe
+    // 2. Confirm payment with Stripe
     const { error, paymentIntent } = await stripe.confirmCardPayment(
       piData.clientSecret,
       {
@@ -1101,13 +1096,13 @@ function StripeCardForm({
 
     if (error) {
       setProcessing(false);
-      setErrorMsg(error.message || "Échec du paiement.");
+      setErrorMsg(error.message || "Payment failed.");
       onError(error.message || "");
       return;
     }
 
     if (paymentIntent && paymentIntent.status === "succeeded") {
-      // 4. Créer la commande dans Supabase
+      // 3. Save order in Supabase
       try {
         await orderApi.create({
           id: orderId,
@@ -1120,7 +1115,7 @@ function StripeCardForm({
           shippingCost,
           shippingAddress: {
             fullName: contactName,
-            address: reception === "livraison" ? address : "Retrait sur place",
+            address: reception === "livraison" ? address : "Pickup",
             city: reception === "livraison" ? city : "",
             zip: reception === "livraison" ? zip : "",
             country: reception === "livraison" ? country : "FR",
@@ -1158,12 +1153,12 @@ function StripeCardForm({
         onSuccess(orderId);
       } catch (e: any) {
         setProcessing(false);
-        setErrorMsg("Paiement réussi mais erreur création commande.");
+        setErrorMsg("Payment succeeded but order creation failed.");
         onError(e.message);
       }
     } else {
       setProcessing(false);
-      setErrorMsg("Paiement non abouti.");
+      setErrorMsg("Payment was not completed.");
     }
   };
 
@@ -1182,7 +1177,7 @@ function StripeCardForm({
             <ArrowLeft size={16} strokeWidth={2.5} />
           </button>
           <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-            Paiement par carte
+            Pay by Card
           </h2>
         </div>
         <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
@@ -1191,15 +1186,15 @@ function StripeCardForm({
             strokeWidth={2.5}
             style={{ color: "var(--color-success)" }}
           />
-          Transaction sécurisée via Stripe
+          Secured by Stripe
         </p>
       </div>
 
-      {/* Champs séparés */}
+      {/* Separate fields */}
       <div className="flex flex-col gap-4 max-w-sm">
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-            Numéro de carte <span className="text-(--color-accent)">*</span>
+            Card Number <span className="text-(--color-accent)">*</span>
           </label>
           <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
             <CardNumberElement options={elementOptions} />
@@ -1209,7 +1204,7 @@ function StripeCardForm({
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              Expiration <span className="text-(--color-accent)">*</span>
+              Expiry <span className="text-(--color-accent)">*</span>
             </label>
             <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
               <CardExpiryElement options={elementOptions} />
@@ -1248,7 +1243,7 @@ function StripeCardForm({
           className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
           style={{ border: "1px solid var(--color-border)" }}
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
+          <ArrowLeft size={14} strokeWidth={2.5} /> Back
         </button>
         <button
           type="submit"
@@ -1263,12 +1258,12 @@ function StripeCardForm({
           {processing ? (
             <>
               <Loader2 size={15} strokeWidth={2.5} className="animate-spin" />
-              Traitement en cours…
+              Processing…
             </>
           ) : (
             <>
               <Lock size={13} strokeWidth={2.5} />
-              Payer {total.toFixed(2)} {currencySymbol}
+              Pay {total.toFixed(2)} {currencySymbol}
             </>
           )}
         </button>
@@ -1317,21 +1312,21 @@ function PaymentStep({
   const [showCardForm, setShowCardForm] = useState(false);
   const [localOrderId] = useState(generateOrderId());
 
-  // Étape 1 : choix de la méthode
+  // Step 1: payment method selection
   if (!showCardForm) {
     return (
       <div className="flex flex-col gap-6 animate-fade-up">
         <div>
           <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-            Paiement
+            Payment
           </h2>
           <p className="text-sm text-(--color-ink3) mt-1">
-            Choisissez votre méthode de paiement.
+            Choose your payment method.
           </p>
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* Option Stripe Checkout */}
+          {/* Stripe Checkout option */}
           <button
             type="button"
             onClick={onStripePay}
@@ -1353,10 +1348,10 @@ function PaymentStep({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-black text-(--color-ink)">
-                    Redirection vers Stripe…
+                    Redirecting to Stripe…
                   </p>
                   <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                    Vous allez être redirigé vers la page de paiement sécurisée
+                    You will be redirected to the secure payment page
                   </p>
                 </div>
               </>
@@ -1375,7 +1370,7 @@ function PaymentStep({
                     Stripe Checkout
                   </p>
                   <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                    Carte bancaire, Apple Pay, Google Pay — sécurisé
+                    Credit card, Apple Pay, Google Pay — secure
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -1392,7 +1387,7 @@ function PaymentStep({
             )}
           </button>
 
-          {/* Option carte directe */}
+          {/* Direct card option */}
           <button
             type="button"
             onClick={() => setShowCardForm(true)}
@@ -1418,10 +1413,10 @@ function PaymentStep({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-black text-(--color-ink)">
-                Paiement par carte
+                Pay by Card
               </p>
               <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                Saisissez vos informations bancaires
+                Enter your card details securely
               </p>
             </div>
             <div className="text-right shrink-0">
@@ -1444,13 +1439,13 @@ function PaymentStep({
           className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
           style={{ border: "1px solid var(--color-border)" }}
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Retour
+          <ArrowLeft size={14} strokeWidth={2.5} /> Back
         </button>
       </div>
     );
   }
 
-  // Étape 2 : formulaire carte Stripe
+  // Step 2: Stripe card form
   return (
     <Elements stripe={stripePromise}>
       <StripeCardForm
@@ -1508,11 +1503,11 @@ function ConfirmationStep({
       </div>
       <div>
         <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-          Commande confirmée
+          Order Confirmed
         </h2>
         <p className="text-sm text-(--color-ink3) mt-2 leading-relaxed max-w-sm">
-          Votre paiement a été accepté. La commande est transmise à notre
-          atelier d&apos;impression.
+          Your payment has been accepted. The order is being sent to our print
+          shop.
         </p>
       </div>
 
@@ -1521,7 +1516,7 @@ function ConfirmationStep({
         style={{ background: "var(--color-surface2)" }}
       >
         <p className="text-[10px] font-bold uppercase tracking-widest text-(--color-ink3) mb-2">
-          Référence de commande
+          Order Reference
         </p>
         <div className="flex items-center justify-center gap-3">
           <span className="font-mono font-black text-xl tracking-wider text-(--color-accent)">
@@ -1530,7 +1525,7 @@ function ConfirmationStep({
           <button
             type="button"
             onClick={onCopy}
-            aria-label="Copier la référence"
+            aria-label="Copy reference"
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
             style={{
               background: copied
@@ -1552,7 +1547,7 @@ function ConfirmationStep({
             className="text-[11px] mt-1.5 font-semibold"
             style={{ color: "var(--color-success)" }}
           >
-            Référence copiée
+            Reference copied
           </p>
         )}
       </div>
@@ -1565,7 +1560,7 @@ function ConfirmationStep({
               strokeWidth={2}
               className="shrink-0 mt-0.5 text-(--color-accent)"
             />
-            Un récapitulatif a été envoyé à{" "}
+            A confirmation has been sent to{" "}
             <strong className="text-(--color-ink2)">{email}</strong>.
           </p>
         )}
@@ -1575,7 +1570,7 @@ function ConfirmationStep({
             strokeWidth={2}
             className="shrink-0 mt-0.5 text-(--color-accent)"
           />
-          Notre équipe a été notifiée automatiquement de votre commande.
+          Our team has been notified automatically of your order.
         </p>
       </div>
 
@@ -1589,7 +1584,7 @@ function ConfirmationStep({
           boxShadow: "var(--shadow-accent)",
         }}
       >
-        Retour à la boutique
+        Back to Shop
       </button>
     </div>
   );
@@ -1609,18 +1604,16 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
           strokeWidth={1.75}
           className="mx-auto mb-3 text-(--color-ink4)"
         />
-        <p className="font-bold text-(--color-ink) mb-1">
-          Votre panier est vide
-        </p>
+        <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
         <p className="text-xs text-(--color-ink3) mb-5">
-          Ajoutez des articles avant de passer commande.
+          Add some items before checking out.
         </p>
         <button
           onClick={onClose}
           className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
           style={{ background: "var(--color-accent)" }}
         >
-          Retour à la boutique
+          Back to Shop
         </button>
       </div>
     </div>
@@ -1640,7 +1633,7 @@ export default function CheckoutFlow({
   const currencySymbol = useCurrencySymbol();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // ── Mode confirmation Stripe ─────────────────────────────────
+  // ── Stripe confirmation mode ─────────────────────────────────
   if (confirmModeOrderId) {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
@@ -1669,7 +1662,7 @@ export default function CheckoutFlow({
 
   const [step, setStep] = useState<StepId>(1);
 
-  // Contact & livraison
+  // Contact & shipping
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -1684,14 +1677,14 @@ export default function CheckoutFlow({
   const [taxNumber, setTaxNumber] = useState("");
   const [message, setMessage] = useState("");
 
-  // Paiement
+  // Payment
   const [cardNumber, setCardNumber] = useState("");
   const [cardHolder, setCardHolder] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
   const [saveCard, setSaveCard] = useState(true);
 
-  // Flux
+  // Flow
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -1703,7 +1696,7 @@ export default function CheckoutFlow({
   });
   const [currencyCode, setCurrencyCode] = useState("usd");
 
-  // Charger pays par défaut + seuils de livraison depuis store_settings
+  // Load default country + shipping thresholds from store_settings
   useEffect(() => {
     storeSettingsApi
       .get()
@@ -1718,7 +1711,7 @@ export default function CheckoutFlow({
       .catch(() => {});
   }, []);
 
-  // Remonter en haut du panneau à chaque changement d'étape
+  // Scroll to top on step change
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
@@ -1736,27 +1729,25 @@ export default function CheckoutFlow({
 
   const validateContact = (): boolean => {
     const e: Record<string, string> = {};
-    if (!name.trim()) e.name = "Le nom complet est requis.";
-    if (!phone.trim()) e.phone = "Le téléphone est requis.";
-    if (!email.trim())
-      e.email = "L'email est requis pour la confirmation de commande.";
-    else if (!EMAIL_REGEX.test(email)) e.email = "Format d'email invalide.";
+    if (!name.trim()) e.name = "Full name is required.";
+    if (!phone.trim()) e.phone = "Phone number is required.";
+    if (!email.trim()) e.email = "Email is required for order confirmation.";
+    else if (!EMAIL_REGEX.test(email)) e.email = "Invalid email format.";
 
     if (reception === "livraison") {
-      if (!address.trim()) e.address = "L'adresse est requise.";
-      if (!city.trim()) e.city = "La ville est requise.";
-      if (!zip.trim()) e.zip = "Le code postal est requis.";
+      if (!address.trim()) e.address = "Address is required.";
+      if (!city.trim()) e.city = "City is required.";
+      if (!zip.trim()) e.zip = "ZIP code is required.";
       if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
-        e.stateCode = "Ce champ est requis.";
-      // Vérifier la cohérence ZIP pour les US (5 chiffres)
+        e.stateCode = "This field is required.";
       if (country === "US" && !/^\d{5}(-\d{4})?$/.test(zip.trim()))
-        e.zip = "Le code postal US doit contenir 5 chiffres (ex: 10001).";
+        e.zip = "US ZIP code must be 5 digits (e.g. 10001).";
       if (country === "BR" && !taxNumber.trim())
-        e.taxNumber = "Le CPF/CNPJ est requis.";
+        e.taxNumber = "CPF/CNPJ is required.";
     }
     setErrors(e);
 
-    // Scroll automatique vers le premier champ invalide
+    // Auto-scroll to the first invalid field
     if (Object.keys(e).length > 0) {
       setTimeout(() => {
         const firstError = Object.keys(e)[0];
@@ -1779,13 +1770,13 @@ export default function CheckoutFlow({
     const e: Record<string, string> = {};
     const digits = cardNumber.replace(/\D/g, "");
     if (digits.length < 13 || digits.length > 16)
-      e.cardNumber = "Numéro de carte invalide.";
+      e.cardNumber = "Invalid card number.";
     else if (!isValidLuhn(digits))
-      e.cardNumber = "Ce numéro de carte n'est pas valide.";
-    if (!cardHolder.trim()) e.cardHolder = "Le nom du titulaire est requis.";
+      e.cardNumber = "This card number is not valid.";
+    if (!cardHolder.trim()) e.cardHolder = "Cardholder name is required.";
     if (!isExpiryValid(cardExpiry))
-      e.cardExpiry = "Date d'expiration invalide ou dépassée.";
-    if (!/^\d{3,4}$/.test(cardCvv)) e.cardCvv = "CVV invalide.";
+      e.cardExpiry = "Invalid or past expiration date.";
+    if (!/^\d{3,4}$/.test(cardCvv)) e.cardCvv = "Invalid CVV.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -1851,7 +1842,7 @@ export default function CheckoutFlow({
         shippingCost,
         shippingAddress: {
           fullName: name,
-          address: reception === "livraison" ? address : "Retrait sur place",
+          address: reception === "livraison" ? address : "Pickup",
           city: reception === "livraison" ? city : "",
           zip: reception === "livraison" ? zip : "",
           country: reception === "livraison" ? country : "FR",
@@ -1888,7 +1879,7 @@ export default function CheckoutFlow({
         currencySymbol,
       );
 
-      // Rediriger vers Stripe Checkout
+      // Redirect to Stripe Checkout
       const stripeRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
         {
@@ -1915,7 +1906,7 @@ export default function CheckoutFlow({
 
       if (!stripeRes.ok) {
         const err = await stripeRes.json();
-        throw new Error(err.error || "Erreur Stripe");
+        throw new Error(err.error || "Stripe error");
       }
 
       const { url } = await stripeRes.json();
@@ -1923,7 +1914,7 @@ export default function CheckoutFlow({
     } catch (err: any) {
       console.error(err);
       setPaymentError(
-        err?.message || "Erreur lors de la création du paiement.",
+        err?.message || "An error occurred while creating the payment.",
       );
       setProcessing(false);
     }
@@ -1965,7 +1956,7 @@ export default function CheckoutFlow({
             }
           }
         } catch (e) {
-          console.warn("Impossible de lier l'utilisateur à la commande", e);
+          console.warn("Could not link user to order", e);
         }
 
         await orderApi.create({
@@ -1979,7 +1970,7 @@ export default function CheckoutFlow({
           shippingCost,
           shippingAddress: {
             fullName: name,
-            address: reception === "livraison" ? address : "Retrait sur place",
+            address: reception === "livraison" ? address : "Pickup",
             city: reception === "livraison" ? city : "",
             zip: reception === "livraison" ? zip : "",
             country: reception === "livraison" ? country : "FR",
@@ -2001,12 +1992,12 @@ export default function CheckoutFlow({
           })),
         } as any);
 
-        // Envoyer la commande vers Printful (mode draft, asynchrone)
+        // Send to Printful (async)
         podApi
           .createOrder(newOrderId)
-          .catch((e) => console.warn("[Printful] Erreur envoi commande:", e));
+          .catch((e) => console.warn("[Printful] Error sending order:", e));
 
-        // Envoyer un récapitulatif via Telegram
+        // Send recap via Telegram
         sendTelegramNotification(
           newOrderId,
           name,
@@ -2032,10 +2023,10 @@ export default function CheckoutFlow({
       setStep(4);
       onSuccess();
     } catch (err: any) {
-      console.error("Erreur création commande", err);
+      console.error("Order creation error", err);
       setPaymentError(
         err?.message ||
-          "Une erreur est survenue lors du traitement du paiement. Veuillez réessayer.",
+          "An error occurred while processing the payment. Please try again.",
       );
     } finally {
       setProcessing(false);
@@ -2075,12 +2066,12 @@ export default function CheckoutFlow({
           </span>
           <span className="text-(--color-ink4) hidden sm:inline">/</span>
           <span className="text-xs sm:text-sm font-bold text-(--color-ink2) hidden sm:inline">
-            Commande sécurisée
+            Secure Checkout
           </span>
         </div>
         <button
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label="Close"
           className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--color-surface2) text-(--color-ink3) hover:text-(--color-ink)"
           style={{ border: "1px solid var(--color-border)" }}
         >
