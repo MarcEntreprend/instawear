@@ -42,11 +42,11 @@ interface OrderTrackingModalProps {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: "En attente", color: "#92400e" },
-  in_production: { label: "En production", color: "#1e40af" },
-  shipped: { label: "Expédiée", color: "#065f46" },
-  delivered: { label: "Livrée", color: "#166534" },
-  cancelled: { label: "Annulée", color: "#991b1b" },
+  pending: { label: "Pending", color: "#92400e" },
+  in_production: { label: "In Production", color: "#1e40af" },
+  shipped: { label: "Shipped", color: "#065f46" },
+  delivered: { label: "Delivered", color: "#166534" },
+  cancelled: { label: "Cancelled", color: "#991b1b" },
 };
 
 export default function OrderTrackingModal({
@@ -95,11 +95,11 @@ export default function OrderTrackingModal({
         setOrder(tracked);
       } else {
         setError(
-          "Aucune commande trouvée avec ce code. Vérifiez votre référence.",
+          "No order found with that reference. Please double‑check your order ID.",
         );
       }
     } catch (err) {
-      setError("Erreur lors de la recherche de la commande.");
+      setError("An error occurred while searching for your order.");
       console.error(err);
     }
   };
@@ -125,7 +125,7 @@ export default function OrderTrackingModal({
           <h2
             style={{ fontWeight: 700, fontSize: 18, color: "var(--color-ink)" }}
           >
-            Suivi de commande
+            Track Your Order
           </h2>
           <button
             onClick={onClose}
@@ -142,14 +142,14 @@ export default function OrderTrackingModal({
           </button>
         </div>
 
-        {/* Champ de recherche */}
+        {/* Search field */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Entrez votre référence (ex: ORD-2026-3104)"
+            placeholder="Enter your order reference (e.g. ORD-2026-3104)"
             style={{
               flex: 1,
               padding: "10px 14px",
@@ -178,7 +178,7 @@ export default function OrderTrackingModal({
             }}
           >
             <Search size={16} />
-            Rechercher
+            Track
           </button>
         </div>
 
@@ -219,7 +219,7 @@ export default function OrderTrackingModal({
                     textTransform: "uppercase",
                   }}
                 >
-                  Commande
+                  Order
                 </p>
                 <p
                   style={{
@@ -241,7 +241,7 @@ export default function OrderTrackingModal({
                     textTransform: "uppercase",
                   }}
                 >
-                  Statut
+                  Status
                 </p>
                 <span
                   style={{
@@ -280,12 +280,12 @@ export default function OrderTrackingModal({
               }}
             >
               <div>
-                <span style={{ color: "var(--color-ink4)" }}>Client :</span>{" "}
+                <span style={{ color: "var(--color-ink4)" }}>Customer:</span>{" "}
                 {order.clientName}
               </div>
               <div>
-                <span style={{ color: "var(--color-ink4)" }}>Date :</span>{" "}
-                {new Date(order.createdAt).toLocaleDateString("fr-FR", {
+                <span style={{ color: "var(--color-ink4)" }}>Date:</span>{" "}
+                {new Date(order.createdAt).toLocaleDateString("en-US", {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
@@ -295,7 +295,7 @@ export default function OrderTrackingModal({
               </div>
               {order.address && (
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <span style={{ color: "var(--color-ink4)" }}>Adresse :</span>{" "}
+                  <span style={{ color: "var(--color-ink4)" }}>Address:</span>{" "}
                   {order.address}
                 </div>
               )}
@@ -316,7 +316,7 @@ export default function OrderTrackingModal({
                   marginBottom: 8,
                 }}
               >
-                Articles
+                Items
               </p>
               {order.items.map((item, i) => (
                 <button

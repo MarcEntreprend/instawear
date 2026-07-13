@@ -1,8 +1,8 @@
 // src/components/AccountPage.tsx
 
 /**
- * Espace client unifié – commandes, favoris, support, profil.
- * Accessible depuis le header pour les utilisateurs connectés.
+ * Unified customer account – orders, favorites, support, profile.
+ * Accessible from the header for logged-in users.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -23,7 +23,7 @@ import { supabase } from "../lib/supabaseClient";
 import { customerApi, interactionApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
-import type { Order, AdminProduct, Favourite } from "../admin/adminTypes";
+import type { Order, Favourite } from "../admin/adminTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
@@ -31,7 +31,7 @@ interface AccountPageProps {
   onClose: () => void;
 }
 
-// ─── Types locaux ─────────────────────────────────────────────────────
+// ─── Local types ─────────────────────────────────────────────────────
 interface Interaction {
   id: string;
   subject: string;
@@ -40,7 +40,7 @@ interface Interaction {
   lastMessage?: string;
 }
 
-// ─── Style réutilisé ──────────────────────────────────────────────────
+// ─── Reusable style ──────────────────────────────────────────────────
 const tabBtn = (active: boolean): React.CSSProperties => ({
   background: "none",
   border: "none",
@@ -81,12 +81,12 @@ export default function AccountPage({
     });
   }, [allCustomers]);
 
-  // ── Onglets ────────────────────────────────────────────────────────
+  // ── Tabs ────────────────────────────────────────────────────────
   const [tab, setTab] = useState<
     "orders" | "favorites" | "support" | "profile"
   >("orders");
 
-  // ── Données chargées à la demande ──────────────────────────────────
+  // ── Data loaded on demand ──────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [favorites, setFavorites] = useState<Favourite[]>([]);
@@ -139,7 +139,7 @@ export default function AccountPage({
     if (tab === "support" && interactions.length === 0) fetchInteractions();
   }, [tab, fetchOrders, fetchFavorites, fetchInteractions]);
 
-  // ── Rendu principal ───────────────────────────────────────────────
+  // ── Main render ───────────────────────────────────────────────
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col"
@@ -155,13 +155,13 @@ export default function AccountPage({
           className="flex items-center gap-2 text-(--color-ink3) hover:text-(--color-ink) transition-colors"
         >
           <ArrowLeft size={18} strokeWidth={2} />
-          <span className="font-semibold text-sm">Retour à la boutique</span>
+          <span className="font-semibold text-sm">Back to store</span>
         </button>
         <h2
           className="font-black text-lg"
           style={{ color: "var(--color-ink)" }}
         >
-          Mon compte
+          My Account
         </h2>
         <div className="w-16" /> {/* spacer */}
       </div>
@@ -174,12 +174,12 @@ export default function AccountPage({
         {[
           {
             key: "orders" as const,
-            label: "Commandes",
+            label: "Orders",
             icon: <Package size={14} />,
           },
           {
             key: "favorites" as const,
-            label: "Favoris",
+            label: "Favorites",
             icon: <Heart size={14} />,
           },
           {
@@ -189,7 +189,7 @@ export default function AccountPage({
           },
           {
             key: "profile" as const,
-            label: "Profil",
+            label: "Profile",
             icon: <User size={14} />,
           },
         ].map(({ key, label, icon }) => (
@@ -204,7 +204,7 @@ export default function AccountPage({
         ))}
       </div>
 
-      {/* Contenu */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
         {tab === "orders" && (
           <OrdersTab
@@ -239,7 +239,7 @@ export default function AccountPage({
   );
 }
 
-// ─── Sous-composants onglets ────────────────────────────────────────────
+// ─── Tab sub-components ────────────────────────────────────────────────
 
 function OrdersTab({
   orders,
@@ -252,8 +252,7 @@ function OrdersTab({
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   if (loading) return <Loader />;
-  if (orders.length === 0)
-    return <Empty text="Aucune commande pour le moment." />;
+  if (orders.length === 0) return <Empty text="No orders yet." />;
   if (selectedOrder)
     return (
       <OrderDetail
@@ -283,7 +282,7 @@ function OrdersTab({
               {order.id}
             </p>
             <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
-              {new Date(order.createdAt).toLocaleDateString("fr-FR")}
+              {new Date(order.createdAt).toLocaleDateString("en-US")}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -317,7 +316,7 @@ function OrderDetail({
         onClick={onBack}
         className="flex items-center gap-1 text-sm font-semibold text-(--color-ink3) hover:text-(--color-ink)"
       >
-        <ArrowLeft size={14} /> Retour
+        <ArrowLeft size={14} /> Back
       </button>
       <div
         className="p-5 rounded-2xl"
@@ -330,7 +329,7 @@ function OrderDetail({
           className="font-black text-lg mb-2"
           style={{ color: "var(--color-ink)" }}
         >
-          Commande {order.id}
+          Order {order.id}
         </p>
         <StatusBadge status={order.status} />
         <div className="mt-4 flex flex-col gap-2">
@@ -348,7 +347,7 @@ function OrderDetail({
                   {item.productTitle}
                 </p>
                 <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
-                  Taille {item.selectedSize} · Qté {item.quantity}
+                  Size {item.selectedSize} · Qty {item.quantity}
                 </p>
               </div>
               <span
@@ -372,7 +371,7 @@ function OrderDetail({
         </div>
         {order.shippingAddress && (
           <div className="mt-4 text-xs" style={{ color: "var(--color-ink3)" }}>
-            <p className="font-semibold mb-1">Adresse de livraison :</p>
+            <p className="font-semibold mb-1">Shipping Address:</p>
             <p>{order.shippingAddress.fullName}</p>
             <p>{order.shippingAddress.address}</p>
             <p>
@@ -388,12 +387,12 @@ function OrderDetail({
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
-    pending: { bg: "#fef3c7", color: "#92400e", label: "En attente" },
-    paid: { bg: "#dbeafe", color: "#1e40af", label: "Payée" },
-    in_production: { bg: "#d1fae5", color: "#065f46", label: "En production" },
-    shipped: { bg: "#d1fae5", color: "#065f46", label: "Expédiée" },
-    delivered: { bg: "#dcfce7", color: "#166534", label: "Livrée" },
-    cancelled: { bg: "#fee2e2", color: "#991b1b", label: "Annulée" },
+    pending: { bg: "#fef3c7", color: "#92400e", label: "Pending" },
+    paid: { bg: "#dbeafe", color: "#1e40af", label: "Paid" },
+    in_production: { bg: "#d1fae5", color: "#065f46", label: "In Production" },
+    shipped: { bg: "#d1fae5", color: "#065f46", label: "Shipped" },
+    delivered: { bg: "#dcfce7", color: "#166534", label: "Delivered" },
+    cancelled: { bg: "#fee2e2", color: "#991b1b", label: "Cancelled" },
   };
   const s = map[status] || map.pending;
   return (
@@ -423,7 +422,7 @@ function FavoritesTab({
   currencySymbol: string;
 }) {
   if (loading) return <Loader />;
-  if (favorites.length === 0) return <Empty text="Aucun favori." />;
+  if (favorites.length === 0) return <Empty text="No favorites yet." />;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -440,7 +439,7 @@ function FavoritesTab({
             className="text-sm font-semibold line-clamp-2"
             style={{ color: "var(--color-ink)" }}
           >
-            {fav.product?.title || "Produit indisponible"}
+            {fav.product?.title || "Product unavailable"}
           </p>
           {fav.product?.price != null && (
             <p
@@ -479,8 +478,8 @@ function SupportTab({
       const { data: inter } = await supabase
         .from("interactions")
         .insert({
-          customer_id: customerEmail, // utilise l'email comme identifiant client (correspond à la colonne customer_id)
-          customer_name: customerName || "Client",
+          customer_id: customerEmail,
+          customer_name: customerName || "Customer",
           customer_email: customerEmail,
           type: "question",
           status: "open",
@@ -511,14 +510,14 @@ function SupportTab({
     return (
       <div className="text-center py-8">
         <p className="text-sm mb-4" style={{ color: "var(--color-ink3)" }}>
-          Aucune conversation.
+          No conversations yet.
         </p>
         <button
           onClick={() => setShowForm(true)}
           className="px-4 py-2 rounded-xl text-white font-semibold text-sm"
           style={{ background: "var(--color-accent)" }}
         >
-          Contacter le support
+          Contact Support
         </button>
       </div>
     );
@@ -531,17 +530,17 @@ function SupportTab({
           onClick={() => setShowForm(false)}
           className="text-sm text-(--color-ink3) hover:underline self-start"
         >
-          ← Retour
+          ← Back
         </button>
         <input
           type="text"
-          placeholder="Sujet"
+          placeholder="Subject"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           className="w-full p-3 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm"
         />
         <textarea
-          placeholder="Votre message"
+          placeholder="Your message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
@@ -561,7 +560,7 @@ function SupportTab({
           ) : (
             <Send size={16} />
           )}
-          Envoyer
+          Send
         </button>
       </div>
     );
@@ -573,7 +572,7 @@ function SupportTab({
         onClick={() => setShowForm(true)}
         className="self-end flex items-center gap-1 text-xs font-semibold text-(--color-accent) mb-2"
       >
-        <Plus size={14} /> Nouveau message
+        <Plus size={14} /> New Message
       </button>
       {interactions.map((t) => (
         <div
@@ -595,7 +594,7 @@ function SupportTab({
                 color: t.status === "open" ? "#92400e" : "#065f46",
               }}
             >
-              {t.status === "open" ? "Ouvert" : "Résolu"}
+              {t.status === "open" ? "Open" : "Resolved"}
             </span>
           </div>
           {t.lastMessage && (
@@ -610,7 +609,7 @@ function SupportTab({
             className="text-[10px] mt-1"
             style={{ color: "var(--color-ink4)" }}
           >
-            {new Date(t.updatedAt).toLocaleString("fr-FR")}
+            {new Date(t.updatedAt).toLocaleString("en-US")}
           </p>
         </div>
       ))}
@@ -632,7 +631,7 @@ function ProfileTab({
           className="text-xs font-bold uppercase mb-1"
           style={{ color: "var(--color-ink3)" }}
         >
-          Nom
+          Name
         </p>
         <p className="text-sm" style={{ color: "var(--color-ink)" }}>
           {customerName || "—"}
@@ -650,13 +649,13 @@ function ProfileTab({
         </p>
       </div>
       <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-        Pour modifier vos informations, contactez le support.
+        To update your info, please contact support.
       </p>
     </div>
   );
 }
 
-// ─── Utilitaires ──────────────────────────────────────────────────────
+// ─── Utilities ──────────────────────────────────────────────────────
 function Loader() {
   return (
     <div className="flex justify-center py-12">

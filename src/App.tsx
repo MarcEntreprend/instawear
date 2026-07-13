@@ -1,4 +1,4 @@
-// App.tsx
+// src/App.tsx — frontstore
 
 /**
  * @license
@@ -17,7 +17,7 @@ import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { Product, CartItem } from "./types";
-import { supabase } from "./lib/supabaseClient"; // Connexion à Supabase pour l'authentification
+import { supabase } from "./lib/supabaseClient";
 import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
 import ProductDetailModal from "./components/ProductDetailModal";
 import HeroCarousel from "./components/HeroCarousel";
@@ -32,7 +32,7 @@ import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
 
 // ── Product delivery info visibility switch ──
-const SHOW_PRODUCT_DELIVERY_INFO = false; // passer à true pour afficher les infos de livraison sur les cartes
+const SHOW_PRODUCT_DELIVERY_INFO = false; // set to true to show delivery info on cards
 
 export default function App() {
   // Store States
@@ -41,9 +41,9 @@ export default function App() {
   const [networkError, setNetworkError] = useState(false);
 
   // Auth, Admin & Profile States
-  const [showAuthModal, setShowAuthModal] = useState(false); // AuthModal States
-  const [isAdmin, setIsAdmin] = useState(false); // état isAdmin et la déconnexion
-  const [isUser, setIsUser] = useState(false); // état isUser pour les comptes simples
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isUser, setIsUser] = useState(false);
   const [userName, setUserName] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -73,7 +73,7 @@ export default function App() {
 
   const currencySymbol = useCurrencySymbol();
 
-  // Thème sombre
+  // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     try {
       return localStorage.getItem("theme") === "dark";
@@ -89,16 +89,16 @@ export default function App() {
     localStorage.setItem("theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
-  // state pour les promotions
+  // Promotions
   const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  useTabBadge(cart, isAdmin); // Badge notifications dans l'onglet
+  useTabBadge(cart, isAdmin);
 
   const [cartLoaded, setCartLoaded] = useState(false);
 
-  // Caches locaux pour éviter les erreurs 406 sur admin_users et customers
+  // Local caches to avoid 406 errors on admin_users and customers
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
   const [allCustomers, setAllCustomers] = useState<
     { id: string; email: string }[]
@@ -135,11 +135,11 @@ export default function App() {
       }
     };
     loadCart();
-  }, [isAdmin, isUser, products]); // recharge quand l'état de connexion change ou les produits sont prêts
+  }, [isAdmin, isUser, products]);
 
-  // Sauvegarder le panier dans Supabase
+  // Save cart to Supabase
   useEffect(() => {
-    if (!cartLoaded) return; // ne pas synchroniser avant d'avoir chargé le panier
+    if (!cartLoaded) return;
     const syncCart = async () => {
       const {
         data: { user },
@@ -163,12 +163,11 @@ export default function App() {
   }, [cart, isAdmin, isUser]);
 
   const [dealExpired, setDealExpired] = useState(false);
-  const [dealFadingOut, setDealFadingOut] = useState(false); // état de transition
+  const [dealFadingOut, setDealFadingOut] = useState(false);
 
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
   const [showNewAdmin, setShowNewAdmin] = useState(false);
 
-  //
   useEffect(() => {
     if (showNewAdmin) {
       setShowProfileModal(false);
@@ -176,14 +175,14 @@ export default function App() {
     }
   }, [showNewAdmin]);
 
-  // Forcer le retour au store si un non‑admin essaie d’accéder à l’admin
+  // Force back to store if a non‑admin tries to access admin
   useEffect(() => {
     if (activeTab === "admin" && !isAdmin) {
       setActiveTab("store");
     }
   }, [activeTab, isAdmin]);
 
-  // Favoris
+  // Favorites
   const [favorites, setFavorites] = useState<string[]>([]);
   // Charger les favoris de l'utilisateur connecté
   useEffect(() => {
@@ -201,14 +200,14 @@ export default function App() {
       }
     };
     loadFavorites();
-  }, [isAdmin, isUser, allCustomers]); // se recharge quand l'état de connexion change ou quand le cache clients est prêt
+  }, [isAdmin, isUser, allCustomers]);
 
-  // Système de toasts enrichi (file d'attente)
+  // Toast system
   const [toasts, setToasts] = useState<Toast[]>([]);
   let toastIdCounter = useRef(0);
   const isInitialMount = useRef(true);
 
-  // Charger une fois la liste des admins et des clients pour éviter les requêtes 406
+  // Load admin + customer list once to avoid 406 errors
   useEffect(() => {
     const loadCaches = async () => {
       try {
@@ -221,13 +220,13 @@ export default function App() {
         setAllCustomers(customers.map((c) => ({ id: c.id, email: c.email })));
         setCacheReady(true);
       } catch (e) {
-        // silencieux
+        // silent
       }
     };
     loadCaches();
   }, []);
 
-  // les promotions
+  // Promotions
   useEffect(() => {
     fetchProducts();
     // fetchSettings();
@@ -238,7 +237,7 @@ export default function App() {
       .finally(() => setPromotionsLoading(false));
   }, []);
 
-  // Rafraîchir le catalogue quand l'admin modifie un produit
+  // Refresh catalog when admin modifies a product
   useEffect(() => {
     const handler = () => {
       fetchProducts();
@@ -247,7 +246,7 @@ export default function App() {
     return () => window.removeEventListener("storefront:invalidate", handler);
   }, []);
 
-  // Écouter les changements de session Supabase (authentification)
+  // Listen to Supabase session changes (authentication)
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
@@ -297,9 +296,9 @@ export default function App() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [cacheReady]); // Se lance au montage ET quand le cache est prêt
+  }, [cacheReady]);
 
-  // Fermer le profil et réinitialiser quand on passe en admin
+  // Close profile and reset when switching to admin
   useEffect(() => {
     if (activeTab === "admin") {
       setShowProfileModal(false);
@@ -307,7 +306,7 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Compte à rebours de test — 10 secondes
+  // Test countdown — 10 seconds
   const [countdownString, setCountdownString] = useState("00:00:10");
   const [timeLeft, setTimeLeft] = useState(10);
 
@@ -319,7 +318,7 @@ export default function App() {
         setTimeout(() => {
           setDealExpired(true);
           setDealFadingOut(false);
-        }, 900); // durée de l'animation CSS
+        }, 900);
       }
       return;
     }
@@ -351,7 +350,7 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Récupère les produits depuis Supabase (base de données réelle)
+  // Fetch products from Supabase
   const fetchProducts = async () => {
     setLoadingProducts(true);
     setNetworkError(false);
@@ -359,7 +358,7 @@ export default function App() {
       const data = await productApi.list();
       setProducts(data);
     } catch (err) {
-      console.warn("Erreur chargement produits Supabase :", err);
+      console.warn("Error loading products from Supabase:", err);
       setProducts([]);
       setNetworkError(true);
     } finally {
@@ -423,7 +422,7 @@ export default function App() {
       ]);
     }
 
-    showToast(`🛒 "${product.title}" ajouté au panier !`, "success");
+    showToast(`🛒 "${product.title}" added to cart!`, "success");
   };
 
   const removeFromCart = (index: number) => {
@@ -450,7 +449,7 @@ export default function App() {
     };
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysOffset);
-    return targetDate.toLocaleDateString("fr-FR", options);
+    return targetDate.toLocaleDateString("en-US", options);
   };
 
   // Hero Carousel banners content
@@ -469,7 +468,7 @@ export default function App() {
           title: promo.title || product?.title || promo.headline || "Promotion",
           headline: promo.headline || product?.title || "",
           sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Découvrir",
+          cta: promo.cta || "Discover",
           bgGradient: promo.bgGradient || "from-white via-indigo-50 to-white",
           image: promo.image || product?.image || PLACEHOLDER_IMG,
           tag: promo.tag || "⚡ PROMOTION",
@@ -511,7 +510,7 @@ export default function App() {
     tryScroll(0);
   };
 
-  // Gestion du retour de Stripe Checkout (success / cancel)
+  // Stripe Checkout return handling (success / cancel)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const orderStatus = params.get("order");
@@ -529,12 +528,15 @@ export default function App() {
             .single();
 
           if (error || !order) {
-            showToast("Commande introuvable.", "error");
+            showToast("Order not found.", "error");
             return;
           }
 
           if (order.status !== "paid" && order.status !== "pending") {
-            showToast("Paiement non confirmé. Contactez le support.", "error");
+            showToast(
+              "Payment not confirmed. Please contact support.",
+              "error",
+            );
             return;
           }
 
@@ -546,23 +548,23 @@ export default function App() {
             order.client_email &&
             order.client_email !== user.email
           ) {
-            showToast("Cette commande ne vous appartient pas.", "error");
+            showToast("This order does not belong to you.", "error");
             return;
           }
 
-          // Vider le panier et afficher l'écran de confirmation
+          // Clear cart and show confirmation screen
           setCart([]);
           setCartLoaded(false);
           setStripeConfirmOrderId(orderId);
         } catch (e) {
-          console.error("Erreur vérification commande Stripe", e);
-          showToast("Erreur lors de la vérification du paiement.", "error");
+          console.error("Error verifying Stripe order", e);
+          showToast("Error verifying payment.", "error");
         }
       } else if (orderStatus === "cancelled") {
-        showToast("Paiement annulé. Votre panier est conservé.", "info");
+        showToast("Payment cancelled. Your cart is saved.", "info");
       }
 
-      // Nettoyer les paramètres de l'URL sans recharger la page
+      // Clean URL parameters without reloading
       const url = new URL(window.location.href);
       url.searchParams.delete("order");
       url.searchParams.delete("id");
@@ -572,9 +574,8 @@ export default function App() {
     handleReturn();
   }, []);
 
-  // Scroll automatique vers les filtres ou le catalogue quand un filtre change
+  // Auto-scroll to filters or catalog when a filter changes
   useEffect(() => {
-    // Ignorer le tout premier montage (pour ne pas scroller à l'arrivée)
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
@@ -636,11 +637,11 @@ export default function App() {
         setFavorites((prev) => [...prev, productId]);
       }
     } catch (e) {
-      console.warn("Erreur sauvegarde favori", e);
+      console.warn("Error saving favorite", e);
     }
   };
 
-  // pour pouvoir Exclure les inactifs des suggestions
+  // Exclude inactive products from suggestions
   const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
   return (
@@ -808,7 +809,7 @@ export default function App() {
         />
       )}
 
-      {/* Global Brand Footer avec logo officiel */}
+      {/* Global Brand Footer */}
       <Footer
         isAdmin={isAdmin}
         onSelectEventType={setSelectedEventType}
@@ -834,7 +835,7 @@ export default function App() {
             setIsUser(true);
             setUserName(name);
             setShowAuthModal(false);
-            showToast(`Inscription réussie ! Bienvenue, ${name}.`);
+            showToast(`Welcome, ${name}! Your account has been created.`);
           }}
         />
       )}
@@ -872,7 +873,7 @@ export default function App() {
         <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
       )}
 
-      {/* Checkout Flow (Panier → Livraison → Paiement → Confirmation) */}
+      {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
       {checkoutOpen && (
         <CheckoutFlow
           cart={cart}
@@ -882,14 +883,14 @@ export default function App() {
           onSuccess={() => {
             setCart([]);
             showToast(
-              "🎉 Commande confirmée ! Un récapitulatif a été envoyé par email.",
+              "🎉 Order confirmed! A confirmation email has been sent.",
               "success",
             );
           }}
         />
       )}
 
-      {/* Mode confirmation après retour Stripe */}
+      {/* Confirmation mode after Stripe return */}
       {stripeConfirmOrderId && (
         <CheckoutFlow
           cart={[]}
@@ -901,7 +902,7 @@ export default function App() {
         />
       )}
 
-      {/* OrderTrackingModal Modal */}
+      {/* Order Tracking Modal */}
       {trackingOpen && (
         <OrderTrackingModal
           onClose={() => setTrackingOpen(false)}
