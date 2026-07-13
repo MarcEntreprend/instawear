@@ -47,45 +47,46 @@ interface HeaderProps {
   onToggleDarkMode?: () => void;
 }
 
+// { label: "Sport", section: "catalog", eventType: "sport", category: null },
+// {
+//   label: "Festivals",
+//   section: "catalog",
+//   eventType: "culture",
+//   category: null,
+// },
+// {
+//   label: "Saisons",
+//   section: "catalog",
+//   eventType: "saisonnier",
+//   category: null,
+// },
+
 // Définition structurée de la navigation (logique v3)
 const NAV_LINKS: NavLink[] = [
-  { label: "Collections", section: "catalog", eventType: null, category: null },
-  // { label: "Sport", section: "catalog", eventType: "sport", category: null },
-  // {
-  //   label: "Festivals",
-  //   section: "catalog",
-  //   eventType: "culture",
-  //   category: null,
-  // },
-  // {
-  //   label: "Saisons",
-  //   section: "catalog",
-  //   eventType: "saisonnier",
-  //   category: null,
-  // },
-  { label: "À propos", section: "about", eventType: null, category: null },
+  { label: "Shop", section: "catalog", eventType: null, category: null },
+  { label: "About", section: "about", eventType: null, category: null },
   { label: "FAQ", section: "faq", eventType: null, category: null },
 ];
 
 const CATEGORY_PILLS = [
-  { label: "Tout voir", eventType: null, category: null },
+  { label: "All", eventType: null, category: null },
   {
     label: (
       <>
-        Promotions{" "}
+        Deals{" "}
         <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
       </>
     ),
     eventType: "discount",
     category: null,
   },
-  { label: "🏆 Sport", eventType: "sport", category: null },
+  { label: "🏆 Sports", eventType: "sport", category: null },
   { label: "🎉 Festivals", eventType: "culture", category: null },
-  { label: "🍂 Saisons", eventType: "saisonnier", category: null },
+  { label: "🍂 Seasonal", eventType: "saisonnier", category: null },
   { divider: true },
   { label: "T-Shirts", eventType: null, category: "tshirt" },
   { label: "Hoodies", eventType: null, category: "hoodie" },
-  { label: "Accessoires", eventType: null, category: "accessory" },
+  { label: "Accessories", eventType: null, category: "accessory" },
   { label: "Mugs", eventType: null, category: "mug" },
 ];
 
@@ -299,7 +300,7 @@ export default function Header({
       >
         <span className="inline-flex items-center gap-2">
           <Zap size={12} strokeWidth={2.5} />
-          Livraison gratuite dès 35 $ — Impression sous 24h, zéro stock gaspillé
+          Free shipping over $35 — Printed within 24h, zero wasted inventory
           <Zap size={12} strokeWidth={2.5} />
         </span>
       </div>
@@ -396,7 +397,7 @@ export default function Header({
                 (e.currentTarget.style.background = "transparent")
               }
             >
-              📦 Suivi
+              📦 My Order
             </button>
           </nav>
 
@@ -491,7 +492,7 @@ export default function Header({
                     searchFocused || searchVal
                       ? ""
                       : products.length === 0
-                        ? "Rechercher un article..."
+                        ? "Search an item..."
                         : typedText
                   }
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
@@ -523,7 +524,7 @@ export default function Header({
               {searchLoading ? (
                 <div className="flex items-center justify-center py-4">
                   <span className="text-sm text-gray-500 animate-pulse">
-                    Recherche en cours...
+                    Searching...
                   </span>
                 </div>
               ) : filteredSuggestions.length > 0 ? (
@@ -543,7 +544,7 @@ export default function Header({
                       : p.category === "hoodie"
                         ? "Hoodie"
                         : p.category === "accessory"
-                          ? "Accessoire"
+                          ? "Accessory"
                           : p.category === "mug"
                             ? "Mug"
                             : p.category;
@@ -588,7 +589,7 @@ export default function Header({
               ) : (
                 <div className="flex items-center justify-center py-4">
                   <span className="text-sm text-gray-500">
-                    Aucun résultat pour « {searchVal} »
+                    No results for "{searchVal}"
                   </span>
                 </div>
               )}
@@ -603,9 +604,7 @@ export default function Header({
               onClick={onToggleDarkMode}
               className="p-1 rounded-full transition-all duration-200 shrink-0 relative"
               style={{ color: "var(--color-ink2)", width: 32, height: 32 }}
-              title={
-                darkMode ? "Passer en mode clair" : "Passer en mode sombre"
-              }
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-1px)";
                 e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.12)";
@@ -638,7 +637,7 @@ export default function Header({
                 e.currentTarget.style.transform = "translateY(0)";
                 e.currentTarget.style.boxShadow = "none";
               }}
-              aria-label="Mes favoris"
+              aria-label="My wishlist"
             >
               <Heart size={20} strokeWidth={1.8} />
               {favoriteCount > 0 && (
@@ -672,8 +671,8 @@ export default function Header({
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
-                aria-label="Mon profil"
-                title="Mon profil"
+                aria-label="My profile"
+                title="My profile"
               >
                 <User size={20} strokeWidth={1.8} />
               </button>
@@ -693,8 +692,8 @@ export default function Header({
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
-                aria-label="Connexion / Inscription"
-                title="Connexion / Inscription"
+                aria-label="Sign in / Sign up"
+                title="Sign in / Sign up"
               >
                 <User size={20} strokeWidth={1.8} />
               </button>
@@ -706,7 +705,7 @@ export default function Header({
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
               >
                 <User size={16} />
-                Compte
+                Account
               </button>
             )}
 
@@ -728,10 +727,10 @@ export default function Header({
                 e.currentTarget.style.transform = "translateY(0)";
                 e.currentTarget.style.boxShadow = "var(--shadow-accent)";
               }}
-              aria-label={`Panier — ${totalQty} article(s)`}
+              aria-label={`Cart — ${totalQty} item(s)`}
             >
               <ShoppingCart size={17} strokeWidth={2} />
-              <span className="hidden sm:inline">Panier</span>
+              <span className="hidden sm:inline">Cart</span>
               {totalQty > 0 && (
                 <span
                   className="flex items-center justify-center rounded-full font-black text-gray-900"
@@ -883,7 +882,7 @@ export default function Header({
                     (e.currentTarget.style.background = "transparent")
                   }
                 >
-                  📦 Suivi de commande
+                  📦 Order tracking
                 </button>
                 <div
                   className="h-px my-2"
@@ -918,8 +917,8 @@ export default function Header({
                   }
                 >
                   {isAdminLoggedIn || isUserLoggedIn
-                    ? "🚪 Se déconnecter"
-                    : "⚙️ Connexion / Inscription"}
+                    ? "Sign out"
+                    : "Sign in / Sign up"}
                 </button>
               </nav>
             </div>
