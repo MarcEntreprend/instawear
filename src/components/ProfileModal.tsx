@@ -1,4 +1,4 @@
-// src\components\ProfileModal.tsx
+// src/components/ProfileModal.tsx — User profile modal (frontend)
 
 import React, { useEffect, useState } from "react";
 import { X, User, Package, Heart, ShoppingBag } from "lucide-react";
@@ -20,17 +20,17 @@ export default function ProfileModal({
   onLogout,
   allCustomers,
 }: ProfileModalProps) {
-  const displayName = isAdmin ? "Admin" : userName || "Utilisateur";
-  const role = isAdmin ? "administrateur" : "utilisateur";
+  const displayName = isAdmin ? "Admin" : userName || "User";
+  const role = isAdmin ? "administrator" : "customer";
 
-  // Stats pour utilisateur standard
+  // Stats for regular users
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [orderCount, setOrderCount] = useState<number>(0);
   const [favoriteCount, setFavoriteCount] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) return; // on ne charge pas les stats pour l'admin
+    if (isAdmin) return; // skip stats for admin
 
     const loadStats = async () => {
       setLoadingStats(true);
@@ -40,7 +40,7 @@ export default function ProfileModal({
         } = await supabase.auth.getUser();
         if (user?.email) {
           setUserEmail(user.email);
-          // Recherche locale pour éviter l'erreur 406
+          // Local lookup to avoid 406 errors
           const customer = allCustomers.find((c) => c.email === user.email);
           if (customer) {
             const [orders, favs] = await Promise.all([
@@ -52,7 +52,7 @@ export default function ProfileModal({
           }
         }
       } catch (e) {
-        console.warn("Erreur chargement stats profil", e);
+        console.warn("Error loading profile stats", e);
       } finally {
         setLoadingStats(false);
       }
@@ -87,18 +87,16 @@ export default function ProfileModal({
             {displayName.charAt(0).toUpperCase()}
           </div>
 
-          {/* Identité */}
+          {/* Identity */}
           <div>
             <p className="font-bold text-gray-900">{displayName}</p>
             {userEmail && (
               <p className="text-xs text-gray-500 mt-0.5">{userEmail}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Connecté en tant que {role}
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Signed in as {role}</p>
           </div>
 
-          {/* Statistiques (utilisateur standard uniquement) */}
+          {/* Stats (regular user only) */}
           {!isAdmin && (
             <div
               className="w-full flex justify-center gap-6 py-3 border-y border-gray-100"
@@ -108,7 +106,7 @@ export default function ProfileModal({
               }}
             >
               {loadingStats ? (
-                <p className="text-xs text-gray-400">Chargement…</p>
+                <p className="text-xs text-gray-400">Loading…</p>
               ) : (
                 <>
                   <div className="flex flex-col items-center gap-1">
@@ -116,21 +114,21 @@ export default function ProfileModal({
                     <span className="text-sm font-bold text-gray-900">
                       {orderCount}
                     </span>
-                    <span className="text-[10px] text-gray-500">Commandes</span>
+                    <span className="text-[10px] text-gray-500">Orders</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
                     <Heart size={18} style={{ color: "#EF4444" }} />
                     <span className="text-sm font-bold text-gray-900">
                       {favoriteCount}
                     </span>
-                    <span className="text-[10px] text-gray-500">Favoris</span>
+                    <span className="text-[10px] text-gray-500">Wishlist</span>
                   </div>
                 </>
               )}
             </div>
           )}
 
-          {/* Déconnexion */}
+          {/* Sign out */}
           <button
             onClick={() => {
               onLogout();
@@ -152,7 +150,7 @@ export default function ProfileModal({
               e.currentTarget.style.color = "var(--color-accent)";
             }}
           >
-            Se déconnecter
+            Sign out
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 /**
- * AuthModal.tsx - Authentification via Supabase Auth (remplace l'ancien système localStorage)
- * Modes : login, signup, resetPassword (3 étapes de réinitialisation)
+ * AuthModal.tsx - Supabase Auth authentication (replaces the old localStorage system)
+ * Modes: login, signup, resetPassword (3-step password reset flow)
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
@@ -16,7 +16,7 @@ type Mode = "login" | "signup" | "resetPassword";
 type ResetStep = "email" | "code" | "newPassword";
 
 const CODE_EXPIRY_SEC = 60;
-const MASTER_CODE = "000000"; // Code de test universel (phase de développement)
+const MASTER_CODE = "000000"; // Universal test code (development phase)
 
 export default function AuthModal({
   onClose,
@@ -30,7 +30,7 @@ export default function AuthModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── États pour la réinitialisation de mot de passe ──
+  // Password reset state
   const [resetStep, setResetStep] = useState<ResetStep>("email");
   const [resetEmail, setResetEmail] = useState("");
   const [code, setCode] = useState("");
@@ -39,7 +39,7 @@ export default function AuthModal({
   const [timer, setTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
 
-  // Timer décrémental
+  // Countdown timer
   useEffect(() => {
     if (timer <= 0) {
       setCanResend(true);
@@ -50,7 +50,7 @@ export default function AuthModal({
     return () => clearInterval(id);
   }, [timer]);
 
-  // ── Réinitialiser les champs lors du changement de mode ──
+  // Reset all fields when switching modes
   useEffect(() => {
     setError("");
     setEmail("");
@@ -70,49 +70,49 @@ export default function AuthModal({
     setCanResend(false);
   }, []);
 
-  // ── Étape 1 : envoyer le code ──
+  // Step 1: send verification code
   const handleSendCode = async () => {
     setError("");
     if (!resetEmail.trim()) {
-      setError("Veuillez entrer votre adresse email.");
+      setError("Please enter your email address.");
       return;
     }
     setLoading(true);
-    // En mode test, on simule l'envoi après un court délai
+    // Test mode: simulate sending after a short delay
     await new Promise((r) => setTimeout(r, 800));
     setLoading(false);
     startTimer();
     setResetStep("code");
-    // En prod, on appellerait supabase.auth.resetPasswordForEmail() ici
+    // In production, call supabase.auth.resetPasswordForEmail() here
   };
 
-  // ── Étape 2 : vérifier le code ──
+  // Step 2: verify the code
   const handleVerifyCode = () => {
     setError("");
     if (!code.trim()) {
-      setError("Veuillez entrer le code de vérification.");
+      setError("Please enter the verification code.");
       return;
     }
     if (code.trim() === MASTER_CODE) {
       setResetStep("newPassword");
     } else {
-      setError("Code incorrect. Veuillez réessayer.");
+      setError("Incorrect code. Please try again.");
     }
   };
 
-  // ── Étape 3 : mettre à jour le mot de passe (appelle l'Edge Function sécurisée) ──
+  // Step 3: update password (calls the secure Edge Function)
   const handleResetPassword = async () => {
     setError("");
     if (!newPassword) {
-      setError("Veuillez entrer un nouveau mot de passe.");
+      setError("Please enter a new password.");
       return;
     }
     if (newPassword.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      setError("Password must be at least 6 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError("Passwords do not match.");
       return;
     }
 
@@ -136,24 +136,21 @@ export default function AuthModal({
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || "Erreur lors de la réinitialisation.");
+        throw new Error(result.error || "Password reset failed.");
       }
 
       // Succès : retour au login avec un message
       setError("");
       setMode("login");
       setResetStep("email");
-      // Message de succès temporaire (sera affiché via un state "success" plus tard)
-      alert(
-        "Mot de passe réinitialisé avec succès ! Connectez-vous avec votre nouveau mot de passe.",
-      );
+      alert("Password reset successfully! Sign in with your new password.");
 
-      // NOTIFICATION
+      // Notification
       import("../api/supabaseApi").then(({ notificationApi }) => {
         notificationApi
           .create({
-            title: "Mot de passe réinitialisé",
-            description: `${resetEmail} a réinitialisé son mot de passe`,
+            title: "Password reset",
+            description: `${resetEmail} reset their password`,
             category: "customers",
             priority: "medium",
             metadata: {
@@ -161,18 +158,18 @@ export default function AuthModal({
               linkTo: "/admin/customers",
               source: "Client",
             },
-            action_label: "Voir le client",
+            action_label: "View customer",
           })
           .catch(() => {});
       });
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la réinitialisation.");
+      setError(err.message || "Password reset failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Handler principal (login / signup) ──
+  // Main handler (login / signup)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -199,14 +196,15 @@ export default function AuthModal({
               },
               { onConflict: "id" },
             );
-          if (insertError) console.warn("Erreur création client:", insertError);
+          if (insertError)
+            console.warn("Customer creation error:", insertError);
           else {
-            // Créer une notification "Nouveau client" (asynchrone, ne bloque pas l'inscription)
+            // Create a "New customer" notification (async, non-blocking)
             import("../api/supabaseApi").then(({ notificationApi }) => {
               notificationApi
                 .create({
-                  title: "Nouveau client inscrit",
-                  description: `${name || email} s'est inscrit sur la boutique`,
+                  title: "New customer registered",
+                  description: `${name || email} signed up on the store`,
                   category: "customers",
                   priority: "low",
                   metadata: {
@@ -215,10 +213,10 @@ export default function AuthModal({
                     linkTo: "/admin/customers",
                     source: "Client",
                   },
-                  action_label: "Voir le profil",
+                  action_label: "View profile",
                 })
                 .catch((e) =>
-                  console.warn("Échec création notification nouveau client", e),
+                  console.warn("Failed to create new customer notification", e),
                 );
             });
           }
@@ -232,7 +230,7 @@ export default function AuthModal({
             password,
           });
         if (signInError) throw signInError;
-        if (!data.user) throw new Error("Aucun utilisateur trouvé");
+        if (!data.user) throw new Error("No user found");
 
         const { data: adminData } = await supabase
           .from("admin_users")
@@ -242,14 +240,13 @@ export default function AuthModal({
 
         const isAdmin = !!adminData;
 
-        // Mettre à jour last_login_date dans customers (update silencieux, sans upsert)
+        // Update last_login_date in customers (silent update, no upsert)
         supabase
           .from("customers")
           .update({ last_login_date: new Date().toISOString() })
           .eq("id", data.user.id)
           .then(({ error }) => {
-            if (error)
-              console.warn("Erreur mise à jour last_login_date:", error);
+            if (error) console.warn("Error updating last_login_date:", error);
           });
 
         onLoginSuccess(isAdmin, name || email);
@@ -260,10 +257,9 @@ export default function AuthModal({
         err?.error_description ||
         err?.msg ||
         (typeof err === "string" ? err : null) ||
-        "Erreur d'authentification";
-      // L'API renvoie parfois "{}" comme message, on le remplace
+        "Authentication error";
       if (!message || message === "{}") {
-        message = "Erreur de connexion. Vérifiez vos identifiants.";
+        message = "Sign-in error. Please check your credentials.";
       }
       setError(message);
       console.error("Auth error details:", err);
@@ -272,12 +268,12 @@ export default function AuthModal({
     }
   };
 
-  // ── Rendu du formulaire de login/signup ──
+  // Login/signup form
   const renderAuthForm = () => (
     <form onSubmit={handleSubmit} className="space-y-4">
       {mode === "signup" && (
         <div>
-          <label className="block text-xs font-bold mb-1">Nom</label>
+          <label className="block text-xs font-bold mb-1">Name</label>
           <input
             type="text"
             value={name}
@@ -298,7 +294,7 @@ export default function AuthModal({
         />
       </div>
       <div>
-        <label className="block text-xs font-bold mb-1">Mot de passe</label>
+        <label className="block text-xs font-bold mb-1">Password</label>
         <input
           type="password"
           value={password}
@@ -312,16 +308,12 @@ export default function AuthModal({
         disabled={loading}
         className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
       >
-        {loading
-          ? "Chargement..."
-          : mode === "login"
-            ? "Se connecter"
-            : "S'inscrire"}
+        {loading ? "Loading..." : mode === "login" ? "Sign in" : "Sign up"}
       </button>
     </form>
   );
 
-  // ── Rendu du flow de reset (3 étapes) ──
+  // Reset password flow (3 steps)
   const renderResetPassword = () => {
     switch (resetStep) {
       case "email":
@@ -334,10 +326,10 @@ export default function AuthModal({
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Mot de passe oublié</h2>
+              <h2 className="text-lg font-bold">Forgot password</h2>
             </div>
             <p className="text-sm text-gray-500">
-              Entrez votre adresse email pour recevoir un code de vérification.
+              Enter your email to receive a verification code.
             </p>
             <div>
               <label className="block text-xs font-bold mb-1">Email</label>
@@ -346,7 +338,7 @@ export default function AuthModal({
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 className="w-full p-2 border rounded-lg text-sm"
-                placeholder="votre@email.com"
+                placeholder="you@email.com"
                 required
               />
             </div>
@@ -355,7 +347,7 @@ export default function AuthModal({
               disabled={loading}
               className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
             >
-              {loading ? "Envoi..." : "Envoyer un code"}
+              {loading ? "Sending..." : "Send a code"}
             </button>
           </div>
         );
@@ -370,14 +362,14 @@ export default function AuthModal({
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Vérification</h2>
+              <h2 className="text-lg font-bold">Verification</h2>
             </div>
             <p className="text-sm text-gray-500">
-              Un code a été envoyé à <strong>{resetEmail}</strong>
+              A code was sent to <strong>{resetEmail}</strong>
             </p>
             <div>
               <label className="block text-xs font-bold mb-1">
-                Code de vérification
+                Verification code
               </label>
               <input
                 type="text"
@@ -391,7 +383,7 @@ export default function AuthModal({
             </div>
             {timer > 0 && (
               <p className="text-xs text-gray-400 text-center">
-                Renvoyer le code dans {timer}s
+                Resend code in {timer}s
               </p>
             )}
             <div className="flex gap-3">
@@ -399,7 +391,7 @@ export default function AuthModal({
                 onClick={handleVerifyCode}
                 className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition"
               >
-                Vérifier
+                Verify
               </button>
               <button
                 onClick={() => {
@@ -410,7 +402,7 @@ export default function AuthModal({
                 disabled={!canResend}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Renvoyer
+                Resend
               </button>
             </div>
           </div>
@@ -426,11 +418,11 @@ export default function AuthModal({
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Nouveau mot de passe</h2>
+              <h2 className="text-lg font-bold">New password</h2>
             </div>
             <div>
               <label className="block text-xs font-bold mb-1">
-                Nouveau mot de passe
+                New password
               </label>
               <input
                 type="password"
@@ -443,7 +435,7 @@ export default function AuthModal({
             </div>
             <div>
               <label className="block text-xs font-bold mb-1">
-                Confirmer le mot de passe
+                Confirm password
               </label>
               <input
                 type="password"
@@ -459,14 +451,14 @@ export default function AuthModal({
               disabled={loading}
               className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
             >
-              {loading ? "Mise à jour..." : "Réinitialiser le mot de passe"}
+              {loading ? "Updating..." : "Reset password"}
             </button>
           </div>
         );
     }
   };
 
-  // ── Rendu principal ──
+  // Main render
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
@@ -477,24 +469,24 @@ export default function AuthModal({
           <X size={20} />
         </button>
 
-        {/* Titre (non affiché en mode reset) */}
+        {/* Title (hidden in reset mode) */}
         {mode !== "resetPassword" && (
           <h2 className="text-xl font-bold mb-4">
-            {mode === "login" ? "Connexion" : "Inscription"}
+            {mode === "login" ? "Sign in" : "Sign up"}
           </h2>
         )}
 
-        {/* Message d'erreur */}
+        {/* Error message */}
         {error && (
           <p className="text-red-500 text-sm mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
             {error}
           </p>
         )}
 
-        {/* Contenu selon le mode */}
+        {/* Content per mode */}
         {mode === "resetPassword" ? renderResetPassword() : renderAuthForm()}
 
-        {/* Liens en bas (login/signup seulement) */}
+        {/* Bottom links (login/signup only) */}
         {mode !== "resetPassword" && (
           <div className="mt-3 flex justify-between text-sm">
             <button
@@ -504,18 +496,18 @@ export default function AuthModal({
               className="text-orange-500 hover:underline"
             >
               {mode === "login"
-                ? "Créer un compte"
-                : "Déjà un compte ? Se connecter"}
+                ? "Create an account"
+                : "Already have an account? Sign in"}
             </button>
             {mode === "login" && (
               <button
                 onClick={() => {
                   setMode("resetPassword");
-                  setResetEmail(email); // Pré-remplit avec l'email du formulaire login
+                  setResetEmail(email); // Pre-fill with email from login form
                 }}
                 className="text-gray-500 hover:text-orange-500 hover:underline"
               >
-                Mot de passe oublié ?
+                Forgot password?
               </button>
             )}
           </div>
