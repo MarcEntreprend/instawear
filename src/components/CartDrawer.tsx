@@ -66,7 +66,7 @@ export default function CartDrawer({
                 fontFamily: "var(--font-sans)",
               }}
             >
-              Panier
+              Your Cart
             </span>
             {cartCount > 0 && (
               <span
@@ -108,10 +108,10 @@ export default function CartDrawer({
                   fontFamily: "var(--font-sans)",
                 }}
               >
-                Votre panier est vide
+                Your cart is empty
               </p>
               <p className="text-sm" style={{ color: "var(--color-ink3)" }}>
-                Parcourez nos collections pour ajouter des articles.
+                Browse our collections and add items you love.
               </p>
             </div>
             <button
@@ -122,7 +122,7 @@ export default function CartDrawer({
                 fontFamily: "var(--font-sans)",
               }}
             >
-              Continuer mes achats
+              Continue shopping
               <ArrowRight size={15} strokeWidth={2} />
             </button>
           </div>
@@ -141,11 +141,11 @@ export default function CartDrawer({
                   className="text-xs font-semibold mb-1.5"
                   style={{ color: "var(--color-accent)" }}
                 >
-                  Plus que{" "}
+                  Only{" "}
                   <span className="font-black">
                     {remaining.toFixed(2)} {currencySymbol}
                   </span>{" "}
-                  pour la livraison gratuite
+                  away from free shipping
                 </p>
                 <div
                   className="h-1.5 rounded-full overflow-hidden"
@@ -154,7 +154,7 @@ export default function CartDrawer({
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min((total / 35) * 100, 100)}%`,
+                      width: `${Math.min((total / threshold) * 100, 100)}%`,
                       background: "var(--color-accent)",
                     }}
                   />
@@ -166,7 +166,7 @@ export default function CartDrawer({
                 className="px-5 py-2 text-xs font-semibold text-center"
                 style={{ background: "#D1FAE5", color: "#059669" }}
               >
-                Livraison gratuite débloquée
+                You've unlocked free shipping!
               </div>
             )}
 
@@ -222,7 +222,7 @@ export default function CartDrawer({
                             border: "1px solid var(--color-border)",
                           }}
                         >
-                          {item.selectedSize}
+                          Size: {item.selectedSize}
                         </span>
                       </div>
                     </div>
@@ -300,7 +300,7 @@ export default function CartDrawer({
                   className="flex justify-between"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  <span>Sous-total</span>
+                  <span>Subtotal</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
                     {total.toFixed(2)} {currencySymbol}
                   </span>
@@ -311,10 +311,10 @@ export default function CartDrawer({
                     color: freeShipping ? "#059669" : "var(--color-ink3)",
                   }}
                 >
-                  <span>Livraison</span>
+                  <span>Shipping</span>
                   <span>
                     {freeShipping
-                      ? "Gratuite"
+                      ? "Free"
                       : `${shippingCost.toFixed(2)} ${currencySymbol}`}
                   </span>
                 </div>
@@ -342,7 +342,7 @@ export default function CartDrawer({
                   boxShadow: "var(--shadow-accent)",
                 }}
               >
-                Commander
+                Checkout
                 <ArrowRight size={15} strokeWidth={2.5} />
               </button>
 
@@ -350,7 +350,8 @@ export default function CartDrawer({
                 className="text-xs text-center"
                 style={{ color: "var(--color-ink4)" }}
               >
-                Via WhatsApp, Telegram ou Email — Aucun paiement en ligne requis
+                Secure payment powered by Stripe — Free shipping over $
+                {threshold}
               </p>
             </div>
           </>
