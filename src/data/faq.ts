@@ -4,44 +4,44 @@ import type { FAQ } from "../types";
 export const FAQS: FAQ[] = [
   {
     id: "faq-1",
-    question: "Combien de temps faut-il pour recevoir ma commande ?",
+    question: "How long does it take to receive my order?",
     answer:
-      "Votre article est imprimé sous 24h à 48h après validation de la commande, puis expédié via La Poste ou Chronopost. La livraison standard en France métropolitaine prend 3 à 5 jours ouvrés. La livraison express (2 jours) est disponible en option.",
+      "Your item is printed within 24 to 48 hours after order confirmation, then shipped via standard mail or express courier. Standard delivery within the US takes 3 to 5 business days. Express delivery (2 days) is available as an option at checkout.",
     category: "livraison",
   },
   {
     id: "faq-2",
-    question: "Comment puis-je personnaliser un design ou ajouter du texte ?",
+    question: "Can I customize a design or add text?",
     answer:
-      "Oui, nous acceptons les personnalisations : ajout d'un prénom, d'une date, d'un numéro ou d'un message court. Mentionnez votre demande dans le champ \"Message\" lors de la commande, ou contactez-nous directement par WhatsApp ou Telegram. Des frais de personnalisation (3–5$) peuvent s'appliquer.",
+      'Yes, we accept personalization requests: add a name, date, number, or short message. Just mention your request in the "Message" field at checkout, or contact us directly via WhatsApp or Telegram. A small customization fee ($3–$5) may apply.',
     category: "produit",
   },
   {
     id: "faq-3",
-    question: "Les t-shirts rétrécissent-ils au lavage ?",
+    question: "Do the t‑shirts shrink after washing?",
     answer:
-      "Nos vêtements sont en coton pré-rétréci. En suivant les instructions de lavage (30°C maximum, retourné, programme délicat), vous ne constaterez aucun rétrécissement. Les impressions sont garanties résistantes jusqu'à 50 lavages.",
+      "Our garments are made from pre‑shrunk cotton. By following the care instructions (max 30°C / 86°F, wash inside out, delicate cycle), you won't experience any shrinkage. Prints are guaranteed to last up to 50 washes.",
     category: "produit",
   },
   {
     id: "faq-4",
-    question: "Puis-je retourner ou échanger un article ?",
+    question: "Can I return or exchange an item?",
     answer:
-      "Oui, sous 14 jours après réception. Les articles doivent être non portés et dans leur emballage d'origine. Les articles personnalisés à votre nom ne sont pas remboursables sauf défaut de fabrication. Le remboursement est effectué sous 5 à 7 jours ouvrés.",
+      "Yes, within 14 days of receipt. Items must be unworn and in their original packaging. Customized items with your name are non‑refundable unless there is a manufacturing defect. Refunds are processed within 5 to 7 business days.",
     category: "retour",
   },
   {
     id: "faq-5",
-    question: "Comment fonctionne la commande sans paiement en ligne ?",
+    question: "How does ordering without paying online work?",
     answer:
-      "Vous remplissez le formulaire de commande, puis vous choisissez d'envoyer votre demande via WhatsApp, Telegram ou Email. Nous vous contactons sous 2h pour confirmer la disponibilité et vous transmettons un lien de paiement sécurisé (carte, virement, ou PayPal). C'est simple, sûr et sans intermédiaire.",
+      "You fill out the order form, then choose to send your request via WhatsApp, Telegram, or Email. We'll get back to you within 2 hours to confirm availability and send you a secure payment link (card, bank transfer, or PayPal). Simple, safe, and no middleman.",
     category: "commande",
   },
   {
     id: "faq-6",
-    question: "Livrez-vous hors de France ?",
+    question: "Do you ship outside the US?",
     answer:
-      "Oui, nous expédions dans toute l'Union Européenne, en Suisse, en Belgique et au Canada. Les délais varient de 5 à 10 jours ouvrés selon la destination. Les frais de livraison internationale sont calculés automatiquement lors de la commande.",
+      "Yes, we ship throughout the European Union, Switzerland, Belgium, and Canada. Delivery times range from 5 to 10 business days depending on the destination. International shipping fees are calculated automatically at checkout.",
     category: "livraison",
   },
 ];

@@ -1,4 +1,4 @@
-// src\components\ReassuranceBar.tsx
+// src/components/ReassuranceBar.tsx
 
 import { Truck, ShieldCheck, RefreshCw } from "lucide-react";
 
@@ -12,10 +12,10 @@ export default function ReassuranceBar() {
           </div>
           <div className="text-center sm:text-left">
             <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-              📦 Free Delivery over 35$
+              📦 Free Delivery over $35
             </p>
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              Livraison suivie gratuite sur tous les vêtements Choice.
+              Free tracked shipping on all Choice apparel.
             </p>
           </div>
         </div>
@@ -26,10 +26,10 @@ export default function ReassuranceBar() {
           </div>
           <div className="text-center sm:text-left">
             <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-              🔒 Satisfait ou Remboursé
+              🔒 Satisfaction Guaranteed
             </p>
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              Retour facile et remboursement sans tracas sous 14 jours.
+              Easy returns and hassle‑free refunds within 14 days.
             </p>
           </div>
         </div>
@@ -40,11 +40,10 @@ export default function ReassuranceBar() {
           </div>
           <div className="text-center sm:text-left">
             <p className="font-extrabold text-gray-900 text-xs uppercase tracking-wide">
-              🌱 Print-on-Demand Durable
+              🌱 Sustainable Print‑on‑Demand
             </p>
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              Zéro surproduction. Chaque vêtement est imprimé juste après achat
-              !
+              Zero overproduction. Every piece is printed only after you order.
             </p>
           </div>
         </div>
