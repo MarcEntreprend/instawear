@@ -74,6 +74,7 @@ export default function HeroCarousel({
                 );
               }}
               className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+              aria-label="Previous slide"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -83,6 +84,7 @@ export default function HeroCarousel({
                 setBannerIndex((prev) => (prev + 1) % banners.length);
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200 text-gray-900 flex items-center justify-center transition-all z-20 hover:text-(--color-accent)"
+              aria-label="Next slide"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -95,7 +97,7 @@ export default function HeroCarousel({
                 );
               }}
               className="absolute inset-y-0 left-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-              aria-label="Diapositive précédente"
+              aria-label="Previous slide"
             />
             <button
               onClick={() => {
@@ -103,12 +105,12 @@ export default function HeroCarousel({
                 setBannerIndex((prev) => (prev + 1) % banners.length);
               }}
               className="absolute inset-y-0 right-0 w-[12%] md:w-[8%] min-w-11 z-10 bg-transparent cursor-pointer"
-              aria-label="Diapositive suivante"
+              aria-label="Next slide"
             />
           </>
         )}
 
-        {/* Desktop : layout côte à côte */}
+        {/* Desktop */}
         <div className="hidden md:flex items-center min-h-90 md:min-h-105">
           <div className="p-8 md:p-12 lg:p-16 flex-1 text-left flex flex-col items-start justify-center">
             {banner.showTag && banner.tag && (
@@ -149,7 +151,7 @@ export default function HeroCarousel({
           </div>
         </div>
 
-        {/* Mobile : image en arrière-plan, texte superposé */}
+        {/* Mobile */}
         <div className="flex md:hidden relative min-h-90">
           <div className="absolute inset-y-0 right-0 w-3/5 overflow-hidden">
             <img

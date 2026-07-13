@@ -22,9 +22,9 @@ interface OrderModalProps {
   onConfirm: () => void;
 }
 
-const WHATSAPP_NUMBER = "+33600000000"; // Replace with real number
-const TELEGRAM_USERNAME = "instawear_shop"; // Replace with real username
-const EMAIL_ADDRESS = "commande@instawear.shop"; // Replace with real email
+const WHATSAPP_NUMBER = "+33600000000";
+const TELEGRAM_USERNAME = "instawear_shop";
+const EMAIL_ADDRESS = "orders@instawear.shop";
 
 export default function OrderModal({
   cart,
@@ -53,35 +53,35 @@ export default function OrderModal({
 
   const validate = () => {
     const e: typeof errors = {};
-    if (!form.name.trim()) e.name = "Nom requis";
-    if (!form.phone.trim()) e.phone = "Téléphone requis";
-    if (!form.date) e.date = "Date souhaitée requise";
+    if (!form.name.trim()) e.name = "Full name is required";
+    if (!form.phone.trim()) e.phone = "Phone number is required";
+    if (!form.date) e.date = "Preferred date is required";
     if (form.reception === "livraison" && !form.address.trim())
-      e.address = "Adresse requise pour la livraison";
+      e.address = "Shipping address is required";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const buildMessage = () => {
     const lines = [
-      "🛍️ NOUVELLE COMMANDE — InstaWear",
+      "🛍️ NEW ORDER — InstaWear",
       "",
-      "📦 Articles :",
+      "📦 Items:",
       ...cart.map(
         (item) =>
-          `  • ${item.product.title} × ${item.quantity} — taille ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
+          `  • ${item.product.title} × ${item.quantity} — Size ${item.selectedSize} — ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
       ),
-      `  TOTAL : ${cartTotal.toFixed(2)} ${currencySymbol}`,
+      `  TOTAL: ${cartTotal.toFixed(2)} ${currencySymbol}`,
       "",
-      "👤 Coordonnées :",
-      `  Nom : ${form.name}`,
-      `  Téléphone : ${form.phone}`,
-      form.email ? `  Email : ${form.email}` : "",
+      "👤 Contact Details:",
+      `  Name: ${form.name}`,
+      `  Phone: ${form.phone}`,
+      form.email ? `  Email: ${form.email}` : "",
       "",
-      "📅 Date souhaitée : " + form.date,
-      `📬 Réception : ${form.reception === "retrait" ? "Retrait sur place" : "Livraison à domicile"}`,
-      form.reception === "livraison" ? `  Adresse : ${form.address}` : "",
-      form.message ? `\n💬 Message : ${form.message}` : "",
+      "📅 Preferred Date: " + form.date,
+      `📬 Delivery Method: ${form.reception === "retrait" ? "In-store Pickup" : "Home Delivery"}`,
+      form.reception === "livraison" ? `  Address: ${form.address}` : "",
+      form.message ? `\n💬 Message: ${form.message}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -104,7 +104,7 @@ export default function OrderModal({
         "_blank",
       );
     } else {
-      const subject = encodeURIComponent("Nouvelle commande InstaWear");
+      const subject = encodeURIComponent("New InstaWear Order");
       window.open(
         `mailto:${EMAIL_ADDRESS}?subject=${subject}&body=${encoded}`,
         "_blank",
@@ -169,7 +169,7 @@ export default function OrderModal({
                 fontFamily: "var(--font-sans)",
               }}
             >
-              Finaliser la commande
+              Complete Your Order
             </h2>
           </div>
           <button
@@ -204,11 +204,11 @@ export default function OrderModal({
                   fontFamily: "var(--font-sans)",
                 }}
               >
-                Demande transmise !
+                Request Sent!
               </h3>
               <p className="text-sm" style={{ color: "var(--color-ink3)" }}>
-                Nous vous contacterons dans les 2h pour confirmer votre
-                commande.
+                We'll reach out within 2 hours to confirm your order. No upfront
+                payment needed.
               </p>
             </div>
           </div>
@@ -223,8 +223,8 @@ export default function OrderModal({
                 className="text-xs font-bold uppercase tracking-widest"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Récapitulatif ({cart.length} article{cart.length > 1 ? "s" : ""}
-                )
+                Order Summary ({cart.length} item
+                {cart.length > 1 ? "s" : ""})
               </p>
               {cart.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -247,7 +247,7 @@ export default function OrderModal({
                       className="text-xs"
                       style={{ color: "var(--color-ink3)" }}
                     >
-                      Taille {item.selectedSize} · Qté {item.quantity}
+                      Size {item.selectedSize} · Qty {item.quantity}
                     </p>
                   </div>
                   <span
@@ -292,11 +292,11 @@ export default function OrderModal({
                     className="text-xs font-semibold mb-1 block"
                     style={{ color: "var(--color-ink3)" }}
                   >
-                    Nom complet *
+                    Full Name *
                   </label>
                   <input
                     type="text"
-                    placeholder="Jean Dupont"
+                    placeholder="John Doe"
                     value={form.name}
                     onChange={(e) => update("name", e.target.value)}
                     style={inputStyle(!!errors.name)}
@@ -321,11 +321,11 @@ export default function OrderModal({
                     className="text-xs font-semibold mb-1 block"
                     style={{ color: "var(--color-ink3)" }}
                   >
-                    Téléphone *
+                    Phone *
                   </label>
                   <input
                     type="tel"
-                    placeholder="06 12 34 56 78"
+                    placeholder="+1 (555) 123-4567"
                     value={form.phone}
                     onChange={(e) => update("phone", e.target.value)}
                     style={inputStyle(!!errors.phone)}
@@ -352,11 +352,11 @@ export default function OrderModal({
                   className="text-xs font-semibold mb-1 block"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Email (optionnel)
+                  Email (optional)
                 </label>
                 <input
                   type="email"
-                  placeholder="jean@email.com"
+                  placeholder="john@example.com"
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   style={inputStyle(false)}
@@ -374,7 +374,7 @@ export default function OrderModal({
                   className="text-xs font-semibold mb-1 block"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Date souhaitée *
+                  Preferred Date *
                 </label>
                 <input
                   type="date"
@@ -407,7 +407,7 @@ export default function OrderModal({
                   className="text-xs font-semibold mb-2 block"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Mode de réception
+                  Delivery Method
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["retrait", "livraison"] as const).map((mode) => (
@@ -429,7 +429,7 @@ export default function OrderModal({
                         fontFamily: "var(--font-sans)",
                       }}
                     >
-                      {mode === "retrait" ? "🏪 Retrait" : "🚚 Livraison"}
+                      {mode === "retrait" ? "🏪 Pickup" : "🚚 Delivery"}
                     </button>
                   ))}
                 </div>
@@ -441,11 +441,11 @@ export default function OrderModal({
                     className="text-xs font-semibold mb-1 block"
                     style={{ color: "var(--color-ink3)" }}
                   >
-                    Adresse de livraison *
+                    Shipping Address *
                   </label>
                   <input
                     type="text"
-                    placeholder="12 rue des Lilas, 75011 Paris"
+                    placeholder="123 Main St, Apt 4, New York, NY 10001"
                     value={form.address}
                     onChange={(e) => update("address", e.target.value)}
                     style={inputStyle(!!errors.address)}
@@ -472,11 +472,11 @@ export default function OrderModal({
                   className="text-xs font-semibold mb-1 block"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Message (personnalisation, remarque…)
+                  Message (customization, notes…)
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Ex : Ajouter mon prénom 'Jean' sous le logo"
+                  placeholder='E.g. "Add my name under the logo"'
                   value={form.message}
                   onChange={(e) => update("message", e.target.value)}
                   style={{ ...inputStyle(false), resize: "none" }}
@@ -496,7 +496,7 @@ export default function OrderModal({
                 className="text-xs font-bold uppercase tracking-widest mb-3 text-center"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Envoyer votre demande via
+                Send your request via
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -577,8 +577,8 @@ export default function OrderModal({
               className="text-xs text-center"
               style={{ color: "var(--color-ink4)" }}
             >
-              Votre demande sera traitée dans les 2h. Aucun paiement à l'avance
-              requis.
+              We'll process your request within 2 hours. No upfront payment
+              required.
             </p>
           </div>
         )}

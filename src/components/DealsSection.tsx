@@ -31,21 +31,20 @@ export default function DealsSection({
       <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
         <div>
           <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-            🔥 SUPER DEAL DU JOUR
+            🔥 TODAY'S DROP
           </span>
           <h3 className="text-2xl font-black mt-3 leading-tight">
-            Offre Spéciale Coupe d&apos;Europe
+            Limited-Edition Game Day Gear
           </h3>
           <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-            Profitez de prix réduits exclusifs sur notre collection de t-shirts
-            et sweats de sport IA avant le coup d&apos;envoi du prochain grand
-            match !
+            Score exclusive deals on our AI-powered sports tees & hoodies before
+            the next big matchup kicks off. Once it's gone, it's gone.
           </p>
         </div>
 
         <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
           <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-            L&apos;offre se termine dans :
+            Offer ends in:
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             {countdownString.split(":").map((unit, i) => (
@@ -63,7 +62,7 @@ export default function DealsSection({
           onClick={() => onSelectEventType("sport")}
           className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
         >
-          Parcourir les offres sportives &rarr;
+          Shop Sports Gear &rarr;
         </button>
       </div>
 
@@ -71,15 +70,14 @@ export default function DealsSection({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
           <div>
             <h3 className="text-lg font-black tracking-wide text-gray-900">
-              🛍️ Packs Choice en Promo
+              🛍️ Bundle & Save
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              Complétez votre look et économisez sur les frais d&apos;impression
-              !
+              Complete your look and save on printing costs.
             </p>
           </div>
           <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-            DÈS 5.99$ L&apos;ACCESSOIRE
+            FROM $5.99 PER ITEM
           </span>
         </div>
 
