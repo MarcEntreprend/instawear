@@ -91,10 +91,7 @@ export default function ProductDetailModal({
             )}
             <div className="mt-4 p-3 bg-gray-50/40 border border-gray-200 rounded-xl flex items-center gap-2.5 text-xs text-gray-500">
               <ShieldCheck className="w-4 h-4 text-(--color-accent)" />
-              <p>
-                Garanti sans substances toxiques - Impression certifiée
-                OEKO-TEX®
-              </p>
+              <p>Toxic-free guarantee — OEKO-TEX® certified print</p>
             </div>
           </div>
 
@@ -121,14 +118,14 @@ export default function ProductDetailModal({
                   </span>
                 </div>
                 <span className="text-gray-500">
-                  ({product.ratings.count} évaluations vérifiées)
+                  ({product.ratings.count} verified reviews)
                 </span>
               </div>
 
               <div className="flex items-baseline gap-2 mt-4 p-4 bg-gray-50/60 rounded-xl border border-gray-200">
                 <div>
                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                    Prix de l'événement
+                    Event price
                   </p>
                   <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
                     {product.price.toFixed(2)} {currencySymbol}
@@ -144,7 +141,7 @@ export default function ProductDetailModal({
                       {Math.round(
                         (1 - product.price / product.originalPrice) * 100,
                       )}
-                      % de réduction
+                      % off
                     </p>
                   </div>
                 )}
@@ -152,7 +149,7 @@ export default function ProductDetailModal({
 
               <div className="mt-5 text-xs text-gray-600 leading-relaxed space-y-2 font-sans border-b border-gray-200 pb-5">
                 <p className="font-bold text-gray-500 uppercase tracking-wider">
-                  Fiche technique du vêtement :
+                  Product details :
                 </p>
                 {product.fullDescription ? (
                   <div className="whitespace-pre-line text-gray-600 font-sans space-y-1">
@@ -166,12 +163,12 @@ export default function ProductDetailModal({
               {/* Colors */}
               <div className="mt-4">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                  Couleur :{" "}
+                  Color :{" "}
                   {pickedColor
                     ? product.colorNames?.[
                         product.colors.indexOf(pickedColor)
                       ] || pickedColor
-                    : "Sélectionner"}
+                    : "Select"}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {product.colors.map((c, idx) => {
@@ -194,26 +191,26 @@ export default function ProductDetailModal({
               <div className="mt-4">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Taille : {pickedSize}
+                    Size : {pickedSize}
                   </label>
                   <button
                     onClick={() => setSizeGuideOpen(!sizeGuideOpen)}
                     className="text-[10px] text-(--color-accent) hover:underline flex items-center gap-1"
                   >
-                    <Info className="w-3 h-3" /> Guide des tailles
+                    <Info className="w-3 h-3" /> Size guide
                   </button>
                 </div>
                 {sizeGuideOpen && (
                   <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-[10px] text-gray-500 mb-3">
                     <p className="font-bold text-gray-900">
-                      Mesures de la coupe unisexe (cm) :
+                      Unisex fit measurements (cm) :
                     </p>
                     <table className="w-full text-left mt-1">
                       <thead>
                         <tr>
-                          <th>Taille</th>
-                          <th>Buste</th>
-                          <th>Longueur</th>
+                          <th>Size</th>
+                          <th>Chest</th>
+                          <th>Length</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -264,17 +261,16 @@ export default function ProductDetailModal({
             <div className="mt-6 space-y-3">
               <div className="p-3.5 bg-gray-50/60 rounded-xl border border-gray-200 text-xs text-gray-600 font-sans">
                 <p className="text-(--color-accent) font-black flex items-center gap-1 mb-1">
-                  <Truck className="w-3.5 h-3.5" /> Options de livraison Prime
-                  Choice
+                  <Truck className="w-3.5 h-3.5" /> Prime Choice shipping
                 </p>
                 <p>
-                  Frais d'expédition :{" "}
+                  Shipping :{" "}
                   <span className="text-emerald-600 font-bold">
-                    GRATUIT dès 35$ d'achat !
+                    FREE on orders over $35 !
                   </span>
                 </p>
                 <p className="text-gray-500 mt-1">
-                  Fabriqué sous 24h puis livré chez vous le{" "}
+                  Printed within 24h, delivered by{" "}
                   <strong>{getDeliverEstimateString(4)}</strong>
                 </p>
               </div>
@@ -302,8 +298,8 @@ export default function ProductDetailModal({
                   fill={favorites.includes(product.id) ? "#EF4444" : "none"}
                 />
                 {favorites.includes(product.id)
-                  ? "Retirer des favoris"
-                  : "Ajouter aux favoris"}
+                  ? "Remove from wishlist"
+                  : "Add to wishlist"}
               </button>
 
               {product.isActive ? (
@@ -318,7 +314,7 @@ export default function ProductDetailModal({
                     }
                     className="flex-1 bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
                   >
-                    Ajouter au panier
+                    Add to cart
                   </button>
                   <button
                     onClick={() =>
@@ -330,26 +326,26 @@ export default function ProductDetailModal({
                     }
                     className="flex-1 bg-linear-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
                   >
-                    Acheter maintenant
+                    Buy now
                   </button>
                 </div>
               ) : (
                 <div className="text-center mt-2">
                   <p className="text-xs text-rose-500 font-medium mb-3">
-                    Cet article n'est pas disponible pour le moment.
+                    This item is currently unavailable.
                   </p>
                   <div className="flex gap-2">
                     <button
                       disabled
                       className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase cursor-not-allowed"
                     >
-                      Ajouter au panier
+                      Add to cart
                     </button>
                     <button
                       disabled
                       className="flex-1 bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase cursor-not-allowed"
                     >
-                      Acheter maintenant
+                      Buy now
                     </button>
                   </div>
                 </div>
