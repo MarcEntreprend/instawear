@@ -1,9 +1,9 @@
 // src/components/ToastContainer.tsx
 
 /**
- * ToastContainer – Système de notifications avec file d'attente
- * Supporte les types : success, error, info, warning
- * Icônes, barre de progression, bouton de fermeture
+ * ToastContainer – Notification queue system
+ * Supports types: success, error, info, warning
+ * Icons, progress bar, close button
  */
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { CheckCircle, XCircle, AlertCircle, Info, X } from "lucide-react";
@@ -14,7 +14,7 @@ export interface Toast {
   id: number;
   text: string;
   type: ToastType;
-  duration?: number; // ms, défaut 4500
+  duration?: number; // ms, default 4500
 }
 
 interface ToastContainerProps {
@@ -94,7 +94,7 @@ function ToastItem({
       >
         <X size={14} strokeWidth={2} />
       </button>
-      {/* Barre de progression */}
+      {/* Progress bar */}
       <div
         className="absolute bottom-0 left-0 h-1 rounded-b-xl"
         style={{

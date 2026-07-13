@@ -15,7 +15,7 @@ export default function FaqSection() {
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
           <HelpCircle className="w-6 h-6 text-(--color-accent)" />
-          Foire Aux Questions
+          Frequently Asked Questions
         </h2>
         <div className="flex flex-col gap-3">
           {FAQS.map((faq, idx) => (

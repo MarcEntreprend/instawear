@@ -48,8 +48,8 @@ export default function Footer({
             <span className="font-black text-lg text-gray-900">InstaWear</span>
           </div>
           <p className="text-xs text-gray-500 leading-relaxed font-sans">
-            Le premier marketplace autonome d'impression à la demande calibré
-            pour les événements mondiaux.
+            The first autonomous print‑on‑demand marketplace built for global
+            events.
           </p>
           <div className="flex items-center gap-3">
             <a
@@ -75,13 +75,13 @@ export default function Footer({
 
         <div>
           <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-            Événements
+            Events
           </h4>
           <ul className="space-y-2.5 text-xs text-gray-500">
             {[
-              { label: "Ligue de Champions finals", type: "sport" },
-              { label: "Carnaval de Rio Neon", type: "culture" },
-              { label: "Oktoberfest bavarois", type: "culture" },
+              { label: "Champions League Finals", type: "sport" },
+              { label: "Rio Carnival Neon", type: "culture" },
+              { label: "Bavarian Oktoberfest", type: "culture" },
               { label: "Halloween Glow", type: "saisonnier" },
             ].map((ev) => (
               <li key={ev.type + ev.label}>
@@ -102,14 +102,14 @@ export default function Footer({
         {isAdmin && (
           <div>
             <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-              Créateur Hub
+              Creator Hub
             </h4>
             <ul className="space-y-2.5 text-xs text-gray-500">
               {[
-                "Formulaire de design POD",
-                "Configuration API Printful",
-                "Zéro Budget guide",
-                "Générateur Gemini AI",
+                "POD Design Form",
+                "Printful API Setup",
+                "Zero Budget Guide",
+                "Gemini AI Generator",
               ].map((item) => (
                 <li key={item}>
                   <button
@@ -128,21 +128,21 @@ export default function Footer({
 
         <div className="space-y-3">
           <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">
-            Abonnement Newsletter
+            Newsletter
           </h4>
           <p className="text-xs text-gray-500 leading-relaxed font-sans">
-            Abonnez-vous pour être alerté en amont des collections limitées de
-            chaque futur événement !
+            Subscribe to get early alerts on limited drops for every upcoming
+            event!
           </p>
           {subscribed ? (
             <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded text-xs">
-              ✓ Merci ! Vous êtes officiellement sur la liste d'alerte.
+              ✓ You're in! You'll be the first to know about new drops.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex items-center gap-1">
               <input
                 type="email"
-                placeholder="votre-email@adresse.com"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -169,20 +169,20 @@ export default function Footer({
 
       <div className="section-container mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
         <p>
-          © 2026 InstaWear Inc. Tous droits réservés. Propulsé par Cloud Run,
-          Next.js commerce & l'API Printful.
+          © 2026 InstaWear Inc. All rights reserved. Powered by Cloud Run,
+          Next.js commerce & the Printful API.
         </p>
         <div className="flex gap-4">
           <a href="#" className="hover:underline">
-            Mentions légales
+            Legal Notice
           </a>
           <span>•</span>
           <a href="#" className="hover:underline">
-            Politique d'impression Choice
+            Print Policy
           </a>
           <span>•</span>
           <a href="#" className="hover:underline">
-            CGU Créateurs
+            Creator Terms
           </a>
           <span>•</span>
           {isAdmin && (
@@ -190,7 +190,7 @@ export default function Footer({
               onClick={onOpenAdmin}
               className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
             >
-              Menu Admin (Bêta)
+              Admin Menu (Beta)
             </button>
           )}
         </div>
