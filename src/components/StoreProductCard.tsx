@@ -54,7 +54,7 @@ export default function StoreProductCard({
         )}
         {product.eventType === "discount" && (
           <span className="bg-white text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
-            Promotions{" "}
+            Deals{" "}
             <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
           </span>
         )}
@@ -76,10 +76,10 @@ export default function StoreProductCard({
         <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
           <span className="bg-white/95 dark:bg-gray-900/90 dark:text-gray-100 text-gray-900 font-bold text-xs px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5 text-(--color-accent)" />
-            Aperçu rapide
+            Quick view
           </span>
         </div>
-        {/* Pilule couleurs */}
+        {/* Color dots */}
         <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
           {product.colors.length <= 3 ? (
             product.colors.map((c, idx) => (
@@ -102,7 +102,7 @@ export default function StoreProductCard({
               ))}
               <span
                 className="color-wheel"
-                title={`+${product.colors.length - 2} couleurs`}
+                title={`+${product.colors.length - 2} colors`}
               />
             </>
           )}
@@ -125,9 +125,7 @@ export default function StoreProductCard({
             opacity: product.isActive ? 1 : 0.4,
             cursor: product.isActive ? "pointer" : "not-allowed",
           }}
-          aria-label={
-            isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
-          }
+          aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
             size={14}
@@ -162,7 +160,7 @@ export default function StoreProductCard({
             </span>
             <span className="text-[10px] text-gray-600">|</span>
             <span className="text-[10px] text-(--color-accent) font-sans tracking-wide">
-              {product.boughtLastMonth}+ achetés
+              {product.boughtLastMonth}+ bought
             </span>
           </div>
 
@@ -171,8 +169,7 @@ export default function StoreProductCard({
               className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
             >
               <span className="font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-rose-400 shrink-0" /> Fin de
-                l'offre
+                <Clock className="w-3 h-3 text-rose-400 shrink-0" /> Offer ends
               </span>
               <span className="font-mono font-bold text-rose-600">
                 {countdownStr}
@@ -197,17 +194,15 @@ export default function StoreProductCard({
           {showDeliveryInfo && getDeliverEstimateString && (
             <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
               <p className="text-(--color-accent) font-semibold flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Rejoindre Choice
+                <CheckCircle className="w-3 h-3" /> Join the Choice program
               </p>
               <p>
-                Livraison estimée pour{" "}
+                Estimated delivery by{" "}
                 <span className="text-gray-900 font-semibold">
                   {getDeliverEstimateString(4)}
                 </span>
               </p>
-              <p className="text-gray-500">
-                Livraison suivie et sécurisée depuis l'UE
-              </p>
+              <p className="text-gray-500">Tracked & secure shipping</p>
             </div>
           )}
         </div>
@@ -222,22 +217,22 @@ export default function StoreProductCard({
             }}
             className="confetti-button w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
             id={`btn-add-cart-list-${product.id}`}
-            // data-confetti-text="Ajouté !"
+            // data-confetti-text="Added!"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
-            Ajouter au panier
+            Add to cart
           </button>
         ) : (
           <div className="text-center mt-1">
             <p className="text-[10px] text-rose-500 font-medium mb-1">
-              Cet article n'est pas disponible pour le moment.
+              This item is currently unavailable.
             </p>
             <button
               disabled
               className="w-full bg-gray-200 text-gray-400 font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
-              Ajouter au panier
+              Add to cart
             </button>
           </div>
         )}
