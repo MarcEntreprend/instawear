@@ -1,4 +1,4 @@
-// src/App.tsx — frontstore
+//src/App.tsx — frontstore
 
 /**
  * @license

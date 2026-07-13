@@ -1,4 +1,4 @@
-// src/components/AccountPage.tsx
+//src/components/AccountPage.tsx
 
 /**
  * Unified customer account – orders, favorites, support, profile.
