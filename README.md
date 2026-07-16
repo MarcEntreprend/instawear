@@ -206,70 +206,89 @@ The test: Every changed line should trace directly to my request.
 ## 4. Goal-Driven Execution
 ```
 
-## 🐛 Bugs
+## 📊 Checklist mise à jour
 
-### Panier
+### 🐛 Bugs
 
-- [0] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
+#### Panier
+
+- [ ] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
 - [x] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
-- [0] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
+- [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
 - [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
 - [x] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
 
-### Header
+#### Header
 
 - [x] **Logo / nom InstaWear** : le clic doit rafraîchir la page (pas seulement rester sur place)
 - [x] **Barre de recherche** : le clic sur un résultat doit rediriger vers le produit
 
-### Order Page
+#### Order Page
 
 - [x] **Bouton "Envoyer à Printful"** : ajouter une animation de chargement (spinner) pendant l'envoi
 - [x] **Changement de statut "En production"** : doit avoir la même action que le bouton "Envoyer à Printful" du modal
-- [*] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
+- [ ] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
 
-### Notifications
+#### Notifications
 
-- [*] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
-- [x] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues, OU le nombre d item dans cart (comme WhatsApp)
+- [x] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
+- [x] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues, OU le nombre d'item dans cart (comme WhatsApp)
 
-### Sidebar (panier)
+#### Sidebar (panier)
 
 - [x] **Fermeture au clic extérieur** : fermer le drawer quand on clique en dehors
 
-### Offline / Erreurs
+#### Offline / Erreurs
 
 - [x] **Fallback réseau** : message générique "Oups ! Une erreur inattendue…" quand il n'y a pas d'internet
 - [x] **Fallback images** : image par défaut quand le chargement échoue
 - [x] **Placeholder barre de recherche** : texte générique quand aucun produit n'est chargé
 
-### Stripe Checkout
+#### Stripe Checkout
 
 - [x] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
-- [x] **simuler email** : qd purchase confirmé par stripe
+- [x] **Simuler email** : qd purchase confirmé par stripe
 
 ---
 
-## ✨ Améliorations
+### ✨ Améliorations
 
-### UX / UI
+#### UX / UI
 
 - [ ] **Animations réactives** : standardiser les effets hover/click sur tous les boutons (pills, liens, CTA)
 - [ ] **Icône animée** : point/badge animé dans le menu latéral admin quand une action est en cours
+- [ ] **Popups cachent boutons** : les popups peuvent cacher les boutons d'achats / paiements
 
-### Email
+#### Email
 
-- [ ] **Remplacer Telegram par email** : envoyer la confirmation de commande par email (pas seulement Telegram)
+- [x] **Remplacer Telegram par email** : envoyer la confirmation de commande par email (pas seulement Telegram)
 
-### Produits
+#### Produits
 
 - [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
 - [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
 
-### Footer
+#### Footer
 
 - [ ] **Newsletter** : repenser l'intérêt pour le client (offres, bonus, exclusivités)
 - [ ] **Liens** : vérifier et compléter les liens (Mentions légales, CGU, etc.)
 
-### Interface utilisateur
+#### Interface utilisateur
 
-- [ ] **Espace client** : permettre aux utilisateurs de voir leurs commandes, suivis, etc.
+- [x] **Espace client** : permettre aux utilisateurs de voir leurs commandes, suivis, etc.
+
+#### Email / post domain
+
+- [ ] **Resend : aligner les URLs** : les URLs dans les emails doivent correspondre au domaine d'envoi (`instawear.vercel.app`)
+- [ ] **Resend : héberger les images** : les images doivent être sur le même domaine (pas `files.cdn.printful.com`)
+- [ ] **Resend : infos business** : mettre à jour l'adresse postale (Doral, FL) dans le pied de page email
+
+---
+
+### 📊 Résumé
+
+| Catégorie     | Restant   |
+| ------------- | --------- |
+| Bugs          | 3 (`[ ]`) |
+| Améliorations | 9 (`[ ]`) |
+| **Total**     | **12**    |
