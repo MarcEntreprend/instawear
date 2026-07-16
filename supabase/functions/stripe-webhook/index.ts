@@ -1,4 +1,5 @@
 // supabase/functions/stripe-webhook/index.ts
+
 // @ts-nocheck
 // Webhook Stripe – met à jour le statut, envoie Telegram + Email, puis Printful
 
@@ -11,9 +12,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Helpers (versions Deno, pas de window) ──────────────────────────
-
-function sendTelegramServer(
+// ── Helper Telegram (API Bot) ───────────────────────────────────────
+async function sendTelegramServer(
   orderId: string,
   name: string,
   phone: string,
@@ -26,6 +26,13 @@ function sendTelegramServer(
   total: number,
   currency: string,
 ) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID")!;
+  if (!token || !chatId) {
+    console.error("Telegram secrets missing");
+    return;
+  }
+
   const itemsStr = items
     .map(
       (item: any) =>
@@ -33,7 +40,7 @@ function sendTelegramServer(
     )
     .join("\n");
 
-  const msg =
+  const text =
     `🛒 *INSTAWEAR ORDER*\n\n` +
     `🔑 *Order #:* ${orderId}\n\n` +
     `*Customer:* ${name}\n` +
@@ -43,10 +50,27 @@ function sendTelegramServer(
     `\n📦 *Items:*\n${itemsStr}\n\n` +
     `💰 *Total:* ${total.toFixed(2)} ${currency}`;
 
-  const url = `https://t.me/marcrubenmacean?text=${encodeURIComponent(msg)}`;
-  fetch(url).catch(() => {});
+  const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+  const tgBody = JSON.stringify({
+    chat_id: chatId,
+    text,
+    parse_mode: "Markdown",
+  });
+
+  try {
+    const tgRes = await fetch(tgUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: tgBody,
+    });
+    const tgResult = await tgRes.text();
+    console.log("Telegram send result:", tgRes.status, tgResult);
+  } catch (err) {
+    console.error("Telegram fetch error:", err);
+  }
 }
 
+// ── Helper Email (Resend) ────────────────────────────────────────────
 function sendEmailServer(
   orderId: string,
   name: string,
@@ -185,8 +209,8 @@ export default {
             const currencySymbol =
               order.shipping_address_country === "US" ? "$" : "€";
 
-            // 1. Telegram
-            sendTelegramServer(
+            // 1. Telegram (API Bot)
+            await sendTelegramServer(
               orderId,
               order.client_name || "Client",
               order.shipping_address_phone || "",

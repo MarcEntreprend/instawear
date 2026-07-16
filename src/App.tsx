@@ -532,7 +532,14 @@ export default function App() {
             return;
           }
 
-          if (order.status !== "paid" && order.status !== "pending") {
+          const successStatuses = [
+            "paid",
+            "pending",
+            "in_production",
+            "shipped",
+            "delivered",
+          ];
+          if (!successStatuses.includes(order.status)) {
             showToast(
               "Payment not confirmed. Please contact support.",
               "error",
