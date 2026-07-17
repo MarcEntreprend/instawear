@@ -1,29 +1,44 @@
-//src/components/AccountPage.tsx
-
-/**
- * Unified customer account – orders, favorites, support, profile.
- * Accessible from the header for logged-in users.
- */
+// src/components/AccountPage.tsx
+//
+// Redesign UX — visuel uniquement, zéro modification de logique métier.
+// Layout: sidebar identité (desktop) + bottom-nav (mobile), contenu scrollable.
+// Dark mode: 100% automatique via les variables CSS du design system.
+// Aucune librairie ajoutée — React 19 + Tailwind v4 + CSS vars existants.
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  X,
   Package,
   Heart,
   MessageSquare,
   User,
   ArrowLeft,
-  ShoppingBag,
   Eye,
   Plus,
   Loader2,
   Send,
+  MapPin,
+  ChevronRight,
+  CheckCircle2,
+  Clock,
+  Truck,
+  Box,
+  XCircle,
+  Trash2,
+  Star,
+  ShoppingBag,
+  Home,
+  Edit3,
+  Copy,
+  ExternalLink,
+  AlertCircle,
+  Inbox,
+  LogOut,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi, interactionApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
-import type { Order, Favourite } from "../admin/adminTypes";
+import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
@@ -40,32 +55,108 @@ interface Interaction {
   lastMessage?: string;
 }
 
-// ─── Reusable style ──────────────────────────────────────────────────
-const tabBtn = (active: boolean): React.CSSProperties => ({
-  background: "none",
-  border: "none",
-  padding: "12px 18px",
-  cursor: "pointer",
-  fontSize: 13,
-  fontFamily: "var(--font-body)",
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  color: active ? "var(--color-accent)" : "var(--color-ink3)",
-  borderBottom: active
-    ? "2px solid var(--color-accent)"
-    : "2px solid transparent",
-  fontWeight: active ? 700 : 500,
-  whiteSpace: "nowrap",
-});
+type TabKey = "orders" | "favorites" | "cart" | "support" | "profile";
 
+// ─── Status config ────────────────────────────────────────────────────
+const ORDER_STATUS: Record<
+  string,
+  {
+    label: string;
+    icon: React.ReactNode;
+    color: string;
+    bg: string;
+    step: number;
+  }
+> = {
+  pending: {
+    label: "Pending",
+    icon: <Clock size={12} strokeWidth={2} />,
+    color: "#d97706",
+    bg: "#fef3c7",
+    step: 0,
+  },
+  paid: {
+    label: "Paid",
+    icon: <CheckCircle2 size={12} strokeWidth={2} />,
+    color: "#2563eb",
+    bg: "#dbeafe",
+    step: 1,
+  },
+  in_production: {
+    label: "In Production",
+    icon: <Box size={12} strokeWidth={2} />,
+    color: "#7c3aed",
+    bg: "#ede9fe",
+    step: 2,
+  },
+  shipped: {
+    label: "Shipped",
+    icon: <Truck size={12} strokeWidth={2} />,
+    color: "#059669",
+    bg: "#d1fae5",
+    step: 3,
+  },
+  delivered: {
+    label: "Delivered",
+    icon: <CheckCircle2 size={12} strokeWidth={2} />,
+    color: "#166534",
+    bg: "#dcfce7",
+    step: 4,
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: <XCircle size={12} strokeWidth={2} />,
+    color: "#991b1b",
+    bg: "#fee2e2",
+    step: -1,
+  },
+};
+
+const STATUS_STEPS = [
+  "Pending",
+  "Paid",
+  "In Production",
+  "Shipped",
+  "Delivered",
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+function initials(email: string, name?: string): string {
+  if (name && name.trim()) {
+    const parts = name.trim().split(" ");
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : parts[0].slice(0, 2).toUpperCase();
+  }
+  return email.slice(0, 2).toUpperCase();
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ─── Main component ───────────────────────────────────────────────────
 export default function AccountPage({
   allCustomers,
   onClose,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
 
-  // ── Auth & customer id ────────────────────────────────────────────
+  // ── Auth & customer ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -77,16 +168,15 @@ export default function AccountPage({
       if (cust) {
         setCustomerId(cust.id);
         setCustomerEmail(user.email);
+        setCustomerName(user.user_metadata?.full_name || "");
       }
     });
   }, [allCustomers]);
 
-  // ── Tabs ────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<
-    "orders" | "favorites" | "support" | "profile"
-  >("orders");
+  // ── Navigation ───────────────────────────────────────────────────
+  const [tab, setTab] = useState<TabKey>("orders");
 
-  // ── Data loaded on demand ──────────────────────────────────────
+  // ── Data ─────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [favorites, setFavorites] = useState<Favourite[]>([]);
@@ -94,12 +184,63 @@ export default function AccountPage({
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [loadingInter, setLoadingInter] = useState(false);
 
+  // ── Cart ─────────────────────────────────────────────────────────
+  const [cart, setCart] = useState<AdminCartItem[]>([]);
+  const [loadingCart, setLoadingCart] = useState(false);
+
+  const fetchCart = useCallback(async () => {
+    if (!customerId) return;
+    setLoadingCart(true);
+    try {
+      const data = await customerApi.getCart(customerId);
+      setCart(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCart(false);
+    }
+  }, [customerId]);
+
+  const handleRemoveCartItem = async (itemId: string) => {
+    if (!customerId) return;
+    const updated = cart.filter((item) => item.id !== itemId);
+    await customerApi.clearCart(customerId);
+    for (const item of updated) {
+      await customerApi.addCartItem(customerId, {
+        productId: item.productId,
+        selectedColor: item.selectedColor,
+        selectedSize: item.selectedSize,
+        quantity: item.quantity,
+      });
+    }
+    setCart(updated);
+  };
+
+  const handleClearCart = async () => {
+    if (!customerId) return;
+    await customerApi.clearCart(customerId);
+    setCart([]);
+  };
+
+  const handleRemoveFavourite = async (productId: string) => {
+    if (!customerId) return;
+    await customerApi.removeFavourite(customerId, productId);
+    setFavorites((prev) => prev.filter((f) => f.productId !== productId));
+  };
+
+  const handleRemoveAllFavourites = async () => {
+    if (!customerId) return;
+    for (const fav of favorites) {
+      await customerApi.removeFavourite(customerId, fav.productId);
+    }
+    setFavorites([]);
+  };
+
   const fetchOrders = useCallback(async () => {
     if (!customerId) return;
     setLoadingOrders(true);
     try {
-      const data = await customerApi.getOrders(customerId);
-      setOrders(data);
+      setOrders(await customerApi.getOrders(customerId));
     } catch (e) {
       console.error(e);
     } finally {
@@ -111,8 +252,7 @@ export default function AccountPage({
     if (!customerId) return;
     setLoadingFav(true);
     try {
-      const data = await customerApi.getFavourites(customerId);
-      setFavorites(data);
+      setFavorites(await customerApi.getFavourites(customerId));
     } catch (e) {
       console.error(e);
     } finally {
@@ -124,8 +264,7 @@ export default function AccountPage({
     if (!customerEmail) return;
     setLoadingInter(true);
     try {
-      const data = await interactionApi.list({ search: customerEmail });
-      setInteractions(data);
+      setInteractions(await interactionApi.list({ search: customerEmail }));
     } catch (e) {
       console.error(e);
     } finally {
@@ -133,114 +272,416 @@ export default function AccountPage({
     }
   }, [customerEmail]);
 
+  // Charge les données
   useEffect(() => {
     if (tab === "orders" && orders.length === 0) fetchOrders();
     if (tab === "favorites" && favorites.length === 0) fetchFavorites();
     if (tab === "support" && interactions.length === 0) fetchInteractions();
-  }, [tab, fetchOrders, fetchFavorites, fetchInteractions]);
+    if (tab === "cart" && cart.length === 0) fetchCart();
+  }, [tab, fetchOrders, fetchFavorites, fetchInteractions, fetchCart]);
 
-  // ── Main render ───────────────────────────────────────────────
+  // ── Stats (computed) ──────────────────────────────────────────────
+  const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
+  const memberSince =
+    orders.length > 0
+      ? new Date(
+          Math.min(...orders.map((o) => new Date(o.createdAt).getTime())),
+        ).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      : "—";
+
+  // ── Tab labels ────────────────────────────────────────────────────
+  const NAV: {
+    key: TabKey;
+    label: string;
+    icon: React.ReactNode;
+    badge?: number;
+  }[] = [
+    {
+      key: "orders",
+      label: "Orders",
+      icon: <Package size={18} strokeWidth={1.75} />,
+      badge:
+        orders.filter(
+          (o) => o.status !== "delivered" && o.status !== "cancelled",
+        ).length || undefined,
+    },
+    {
+      key: "favorites",
+      label: "Saved",
+      icon: <Heart size={18} strokeWidth={1.75} />,
+      badge: favorites.length || undefined,
+    },
+    {
+      key: "cart",
+      label: "Cart",
+      icon: <ShoppingBag size={18} strokeWidth={1.75} />,
+      badge: cart.length || undefined,
+    },
+    {
+      key: "support",
+      label: "Support",
+      icon: <MessageSquare size={18} strokeWidth={1.75} />,
+      badge:
+        interactions.filter((i) => i.status === "open").length || undefined,
+    },
+    {
+      key: "profile",
+      label: "Profile",
+      icon: <User size={18} strokeWidth={1.75} />,
+    },
+  ];
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col"
       style={{ background: "var(--color-bg)" }}
     >
-      {/* Header */}
+      {/* ── Top bar (mobile only) ─────────────────────────────────── */}
       <div
-        className="flex items-center justify-between p-5 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+        className="flex items-center justify-between px-4 py-3 sm:hidden"
+        style={{
+          borderBottom: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+        }}
       >
         <button
           onClick={onClose}
-          className="flex items-center gap-2 text-(--color-ink3) hover:text-(--color-ink) transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors"
+          style={{ color: "var(--color-ink3)" }}
         >
           <ArrowLeft size={18} strokeWidth={2} />
-          <span className="font-semibold text-sm">Back to store</span>
         </button>
-        <h2
-          className="font-black text-lg"
+        <span
+          className="text-[15px] font-bold"
           style={{ color: "var(--color-ink)" }}
         >
           My Account
-        </h2>
-        <div className="w-16" /> {/* spacer */}
+        </span>
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
+          style={{ background: "var(--color-accent)" }}
+        >
+          {customerId ? initials(customerEmail, customerName) : "?"}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        className="flex gap-1 px-5 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+      {/* ── Main layout ──────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Sidebar (desktop ≥ sm) ────────────────────────────── */}
+        <aside
+          className="hidden sm:flex w-64 flex-col shrink-0 overflow-y-auto"
+          style={{
+            borderRight: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+          }}
+        >
+          {/* Identity card */}
+          <div className="p-6 pb-5">
+            <button
+              onClick={onClose}
+              className="mb-5 flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
+              style={{ color: "var(--color-ink4)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "var(--color-ink2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--color-ink4)")
+              }
+            >
+              <ArrowLeft size={13} strokeWidth={2} /> Back to store
+            </button>
+
+            {/* Avatar */}
+            <div className="mb-4 flex flex-col items-start gap-3">
+              <div
+                className="relative flex h-14 w-14 items-center justify-center rounded-[18px] text-xl font-black text-white"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                {customerId ? initials(customerEmail, customerName) : "?"}
+                {/* Online dot */}
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2"
+                  style={{
+                    background: "var(--color-emerald)",
+                    borderColor: "var(--color-surface)",
+                  }}
+                />
+              </div>
+              <div className="min-w-0">
+                <p
+                  className="truncate text-[15px] font-bold"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {customerName || "Guest"}
+                </p>
+                <p
+                  className="truncate text-[12px]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  {customerEmail}
+                </p>
+              </div>
+            </div>
+
+            {/* Stats mini */}
+            <div
+              className="grid grid-cols-2 gap-2 rounded-[14px] p-3"
+              style={{ background: "var(--color-surface2)" }}
+            >
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Orders
+                </p>
+                <p
+                  className="text-[18px] font-black tabular-nums"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {orders.length}
+                </p>
+              </div>
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Saved
+                </p>
+                <p
+                  className="text-[18px] font-black tabular-nums"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {favorites.length}
+                </p>
+              </div>
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Total spent
+                </p>
+                <p
+                  className="text-[14px] font-bold tabular-nums"
+                  style={{ color: "var(--color-accent)" }}
+                >
+                  {currencySymbol}
+                  {totalSpent.toFixed(0)}
+                </p>
+              </div>
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Member since
+                </p>
+                <p
+                  className="text-[12px] font-semibold"
+                  style={{ color: "var(--color-ink3)" }}
+                >
+                  {memberSince}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <nav className="flex flex-col gap-1 px-3 pb-4 flex-1">
+            {NAV.map(({ key, label, icon, badge }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all duration-150 text-left"
+                style={{
+                  background:
+                    tab === key ? "var(--color-accent-bg)" : "transparent",
+                  color:
+                    tab === key ? "var(--color-accent)" : "var(--color-ink2)",
+                }}
+                onMouseEnter={(e) => {
+                  if (tab !== key)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "var(--color-surface2)";
+                }}
+                onMouseLeave={(e) => {
+                  if (tab !== key)
+                    (e.currentTarget as HTMLElement).style.background =
+                      "transparent";
+                }}
+              >
+                <span
+                  style={{
+                    color:
+                      tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+                  }}
+                >
+                  {icon}
+                </span>
+                <span className="flex-1">{label}</span>
+                {badge !== undefined && (
+                  <span
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                    style={{
+                      background:
+                        tab === key
+                          ? "var(--color-accent)"
+                          : "var(--color-surface2)",
+                      color: tab === key ? "white" : "var(--color-ink3)",
+                    }}
+                  >
+                    {badge}
+                  </span>
+                )}
+                {tab === key && (
+                  <ChevronRight
+                    size={14}
+                    strokeWidth={2}
+                    style={{ color: "var(--color-accent)" }}
+                  />
+                )}
+              </button>
+            ))}
+          </nav>
+
+          {/* Sign out */}
+          <div className="p-4 pt-0">
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                onClose();
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
+              style={{ color: "var(--color-ink4)" }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background =
+                  "var(--color-surface2)";
+                (e.currentTarget as HTMLElement).style.color =
+                  "var(--color-ink2)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background =
+                  "transparent";
+                (e.currentTarget as HTMLElement).style.color =
+                  "var(--color-ink4)";
+              }}
+            >
+              <LogOut size={15} strokeWidth={1.75} /> Sign out
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Content ───────────────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
+          <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+            {/* Section heading */}
+            <div className="mb-5 hidden sm:flex items-center justify-between">
+              <h2
+                className="text-[20px] font-bold tracking-tight"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {NAV.find((n) => n.key === tab)?.label}
+              </h2>
+            </div>
+
+            {tab === "orders" && (
+              <OrdersTab
+                orders={orders}
+                loading={loadingOrders}
+                currencySymbol={currencySymbol}
+              />
+            )}
+            {tab === "favorites" && (
+              <FavoritesTab
+                favorites={favorites}
+                loading={loadingFav}
+                currencySymbol={currencySymbol}
+                onRemove={handleRemoveFavourite}
+                onRemoveAll={handleRemoveAllFavourites}
+                onViewProduct={(productId) => {
+                  // Vous pouvez connecter ici l'ouverture de la modale produit
+                  console.log("View product", productId);
+                }}
+              />
+            )}
+            {tab === "cart" && (
+              <CartTab
+                items={cart}
+                loading={loadingCart}
+                currencySymbol={currencySymbol}
+                onRemove={handleRemoveCartItem}
+                onClear={handleClearCart}
+              />
+            )}
+            {tab === "support" && (
+              <SupportTab
+                interactions={interactions}
+                loading={loadingInter}
+                customerEmail={customerEmail}
+                customerName={customerName}
+              />
+            )}
+            {tab === "profile" && (
+              <ProfileTab
+                customerEmail={customerEmail}
+                customerName={customerName}
+                orders={orders}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* ── Bottom nav (mobile) ─────────────────────────────────── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-10 flex sm:hidden"
+        style={{
+          background: "var(--color-surface)",
+          borderTop: "1px solid var(--color-border)",
+          boxShadow: "var(--shadow-lg)",
+        }}
       >
-        {[
-          {
-            key: "orders" as const,
-            label: "Orders",
-            icon: <Package size={14} />,
-          },
-          {
-            key: "favorites" as const,
-            label: "Favorites",
-            icon: <Heart size={14} />,
-          },
-          {
-            key: "support" as const,
-            label: "Support",
-            icon: <MessageSquare size={14} />,
-          },
-          {
-            key: "profile" as const,
-            label: "Profile",
-            icon: <User size={14} />,
-          },
-        ].map(({ key, label, icon }) => (
+        {NAV.map(({ key, label, icon, badge }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            style={tabBtn(tab === key)}
+            className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors"
+            style={{
+              color: tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+            }}
           >
-            {icon}
-            {label}
+            <span className="relative">
+              {icon}
+              {badge !== undefined && (
+                <span
+                  className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
+                  style={{ background: "var(--color-accent)" }}
+                >
+                  {badge}
+                </span>
+              )}
+            </span>
+            <span className="text-[10px] font-semibold">{label}</span>
+            {tab === key && (
+              <span
+                className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                style={{ background: "var(--color-accent)" }}
+              />
+            )}
           </button>
         ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-5">
-        {tab === "orders" && (
-          <OrdersTab
-            orders={orders}
-            loading={loadingOrders}
-            currencySymbol={currencySymbol}
-          />
-        )}
-        {tab === "favorites" && (
-          <FavoritesTab
-            favorites={favorites}
-            loading={loadingFav}
-            currencySymbol={currencySymbol}
-          />
-        )}
-        {tab === "support" && (
-          <SupportTab
-            interactions={interactions}
-            loading={loadingInter}
-            customerEmail={customerEmail}
-            customerName={customerName}
-          />
-        )}
-        {tab === "profile" && (
-          <ProfileTab
-            customerEmail={customerEmail}
-            customerName={customerName}
-          />
-        )}
-      </div>
+      </nav>
     </div>
   );
 }
 
-// ─── Tab sub-components ────────────────────────────────────────────────
-
+// ─── OrdersTab ────────────────────────────────────────────────────────
 function OrdersTab({
   orders,
   loading,
@@ -251,8 +692,8 @@ function OrdersTab({
   currencySymbol: string;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  if (loading) return <Loader />;
-  if (orders.length === 0) return <Empty text="No orders yet." />;
+
+  if (loading) return <SkeletonList />;
   if (selectedOrder)
     return (
       <OrderDetail
@@ -261,46 +702,109 @@ function OrdersTab({
         onBack={() => setSelectedOrder(null)}
       />
     );
+  if (orders.length === 0)
+    return (
+      <EmptyState
+        icon={<ShoppingBag size={28} strokeWidth={1.5} />}
+        title="No orders yet"
+        sub="Your order history will appear here after your first purchase."
+      />
+    );
 
   return (
-    <div className="flex flex-col gap-2">
-      {orders.map((order) => (
-        <button
-          key={order.id}
-          onClick={() => setSelectedOrder(order)}
-          className="w-full flex items-center justify-between p-4 rounded-xl text-left transition-colors hover:bg-(--color-surface2)"
-          style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
-          <div>
-            <p
-              className="font-bold text-sm"
-              style={{ color: "var(--color-ink)" }}
-            >
-              {order.id}
-            </p>
-            <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
-              {new Date(order.createdAt).toLocaleDateString("en-US")}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <span
-              className="font-bold text-sm"
-              style={{ color: "var(--color-ink)" }}
-            >
-              {order.totalAmount.toFixed(2)} {currencySymbol}
-            </span>
-            <StatusBadge status={order.status} />
-            <Eye size={14} style={{ color: "var(--color-ink4)" }} />
-          </div>
-        </button>
-      ))}
+    <div className="flex flex-col gap-3">
+      {orders.map((order) => {
+        const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
+        const isActive =
+          order.status !== "delivered" && order.status !== "cancelled";
+        return (
+          <button
+            key={order.id}
+            onClick={() => setSelectedOrder(order)}
+            className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+            style={{
+              background: "var(--color-surface)",
+              borderColor: isActive
+                ? "var(--color-accent)" + "40"
+                : "var(--color-border)",
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p
+                    className="truncate text-[13px] font-bold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {order.id}
+                  </p>
+                  {isActive && (
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ background: "var(--color-accent)" }}
+                    />
+                  )}
+                </div>
+                <p
+                  className="text-[12px]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
+                  item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span
+                  className="text-[15px] font-black tabular-nums"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {currencySymbol}
+                  {order.totalAmount.toFixed(2)}
+                </span>
+                <StatusPill status={order.status} />
+              </div>
+            </div>
+
+            {/* Item thumbnails */}
+            {order.items && order.items.length > 0 && (
+              <div className="mt-3 flex items-center gap-1.5">
+                {order.items.slice(0, 4).map((item, i) => (
+                  <img
+                    key={i}
+                    src={item.productImage || PLACEHOLDER_IMG}
+                    alt={item.productTitle || "item"}
+                    className="h-9 w-9 rounded-lg object-cover"
+                    style={{ border: "1px solid var(--color-border)" }}
+                  />
+                ))}
+                {order.items.length > 4 && (
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
+                    style={{
+                      background: "var(--color-surface2)",
+                      color: "var(--color-ink3)",
+                      border: "1px solid var(--color-border)",
+                    }}
+                  >
+                    +{order.items.length - 4}
+                  </div>
+                )}
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.75}
+                  className="ml-auto"
+                  style={{ color: "var(--color-ink4)" }}
+                />
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+// ─── OrderDetail ──────────────────────────────────────────────────────
 function OrderDetail({
   order,
   currencySymbol,
@@ -310,151 +814,502 @@ function OrderDetail({
   currencySymbol: string;
   onBack: () => void;
 }) {
+  const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 animate-fade-up">
       <button
         onClick={onBack}
-        className="flex items-center gap-1 text-sm font-semibold text-(--color-ink3) hover:text-(--color-ink)"
+        className="flex items-center gap-1.5 text-[13px] font-semibold self-start"
+        style={{ color: "var(--color-ink3)" }}
       >
-        <ArrowLeft size={14} /> Back
+        <ArrowLeft size={14} strokeWidth={2} /> All Orders
       </button>
+
+      {/* Status timeline */}
+      {order.status !== "cancelled" && (
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <p
+              className="text-[12px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              Order Status
+            </p>
+            <StatusPill status={order.status} />
+          </div>
+          <div className="flex items-center gap-0">
+            {STATUS_STEPS.map((step, i) => {
+              const reached = st.step >= i;
+              const current = st.step === i;
+              return (
+                <React.Fragment key={step}>
+                  <div className="flex flex-col items-center gap-1">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
+                      style={{
+                        background: reached
+                          ? "var(--color-accent)"
+                          : "var(--color-surface2)",
+                        border: current
+                          ? "2px solid var(--color-accent)"
+                          : `2px solid ${reached ? "var(--color-accent)" : "var(--color-border)"}`,
+                        boxShadow: current
+                          ? "0 0 0 3px var(--color-accent-bg)"
+                          : "none",
+                      }}
+                    >
+                      {reached ? (
+                        <CheckCircle2
+                          size={13}
+                          strokeWidth={2.5}
+                          style={{ color: "white" }}
+                        />
+                      ) : (
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: "var(--color-border)" }}
+                        />
+                      )}
+                    </div>
+                    <span
+                      className="text-[9px] font-semibold text-center leading-tight"
+                      style={{
+                        color: reached
+                          ? "var(--color-ink2)"
+                          : "var(--color-ink4)",
+                        maxWidth: 44,
+                      }}
+                    >
+                      {step}
+                    </span>
+                  </div>
+                  {i < STATUS_STEPS.length - 1 && (
+                    <div
+                      className="mx-1 h-0.5 flex-1 rounded-full transition-all duration-500"
+                      style={{
+                        background:
+                          st.step > i
+                            ? "var(--color-accent)"
+                            : "var(--color-border)",
+                      }}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Order info */}
       <div
-        className="p-5 rounded-2xl"
+        className="rounded-2xl p-4"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
         }}
       >
-        <p
-          className="font-black text-lg mb-2"
-          style={{ color: "var(--color-ink)" }}
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              Order ID
+            </p>
+            <p
+              className="text-[15px] font-black"
+              style={{ color: "var(--color-ink)", fontFamily: "monospace" }}
+            >
+              {order.id}
+            </p>
+          </div>
+          <p className="text-[12px]" style={{ color: "var(--color-ink4)" }}>
+            {formatDate(order.createdAt)}
+          </p>
+        </div>
+
+        {/* Items */}
+        <div
+          className="flex flex-col gap-3 pt-3"
+          style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          Order {order.id}
-        </p>
-        <StatusBadge status={order.status} />
-        <div className="mt-4 flex flex-col gap-2">
-          {order.items.map((item) => (
+          {order.items?.map((item) => (
             <div key={item.id} className="flex items-center gap-3">
               <img
                 src={item.productImage || PLACEHOLDER_IMG}
-                className="w-12 h-12 rounded-lg object-cover"
+                alt={item.productTitle || "item"}
+                className="h-14 w-14 shrink-0 rounded-[10px] object-cover"
+                style={{ border: "1px solid var(--color-border)" }}
               />
               <div className="flex-1 min-w-0">
                 <p
-                  className="text-sm font-semibold truncate"
+                  className="truncate text-[13px] font-semibold"
                   style={{ color: "var(--color-ink)" }}
                 >
                   {item.productTitle}
                 </p>
-                <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
+                <p
+                  className="text-[11.5px] mt-0.5"
+                  style={{ color: "var(--color-ink4)" }}
+                >
                   Size {item.selectedSize} · Qty {item.quantity}
                 </p>
               </div>
               <span
-                className="text-sm font-bold"
+                className="text-[13px] font-bold tabular-nums shrink-0"
                 style={{ color: "var(--color-ink)" }}
               >
-                {(item.unitPrice * item.quantity).toFixed(2)} {currencySymbol}
+                {currencySymbol}
+                {(item.unitPrice * item.quantity).toFixed(2)}
               </span>
             </div>
           ))}
         </div>
-        <hr className="my-3" style={{ borderColor: "var(--color-border)" }} />
+
+        {/* Totals */}
         <div
-          className="flex justify-between text-sm font-bold"
-          style={{ color: "var(--color-ink)" }}
+          className="mt-4 flex flex-col gap-1.5 pt-3"
+          style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          <span>Total</span>
-          <span>
-            {order.totalAmount.toFixed(2)} {currencySymbol}
-          </span>
+          {order.shippingCost != null && (
+            <div
+              className="flex justify-between text-[12.5px]"
+              style={{ color: "var(--color-ink3)" }}
+            >
+              <span>Shipping</span>
+              <span>
+                {order.shippingCost === 0
+                  ? "Free"
+                  : `${currencySymbol}${order.shippingCost.toFixed(2)}`}
+              </span>
+            </div>
+          )}
+          <div
+            className="flex justify-between text-[15px] font-black"
+            style={{ color: "var(--color-ink)" }}
+          >
+            <span>Total</span>
+            <span className="tabular-nums">
+              {currencySymbol}
+              {order.totalAmount.toFixed(2)}
+            </span>
+          </div>
         </div>
-        {order.shippingAddress && (
-          <div className="mt-4 text-xs" style={{ color: "var(--color-ink3)" }}>
-            <p className="font-semibold mb-1">Shipping Address:</p>
-            <p>{order.shippingAddress.fullName}</p>
-            <p>{order.shippingAddress.address}</p>
-            <p>
-              {order.shippingAddress.city}, {order.shippingAddress.zip} ·{" "}
-              {order.shippingAddress.country}
+      </div>
+
+      {/* Shipping address */}
+      {order.shippingAddress && (
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <MapPin
+              size={14}
+              strokeWidth={1.75}
+              style={{ color: "var(--color-ink4)" }}
+            />
+            <p
+              className="text-[12px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              Shipping Address
             </p>
           </div>
-        )}
+          <p
+            className="text-[13px] font-semibold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {order.shippingAddress.fullName}
+          </p>
+          <p className="text-[12.5px]" style={{ color: "var(--color-ink3)" }}>
+            {order.shippingAddress.address}
+            <br />
+            {order.shippingAddress.city}, {order.shippingAddress.zip} ·{" "}
+            {order.shippingAddress.country}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── FavoritesTab ─────────────────────────────────────────────────────
+function FavoritesTab({
+  favorites,
+  loading,
+  currencySymbol,
+  onRemove,
+  onRemoveAll,
+  onViewProduct,
+}: {
+  favorites: Favourite[];
+  loading: boolean;
+  currencySymbol: string;
+  onRemove: (productId: string) => void;
+  onRemoveAll: () => void;
+  onViewProduct?: (productId: string) => void;
+}) {
+  if (loading) return <SkeletonGrid />;
+  if (favorites.length === 0)
+    return (
+      <EmptyState
+        icon={<Heart size={28} strokeWidth={1.5} />}
+        title="Nothing saved yet"
+        sub="Tap the heart icon on any product to save it here for later."
+      />
+    );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Remove all button */}
+      <div className="flex justify-end">
+        <button
+          onClick={onRemoveAll}
+          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          style={{
+            background: "var(--color-surface2)",
+            color: "var(--color-ink4)",
+            border: "1px solid var(--color-border)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "#FEF2F2";
+            (e.currentTarget as HTMLElement).style.color = "#EF4444";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--color-surface2)";
+            (e.currentTarget as HTMLElement).style.color = "var(--color-ink4)";
+          }}
+        >
+          <Trash2 size={12} strokeWidth={2} /> Remove all
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {favorites.map((fav) => (
+          <div
+            key={fav.id}
+            className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-(--shadow-md)"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            <div
+              className="aspect-square overflow-hidden"
+              style={{ background: "var(--color-surface2)" }}
+            >
+              <img
+                src={fav.product?.image || PLACEHOLDER_IMG}
+                alt={fav.product?.title || "product"}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            </div>
+
+            {/* Delete button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(fav.productId);
+              }}
+              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-rose-500 opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 hover:bg-white hover:shadow-sm"
+            >
+              <Trash2 size={13} strokeWidth={2.5} />
+            </button>
+
+            <div className="flex flex-col gap-1 p-3">
+              <p
+                className="line-clamp-2 text-[12.5px] font-semibold leading-snug"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {fav.product?.title || "Product unavailable"}
+              </p>
+              {fav.product?.price != null && (
+                <p
+                  className="text-[13px] font-black tabular-nums"
+                  style={{ color: "var(--color-accent)" }}
+                >
+                  {currencySymbol}
+                  {fav.product.price.toFixed(2)}
+                </p>
+              )}
+            </div>
+
+            {/* Hover — "View product" pill */}
+            <button
+              onClick={() => onViewProduct?.(fav.productId)}
+              className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
+            >
+              <div
+                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-white"
+                style={{ background: "var(--color-accent)" }}
+              >
+                <Eye size={12} strokeWidth={2} /> View
+              </div>
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string; label: string }> = {
-    pending: { bg: "#fef3c7", color: "#92400e", label: "Pending" },
-    paid: { bg: "#dbeafe", color: "#1e40af", label: "Paid" },
-    in_production: { bg: "#d1fae5", color: "#065f46", label: "In Production" },
-    shipped: { bg: "#d1fae5", color: "#065f46", label: "Shipped" },
-    delivered: { bg: "#dcfce7", color: "#166534", label: "Delivered" },
-    cancelled: { bg: "#fee2e2", color: "#991b1b", label: "Cancelled" },
-  };
-  const s = map[status] || map.pending;
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
-
-function FavoritesTab({
-  favorites,
+// ─── CartTab ──────────────────────────────────────────────────────────
+function CartTab({
+  items,
   loading,
   currencySymbol,
+  onRemove,
+  onClear,
 }: {
-  favorites: Favourite[];
+  items: AdminCartItem[];
   loading: boolean;
   currencySymbol: string;
+  onRemove: (itemId: string) => void;
+  onClear: () => void;
 }) {
-  if (loading) return <Loader />;
-  if (favorites.length === 0) return <Empty text="No favorites yet." />;
+  if (loading) return <SkeletonList />;
+  if (items.length === 0)
+    return (
+      <EmptyState
+        icon={<ShoppingBag size={28} strokeWidth={1.5} />}
+        title="Your cart is empty"
+        sub="Items added to your cart will appear here."
+      />
+    );
+
+  const total = items.reduce(
+    (sum, item) => sum + (item.product?.price ?? 0) * item.quantity,
+    0,
+  );
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      {favorites.map((fav) => (
+    <div className="flex flex-col gap-3">
+      {/* Clear all button */}
+      <div className="flex justify-end">
+        <button
+          onClick={onClear}
+          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          style={{
+            background: "var(--color-surface2)",
+            color: "var(--color-ink4)",
+            border: "1px solid var(--color-border)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "#FEF2F2";
+            (e.currentTarget as HTMLElement).style.color = "#EF4444";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--color-surface2)";
+            (e.currentTarget as HTMLElement).style.color = "var(--color-ink4)";
+          }}
+        >
+          <Trash2 size={12} strokeWidth={2} /> Clear cart
+        </button>
+      </div>
+
+      {items.map((item) => (
         <div
-          key={fav.id}
-          className="rounded-xl overflow-hidden border bg-(--color-surface) p-3 flex flex-col gap-2"
+          key={item.id}
+          className="flex items-center gap-3 rounded-2xl border p-3"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
         >
           <img
-            src={fav.product?.image || PLACEHOLDER_IMG}
-            className="aspect-square object-cover rounded-lg"
+            src={item.product?.image || PLACEHOLDER_IMG}
+            alt={item.product?.title || "product"}
+            className="h-14 w-14 shrink-0 rounded-[10px] object-cover"
+            style={{ border: "1px solid var(--color-border)" }}
           />
-          <p
-            className="text-sm font-semibold line-clamp-2"
-            style={{ color: "var(--color-ink)" }}
-          >
-            {fav.product?.title || "Product unavailable"}
-          </p>
-          {fav.product?.price != null && (
+          <div className="flex-1 min-w-0">
             <p
-              className="text-xs font-bold"
-              style={{ color: "var(--color-ink3)" }}
+              className="truncate text-[13px] font-semibold"
+              style={{ color: "var(--color-ink)" }}
             >
-              {fav.product.price.toFixed(2)} {currencySymbol}
+              {item.product?.title || "Product"}
             </p>
-          )}
+            <p className="text-[11.5px]" style={{ color: "var(--color-ink4)" }}>
+              Size {item.selectedSize} · Qty {item.quantity}
+              {item.selectedColor && (
+                <span className="ml-2 inline-flex items-center gap-1">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full border"
+                    style={{
+                      backgroundColor: item.selectedColor,
+                      borderColor: "var(--color-border)",
+                    }}
+                  />
+                </span>
+              )}
+            </p>
+            <p
+              className="mt-1 text-[13px] font-bold tabular-nums"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {currencySymbol}
+              {((item.product?.price ?? 0) * item.quantity).toFixed(2)}
+            </p>
+          </div>
+          <button
+            onClick={() => onRemove(item.id)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+            style={{ color: "var(--color-ink4)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#FEF2F2";
+              e.currentTarget.style.color = "#EF4444";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--color-ink4)";
+            }}
+          >
+            <Trash2 size={14} strokeWidth={2} />
+          </button>
         </div>
       ))}
+
+      {/* Total */}
+      <div
+        className="flex justify-between rounded-2xl border p-4"
+        style={{
+          background: "var(--color-surface)",
+          borderColor: "var(--color-border)",
+        }}
+      >
+        <span
+          className="text-[14px] font-bold"
+          style={{ color: "var(--color-ink)" }}
+        >
+          Cart total
+        </span>
+        <span
+          className="text-[14px] font-black tabular-nums"
+          style={{ color: "var(--color-accent)" }}
+        >
+          {currencySymbol}
+          {total.toFixed(2)}
+        </span>
+      </div>
     </div>
   );
 }
 
+// ─── SupportTab ───────────────────────────────────────────────────────
 function SupportTab({
   interactions,
   loading,
@@ -470,6 +1325,7 @@ function SupportTab({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const handleCreate = async () => {
     if (!subject.trim() || !message.trim()) return;
@@ -495,9 +1351,13 @@ function SupportTab({
           text: message.trim(),
         });
       }
-      setShowForm(false);
-      setSubject("");
-      setMessage("");
+      setSent(true);
+      setTimeout(() => {
+        setShowForm(false);
+        setSent(false);
+        setSubject("");
+        setMessage("");
+      }, 1800);
     } catch (e) {
       console.error(e);
     } finally {
@@ -505,175 +1365,616 @@ function SupportTab({
     }
   };
 
-  if (loading) return <Loader />;
-  if (!showForm && interactions.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-sm mb-4" style={{ color: "var(--color-ink3)" }}>
-          No conversations yet.
-        </p>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-4 py-2 rounded-xl text-white font-semibold text-sm"
-          style={{ background: "var(--color-accent)" }}
-        >
-          Contact Support
-        </button>
-      </div>
-    );
-  }
+  if (loading) return <SkeletonList />;
 
   if (showForm) {
     return (
-      <div className="max-w-md mx-auto flex flex-col gap-3">
+      <div className="flex flex-col gap-4 animate-fade-up">
         <button
           onClick={() => setShowForm(false)}
-          className="text-sm text-(--color-ink3) hover:underline self-start"
+          className="flex items-center gap-1.5 text-[13px] font-semibold self-start"
+          style={{ color: "var(--color-ink3)" }}
         >
-          ← Back
+          <ArrowLeft size={14} strokeWidth={2} /> Back
         </button>
-        <input
-          type="text"
-          placeholder="Subject"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          className="w-full p-3 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm"
-        />
-        <textarea
-          placeholder="Your message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          className="w-full p-3 rounded-xl border border-(--color-border) bg-(--color-surface) text-sm"
-        />
-        <button
-          onClick={handleCreate}
-          disabled={sending || !subject.trim() || !message.trim()}
-          className="w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
+
+        <div
+          className="rounded-2xl p-5"
           style={{
-            background: "var(--color-accent)",
-            opacity: sending ? 0.6 : 1,
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
           }}
         >
-          {sending ? (
-            <Loader2 size={16} className="animate-spin" />
+          <p
+            className="mb-4 text-[15px] font-bold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            New message
+          </p>
+
+          {sent ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center animate-scale-in">
+              <CheckCircle2
+                size={36}
+                strokeWidth={1.5}
+                style={{ color: "var(--color-emerald)" }}
+              />
+              <p
+                className="text-[14px] font-semibold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Message sent
+              </p>
+              <p
+                className="text-[12.5px]"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                We'll get back to you shortly.
+              </p>
+            </div>
           ) : (
-            <Send size={16} />
+            <div className="flex flex-col gap-3">
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Wrong size received"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition-colors"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.borderColor = "var(--color-accent)")
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.borderColor = "var(--color-border)")
+                  }
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Message
+                </label>
+                <textarea
+                  placeholder="Describe your issue or question…"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={4}
+                  className="w-full resize-none rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition-colors"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.borderColor = "var(--color-accent)")
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.borderColor = "var(--color-border)")
+                  }
+                />
+              </div>
+              <button
+                onClick={handleCreate}
+                disabled={sending || !subject.trim() || !message.trim()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: "var(--color-accent)",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                {sending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Send size={15} strokeWidth={2} />
+                )}
+                {sending ? "Sending…" : "Send message"}
+              </button>
+            </div>
           )}
-          Send
-        </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        onClick={() => setShowForm(true)}
-        className="self-end flex items-center gap-1 text-xs font-semibold text-(--color-accent) mb-2"
-      >
-        <Plus size={14} /> New Message
-      </button>
-      {interactions.map((t) => (
-        <div
-          key={t.id}
-          className="p-4 rounded-xl border bg-(--color-surface)"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="flex justify-between items-start">
-            <p
-              className="font-bold text-sm"
-              style={{ color: "var(--color-ink)" }}
-            >
-              {t.subject}
-            </p>
-            <span
-              className="text-xs px-2 py-0.5 rounded-full"
+    <div className="flex flex-col gap-3">
+      {interactions.length === 0 ? (
+        <EmptyState
+          icon={<Inbox size={28} strokeWidth={1.5} />}
+          title="No conversations yet"
+          sub="Have a question or issue? Our team typically responds within a few hours."
+          action={{
+            label: "Contact Support",
+            onClick: () => setShowForm(true),
+          }}
+        />
+      ) : (
+        <>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 self-end rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.97]"
+            style={{
+              background: "var(--color-accent-bg)",
+              color: "var(--color-accent)",
+              border: "1px solid var(--color-accent)" + "30",
+            }}
+          >
+            <Plus size={14} strokeWidth={2.5} /> New message
+          </button>
+
+          {interactions.map((t) => (
+            <div
+              key={t.id}
+              className="rounded-2xl p-4"
               style={{
-                background: t.status === "open" ? "#fef3c7" : "#d1fae5",
-                color: t.status === "open" ? "#92400e" : "#065f46",
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
               }}
             >
-              {t.status === "open" ? "Open" : "Resolved"}
-            </span>
-          </div>
-          {t.lastMessage && (
-            <p
-              className="text-xs mt-2 line-clamp-2"
-              style={{ color: "var(--color-ink3)" }}
-            >
-              {t.lastMessage}
-            </p>
-          )}
-          <p
-            className="text-[10px] mt-1"
-            style={{ color: "var(--color-ink4)" }}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-[13.5px] font-semibold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {t.subject}
+                  </p>
+                  {t.lastMessage && (
+                    <p
+                      className="mt-1 line-clamp-2 text-[12px]"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {t.lastMessage}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                    style={{
+                      background:
+                        t.status === "open"
+                          ? "#fef3c7"
+                          : "var(--color-surface2)",
+                      color:
+                        t.status === "open" ? "#d97706" : "var(--color-ink4)",
+                    }}
+                  >
+                    {t.status === "open" ? "Open" : "Resolved"}
+                  </span>
+                  <span
+                    className="text-[11px]"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
+                    {timeAgo(t.updatedAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── ProfileTab ───────────────────────────────────────────────────────
+function ProfileTab({
+  customerEmail,
+  customerName,
+  orders,
+}: {
+  customerEmail: string;
+  customerName: string;
+  orders: Order[];
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyEmail = () => {
+    navigator.clipboard.writeText(customerEmail).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  // Extract latest shipping address from most recent order that has one
+  const savedAddress =
+    orders
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .find((o) => o.shippingAddress)?.shippingAddress ?? null;
+
+  return (
+    <div className="flex flex-col gap-4 animate-fade-up">
+      {/* Identity card */}
+      <div
+        className="rounded-[18px] p-5"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <div className="mb-4 flex items-center gap-4">
+          <div
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] text-2xl font-black text-white"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+              boxShadow: "var(--shadow-accent)",
+            }}
           >
-            {new Date(t.updatedAt).toLocaleString("en-US")}
-          </p>
+            {customerEmail ? initials(customerEmail, customerName) : "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[17px] font-bold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {customerName || "Guest User"}
+            </p>
+            <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>
+              InstaWear Customer
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="flex flex-col gap-3 pt-4"
+          style={{ borderTop: "1px solid var(--color-border)" }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                Name
+              </p>
+              <p
+                className="text-[13.5px] font-medium"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {customerName || "—"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                Email
+              </p>
+              <p
+                className="truncate text-[13.5px] font-medium"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {customerEmail}
+              </p>
+            </div>
+            <button
+              onClick={copyEmail}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 active:scale-90"
+              style={{
+                background: "var(--color-surface2)",
+                color: copied ? "var(--color-emerald)" : "var(--color-ink4)",
+              }}
+            >
+              {copied ? (
+                <CheckCircle2 size={13} strokeWidth={2} />
+              ) : (
+                <Copy size={13} strokeWidth={1.75} />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Saved address */}
+      <div
+        className="rounded-[18px] p-5"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin
+              size={14}
+              strokeWidth={1.75}
+              style={{ color: "var(--color-ink4)" }}
+            />
+            <p
+              className="text-[12px] font-semibold uppercase tracking-[0.08em]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              Saved Address
+            </p>
+          </div>
+          {/* Placeholder — future: edit address */}
+          <button
+            className="flex items-center gap-1 text-[11.5px] font-semibold transition-colors"
+            style={{ color: "var(--color-ink4)" }}
+            title="Edit address (coming soon)"
+          >
+            <Edit3 size={12} strokeWidth={1.75} /> Edit
+          </button>
+        </div>
+
+        {savedAddress ? (
+          <div
+            className="flex items-start gap-3 rounded-xl p-3"
+            style={{ background: "var(--color-surface2)" }}
+          >
+            <div
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+              style={{
+                background: "var(--color-accent-bg)",
+                color: "var(--color-accent)",
+              }}
+            >
+              <Home size={14} strokeWidth={1.75} />
+            </div>
+            <div>
+              <p
+                className="text-[13px] font-semibold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {savedAddress.fullName}
+              </p>
+              <p
+                className="text-[12px] leading-relaxed"
+                style={{ color: "var(--color-ink3)" }}
+              >
+                {savedAddress.address}
+                <br />
+                {savedAddress.city}, {savedAddress.zip}
+                <br />
+                {savedAddress.country}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="rounded-xl p-4 text-center"
+            style={{ background: "var(--color-surface2)" }}
+          >
+            <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>
+              Your shipping address will be saved after your first order.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Preferences (placeholder — future feature) */}
+      <div
+        className="rounded-[18px] p-5"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <p
+          className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          Preferences
+        </p>
+        <div className="flex flex-col gap-2">
+          {[
+            { label: "Order confirmation emails", on: true },
+            { label: "Shipping update emails", on: true },
+            { label: "Promotions & deals", on: false },
+          ].map(({ label, on }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span
+                className="text-[13px]"
+                style={{ color: "var(--color-ink2)" }}
+              >
+                {label}
+              </span>
+              {/* Toggle visual (non-functional placeholder) */}
+              <div
+                className="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200"
+                style={{
+                  background: on
+                    ? "var(--color-accent)"
+                    : "var(--color-border2)",
+                }}
+              >
+                <span
+                  className="absolute top-0.5 h-4 w-4 rounded-full transition-transform duration-200"
+                  style={{
+                    background: "white",
+                    left: on ? "calc(100% - 18px)" : "2px",
+                    boxShadow: "var(--shadow-sm)",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <p
+          className="mt-3 text-[11.5px]"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          Notification preferences — coming soon.
+        </p>
+      </div>
+
+      {/* Danger zone */}
+      <div
+        className="rounded-[18px] p-5"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <p
+          className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          Account
+        </p>
+        <p
+          className="mb-3 text-[12.5px]"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          To update your personal information or delete your account, please
+          contact support.
+        </p>
+        <button
+          className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+          style={{
+            background: "var(--color-surface2)",
+            color: "var(--color-ink3)",
+            border: "1px solid var(--color-border)",
+          }}
+          onClick={async () => {
+            await supabase.auth.signOut();
+          }}
+        >
+          <LogOut size={14} strokeWidth={1.75} /> Sign out of InstaWear
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared UI pieces ────────────────────────────────────────────────
+
+function StatusPill({ status }: { status: string }) {
+  const st = ORDER_STATUS[status] || ORDER_STATUS.pending;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
+      style={{ background: st.bg, color: st.color }}
+    >
+      {st.icon} {st.label}
+    </span>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  sub,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <div
+        className="flex h-14 w-14 items-center justify-center rounded-[18px]"
+        style={{
+          background: "var(--color-surface2)",
+          color: "var(--color-ink4)",
+        }}
+      >
+        {icon}
+      </div>
+      <div>
+        <p
+          className="text-[14px] font-semibold"
+          style={{ color: "var(--color-ink2)" }}
+        >
+          {title}
+        </p>
+        <p
+          className="mt-0.5 text-[12.5px]"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          {sub}
+        </p>
+      </div>
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+          style={{
+            background: "var(--color-accent)",
+            boxShadow: "var(--shadow-accent)",
+          }}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-2xl border p-4"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-2 flex-1">
+              <div className="skeleton h-3.5 w-[45%] rounded-full" />
+              <div className="skeleton h-3 w-[30%] rounded-full" />
+            </div>
+            <div className="skeleton h-8 w-16 rounded-[10px]" />
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            {Array.from({ length: 3 }).map((_, j) => (
+              <div key={j} className="skeleton h-9 w-9 rounded-lg" />
+            ))}
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function ProfileTab({
-  customerEmail,
-  customerName,
-}: {
-  customerEmail: string;
-  customerName: string;
-}) {
+function SkeletonGrid() {
   return (
-    <div className="max-w-sm mx-auto flex flex-col gap-4 p-5 rounded-2xl border bg-(--color-surface)">
-      <div>
-        <p
-          className="text-xs font-bold uppercase mb-1"
-          style={{ color: "var(--color-ink3)" }}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-2xl border overflow-hidden"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
         >
-          Name
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-          {customerName || "—"}
-        </p>
-      </div>
-      <div>
-        <p
-          className="text-xs font-bold uppercase mb-1"
-          style={{ color: "var(--color-ink3)" }}
-        >
-          Email
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-          {customerEmail}
-        </p>
-      </div>
-      <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-        To update your info, please contact support.
-      </p>
-    </div>
-  );
-}
-
-// ─── Utilities ──────────────────────────────────────────────────────
-function Loader() {
-  return (
-    <div className="flex justify-center py-12">
-      <Loader2
-        size={28}
-        className="animate-spin"
-        style={{ color: "var(--color-accent)" }}
-      />
-    </div>
-  );
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="text-center py-12">
-      <p className="text-sm" style={{ color: "var(--color-ink3)" }}>
-        {text}
-      </p>
+          <div className="skeleton aspect-square" />
+          <div className="p-3 flex flex-col gap-2">
+            <div className="skeleton h-3 w-[80%] rounded-full" />
+            <div className="skeleton h-3 w-[45%] rounded-full" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
