@@ -48,6 +48,7 @@ export default function App() {
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
 
   // Selection/Filtering States
   const [searchTerm, setSearchTerm] = useState("");
@@ -581,6 +582,18 @@ export default function App() {
     handleReturn();
   }, []);
 
+  // Detect user country via IP (free, no API key, CORS-friendly)
+  useEffect(() => {
+    fetch("https://api.country.is/")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.country) {
+          setDetectedCountry(data.country);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Auto-scroll to filters or catalog when a filter changes
   useEffect(() => {
     if (isInitialMount.current) {
@@ -656,6 +669,7 @@ export default function App() {
       {/* App Header */}
       <Header
         cart={cart}
+        detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
         onOpenCart={() => setCartOpen(true)}
         onOpenFavorites={handleOpenFavorites}
@@ -884,6 +898,7 @@ export default function App() {
       {checkoutOpen && (
         <CheckoutFlow
           cart={cart}
+          detectedCountry={detectedCountry}
           onUpdateQty={updateCartQty}
           onRemoveItem={removeFromCart}
           onClose={() => setCheckoutOpen(false)}
@@ -901,6 +916,7 @@ export default function App() {
       {stripeConfirmOrderId && (
         <CheckoutFlow
           cart={[]}
+          detectedCountry={detectedCountry}
           onUpdateQty={() => {}}
           onRemoveItem={() => {}}
           onClose={() => setStripeConfirmOrderId(null)}

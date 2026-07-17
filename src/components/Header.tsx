@@ -14,8 +14,21 @@ import {
 } from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
 
+// Fonction helper
+function countryToFlag(iso: string): string {
+  if (!iso || iso.length !== 2) return "🌐";
+  const code = iso.toUpperCase();
+  const offset = 0x1f1e6;
+  const A = "A".charCodeAt(0);
+  return (
+    String.fromCodePoint(offset + code.charCodeAt(0) - A) +
+    String.fromCodePoint(offset + code.charCodeAt(1) - A)
+  );
+}
+
 interface HeaderProps {
   cart: CartItem[];
+  detectedCountry?: string | null;
   favoriteCount: number;
   onOpenCart: () => void;
   onOpenFavorites: () => void;
@@ -111,6 +124,7 @@ export default function Header({
   onOpenTracking,
   searchSuggestions,
   products,
+  detectedCountry,
   darkMode,
   onToggleDarkMode,
 }: HeaderProps) {
@@ -359,6 +373,15 @@ export default function Header({
             >
               Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
             </span>
+            {detectedCountry && (
+              <span
+                className="text-base leading-none"
+                title={`Shipping to ${detectedCountry}`}
+                style={{ marginLeft: 2 }}
+              >
+                {countryToFlag(detectedCountry)}
+              </span>
+            )}
           </button>
 
           {/* Nav links — desktop (logique v3, visuel v2) */}

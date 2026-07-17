@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useShippingSettings } from "../hooks/useShippingSettings";
 import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -52,6 +53,7 @@ const stripePromise = loadStripe(
 );
 interface CheckoutFlowProps {
   cart: CartItem[];
+  detectedCountry?: string | null;
   onClose: () => void;
   onUpdateQty: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
@@ -1714,6 +1716,7 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
 
 export default function CheckoutFlow({
   cart,
+  detectedCountry,
   onClose,
   onUpdateQty,
   onRemoveItem,
@@ -1780,26 +1783,34 @@ export default function CheckoutFlow({
   const [processing, setProcessing] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [copied, setCopied] = useState(false);
+
   const [shippingSettings, setShippingSettings] = useState({
     threshold: 35,
     cost: 4.99,
   });
+
   const [currencyCode, setCurrencyCode] = useState("usd");
 
-  // Load default country + shipping thresholds from store_settings
+  // Load default country + shipping thresholds from store_settings + location
   useEffect(() => {
     storeSettingsApi
       .get()
       .then((s) => {
-        setCountry(s.country || "US");
+        if (detectedCountry && !country) {
+          setCountry(detectedCountry);
+        } else {
+          setCountry(s.country || "US");
+        }
         setShippingSettings({
           threshold: s.freeShippingThreshold ?? 35,
           cost: s.shippingCost ?? 4.99,
         });
         setCurrencyCode((s.currency || "usd").toLowerCase());
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        if (detectedCountry) setCountry(detectedCountry);
+      });
+  }, [detectedCountry]);
 
   // Scroll to top on step change
   useEffect(() => {
@@ -1811,10 +1822,14 @@ export default function CheckoutFlow({
       cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
     [cart],
   );
+
+  // Use country-specific shipping rates based on user location
+  const { cost: countryShippingCost, threshold: countryThreshold } =
+    useShippingSettings(country);
   const shippingCost =
-    reception === "retrait" || cartTotal >= shippingSettings.threshold
+    reception === "retrait" || cartTotal >= countryThreshold
       ? 0
-      : shippingSettings.cost;
+      : countryShippingCost;
   const total = cartTotal + shippingCost;
 
   const validateContact = (): boolean => {
@@ -2291,7 +2306,7 @@ export default function CheckoutFlow({
               total={total}
               currencySymbol={currencySymbol}
               reception={reception}
-              threshold={shippingSettings.threshold}
+              threshold={countryThreshold}
             />
           </div>
         )}
