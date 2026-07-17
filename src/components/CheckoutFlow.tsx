@@ -1765,7 +1765,7 @@ export default function CheckoutFlow({
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
-  const [country, setCountry] = useState("FR");
+  const [country, setCountry] = useState("US");
   const [stateCode, setStateCode] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [message, setMessage] = useState("");
@@ -1950,7 +1950,7 @@ export default function CheckoutFlow({
           address: reception === "livraison" ? address : "Pickup",
           city: reception === "livraison" ? city : "",
           zip: reception === "livraison" ? zip : "",
-          country: reception === "livraison" ? country : "FR",
+          country: reception === "livraison" ? country : "US",
           state_code: reception === "livraison" ? stateCode : "",
           tax_number: reception === "livraison" ? taxNumber : "",
           phone,
@@ -2063,7 +2063,7 @@ export default function CheckoutFlow({
             address: reception === "livraison" ? address : "Pickup",
             city: reception === "livraison" ? city : "",
             zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "FR",
+            country: reception === "livraison" ? country : "us",
             state_code: reception === "livraison" ? stateCode : "",
             tax_number: reception === "livraison" ? taxNumber : "",
             phone,

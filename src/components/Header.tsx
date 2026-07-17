@@ -14,18 +14,6 @@ import {
 } from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
 
-// Fonction helper
-function countryToFlag(iso: string): string {
-  if (!iso || iso.length !== 2) return "🌐";
-  const code = iso.toUpperCase();
-  const offset = 0x1f1e6;
-  const A = "A".charCodeAt(0);
-  return (
-    String.fromCodePoint(offset + code.charCodeAt(0) - A) +
-    String.fromCodePoint(offset + code.charCodeAt(1) - A)
-  );
-}
-
 interface HeaderProps {
   cart: CartItem[];
   detectedCountry?: string | null;
@@ -374,13 +362,16 @@ export default function Header({
               Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
             </span>
             {detectedCountry && (
-              <span
-                className="text-base leading-none"
-                title={`Shipping to ${detectedCountry}`}
-                style={{ marginLeft: 2 }}
-              >
-                {countryToFlag(detectedCountry)}
-              </span>
+              <img
+                src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
+                alt={detectedCountry || "US"}
+                className="w-5 h-4 rounded-sm object-cover"
+                style={{ marginLeft: 4, flexShrink: 0 }}
+                title={`Shipping to ${detectedCountry || "US"}`}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
             )}
           </button>
 

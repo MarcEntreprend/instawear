@@ -19,3 +19,14 @@ export const PLACEHOLDER_IMG = "/Instawear-missing-item.svg";
 
 // Icon for no internet
 export const NO_INTERNET = "/globe-off.svg";
+
+export const FLAG_URL: Record<string, string> = {
+  US: "/flags/us.svg",
+  CA: "/flags/ca.svg",
+  GB: "/flags/gb.svg",
+  FR: "/flags/fr.svg",
+  CH: "/flags/ch.svg",
+  BE: "/flags/be.svg",
+  BR: "/flags/br.svg",
+  JP: "/flags/jp.svg",
+};
