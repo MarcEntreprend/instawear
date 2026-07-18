@@ -302,13 +302,26 @@ export default function AccountPage({
     }
   }, [customerEmail]);
 
-  // Charge les données (orders toujours rafraîchies)
+  // Load all data on mount (for sidebar badges)
   useEffect(() => {
-    if (tab === "orders") fetchOrders();
-    if (tab === "favorites" && favorites.length === 0) fetchFavorites();
-    if (tab === "support" && interactions.length === 0) fetchInteractions();
-    if (tab === "cart" && cart.length === 0) fetchCart();
-  }, [tab, fetchOrders, fetchFavorites, fetchInteractions, fetchCart]);
+    if (!customerId) return;
+    fetchOrders();
+    fetchFavorites();
+    fetchCart();
+    fetchInteractions();
+  }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh sidebar data every 30s
+  useEffect(() => {
+    if (!customerId) return;
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchFavorites();
+      fetchCart();
+      fetchInteractions();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [customerId, fetchOrders, fetchFavorites, fetchCart, fetchInteractions]);
 
   // ── Stats (computed) ──────────────────────────────────────────────
   const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
