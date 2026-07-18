@@ -108,6 +108,7 @@ export default function EmailMarketingPage() {
 
       let count = 0;
       for (const email of emails) {
+        if (!email || !email.includes("@")) continue; // skip invalid
         try {
           await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
