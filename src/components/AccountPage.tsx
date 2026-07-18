@@ -626,6 +626,7 @@ export default function AccountPage({
                 loading={loadingOrders}
                 currencySymbol={currencySymbol}
                 onViewProduct={onViewProduct}
+                onRefresh={fetchOrders}
               />
             )}
             {tab === "favorites" && (
@@ -717,11 +718,13 @@ function OrdersTab({
   loading,
   currencySymbol,
   onViewProduct,
+  onRefresh,
 }: {
   orders: Order[];
   loading: boolean;
   currencySymbol: string;
   onViewProduct?: (productId: string) => void;
+  onRefresh?: () => Promise<void>;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -759,6 +762,24 @@ function OrdersTab({
     return list;
   }, [orders, search, filterStatus, sortOrder]);
 
+  // Rafraîchir la liste quand on revient de la vue détail
+  const handleBack = useCallback(async () => {
+    setSelectedOrder(null);
+    // Rafraîchir les données pour refléter les changements de statut
+    if (onRefresh) {
+      await onRefresh();
+    }
+  }, [onRefresh]);
+
+  // Effet pour rafraîchir les données quand on quitte la vue détail
+  useEffect(() => {
+    // Si on n'a plus de commande sélectionnée (on est revenu à la liste)
+    // et qu'on avait une commande sélectionnée avant, on rafraîchit
+    if (!selectedOrder) {
+      // Le parent rafraîchira via onRefresh si fourni
+    }
+  }, [selectedOrder]);
+
   if (loading) return <SkeletonList />;
   if (loadingDetail)
     return (
@@ -775,7 +796,7 @@ function OrdersTab({
       <OrderDetail
         order={selectedOrder}
         currencySymbol={currencySymbol}
-        onBack={() => setSelectedOrder(null)}
+        onBack={handleBack}
         onViewProduct={onViewProduct}
       />
     );
