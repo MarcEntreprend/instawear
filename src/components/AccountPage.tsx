@@ -3,9 +3,8 @@
 // Redesign UX — visuel uniquement, zéro modification de logique métier.
 // Layout: sidebar identité (desktop) + bottom-nav (mobile), contenu scrollable.
 // Dark mode: 100% automatique via les variables CSS du design system.
-// Aucune librairie ajoutée — React 19 + Tailwind v4 + CSS vars existants.
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Package,
   Heart,
@@ -34,6 +33,8 @@ import {
   AlertCircle,
   Inbox,
   LogOut,
+  Search,
+  X,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi, interactionApi } from "../api/supabaseApi";
@@ -723,6 +724,39 @@ function OrdersTab({
   onViewProduct?: (productId: string) => void;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+
+  // Filtrage + tri
+  const filtered = useMemo(() => {
+    let list = [...orders];
+
+    // Recherche textuelle
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(
+        (o) =>
+          o.id.toLowerCase().includes(s) ||
+          (o.clientName || "").toLowerCase().includes(s) ||
+          (o.clientEmail || "").toLowerCase().includes(s),
+      );
+    }
+
+    // Filtre par statut
+    if (filterStatus !== "all") {
+      list = list.filter((o) => o.status === filterStatus);
+    }
+
+    // Tri par date
+    list.sort((a, b) => {
+      const da = new Date(a.createdAt).getTime();
+      const db = new Date(b.createdAt).getTime();
+      return sortOrder === "newest" ? db - da : da - db;
+    });
+
+    return list;
+  }, [orders, search, filterStatus, sortOrder]);
 
   if (loading) return <SkeletonList />;
   if (selectedOrder)
@@ -734,6 +768,7 @@ function OrdersTab({
         onViewProduct={onViewProduct}
       />
     );
+
   if (orders.length === 0)
     return (
       <EmptyState
@@ -745,101 +780,202 @@ function OrdersTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {orders.map((order) => {
-        const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
-        const isActive =
-          order.status !== "delivered" && order.status !== "cancelled";
-        return (
-          <button
-            key={order.id}
-            onClick={() => setSelectedOrder(order)}
-            className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+      {/* Barre de recherche + filtres */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <Search
+            size={14}
+            strokeWidth={1.75}
+            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            placeholder="Search by order ID or customer name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-[13px]"
             style={{
-              background: "var(--color-surface)",
-              borderColor: isActive
-                ? "var(--color-accent)" + "40"
-                : "var(--color-border)",
+              color: "var(--color-ink)",
+              fontFamily: "var(--font-sans)",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="shrink-0"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              <X size={13} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+
+        {/* Filtre statut */}
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="rounded-xl border px-3 py-2 text-[12.5px] font-medium outline-none cursor-pointer"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+            color: "var(--color-ink2)",
+          }}
+        >
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="in_production">In Production</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+
+        {/* Tri */}
+        <button
+          onClick={() =>
+            setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
+          }
+          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12.5px] font-medium transition-colors"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+            color: "var(--color-ink2)",
+          }}
+        >
+          <Clock size={13} strokeWidth={1.75} />
+          {sortOrder === "newest" ? "Newest" : "Oldest"}
+        </button>
+
+        {/* Reset */}
+        {(search || filterStatus !== "all") && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setFilterStatus("all");
+            }}
+            className="flex items-center gap-1 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors"
+            style={{
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+              color: "var(--color-accent)",
             }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
+            <X size={12} strokeWidth={2} /> Reset
+          </button>
+        )}
+      </div>
+
+      {/* Résultat */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<Search size={28} strokeWidth={1.5} />}
+          title="No orders match"
+          sub="Try adjusting your search or filters."
+        />
+      ) : (
+        filtered.map((order) => {
+          const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
+          const isActive =
+            order.status !== "delivered" && order.status !== "cancelled";
+          return (
+            <button
+              key={order.id}
+              onClick={() => setSelectedOrder(order)}
+              className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+              style={{
+                background: "var(--color-surface)",
+                borderColor: isActive
+                  ? "var(--color-accent)" + "40"
+                  : "var(--color-border)",
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p
+                      className="truncate text-[13px] font-bold"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {order.id}
+                    </p>
+                    {isActive && (
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ background: "var(--color-accent)" }}
+                      />
+                    )}
+                  </div>
                   <p
-                    className="truncate text-[13px] font-bold"
+                    className="text-[12px]"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
+                    {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
+                    item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span
+                    className="text-[15px] font-black tabular-nums"
                     style={{ color: "var(--color-ink)" }}
                   >
-                    {order.id}
-                  </p>
-                  {isActive && (
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ background: "var(--color-accent)" }}
-                    />
-                  )}
+                    {currencySymbol}
+                    {order.totalAmount.toFixed(2)}
+                  </span>
+                  <StatusPill status={order.status} />
                 </div>
-                <p
-                  className="text-[12px]"
-                  style={{ color: "var(--color-ink4)" }}
-                >
-                  {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                  item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                </p>
               </div>
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <span
-                  className="text-[15px] font-black tabular-nums"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  {currencySymbol}
-                  {order.totalAmount.toFixed(2)}
-                </span>
-                <StatusPill status={order.status} />
-              </div>
-            </div>
 
-            {/* Item thumbnails */}
-            {order.items && order.items.length > 0 && (
-              <div className="mt-3 flex items-center gap-1.5">
-                {order.items.slice(0, 4).map((item, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      item.productId && onViewProduct?.(item.productId);
-                    }}
-                    className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer"
-                    style={{ border: "1px solid var(--color-border)" }}
-                  >
-                    <img
-                      src={item.productImage || PLACEHOLDER_IMG}
-                      alt={item.productTitle || "item"}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-                {order.items.length > 4 && (
-                  <div
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                    style={{
-                      background: "var(--color-surface2)",
-                      color: "var(--color-ink3)",
-                      border: "1px solid var(--color-border)",
-                    }}
-                  >
-                    +{order.items.length - 4}
-                  </div>
-                )}
-                <ChevronRight
-                  size={16}
-                  strokeWidth={1.75}
-                  className="ml-auto"
-                  style={{ color: "var(--color-ink4)" }}
-                />
-              </div>
-            )}
-          </button>
-        );
-      })}
+              {/* Item thumbnails */}
+              {order.items && order.items.length > 0 && (
+                <div className="mt-3 flex items-center gap-1.5">
+                  {order.items.slice(0, 4).map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        item.productId && onViewProduct?.(item.productId);
+                      }}
+                      className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer"
+                      style={{ border: "1px solid var(--color-border)" }}
+                    >
+                      <img
+                        src={item.productImage || PLACEHOLDER_IMG}
+                        alt={item.productTitle || "item"}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                  {order.items.length > 4 && (
+                    <div
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
+                      style={{
+                        background: "var(--color-surface2)",
+                        color: "var(--color-ink3)",
+                        border: "1px solid var(--color-border)",
+                      }}
+                    >
+                      +{order.items.length - 4}
+                    </div>
+                  )}
+                  <ChevronRight
+                    size={16}
+                    strokeWidth={1.75}
+                    className="ml-auto"
+                    style={{ color: "var(--color-ink4)" }}
+                  />
+                </div>
+              )}
+            </button>
+          );
+        })
+      )}
     </div>
   );
 }
