@@ -1092,14 +1092,19 @@ function OrderDetail({
                     <div
                       className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
                       style={{
-                        background: reached
+                        background: current
                           ? "var(--color-accent)"
-                          : "var(--color-surface2)",
+                          : reached
+                            ? "var(--color-ink4)"
+                            : "var(--color-surface2)",
                         border: current
                           ? "2px solid var(--color-accent)"
-                          : `2px solid ${reached ? "var(--color-accent)" : "var(--color-border)"}`,
+                          : `2px solid ${reached ? "var(--color-ink4)" : "var(--color-border)"}`,
                         boxShadow: current
                           ? "0 0 0 3px var(--color-accent-bg)"
+                          : "none",
+                        animation: current
+                          ? "pulse-ring 1.8s ease-out infinite"
                           : "none",
                       }}
                     >
@@ -1119,9 +1124,11 @@ function OrderDetail({
                     <span
                       className="text-[9px] font-semibold text-center leading-tight whitespace-nowrap"
                       style={{
-                        color: reached
-                          ? "var(--color-ink2)"
-                          : "var(--color-ink4)",
+                        color: current
+                          ? "var(--color-ink)"
+                          : reached
+                            ? "var(--color-ink4)"
+                            : "var(--color-ink3)",
                       }}
                     >
                       {step}
@@ -1132,9 +1139,13 @@ function OrderDetail({
                       className="mx-1 h-0.5 flex-1 rounded-full transition-all duration-500"
                       style={{
                         background:
-                          st.step > i
-                            ? "var(--color-accent)"
-                            : "var(--color-border)",
+                          // Les deux étapes sont passées → gris
+                          st.step > i + 1
+                            ? "var(--color-ink4)"
+                            : // L'étape de gauche est passée, celle de droite est en cours → accent
+                              st.step > i
+                              ? "var(--color-accent)"
+                              : "var(--color-border)",
                       }}
                     />
                   )}
