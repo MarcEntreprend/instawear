@@ -1,8 +1,7 @@
----
+# Spécification technique de la base de données
 
-# Spécification technique de la base de données  
 **Plateforme e‑commerce de vêtements (POD, affiliation)**  
-Document de référence pour la conception et l’implémentation de la base de données  
+Document de référence pour la conception et l’implémentation de la base de données
 
 ---
 

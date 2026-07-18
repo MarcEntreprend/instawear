@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Eye,
   Plus,
+  Minus,
   Loader2,
   Send,
   MapPin,
@@ -44,6 +45,7 @@ import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 interface AccountPageProps {
   allCustomers: { id: string; email: string }[];
   onClose: () => void;
+  onViewProduct?: (productId: string) => void;
 }
 
 // ─── Local types ─────────────────────────────────────────────────────
@@ -153,6 +155,7 @@ function timeAgo(iso: string): string {
 export default function AccountPage({
   allCustomers,
   onClose,
+  onViewProduct,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
 
@@ -218,8 +221,32 @@ export default function AccountPage({
 
   const handleClearCart = async () => {
     if (!customerId) return;
+    if (!window.confirm("Are you sure you want to clear your entire cart?"))
+      return;
     await customerApi.clearCart(customerId);
     setCart([]);
+  };
+
+  const handleUpdateCartQty = async (itemId: string, delta: number) => {
+    if (!customerId) return;
+    const updated = cart
+      .map((item) => {
+        if (item.id !== itemId) return item;
+        const newQty = item.quantity + delta;
+        return newQty <= 0 ? null : { ...item, quantity: newQty };
+      })
+      .filter(Boolean) as AdminCartItem[];
+
+    await customerApi.clearCart(customerId);
+    for (const item of updated) {
+      await customerApi.addCartItem(customerId, {
+        productId: item.productId,
+        selectedColor: item.selectedColor,
+        selectedSize: item.selectedSize,
+        quantity: item.quantity,
+      });
+    }
+    setCart(updated);
   };
 
   const handleRemoveFavourite = async (productId: string) => {
@@ -230,6 +257,8 @@ export default function AccountPage({
 
   const handleRemoveAllFavourites = async () => {
     if (!customerId) return;
+    if (!window.confirm("Are you sure you want to remove all saved items?"))
+      return;
     for (const fav of favorites) {
       await customerApi.removeFavourite(customerId, fav.productId);
     }
@@ -595,6 +624,7 @@ export default function AccountPage({
                 orders={orders}
                 loading={loadingOrders}
                 currencySymbol={currencySymbol}
+                onViewProduct={onViewProduct}
               />
             )}
             {tab === "favorites" && (
@@ -604,10 +634,7 @@ export default function AccountPage({
                 currencySymbol={currencySymbol}
                 onRemove={handleRemoveFavourite}
                 onRemoveAll={handleRemoveAllFavourites}
-                onViewProduct={(productId) => {
-                  // Vous pouvez connecter ici l'ouverture de la modale produit
-                  console.log("View product", productId);
-                }}
+                onViewProduct={onViewProduct}
               />
             )}
             {tab === "cart" && (
@@ -617,6 +644,8 @@ export default function AccountPage({
                 currencySymbol={currencySymbol}
                 onRemove={handleRemoveCartItem}
                 onClear={handleClearCart}
+                onViewProduct={onViewProduct}
+                onUpdateQty={handleUpdateCartQty}
               />
             )}
             {tab === "support" && (
@@ -686,10 +715,12 @@ function OrdersTab({
   orders,
   loading,
   currencySymbol,
+  onViewProduct,
 }: {
   orders: Order[];
   loading: boolean;
   currencySymbol: string;
+  onViewProduct?: (productId: string) => void;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
@@ -700,6 +731,7 @@ function OrdersTab({
         order={selectedOrder}
         currencySymbol={currencySymbol}
         onBack={() => setSelectedOrder(null)}
+        onViewProduct={onViewProduct}
       />
     );
   if (orders.length === 0)
@@ -769,13 +801,21 @@ function OrdersTab({
             {order.items && order.items.length > 0 && (
               <div className="mt-3 flex items-center gap-1.5">
                 {order.items.slice(0, 4).map((item, i) => (
-                  <img
+                  <button
                     key={i}
-                    src={item.productImage || PLACEHOLDER_IMG}
-                    alt={item.productTitle || "item"}
-                    className="h-9 w-9 rounded-lg object-cover"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      item.productId && onViewProduct?.(item.productId);
+                    }}
+                    className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer"
                     style={{ border: "1px solid var(--color-border)" }}
-                  />
+                  >
+                    <img
+                      src={item.productImage || PLACEHOLDER_IMG}
+                      alt={item.productTitle || "item"}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
                 {order.items.length > 4 && (
                   <div
@@ -809,10 +849,12 @@ function OrderDetail({
   order,
   currencySymbol,
   onBack,
+  onViewProduct,
 }: {
   order: Order;
   currencySymbol: string;
   onBack: () => void;
+  onViewProduct?: (productId: string) => void;
 }) {
   const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
 
@@ -943,19 +985,29 @@ function OrderDetail({
         >
           {order.items?.map((item) => (
             <div key={item.id} className="flex items-center gap-3">
-              <img
-                src={item.productImage || PLACEHOLDER_IMG}
-                alt={item.productTitle || "item"}
-                className="h-14 w-14 shrink-0 rounded-[10px] object-cover"
+              <button
+                onClick={() =>
+                  item.productId && onViewProduct?.(item.productId)
+                }
+                className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
                 style={{ border: "1px solid var(--color-border)" }}
-              />
+              >
+                <img
+                  src={item.productImage || PLACEHOLDER_IMG}
+                  alt={item.productTitle || "item"}
+                  className="h-full w-full object-cover"
+                />
+              </button>
               <div className="flex-1 min-w-0">
-                <p
-                  className="truncate text-[13px] font-semibold"
+                <button
+                  onClick={() =>
+                    item.productId && onViewProduct?.(item.productId)
+                  }
+                  className="truncate text-[13px] font-semibold text-left bg-transparent border-none p-0 cursor-pointer hover:underline"
                   style={{ color: "var(--color-ink)" }}
                 >
                   {item.productTitle}
-                </p>
+                </button>
                 <p
                   className="text-[11.5px] mt-0.5"
                   style={{ color: "var(--color-ink4)" }}
@@ -1173,12 +1225,16 @@ function CartTab({
   currencySymbol,
   onRemove,
   onClear,
+  onViewProduct,
+  onUpdateQty,
 }: {
   items: AdminCartItem[];
   loading: boolean;
   currencySymbol: string;
   onRemove: (itemId: string) => void;
   onClear: () => void;
+  onViewProduct?: (productId: string) => void;
+  onUpdateQty: (itemId: string, delta: number) => void;
 }) {
   if (loading) return <SkeletonList />;
   if (items.length === 0)
@@ -1230,19 +1286,25 @@ function CartTab({
             borderColor: "var(--color-border)",
           }}
         >
-          <img
-            src={item.product?.image || PLACEHOLDER_IMG}
-            alt={item.product?.title || "product"}
-            className="h-14 w-14 shrink-0 rounded-[10px] object-cover"
+          <button
+            onClick={() => onViewProduct?.(item.productId)}
+            className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
             style={{ border: "1px solid var(--color-border)" }}
-          />
+          >
+            <img
+              src={item.product?.image || PLACEHOLDER_IMG}
+              alt={item.product?.title || "product"}
+              className="h-full w-full object-cover"
+            />
+          </button>
           <div className="flex-1 min-w-0">
-            <p
-              className="truncate text-[13px] font-semibold"
+            <button
+              onClick={() => onViewProduct?.(item.productId)}
+              className="truncate text-[13px] font-semibold text-left bg-transparent border-none p-0 cursor-pointer hover:underline"
               style={{ color: "var(--color-ink)" }}
             >
               {item.product?.title || "Product"}
-            </p>
+            </button>
             <p className="text-[11.5px]" style={{ color: "var(--color-ink4)" }}>
               Size {item.selectedSize} · Qty {item.quantity}
               {item.selectedColor && (
@@ -1257,29 +1319,59 @@ function CartTab({
                 </span>
               )}
             </p>
-            <p
-              className="mt-1 text-[13px] font-bold tabular-nums"
-              style={{ color: "var(--color-ink)" }}
-            >
-              {currencySymbol}
-              {((item.product?.price ?? 0) * item.quantity).toFixed(2)}
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <span
+                className="text-[13px] font-bold tabular-nums"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {currencySymbol}
+                {((item.product?.price ?? 0) * item.quantity).toFixed(2)}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onUpdateQty(item.id, -1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                  style={{
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink2)",
+                  }}
+                >
+                  <Minus size={12} strokeWidth={2.5} />
+                </button>
+                <span
+                  className="w-7 text-center text-sm font-bold tabular-nums"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {item.quantity}
+                </span>
+                <button
+                  onClick={() => onUpdateQty(item.id, 1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                  style={{
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink2)",
+                  }}
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                </button>
+                <button
+                  onClick={() => onRemove(item.id)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg ml-1 transition-colors"
+                  style={{ color: "#EF4444" }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#FEF2F2";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => onRemove(item.id)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
-            style={{ color: "var(--color-ink4)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#FEF2F2";
-              e.currentTarget.style.color = "#EF4444";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--color-ink4)";
-            }}
-          >
-            <Trash2 size={14} strokeWidth={2} />
-          </button>
         </div>
       ))}
 

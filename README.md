@@ -227,6 +227,8 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
 - [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
 - [x] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
+- [ ] **"This order does not belong to you"** : le message apparaît quand l'email du client connecté ne correspond pas à celui de la commande. Vérifier dans `App.tsx` (retour Stripe) et `CheckoutFlow.tsx` si le flux invité (utilisateur non connecté) est bien géré sans bloquer la commande.
+- [ ] **Écart prix checkout (14 $) vs Stripe (22 $)** : le total transmis à Stripe (`unitAmount: Math.round(item.product.price * 100)`) n'inclut pas les frais de port. Vérifier comment le `total` (avec shipping) est transmis à l'Edge Function `stripe-checkout`.
 
 #### Header
 
@@ -275,6 +277,8 @@ The test: Every changed line should trace directly to my request.
 
 #### Produits
 
+- [ ] **Product colors** : make sure they show up and are selectionable for specific purchase.
+- [ ] **Size** : make sure they show up and are selectionable for specific purchase.
 - [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
 - [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
 
@@ -286,6 +290,14 @@ The test: Every changed line should trace directly to my request.
 #### Interface utilisateur
 
 - [x] **Espace client** : permettre aux utilisateurs de voir leurs commandes, suivis, etc.
+- [ ] **Saved Address** : Saved `Addresses` :
+  - Make them editable.
+  - Still KEEP last one based on last transaction
+  - but also a prefered one
+- Voir `#### Email / post domain`
+- [ ] Order confirmation emails
+- [ ] Shipping update emails
+- [ ] Promotions & deals
 
 #### Email / post domain
 

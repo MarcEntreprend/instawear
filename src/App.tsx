@@ -885,6 +885,10 @@ export default function App() {
         <AccountPage
           allCustomers={allCustomers}
           onClose={() => setShowAccountPage(false)}
+          onViewProduct={(productId) => {
+            const product = products.find((p) => p.id === productId);
+            if (product) setSelectedProduct(product);
+          }}
         />
       )}
 
