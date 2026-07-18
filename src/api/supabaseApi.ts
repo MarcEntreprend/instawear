@@ -525,6 +525,34 @@ export const customerApi = {
     return ordersMapped;
   },
 
+  // ── Notifications ───────────────────────────────────────────────
+  async getNotifications(clientId: string, limit = 50): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("customer_notifications")
+      .select("*")
+      .eq("customer_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    await supabase
+      .from("customer_notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+  },
+
+  async getUnreadNotificationCount(clientId: string): Promise<number> {
+    const { count } = await supabase
+      .from("customer_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", clientId)
+      .eq("is_read", false);
+    return count ?? 0;
+  },
+
   // ── Préférences email ──────────────────────────────────────────────
   async updateEmailPreferences(
     customerId: string,
@@ -689,6 +717,20 @@ export const orderApi = {
     if (error) throw error;
 
     // ── Email de mise à jour de statut ─────────────────────────────
+    const statusMessages: Record<string, string> = {
+      paid: "Your payment has been received and your order is now confirmed.",
+      pending: "Your order is being reviewed and will be processed shortly.",
+      in_production: "Great news! Your order is now being printed.",
+      shipped: "Your order has been shipped and is on its way to you.",
+      delivered: "Your order has been delivered. Enjoy!",
+      cancelled:
+        "Your order has been cancelled. If this was a mistake, please contact us.",
+    };
+
+    const message =
+      statusMessages[status] ||
+      `Your order status has been updated to: ${status.replace("_", " ")}.`;
+
     try {
       const { data: order } = await supabase
         .from("orders")
@@ -697,21 +739,6 @@ export const orderApi = {
         .single();
 
       if (order?.client_email) {
-        const statusMessages: Record<string, string> = {
-          paid: "Your payment has been received and your order is now confirmed.",
-          pending:
-            "Your order is being reviewed and will be processed shortly.",
-          in_production: "Great news! Your order is now being printed.",
-          shipped: "Your order has been shipped and is on its way to you.",
-          delivered: "Your order has been delivered. Enjoy!",
-          cancelled:
-            "Your order has been cancelled. If this was a mistake, please contact us.",
-        };
-
-        const message =
-          statusMessages[status] ||
-          `Your order status has been updated to: ${status.replace("_", " ")}.`;
-
         const origin =
           typeof window !== "undefined"
             ? window.location.origin
@@ -741,6 +768,43 @@ export const orderApi = {
       }
     } catch (e) {
       console.warn("Échec envoi email de statut", e);
+    }
+
+    // ── Insérer dans les notifications client ──────────────────────
+    try {
+      const { data: orderFull } = await supabase
+        .from("orders")
+        .select("client_id, client_email")
+        .eq("id", id)
+        .single();
+
+      // Déterminer le customer_id à utiliser
+      let customerId = orderFull?.client_id;
+
+      // Si le client_id n'est pas dans la table customers (ex: UUID auth),
+      // on cherche par email dans la table customers
+      if (customerId && orderFull?.client_email) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", orderFull.client_email)
+          .maybeSingle();
+        if (customer) {
+          customerId = customer.id;
+        }
+      }
+
+      if (customerId) {
+        await supabase.from("customer_notifications").insert({
+          customer_id: customerId,
+          title: `Order ${id}`,
+          message: message,
+          type: "order_status",
+          metadata: { orderId: id, status },
+        });
+      }
+    } catch (e) {
+      console.warn("Échec insertion notification client", e);
     }
 
     // ── Notification admin (existant) ─────────────────────────────

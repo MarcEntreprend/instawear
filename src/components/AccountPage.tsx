@@ -17,6 +17,7 @@ import {
   Loader2,
   Send,
   MapPin,
+  Bell,
   ChevronRight,
   CheckCircle2,
   Clock,
@@ -58,7 +59,13 @@ interface Interaction {
   lastMessage?: string;
 }
 
-type TabKey = "orders" | "favorites" | "cart" | "support" | "profile";
+type TabKey =
+  | "orders"
+  | "favorites"
+  | "cart"
+  | "notifications"
+  | "profile"
+  | "support";
 
 // ─── Status config ────────────────────────────────────────────────────
 const ORDER_STATUS: Record<
@@ -197,6 +204,33 @@ export default function AccountPage({
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [loadingInter, setLoadingInter] = useState(false);
 
+  // ── Notifications ──────────────────────────────────────────────
+  const [customerNotifications, setCustomerNotifications] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!customerId) return;
+    setLoadingNotifs(true);
+    try {
+      const data = await customerApi.getNotifications(customerId);
+      setCustomerNotifications(data);
+      setUnreadNotifsCount(data.filter((n: any) => !n.is_read).length);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingNotifs(false);
+    }
+  }, [customerId]);
+
+  const handleMarkNotifRead = async (notifId: string) => {
+    await customerApi.markNotificationRead(notifId);
+    setCustomerNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n)),
+    );
+    setUnreadNotifsCount((prev) => Math.max(0, prev - 1));
+  };
+
   // ── Cart ─────────────────────────────────────────────────────────
   const [cart, setCart] = useState<AdminCartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
@@ -323,6 +357,7 @@ export default function AccountPage({
     fetchOrders();
     fetchFavorites();
     fetchCart();
+    fetchNotifications();
     fetchInteractions();
   }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -333,6 +368,7 @@ export default function AccountPage({
       fetchOrders();
       fetchFavorites();
       fetchCart();
+      fetchNotifications();
       fetchInteractions();
     }, 30000);
     return () => clearInterval(interval);
@@ -376,16 +412,22 @@ export default function AccountPage({
       badge: cart.length || undefined,
     },
     {
-      key: "support",
-      label: "Support",
-      icon: <MessageSquare size={18} strokeWidth={1.75} />,
-      badge:
-        interactions.filter((i) => i.status === "open").length || undefined,
+      key: "notifications",
+      label: "Notifications",
+      icon: <Bell size={18} strokeWidth={1.75} />,
+      badge: unreadNotifsCount || undefined,
     },
     {
       key: "profile",
       label: "Profile",
       icon: <User size={18} strokeWidth={1.75} />,
+    },
+    {
+      key: "support",
+      label: "Support",
+      icon: <MessageSquare size={18} strokeWidth={1.75} />,
+      badge:
+        interactions.filter((i) => i.status === "open").length || undefined,
     },
   ];
 
@@ -678,12 +720,11 @@ export default function AccountPage({
                 onUpdateQty={handleUpdateCartQty}
               />
             )}
-            {tab === "support" && (
-              <SupportTab
-                interactions={interactions}
-                loading={loadingInter}
-                customerEmail={customerEmail}
-                customerName={customerName}
+            {tab === "notifications" && (
+              <NotificationsTab
+                notifications={customerNotifications}
+                loading={loadingNotifs}
+                onMarkRead={handleMarkNotifRead}
               />
             )}
             {tab === "profile" && (
@@ -693,6 +734,14 @@ export default function AccountPage({
                 orders={orders}
                 preferences={customerPreferences}
                 onUpdatePreferences={handleUpdatePreferences}
+              />
+            )}
+            {tab === "support" && (
+              <SupportTab
+                interactions={interactions}
+                loading={loadingInter}
+                customerEmail={customerEmail}
+                customerName={customerName}
               />
             )}
           </div>
@@ -1656,6 +1705,81 @@ function CartTab({
           {total.toFixed(2)}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ─── NotificationsTab ─────────────────────────────────────────────────
+function NotificationsTab({
+  notifications,
+  loading,
+  onMarkRead,
+}: {
+  notifications: any[];
+  loading: boolean;
+  onMarkRead: (id: string) => void;
+}) {
+  if (loading) return <SkeletonList />;
+  if (notifications.length === 0)
+    return (
+      <EmptyState
+        icon={<Bell size={28} strokeWidth={1.5} />}
+        title="No notifications yet"
+        sub="Updates about your orders will appear here."
+      />
+    );
+
+  return (
+    <div className="flex flex-col gap-2">
+      {notifications.map((notif) => (
+        <div
+          key={notif.id}
+          className="rounded-2xl border p-4 transition-all"
+          style={{
+            background: notif.is_read
+              ? "var(--color-surface)"
+              : "var(--color-accent-bg)",
+            borderColor: notif.is_read
+              ? "var(--color-border)"
+              : "var(--color-accent)" + "40",
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-[13px] font-semibold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {notif.title}
+              </p>
+              <p
+                className="text-[12px] mt-1"
+                style={{ color: "var(--color-ink3)" }}
+              >
+                {notif.message}
+              </p>
+              <p
+                className="text-[10px] mt-2"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                {timeAgo(notif.created_at)}
+              </p>
+            </div>
+            {!notif.is_read && (
+              <button
+                onClick={() => onMarkRead(notif.id)}
+                className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "white",
+                }}
+              >
+                Mark read
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
