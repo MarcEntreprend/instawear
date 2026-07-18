@@ -1047,13 +1047,15 @@ function OrdersTab({
               {order.items && order.items.length > 0 && (
                 <div className="mt-3 flex items-center gap-1.5">
                   {order.items.slice(0, 4).map((item, i) => (
-                    <button
+                    <span
                       key={i}
                       onClick={(e) => {
                         e.stopPropagation();
                         item.productId && onViewProduct?.(item.productId);
                       }}
-                      className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer"
+                      className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
+                      role="button"
+                      tabIndex={0}
                       style={{ border: "1px solid var(--color-border)" }}
                     >
                       <img
@@ -1061,7 +1063,7 @@ function OrdersTab({
                         alt={item.productTitle || "item"}
                         className="h-full w-full object-cover"
                       />
-                    </button>
+                    </span>
                   ))}
                   {order.items.length > 4 && (
                     <div

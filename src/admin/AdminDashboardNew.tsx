@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import AdminSidebar, { AdminSection } from "./AdminSidebar";
+import EmailMarketingPage from "./EmailMarketingPage";
 import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
 import NotificationsPage from "./NotificationsPage";
@@ -1061,6 +1062,7 @@ export default function AdminDashboard({
     notifications: "Notifications",
     customers: "Clients",
     promotions: "Promotions & Deals",
+    "email-marketing": "Email Marketing",
     reports: "Rapports",
     integrations: "Intégrations",
     settings: "Paramètres",
@@ -1332,6 +1334,7 @@ export default function AdminDashboard({
           )}
           {section === "settings" && <SettingsPage />}
           {section === "admin-users" && <AdminUsersPage />}
+          {section === "email-marketing" && <EmailMarketingPage />}
           {section === "help" && <HelpPage />}
         </div>
       </div>

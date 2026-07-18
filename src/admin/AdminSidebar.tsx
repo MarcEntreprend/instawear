@@ -17,6 +17,7 @@ import {
   Zap,
   Bell,
   MessageSquare,
+  Mail,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -33,6 +34,7 @@ export type AdminSection =
   | "customers"
   | "interactions"
   | "promotions"
+  | "email-marketing"
   | "reports"
   | "integrations"
   | "settings"
@@ -53,6 +55,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "customers", label: "Clients", icon: Users },
   { id: "interactions", label: "Interactions", icon: MessageSquare },
   { id: "promotions", label: "Promotions & Deals", icon: Tag },
+  { id: "email-marketing", label: "Email Marketing", icon: Mail },
   { id: "reports", label: "Rapports", icon: BarChart3 },
   "separator",
   { id: "integrations", label: "Intégrations", icon: Link2 },

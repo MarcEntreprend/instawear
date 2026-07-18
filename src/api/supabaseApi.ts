@@ -688,7 +688,62 @@ export const orderApi = {
       .eq("id", id);
     if (error) throw error;
 
-    // NOTIFICATION - Changement de statut de commande
+    // ── Email de mise à jour de statut ─────────────────────────────
+    try {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("client_email, client_name, id")
+        .eq("id", id)
+        .single();
+
+      if (order?.client_email) {
+        const statusMessages: Record<string, string> = {
+          paid: "Your payment has been received and your order is now confirmed.",
+          pending:
+            "Your order is being reviewed and will be processed shortly.",
+          in_production: "Great news! Your order is now being printed.",
+          shipped: "Your order has been shipped and is on its way to you.",
+          delivered: "Your order has been delivered. Enjoy!",
+          cancelled:
+            "Your order has been cancelled. If this was a mistake, please contact us.",
+        };
+
+        const message =
+          statusMessages[status] ||
+          `Your order status has been updated to: ${status.replace("_", " ")}.`;
+
+        const origin =
+          typeof window !== "undefined"
+            ? window.location.origin
+            : "https://instawear.vercel.app";
+
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            to: order.client_email,
+            subject: `Order ${order.id} – ${status.replace("_", " ")}`,
+            html: `
+              <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;">
+                <h2 style="color:#1a1a1a;">Order Update</h2>
+                <p>Hi ${order.client_name || "Customer"},</p>
+                <p>${message}</p>
+                <p><strong>Order:</strong> ${order.id}</p>
+                <a href="${origin}/?order=success&id=${order.id}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">View your order</a>
+                <p style="margin-top:32px;font-size:11px;color:#999;">InstaWear · 123 Main Street, Doral, FL 10001</p>
+              </div>
+            `,
+          }),
+        }).catch(console.error);
+      }
+    } catch (e) {
+      console.warn("Échec envoi email de statut", e);
+    }
+
+    // ── Notification admin (existant) ─────────────────────────────
     try {
       const statusLabels: Record<string, string> = {
         in_production: "En production",
