@@ -71,18 +71,18 @@ const ORDER_STATUS: Record<
     step: number;
   }
 > = {
-  pending: {
-    label: "Pending",
-    icon: <Clock size={12} strokeWidth={2} />,
-    color: "#d97706",
-    bg: "#fef3c7",
-    step: 0,
-  },
   paid: {
     label: "Paid",
     icon: <CheckCircle2 size={12} strokeWidth={2} />,
     color: "#2563eb",
     bg: "#dbeafe",
+    step: 0,
+  },
+  pending: {
+    label: "Pending",
+    icon: <Clock size={12} strokeWidth={2} />,
+    color: "#d97706",
+    bg: "#fef3c7",
     step: 1,
   },
   in_production: {
@@ -116,8 +116,8 @@ const ORDER_STATUS: Record<
 };
 
 const STATUS_STEPS = [
-  "Pending",
   "Paid",
+  "Pending",
   "In Production",
   "Shipped",
   "Delivered",
@@ -302,9 +302,9 @@ export default function AccountPage({
     }
   }, [customerEmail]);
 
-  // Charge les données
+  // Charge les données (orders toujours rafraîchies)
   useEffect(() => {
-    if (tab === "orders" && orders.length === 0) fetchOrders();
+    if (tab === "orders") fetchOrders();
     if (tab === "favorites" && favorites.length === 0) fetchFavorites();
     if (tab === "support" && interactions.length === 0) fetchInteractions();
     if (tab === "cart" && cart.length === 0) fetchCart();
@@ -724,6 +724,7 @@ function OrdersTab({
   onViewProduct?: (productId: string) => void;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -759,6 +760,16 @@ function OrdersTab({
   }, [orders, search, filterStatus, sortOrder]);
 
   if (loading) return <SkeletonList />;
+  if (loadingDetail)
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2
+          size={28}
+          className="animate-spin"
+          style={{ color: "var(--color-accent)" }}
+        />
+      </div>
+    );
   if (selectedOrder)
     return (
       <OrderDetail
@@ -887,13 +898,62 @@ function OrdersTab({
           return (
             <button
               key={order.id}
-              onClick={() => setSelectedOrder(order)}
+              onClick={async () => {
+                setLoadingDetail(true);
+                try {
+                  const { data: refreshed, error } = await supabase
+                    .from("orders")
+                    .select("*, order_items(*)")
+                    .eq("id", order.id)
+                    .single();
+                  if (!error && refreshed) {
+                    const items = (refreshed.order_items || []).map(
+                      (item: any) => ({
+                        id: item.id,
+                        orderId: item.order_id,
+                        productId: item.product_id,
+                        productTitle: item.product_title,
+                        productImage: item.product_image,
+                        selectedColor: item.selected_color,
+                        selectedSize: item.selected_size,
+                        quantity: item.quantity,
+                        unitPrice: item.unit_price,
+                      }),
+                    );
+                    setSelectedOrder({
+                      id: refreshed.id,
+                      clientId: refreshed.client_id,
+                      clientName: refreshed.client_name,
+                      clientEmail: refreshed.client_email,
+                      createdAt: refreshed.created_at,
+                      status: refreshed.status,
+                      totalAmount: refreshed.total_amount,
+                      shippingCost: refreshed.shipping_cost,
+                      shippingAddress: {
+                        fullName: refreshed.shipping_address_full_name,
+                        address: refreshed.shipping_address_address,
+                        city: refreshed.shipping_address_city,
+                        zip: refreshed.shipping_address_zip,
+                        country: refreshed.shipping_address_country,
+                        phone: refreshed.shipping_address_phone,
+                      },
+                      externalOrderId: refreshed.external_order_id,
+                      notes: refreshed.notes,
+                      items,
+                    } as Order);
+                  } else {
+                    setSelectedOrder(order);
+                  }
+                } catch {
+                  setSelectedOrder(order);
+                } finally {
+                  setLoadingDetail(false);
+                }
+              }}
               className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
               style={{
                 background: "var(--color-surface)",
-                borderColor: isActive
-                  ? "var(--color-accent)" + "40"
-                  : "var(--color-border)",
+                borderColor: "var(--color-border)",
               }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -1057,12 +1117,11 @@ function OrderDetail({
                       )}
                     </div>
                     <span
-                      className="text-[9px] font-semibold text-center leading-tight"
+                      className="text-[9px] font-semibold text-center leading-tight whitespace-nowrap"
                       style={{
                         color: reached
                           ? "var(--color-ink2)"
                           : "var(--color-ink4)",
-                        maxWidth: 44,
                       }}
                     >
                       {step}
