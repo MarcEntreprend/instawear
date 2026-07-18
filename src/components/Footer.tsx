@@ -1,7 +1,8 @@
 // src/components/Footer.tsx
 
 import { useState } from "react";
-import { Send, Instagram, Twitter, Facebook } from "lucide-react";
+import { Send, Loader2, Instagram, Twitter, Facebook } from "lucide-react";
+import { newsletterApi } from "../api/supabaseApi";
 import { LOGO_URL } from "../constants/assets";
 
 interface FooterProps {
@@ -21,15 +22,32 @@ export default function Footer({
   const [subscribed, setSubscribed] = useState(false);
   const [valid, setValid] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [subscribing, setSubscribing] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setTimeout(() => {
-        setSubscribed(false);
-        setEmail("");
-        setValid(false);
-      }, 5000);
+    if (!email || !valid) return;
+    setSubscribing(true);
+    try {
+      const result = await newsletterApi.subscribe(email);
+      if (result.success) {
+        setSubscribed(true);
+        setMessage(result.message);
+        setTimeout(() => {
+          setSubscribed(false);
+          setEmail("");
+          setValid(false);
+          setMessage("");
+        }, 5000);
+      } else {
+        setMessage(result.message);
+        setTimeout(() => setMessage(""), 3000);
+      }
+    } catch {
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -134,11 +152,14 @@ export default function Footer({
             Subscribe to get early alerts on limited drops for every upcoming
             event!
           </p>
-          {subscribed ? (
-            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded text-xs">
-              ✓ You're in! You'll be the first to know about new drops.
+          {message && (
+            <div
+              className={`p-2.5 border rounded text-xs ${subscribed ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "bg-amber-500/10 border-amber-500/30 text-amber-600"}`}
+            >
+              {message}
             </div>
-          ) : (
+          )}
+          {!message && (
             <form onSubmit={handleSubmit} className="flex items-center gap-1">
               <input
                 type="email"
@@ -153,14 +174,20 @@ export default function Footer({
               />
               <button
                 type="submit"
+                disabled={subscribing || !valid}
                 className="p-2 rounded transition-all duration-200"
                 style={{
                   background: valid ? "var(--color-accent)" : "transparent",
                   color: valid ? "white" : "var(--color-accent)",
                   border: `1.5px solid var(--color-accent)`,
+                  opacity: subscribing ? 0.6 : 1,
                 }}
               >
-                <Send className="w-3.5 h-3.5" />
+                {subscribing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
               </button>
             </form>
           )}

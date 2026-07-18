@@ -305,7 +305,10 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Resend : héberger les images** : les images doivent être sur le même domaine (pas `files.cdn.printful.com`)
 - [ ] **Resend : infos business** : mettre à jour l'adresse postale (Doral, FL) dans le pied de page email
 
----
+## Codes morts - rechercher et vérifier
+
+- `src\components\DealsSection.tsx` -> _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
+-
 
 ### 📊 Résumé
 

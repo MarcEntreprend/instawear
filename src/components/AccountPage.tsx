@@ -164,6 +164,11 @@ export default function AccountPage({
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerPreferences, setCustomerPreferences] = useState({
+    order_confirmation: true,
+    shipping_update: true,
+    promotions: false,
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -173,6 +178,10 @@ export default function AccountPage({
         setCustomerId(cust.id);
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
+        // Charger les préférences
+        customerApi.get(cust.id).then((c) => {
+          if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
+        });
       }
     });
   }, [allCustomers]);
@@ -264,6 +273,12 @@ export default function AccountPage({
       await customerApi.removeFavourite(customerId, fav.productId);
     }
     setFavorites([]);
+  };
+
+  const handleUpdatePreferences = async (prefs: typeof customerPreferences) => {
+    if (!customerId) return;
+    setCustomerPreferences(prefs);
+    await customerApi.updateEmailPreferences(customerId, prefs);
   };
 
   const fetchOrders = useCallback(async () => {
@@ -676,6 +691,8 @@ export default function AccountPage({
                 customerEmail={customerEmail}
                 customerName={customerName}
                 orders={orders}
+                preferences={customerPreferences}
+                onUpdatePreferences={handleUpdatePreferences}
               />
             )}
           </div>
@@ -1910,10 +1927,22 @@ function ProfileTab({
   customerEmail,
   customerName,
   orders,
+  preferences,
+  onUpdatePreferences,
 }: {
   customerEmail: string;
   customerName: string;
   orders: Order[];
+  preferences: {
+    order_confirmation: boolean;
+    shipping_update: boolean;
+    promotions: boolean;
+  };
+  onUpdatePreferences: (prefs: {
+    order_confirmation: boolean;
+    shipping_update: boolean;
+    promotions: boolean;
+  }) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -2113,44 +2142,55 @@ function ProfileTab({
         </p>
         <div className="flex flex-col gap-2">
           {[
-            { label: "Order confirmation emails", on: true },
-            { label: "Shipping update emails", on: true },
-            { label: "Promotions & deals", on: false },
-          ].map(({ label, on }) => (
-            <div key={label} className="flex items-center justify-between">
-              <span
-                className="text-[13px]"
-                style={{ color: "var(--color-ink2)" }}
-              >
-                {label}
-              </span>
-              {/* Toggle visual (non-functional placeholder) */}
-              <div
-                className="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200"
-                style={{
-                  background: on
-                    ? "var(--color-accent)"
-                    : "var(--color-border2)",
-                }}
-              >
+            {
+              label: "Order confirmation emails",
+              key: "order_confirmation" as const,
+            },
+            {
+              label: "Shipping update emails",
+              key: "shipping_update" as const,
+            },
+            { label: "Promotions & deals", key: "promotions" as const },
+          ].map(({ label, key }) => {
+            const on = preferences[key];
+            return (
+              <div key={key} className="flex items-center justify-between">
                 <span
-                  className="absolute top-0.5 h-4 w-4 rounded-full transition-transform duration-200"
+                  className="text-[13px]"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  {label}
+                </span>
+                <button
+                  onClick={() =>
+                    onUpdatePreferences({ ...preferences, [key]: !on })
+                  }
+                  className="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200"
                   style={{
-                    background: "white",
-                    left: on ? "calc(100% - 18px)" : "2px",
-                    boxShadow: "var(--shadow-sm)",
+                    background: on
+                      ? "var(--color-accent)"
+                      : "var(--color-border2)",
                   }}
-                />
+                >
+                  <span
+                    className="absolute top-0.5 h-4 w-4 rounded-full transition-transform duration-200"
+                    style={{
+                      background: "white",
+                      left: on ? "calc(100% - 18px)" : "2px",
+                      boxShadow: "var(--shadow-sm)",
+                    }}
+                  />
+                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        <p
+        {/* <p
           className="mt-3 text-[11.5px]"
           style={{ color: "var(--color-ink4)" }}
         >
           Notification preferences — coming soon.
-        </p>
+        </p> */}
       </div>
 
       {/* Danger zone */}

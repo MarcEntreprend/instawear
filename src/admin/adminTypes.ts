@@ -53,6 +53,11 @@ export interface Customer {
   name?: string;
   registrationDate: string;
   lastLoginDate?: string;
+  emailPreferences?: {
+    order_confirmation: boolean;
+    shipping_update: boolean;
+    promotions: boolean;
+  };
 }
 
 // Payload for creating a customer. passwordHash is required during creation

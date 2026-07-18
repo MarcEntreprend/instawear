@@ -380,7 +380,7 @@ export const customerApi = {
   async get(id: string): Promise<Customer | null> {
     const { data, error } = await supabase
       .from("customers")
-      .select("*")
+      .select("*, email_preferences")
       .eq("id", id)
       .single();
     if (error) return null;
@@ -390,6 +390,11 @@ export const customerApi = {
       name: data.name,
       registrationDate: data.registration_date,
       lastLoginDate: data.last_login_date,
+      emailPreferences: data.email_preferences || {
+        order_confirmation: true,
+        shipping_update: true,
+        promotions: false,
+      },
     };
   },
   // ── Favoris ──────────────────────────────────────────────────────────
@@ -518,6 +523,22 @@ export const customerApi = {
       }));
     }
     return ordersMapped;
+  },
+
+  // ── Préférences email ──────────────────────────────────────────────
+  async updateEmailPreferences(
+    customerId: string,
+    preferences: {
+      order_confirmation?: boolean;
+      shipping_update?: boolean;
+      promotions?: boolean;
+    },
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("customers")
+      .update({ email_preferences: preferences })
+      .eq("id", customerId);
+    if (error) throw error;
   },
 };
 
@@ -1588,5 +1609,45 @@ export const apiConnectionsApi = {
       .delete()
       .eq("id", id);
     if (error) throw error;
+  },
+};
+
+// ─── Newsletter ───────────────────────────────────────────────────────
+export const newsletterApi = {
+  async subscribe(
+    email: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Vérifier si déjà inscrit
+    const { data: existing } = await supabase
+      .from("newsletter_subscribers")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existing) {
+      return { success: false, message: "You're already subscribed!" };
+    }
+
+    const { error } = await supabase
+      .from("newsletter_subscribers")
+      .insert({ email });
+
+    if (error) throw error;
+
+    // Envoyer un email de bienvenue (optionnel, asynchrone)
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        to: email,
+        subject: "Welcome to InstaWear!",
+        html: `<h1>You're in!</h1><p>You'll be the first to know about new drops and exclusive deals.</p>`,
+      }),
+    }).catch(() => {});
+
+    return { success: true, message: "Welcome! You're now subscribed." };
   },
 };
