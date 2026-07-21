@@ -1286,7 +1286,6 @@ function ComposeSection({
         .replace(/{{title}}/g, ""); // sera remplacé dans le corps par le sujet
 
       // Personnaliser le corps HTML
-      // Personnaliser le corps HTML
       let personalizedHtml = html
         .replace(/{{name}}/g, recipientName)
         .replace(/{{email}}/g, email)
