@@ -67,6 +67,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
+import VariablesModal from "./emailMarketing/VariablesModal";
+import { useToast } from "./emailMarketing/useToast";
+import {
+  formatDate,
+  formatDateTime,
+  emailQualityScore,
+} from "./emailMarketing/helpers";
+import { STATUS_META } from "./emailMarketing/constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -138,174 +147,9 @@ interface SenderSettings {
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-
-const TEMPLATES: {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  subject: string;
-  html: string;
-}[] = [
-  {
-    id: "promo",
-    label: "Promotion",
-    icon: <Percent size={16} strokeWidth={1.75} />,
-    subject: "🎉 Offre exclusive — {{discount}}% de réduction",
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:32px;font-weight:800;color:#1a1916;margin:0 0 8px">{{brand}}</h1>
-  <p style="font-size:16px;color:#7a7872;margin:0 0 32px">Collection événementielle</p>
-  <div style="background:#fff2ef;border-radius:16px;padding:32px;text-align:center;margin:0 0 24px">
-    <p style="font-size:14px;font-weight:600;color:#ff5c35;text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px">Offre limitée</p>
-    <h2 style="font-size:48px;font-weight:900;color:#ff5c35;margin:0">{{discount}}%</h2>
-    <p style="font-size:18px;font-weight:700;color:#1a1916;margin:8px 0 24px">de réduction sur toute la collection</p>
-    <a href="{{cta_link}}" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Profiter de l'offre →</a>
-  </div>
-<p style="font-size:12px;color:#b5b3af;text-align:center;margin-top:24px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
-</div>`,
-  },
-  {
-    id: "new_product",
-    label: "Nouveau produit",
-    icon: <Package size={16} strokeWidth={1.75} />,
-    subject: "✨ Nouvelle arrivée — {{product_name}}",
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 24px">{{brand}}</h1>
-  <p style="font-size:13px;font-weight:600;color:#ff5c35;text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px">Nouveau</p>
-  <h2 style="font-size:28px;font-weight:800;color:#1a1916;margin:0 0 16px">{{product_name}}</h2>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">{{product_description}}</p>
-  <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Découvrir →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
-</div>`,
-  },
-  {
-    id: "cart_recovery",
-    label: "Relance panier",
-    icon: <ShoppingBag size={16} strokeWidth={1.75} />,
-    subject: "🛒 Vous avez oublié quelque chose…",
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 8px">{{brand}}</h1>
-  <p style="font-size:16px;color:#7a7872;margin:0 0 32px">Votre panier vous attend</p>
-  <p style="font-size:17px;font-weight:600;color:#1a1916;margin:0 0 8px">Bonjour {{name}},</p>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">Vous avez laissé des articles dans votre panier. Ils ne vous attendront pas éternellement…</p>
-  <a href="{{cart_link}}" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Finaliser ma commande →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
-</div>`,
-  },
-  {
-    id: "announcement",
-    label: "Annonce",
-    icon: <Bell size={16} strokeWidth={1.75} />,
-    subject: "📣 {{title}}",
-    html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 24px">{{brand}}</h1>
-  <h2 style="font-size:28px;font-weight:800;color:#1a1916;margin:0 0 16px">{{title}}</h2>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">{{body}}</p>
-  <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">En savoir plus →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
-</div>`,
-  },
-];
-
-const AUTOMATION_CONFIGS: Record<
-  AutomationFlow["trigger_type"],
-  {
-    label: string;
-    icon: React.ReactNode;
-    color: string;
-    bg: string;
-    description: string;
-  }
-> = {
-  welcome: {
-    label: "Email de bienvenue",
-    icon: <UserPlus size={16} strokeWidth={1.75} />,
-    color: "var(--notif-cat-customers)",
-    bg: "var(--notif-cat-customers-bg)",
-    description: "Envoyé immédiatement après l'inscription à la newsletter",
-  },
-  abandoned_cart: {
-    label: "Relance panier abandonné",
-    icon: <ShoppingBag size={16} strokeWidth={1.75} />,
-    color: "var(--notif-cat-orders)",
-    bg: "var(--notif-cat-orders-bg)",
-    description: "Envoyé X heures après abandon du panier",
-  },
-  post_purchase: {
-    label: "Post-achat",
-    icon: <Package size={16} strokeWidth={1.75} />,
-    color: "var(--notif-cat-products)",
-    bg: "var(--notif-cat-products-bg)",
-    description: "Envoyé X jours après livraison",
-  },
-  win_back: {
-    label: "Réactivation clients inactifs",
-    icon: <TrendingUp size={16} strokeWidth={1.75} />,
-    color: "var(--notif-cat-bonus)",
-    bg: "var(--notif-cat-bonus-bg)",
-    description: "Envoyé aux clients sans achat depuis X jours",
-  },
-  birthday: {
-    label: "Anniversaire",
-    icon: <Star size={16} strokeWidth={1.75} />,
-    color: "var(--notif-cat-finance)",
-    bg: "var(--notif-cat-finance-bg)",
-    description: "Envoyé le jour J si la date est connue",
-  },
-};
-
-const STATUS_META: Record<
-  CampaignStatus,
-  { label: string; color: string; bg: string; icon: React.ReactNode }
-> = {
-  draft: {
-    label: "Brouillon",
-    color: "var(--color-ink4)",
-    bg: "var(--color-surface2)",
-    icon: <Edit3 size={11} strokeWidth={2} />,
-  },
-  scheduled: {
-    label: "Programmée",
-    color: "#d97706",
-    bg: "#fef3c7",
-    icon: <Calendar size={11} strokeWidth={2} />,
-  },
-  sending: {
-    label: "En cours",
-    color: "#2563eb",
-    bg: "#dbeafe",
-    icon: <Loader2 size={11} strokeWidth={2} />,
-  },
-  sent: {
-    label: "Envoyée",
-    color: "var(--color-emerald)",
-    bg: "var(--color-success-bg)",
-    icon: <CheckCircle2 size={11} strokeWidth={2} />,
-  },
-  failed: {
-    label: "Échouée",
-    color: "#991b1b",
-    bg: "#fee2e2",
-    icon: <AlertCircle size={11} strokeWidth={2} />,
-  },
-};
+// déplacés vers src\admin\emailMarketing
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function subjectScore(subject: string): number {
   let score = 0;
@@ -315,51 +159,6 @@ function subjectScore(subject: string): number {
   if (subject.length > 0 && subject.length < 70) score += 15;
   if (/[!?]$/.test(subject)) score += 15;
   return Math.min(score, 100);
-}
-
-function emailQualityScore(
-  subject: string,
-  html: string,
-): {
-  score: number;
-  items: { label: string; ok: boolean }[];
-} {
-  const items = [
-    {
-      label: "Objet entre 20 et 60 caractères",
-      ok: subject.length >= 20 && subject.length <= 60,
-    },
-    { label: "Emoji dans l'objet", ok: /[🎉✨🛒📣💥🎁🔥💌]/.test(subject) },
-    { label: "Variables personnalisées ({{name}})", ok: /{{.+?}}/.test(html) },
-    { label: "Lien CTA présent", ok: /<a\s[^>]*href/i.test(html) },
-    {
-      label: "Contenu HTML non vide",
-      ok: html.replace(/<[^>]+>/g, "").trim().length > 50,
-    },
-    {
-      label: "Pas de mot spam dans l'objet",
-      ok: !/(gratuit|urgent|gagnez|cliquez vite)/i.test(subject),
-    },
-  ];
-  const score = Math.round(
-    (items.filter((i) => i.ok).length / items.length) * 100,
-  );
-  return { score, items };
-}
-
-// ─── Toast hook ───────────────────────────────────────────────────────────────
-
-function useToast() {
-  const [toasts, setToasts] = useState<
-    { id: number; msg: string; type: "success" | "error" }[]
-  >([]);
-  const counter = useRef(0);
-  const push = (msg: string, type: "success" | "error" = "success") => {
-    const id = ++counter.current;
-    setToasts((p) => [...p, { id, msg, type }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
-  };
-  return { toasts, push };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -2055,141 +1854,10 @@ function ComposeSection({
           </div>
         </div>
       </div>
-
-      {/* ── Modal Variables disponibles ─────────────────────────── */}
-      {showVariablesModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(26,20,10,0.5)",
-            backdropFilter: "blur(4px)",
-          }}
-          onClick={() => setShowVariablesModal(false)}
-        >
-          <div
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 500,
-              width: "90%",
-              boxShadow: "var(--shadow-xl)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <h4
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "var(--color-ink)",
-                }}
-              >
-                Variables disponibles
-              </h4>
-              <button
-                onClick={() => setShowVariablesModal(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--color-ink4)",
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                {
-                  var: "{{name}}",
-                  desc: "Nom du client (remplacé par “Valued Customer” si inconnu)",
-                },
-                { var: "{{email}}", desc: "Email du destinataire" },
-                { var: "{{brand}}", desc: "Nom de la marque (InstaWear)" },
-                {
-                  var: "{{discount}}",
-                  desc: "Pourcentage de réduction (ex. 20)",
-                },
-                {
-                  var: "{{cta_link}}",
-                  desc: "Lien vers la page d’accueil du site",
-                },
-                {
-                  var: "{{unsubscribe_link}}",
-                  desc: "Lien de désabonnement généré automatiquement",
-                },
-                {
-                  var: "{{footer}}",
-                  desc: "Pied de page avec adresse et lien de désabonnement",
-                },
-                {
-                  var: "{{product_name}}",
-                  desc: "Nom du produit (valeur générique par défaut)",
-                },
-                {
-                  var: "{{product_description}}",
-                  desc: "Description du produit",
-                },
-                {
-                  var: "{{title}}",
-                  desc: "Sujet de l’email (utilise le sujet saisi)",
-                },
-                {
-                  var: "{{body}}",
-                  desc: "Extrait du corps HTML (200 premiers caractères)",
-                },
-                {
-                  var: "{{order_id}}",
-                  desc: "ID de commande (non applicable en campagne)",
-                },
-                { var: "{{cart_link}}", desc: "Lien vers le panier" },
-              ].map((item) => (
-                <div
-                  key={item.var}
-                  style={{ display: "flex", gap: 12, alignItems: "baseline" }}
-                >
-                  <code
-                    style={{
-                      background: "var(--color-surface2)",
-                      padding: "2px 8px",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "var(--color-accent)",
-                    }}
-                  >
-                    {item.var}
-                  </code>
-                  <span
-                    style={{
-                      fontSize: 12.5,
-                      color: "var(--color-ink3)",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {item.desc}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <VariablesModal
+        open={showVariablesModal}
+        onClose={() => setShowVariablesModal(false)}
+      />
     </div>
   );
 }
