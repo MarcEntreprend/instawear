@@ -680,6 +680,8 @@ export default function AccountPage({
               onClick={async () => {
                 await supabase.auth.signOut();
                 onClose();
+                // Force un vrai refresh pour nettoyer tous les états
+                window.location.href = "/";
               }}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
               style={{ color: "var(--color-ink4)" }}
@@ -760,6 +762,7 @@ export default function AccountPage({
                 preferences={customerPreferences}
                 onUpdatePreferences={handleUpdatePreferences}
                 newsletterSubscribed={newsletterSubscribed}
+                onClose={onClose}
                 onToggleNewsletter={handleToggleNewsletter}
               />
             )}
@@ -2085,6 +2088,7 @@ function ProfileTab({
   onUpdatePreferences,
   newsletterSubscribed,
   onToggleNewsletter,
+  onClose,
 }: {
   customerEmail: string;
   customerName: string;
@@ -2101,6 +2105,7 @@ function ProfileTab({
     promotions: boolean;
   }) => void;
   newsletterSubscribed: boolean;
+  onClose: () => void;
   onToggleNewsletter: () => void;
 }) {
   // ── États locaux ───────────────────────────────────────────────
@@ -2654,6 +2659,8 @@ function ProfileTab({
           }}
           onClick={async () => {
             await supabase.auth.signOut();
+            onClose();
+            window.location.href = "/";
           }}
         >
           <LogOut size={14} strokeWidth={1.75} /> Sign out of InstaWear
