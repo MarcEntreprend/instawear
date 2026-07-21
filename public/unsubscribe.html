@@ -5,72 +5,104 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Unsubscribe - InstaWear</title>
+    <title>Email Preferences — InstaWear</title>
     <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
       body {
-        font-family: system-ui, sans-serif;
-        max-width: 500px;
-        margin: 80px auto;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        max-width: 480px;
+        margin: 60px auto;
         padding: 0 20px;
-        text-align: center;
         background: #fafaf8;
         color: #1a1916;
       }
-      h1 {
-        font-size: 24px;
-        margin-bottom: 8px;
+      .card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 32px 24px;
+        box-shadow:
+          0 1px 3px rgba(0, 0, 0, 0.04),
+          0 4px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e5e5e5;
       }
-      p {
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .subtitle {
         font-size: 14px;
         color: #7a7872;
         margin-bottom: 24px;
       }
-      .success {
-        color: #059669;
-        font-weight: 600;
-      }
       .options {
-        text-align: left;
         margin: 20px 0;
-        padding: 16px;
-        background: #fff;
-        border-radius: 12px;
-        border: 1px solid #e5e5e5;
-      }
-      .options label {
         display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 0;
-        font-size: 14px;
-        cursor: pointer;
+        flex-direction: column;
+        gap: 12px;
       }
-      .options input[type="checkbox"] {
+      .option-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #f9f9f7;
+        border-radius: 10px;
+        border: 1px solid #eee;
+      }
+      .option-row input[type="checkbox"] {
+        margin-top: 3px;
         accent-color: #ff5c35;
         width: 18px;
         height: 18px;
+        flex-shrink: 0;
       }
-      button {
+      .option-text {
+        flex: 1;
+      }
+      .option-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a1916;
+      }
+      .option-desc {
+        font-size: 12px;
+        color: #9a9894;
+        margin-top: 2px;
+      }
+      .btn {
+        display: block;
+        width: 100%;
         padding: 12px 28px;
-        background: #ff5c35;
-        color: white;
         border: none;
         border-radius: 10px;
         font-weight: 700;
-        cursor: pointer;
         font-size: 14px;
-        margin: 4px;
+        cursor: pointer;
+        text-align: center;
+        margin-bottom: 8px;
+        transition: opacity 0.15s;
       }
-      button:hover {
+      .btn-primary {
+        background: #ff5c35;
+        color: #ffffff;
+      }
+      .btn-primary:hover {
         opacity: 0.9;
       }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .secondary {
+      .btn-secondary {
         background: #f0f0f0;
         color: #1a1916;
+      }
+      .btn-secondary:hover {
+        background: #e5e5e5;
       }
       .done-box {
         background: #d1fae5;
@@ -78,52 +110,101 @@
         border-radius: 12px;
         padding: 20px;
         margin-top: 20px;
+        display: none;
+      }
+      .done-box .success {
+        color: #059669;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .done-box p {
+        font-size: 14px;
+        color: #555;
+        margin: 0;
+      }
+      #status {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #7a7872;
       }
     </style>
   </head>
   <body>
-    <h1>Email Preferences</h1>
-    <p id="status">Loading your preferences…</p>
-    <div id="actions" style="display: none">
-      <div class="options">
-        <p
-          style="
-            font-weight: 700;
-            margin: 0 0 8px;
-            font-size: 13px;
-            color: #555;
-          "
-        >
-          Manage your email subscriptions:
-        </p>
-        <label>
-          <input type="checkbox" id="opt-newsletter" checked />
-          <span>Newsletter (new products, drops, exclusives)</span>
-        </label>
-        <label>
-          <input type="checkbox" id="opt-confirmation" checked />
-          <span>Order confirmation emails</span>
-        </label>
-        <label>
-          <input type="checkbox" id="opt-shipping" checked />
-          <span>Shipping update emails</span>
-        </label>
-        <label>
-          <input type="checkbox" id="opt-promotions" checked />
-          <span>Promotions & deals</span>
-        </label>
-      </div>
-      <button onclick="updatePreferences()">Save Preferences</button>
-      <button class="secondary" onclick="unsubscribeAll()">
-        Unsubscribe from All
-      </button>
-    </div>
-    <div id="done" style="display: none" class="done-box">
-      <p class="success">✓ Preferences updated</p>
-      <p style="font-size: 13px; color: #555; margin: 0">
-        You'll no longer receive the unchecked types of emails.
+    <div class="card">
+      <h1>Email Preferences</h1>
+      <p class="subtitle">
+        Choose which emails you'd like to receive from InstaWear.
       </p>
+      <p id="status">Loading your preferences…</p>
+      <div id="actions" style="display: none">
+        <div class="options">
+          <p
+            style="
+              font-weight: 700;
+              margin: 0 0 4px;
+              font-size: 13px;
+              color: #555;
+            "
+          >
+            Manage your subscriptions:
+          </p>
+
+          <!-- Newsletter (always visible) -->
+          <div class="option-row">
+            <input type="checkbox" id="opt-newsletter" checked />
+            <div class="option-text">
+              <div class="option-label">Newsletter</div>
+              <div class="option-desc">
+                Weekly inspiration, new drops, and exclusive offers
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer preferences (hidden if not a customer) -->
+          <div id="customer-opts">
+            <div class="option-row">
+              <input type="checkbox" id="opt-confirmation" checked />
+              <div class="option-text">
+                <div class="option-label">Order confirmations</div>
+                <div class="option-desc">Receipts and order status updates</div>
+              </div>
+            </div>
+            <div class="option-row">
+              <input type="checkbox" id="opt-shipping" checked />
+              <div class="option-text">
+                <div class="option-label">Shipping updates</div>
+                <div class="option-desc">
+                  Tracking and delivery notifications
+                </div>
+              </div>
+            </div>
+            <div class="option-row">
+              <input type="checkbox" id="opt-promotions" checked />
+              <div class="option-text">
+                <div class="option-label">Promotions & deals</div>
+                <div class="option-desc">
+                  Special offers and new product drops
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="updatePreferences()">
+          Save Preferences
+        </button>
+        <button class="btn btn-secondary" onclick="unsubscribeAll()">
+          Unsubscribe from All
+        </button>
+      </div>
+      <div id="done" class="done-box">
+        <p class="success">✓ Preferences updated</p>
+        <p>
+          Your email preferences have been saved. You'll no longer receive the
+          unchecked types of emails.
+        </p>
+      </div>
     </div>
+
     <script>
       const params = new URLSearchParams(window.location.search);
       const email = params.get("email");
@@ -138,115 +219,120 @@
 
       if (!email) {
         document.getElementById("status").textContent =
-          "Invalid unsubscribe link.";
+          "Invalid unsubscribe link. No email provided.";
         return;
       }
 
-      // Charger l'état actuel
+      // Load current preferences
       async function loadState() {
-        // Vérifier newsletter
-        const nsRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
-          { headers },
-        );
-        const nsData = await nsRes.json();
-        document.getElementById("opt-newsletter").checked = nsData.length > 0;
+        try {
+          // 1. Newsletter subscription
+          const nsRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
+            { headers },
+          );
+          const nsData = await nsRes.json();
+          document.getElementById("opt-newsletter").checked = nsData.length > 0;
 
-        // Vérifier préférences customer
-        const custRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=email_preferences`,
-          { headers },
-        );
-        const custData = await custRes.json();
-        if (custData.length > 0 && custData[0].email_preferences) {
-          const prefs = custData[0].email_preferences;
-          document.getElementById("opt-confirmation").checked =
-            prefs.order_confirmation !== false;
-          document.getElementById("opt-shipping").checked =
-            prefs.shipping_update !== false;
-          document.getElementById("opt-promotions").checked =
-            prefs.promotions !== false;
-        } else {
-          // Pas de compte customer : masquer les options non pertinentes
-          document.getElementById(
-            "opt-confirmation",
-          ).parentElement.style.display = "none";
-          document.getElementById("opt-shipping").parentElement.style.display =
-            "none";
-          document.getElementById(
-            "opt-promotions",
-          ).parentElement.style.display = "none";
+          // 2. Customer email preferences (only if customer exists)
+          const custRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id,email_preferences`,
+            { headers },
+          );
+          const custData = await custRes.json();
+          if (custData.length > 0 && custData[0].email_preferences) {
+            const prefs = custData[0].email_preferences;
+            document.getElementById("opt-confirmation").checked =
+              prefs.order_confirmation !== false;
+            document.getElementById("opt-shipping").checked =
+              prefs.shipping_update !== false;
+            document.getElementById("opt-promotions").checked =
+              prefs.promotions !== false;
+          } else {
+            // No customer account – hide customer‑only options
+            document.getElementById("customer-opts").style.display = "none";
+          }
+
+          document.getElementById("status").style.display = "none";
+          document.getElementById("actions").style.display = "block";
+        } catch (err) {
+          document.getElementById("status").textContent =
+            "Unable to load your preferences. Please try again later.";
         }
-
-        document.getElementById("status").style.display = "none";
-        document.getElementById("actions").style.display = "block";
       }
 
+      // Save changes
       window.updatePreferences = async function () {
         const wantNewsletter =
           document.getElementById("opt-newsletter").checked;
         const wantConfirmation =
-          document.getElementById("opt-confirmation").checked;
-        const wantShipping = document.getElementById("opt-shipping").checked;
+          document.getElementById("opt-confirmation")?.checked ?? true;
+        const wantShipping =
+          document.getElementById("opt-shipping")?.checked ?? true;
         const wantPromotions =
-          document.getElementById("opt-promotions").checked;
+          document.getElementById("opt-promotions")?.checked ?? true;
 
-        // 1. Gérer newsletter
-        const nsRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
-          { headers },
-        );
-        const nsData = await nsRes.json();
-        const isSubscribed = nsData.length > 0;
-
-        if (wantNewsletter && !isSubscribed) {
-          await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ email }),
-          });
-        } else if (!wantNewsletter && isSubscribed) {
-          await fetch(
-            `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}`,
-            {
-              method: "DELETE",
-              headers,
-            },
+        try {
+          // 1. Newsletter subscription
+          const nsRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
+            { headers },
           );
-        }
+          const nsData = await nsRes.json();
+          const isSubscribed = nsData.length > 0;
 
-        // 2. Gérer préférences customer (si le compte existe)
-        const custRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id`,
-          { headers },
-        );
-        const custData = await custRes.json();
-        if (custData.length > 0) {
-          await fetch(
-            `${SUPABASE_URL}/rest/v1/customers?id=eq.${custData[0].id}`,
-            {
-              method: "PATCH",
+          if (wantNewsletter && !isSubscribed) {
+            await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers`, {
+              method: "POST",
               headers,
-              body: JSON.stringify({
-                email_preferences: {
-                  order_confirmation: wantConfirmation,
-                  shipping_update: wantShipping,
-                  promotions: wantPromotions,
-                },
-              }),
-            },
-          );
-        }
+              body: JSON.stringify({ email }),
+            });
+          } else if (!wantNewsletter && isSubscribed) {
+            await fetch(
+              `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}`,
+              { method: "DELETE", headers },
+            );
+          }
 
-        document.getElementById("actions").style.display = "none";
-        document.getElementById("done").style.display = "block";
+          // 2. Customer preferences (if account exists)
+          const custRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id`,
+            { headers },
+          );
+          const custData = await custRes.json();
+          if (custData.length > 0) {
+            await fetch(
+              `${SUPABASE_URL}/rest/v1/customers?id=eq.${custData[0].id}`,
+              {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({
+                  email_preferences: {
+                    order_confirmation: wantConfirmation,
+                    shipping_update: wantShipping,
+                    promotions: wantPromotions,
+                  },
+                }),
+              },
+            );
+          }
+
+          document.getElementById("actions").style.display = "none";
+          document.getElementById("done").style.display = "block";
+        } catch (err) {
+          alert("Something went wrong. Please try again.");
+        }
       };
 
+      // Unsubscribe from everything
       window.unsubscribeAll = async function () {
         document.getElementById("opt-newsletter").checked = false;
-        document.getElementById("opt-confirmation").checked = false;
-        document.getElementById("opt-shipping").checked = false;
-        document.getElementById("opt-promotions").checked = false;
+        const confEl = document.getElementById("opt-confirmation");
+        const shipEl = document.getElementById("opt-shipping");
+        const promoEl = document.getElementById("opt-promotions");
+        if (confEl) confEl.checked = false;
+        if (shipEl) shipEl.checked = false;
+        if (promoEl) promoEl.checked = false;
         await updatePreferences();
       };
 

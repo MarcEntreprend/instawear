@@ -1874,4 +1874,18 @@ export const newsletterApi = {
 
     return { success: true, message: "Welcome! You're now subscribed." };
   },
+  // ── Vérifier si un email est déjà abonné ──────────────────────────
+  async isSubscribed(email: string): Promise<boolean> {
+    const { data } = await supabase
+      .from("newsletter_subscribers")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+    return !!data;
+  },
+
+  // ── Désabonner un email ──────────────────────────────────────────
+  async unsubscribe(email: string): Promise<void> {
+    await supabase.from("newsletter_subscribers").delete().eq("email", email);
+  },
 };

@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { customerApi, interactionApi } from "../api/supabaseApi";
+import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
@@ -171,6 +171,7 @@ export default function AccountPage({
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [customerPreferences, setCustomerPreferences] = useState({
     order_confirmation: true,
     shipping_update: true,
@@ -195,6 +196,11 @@ export default function AccountPage({
         customerApi.get(cust.id).then((c) => {
           if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
         });
+
+        // Vérifier si le client est abonné à la newsletter
+        if (cust.email) {
+          newsletterApi.isSubscribed(cust.email).then(setNewsletterSubscribed);
+        }
       }
     });
   }, [allCustomers]);
@@ -319,6 +325,18 @@ export default function AccountPage({
     if (!customerId) return;
     setCustomerPreferences(prefs);
     await customerApi.updateEmailPreferences(customerId, prefs);
+  };
+
+  // fonction de toggle newsletter
+  const handleToggleNewsletter = async () => {
+    if (!customerEmail) return;
+    if (newsletterSubscribed) {
+      await newsletterApi.unsubscribe(customerEmail);
+      setNewsletterSubscribed(false);
+    } else {
+      await newsletterApi.subscribe(customerEmail);
+      setNewsletterSubscribed(true);
+    }
   };
 
   const fetchOrders = useCallback(async () => {
@@ -737,10 +755,12 @@ export default function AccountPage({
               <ProfileTab
                 customerEmail={customerEmail}
                 customerName={customerName}
+                customerId={customerId}
                 orders={orders}
                 preferences={customerPreferences}
                 onUpdatePreferences={handleUpdatePreferences}
-                customerId={customerId || ""}
+                newsletterSubscribed={newsletterSubscribed}
+                onToggleNewsletter={handleToggleNewsletter}
               />
             )}
             {tab === "support" && (
@@ -2059,21 +2079,29 @@ function SupportTab({
 function ProfileTab({
   customerEmail,
   customerName,
+  customerId,
   orders,
   preferences,
   onUpdatePreferences,
-  customerId,
+  newsletterSubscribed,
+  onToggleNewsletter,
 }: {
   customerEmail: string;
   customerName: string;
+  customerId: string | null;
   orders: Order[];
   preferences: {
     order_confirmation: boolean;
     shipping_update: boolean;
     promotions: boolean;
   };
-  onUpdatePreferences: (prefs: typeof preferences) => void;
-  customerId: string;
+  onUpdatePreferences: (prefs: {
+    order_confirmation: boolean;
+    shipping_update: boolean;
+    promotions: boolean;
+  }) => void;
+  newsletterSubscribed: boolean;
+  onToggleNewsletter: () => void;
 }) {
   // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
@@ -2152,6 +2180,7 @@ function ProfileTab({
   };
 
   const handleSetDefault = async (id: string) => {
+    if (!customerId) return;
     await customerApi.setDefaultAddress(customerId, id);
     setAddresses((prev) =>
       prev.map((a) => ({ ...a, is_default: a.id === id })),
@@ -2507,7 +2536,7 @@ function ProfileTab({
         )}
       </div>
 
-      {/* Preferences (inchangé) */}
+      {/* Preferences */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -2522,6 +2551,33 @@ function ProfileTab({
           Preferences
         </p>
         <div className="flex flex-col gap-2">
+          {/* Newsletter */}
+          <div className="flex items-center justify-between">
+            <span
+              className="text-[13px]"
+              style={{ color: "var(--color-ink2)" }}
+            >
+              Newsletter
+            </span>
+            <button
+              onClick={onToggleNewsletter}
+              className="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200"
+              style={{
+                background: newsletterSubscribed
+                  ? "var(--color-accent)"
+                  : "var(--color-border2)",
+              }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full transition-transform duration-200"
+                style={{
+                  background: "white",
+                  left: newsletterSubscribed ? "calc(100% - 18px)" : "2px",
+                  boxShadow: "var(--shadow-sm)",
+                }}
+              />
+            </button>
+          </div>
           {[
             {
               label: "Order confirmation emails",
