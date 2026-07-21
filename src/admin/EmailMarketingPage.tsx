@@ -1283,23 +1283,35 @@ function ComposeSection({
         .replace(/{{brand}}/g, "InstaWear")
         .replace(/{{discount}}/g, "20")
         .replace(/{{product_name}}/g, "our new collection")
-        .replace(/{{title}}/g, title);
+        .replace(/{{title}}/g, ""); // sera remplacé dans le corps par le sujet
 
+      // Personnaliser le corps HTML
       // Personnaliser le corps HTML
       let personalizedHtml = html
         .replace(/{{name}}/g, recipientName)
         .replace(/{{email}}/g, email)
         .replace(/{{brand}}/g, "InstaWear")
-        .replace(/{{footer}}/g, footerHtml)
-        .replace(/{{unsubscribe_link}}/g, unsubscribeUrl)
         .replace(/{{discount}}/g, "20")
         .replace(/{{cta_link}}/g, "https://instawear.vercel.app")
+        .replace(/{{cart_link}}/g, "https://instawear.vercel.app")
         .replace(/{{order_id}}/g, "—")
         .replace(/{{product_name}}/g, "our new collection")
         .replace(/{{product_description}}/g, "Check out our latest event wear.")
-        .replace(/{{title}}/g, subject)
-        .replace(/{{body}}/g, html.replace(/<[^>]+>/g, "").substring(0, 200))
-        .replace(/{{cart_link}}/g, "https://instawear.vercel.app");
+        .replace(/{{footer}}/g, footerHtml)
+        .replace(/{{unsubscribe_link}}/g, unsubscribeUrl);
+
+      // Remplacer {{title}} dans le corps par le sujet (sans ses propres placeholders)
+      const cleanSubject = subject.replace(/{{[^}]+}}/g, "").trim() || subject;
+      personalizedHtml = personalizedHtml.replace(/{{title}}/g, cleanSubject);
+
+      // Remplacer {{body}} par le preview_text s'il existe, sinon un extrait du HTML nettoyé
+      const bodyContent =
+        previewText.trim() ||
+        personalizedHtml
+          .replace(/<[^>]+>/g, "")
+          .trim()
+          .substring(0, 200);
+      personalizedHtml = personalizedHtml.replace(/{{body}}/g, bodyContent);
 
       try {
         await fetch(
