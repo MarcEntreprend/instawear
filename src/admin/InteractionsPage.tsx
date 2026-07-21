@@ -145,6 +145,27 @@ export default function InteractionsPage() {
     fetchInteractions();
   }, [fetchInteractions]);
 
+  // ── Polling messages du ticket ouvert ────────────────────────────
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await interactionApi.getMessages(selectedTicket.id);
+        setMessages(
+          msgs.map((m: any) => ({
+            id: m.id,
+            from: m.from_field,
+            text: m.text,
+            timestamp: m.timestamp,
+          })),
+        );
+      } catch (e) {
+        /* silencieux */
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [selectedTicket]);
+
   // Highlight depuis les notifications
   useHighlightListener(
     "instawear:highlight-interactions",
@@ -152,6 +173,27 @@ export default function InteractionsPage() {
     8000,
     'tr[data-interaction-id="{}"]',
   );
+
+  // Recharge les messages du ticket ouvert toutes les 10 secondes
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await interactionApi.getMessages(selectedTicket.id);
+        setMessages(
+          msgs.map((m: any) => ({
+            id: m.id,
+            from: m.from_field,
+            text: m.text,
+            timestamp: m.timestamp,
+          })),
+        );
+      } catch (e) {
+        /* silencieux */
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [selectedTicket]);
 
   const openTicket = async (ticket: AdminInteraction) => {
     setSelectedTicket(ticket);

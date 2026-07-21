@@ -1864,6 +1864,20 @@ function SupportTab({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState("");
 
+  // Polling des messages toutes les 10s (racine du composant, hors conditions)
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await interactionApi.getMessages(selectedTicket.id);
+        setTicketMessages(msgs);
+      } catch (e) {
+        /* silencieux */
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [selectedTicket]);
+
   const openTicket = async (ticket: Interaction) => {
     setSelectedTicket(ticket);
     setLoadingMessages(true);
