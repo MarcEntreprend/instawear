@@ -4,7 +4,13 @@
 // Layout: sidebar identité (desktop) + bottom-nav (mobile), contenu scrollable.
 // Dark mode: 100% automatique via les variables CSS du design system.
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Package,
   Heart,
@@ -15,6 +21,7 @@ import {
   Plus,
   Minus,
   Loader2,
+  Paperclip,
   Send,
   MapPin,
   Bell,
@@ -36,9 +43,11 @@ import {
   LogOut,
   Search,
   X,
+  Upload,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
+import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
@@ -772,6 +781,8 @@ export default function AccountPage({
                 loading={loadingInter}
                 customerEmail={customerEmail}
                 customerName={customerName}
+                orders={orders}
+                currencySymbol={currencySymbol}
               />
             )}
           </div>
@@ -1820,21 +1831,108 @@ function SupportTab({
   loading,
   customerEmail,
   customerName,
+  orders,
+  currencySymbol,
 }: {
   interactions: Interaction[];
   loading: boolean;
   customerEmail: string;
   customerName: string;
+  orders: Order[];
+  currencySymbol: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [type, setType] = useState<"question" | "complaint" | "feedback">(
+    "question",
+  );
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Upload state
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Vue détail d'un ticket ──────────────────────────────────────
+  const [selectedTicket, setSelectedTicket] = useState<Interaction | null>(
+    null,
+  );
+  const [ticketMessages, setTicketMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [replyText, setReplyText] = useState("");
+
+  const openTicket = async (ticket: Interaction) => {
+    setSelectedTicket(ticket);
+    setLoadingMessages(true);
+    try {
+      const msgs = await interactionApi.getMessages(ticket.id);
+      setTicketMessages(msgs);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedTicket) return;
+    await interactionApi.addMessage(
+      selectedTicket.id,
+      "customer",
+      replyText.trim(),
+    );
+    const msgs = await interactionApi.getMessages(selectedTicket.id);
+    setTicketMessages(msgs);
+    setReplyText("");
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const maxSize = 5 * 1024 * 1024; // 5 MB
+    const filtered = selected.filter(
+      (f) => validTypes.includes(f.type) && f.size <= maxSize,
+    );
+    setFiles((prev) => {
+      const combined = [...prev, ...filtered];
+      return combined.slice(0, 3); // max 3 files
+    });
+    // Reset input value so the same file can be re-selected if removed
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleCreate = async () => {
     if (!subject.trim() || !message.trim()) return;
     setSending(true);
+    setUploadingFiles(true);
+
+    let uploadedUrls: { url: string; name: string; size: number }[] = [];
+    try {
+      // Upload files first
+      for (const file of files) {
+        const url = await storageApi.uploadTicketAttachment(file);
+        uploadedUrls.push({
+          url,
+          name: file.name,
+          size: file.size,
+        });
+      }
+    } catch (e) {
+      console.error("Upload failed", e);
+      setSending(false);
+      setUploadingFiles(false);
+      return;
+    }
+
+    setUploadingFiles(false);
+
     try {
       const { data: inter } = await supabase
         .from("interactions")
@@ -1842,10 +1940,14 @@ function SupportTab({
           customer_id: customerEmail,
           customer_name: customerName || "Customer",
           customer_email: customerEmail,
-          type: "question",
+          type,
           status: "open",
           subject: subject.trim(),
           last_message: message.trim(),
+          metadata: {
+            ...(selectedOrderId ? { orderId: selectedOrderId } : {}),
+            ...(uploadedUrls.length > 0 ? { attachments: uploadedUrls } : {}),
+          },
         })
         .select()
         .single();
@@ -1862,6 +1964,8 @@ function SupportTab({
         setSent(false);
         setSubject("");
         setMessage("");
+        setSelectedOrderId("");
+        setFiles([]);
       }, 1800);
     } catch (e) {
       console.error(e);
@@ -1870,8 +1974,188 @@ function SupportTab({
     }
   };
 
-  if (loading) return <SkeletonList />;
+  // ── Vue détail ──────────────────────────────────────────────────
+  if (selectedTicket) {
+    const ticketMeta = (selectedTicket as any).metadata || {};
+    const attachments: any[] = ticketMeta.attachments || [];
+    return (
+      <div className="flex flex-col gap-4 animate-fade-up">
+        <button
+          onClick={() => {
+            setSelectedTicket(null);
+            setTicketMessages([]);
+          }}
+          className="flex items-center gap-1.5 text-[13px] font-semibold self-start"
+          style={{ color: "var(--color-ink3)" }}
+        >
+          <ArrowLeft size={14} strokeWidth={2} /> All conversations
+        </button>
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <p
+            className="text-[15px] font-bold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {selectedTicket.subject}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span
+              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+              style={{
+                background:
+                  selectedTicket.status === "open" ? "#fef3c7" : "#d1fae5",
+                color: selectedTicket.status === "open" ? "#d97706" : "#065f46",
+              }}
+            >
+              {selectedTicket.status === "open" ? "Open" : "Resolved"}
+            </span>
+            <span
+              className="text-[11px]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              {timeAgo(selectedTicket.updatedAt)}
+            </span>
+          </div>
 
+          {/* Attachments */}
+          {attachments.length > 0 && (
+            <div
+              className="mt-3 pt-3"
+              style={{ borderTop: "1px solid var(--color-border)" }}
+            >
+              <p
+                className="text-[11px] font-semibold uppercase mb-2"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                Attachments ({attachments.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((att: any, i: number) => (
+                  <a
+                    key={i}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-medium transition-colors hover:bg-(--color-surface2)"
+                    style={{
+                      background: "var(--color-surface2)",
+                      borderColor: "var(--color-border)",
+                      color: "var(--color-ink2)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <Paperclip size={14} strokeWidth={1.75} />
+                    {att.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="rounded-2xl p-4 flex flex-col gap-4"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            maxHeight: 400,
+            overflowY: "auto",
+          }}
+        >
+          {loadingMessages ? (
+            <Loader2
+              size={28}
+              className="animate-spin mx-auto"
+              style={{ color: "var(--color-accent)" }}
+            />
+          ) : ticketMessages.length === 0 ? (
+            <p
+              className="text-center text-[12.5px]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              No messages yet.
+            </p>
+          ) : (
+            ticketMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className="flex flex-col"
+                style={{
+                  alignItems:
+                    msg.from_field === "customer" ? "flex-end" : "flex-start",
+                }}
+              >
+                <div
+                  className="max-w-[75%] rounded-xl px-3.5 py-2.5 text-[13px]"
+                  style={{
+                    background:
+                      msg.from_field === "customer"
+                        ? "var(--color-accent-bg)"
+                        : "var(--color-surface2)",
+                    border:
+                      msg.from_field === "customer"
+                        ? "1px solid var(--color-accent-soft)"
+                        : "1px solid var(--color-border)",
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  <p
+                    className="text-[11px] font-semibold mb-1"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    {msg.from_field === "customer" ? "You" : "Support"}
+                  </p>
+                  <p>{msg.text}</p>
+                </div>
+                <span
+                  className="text-[10px] mt-1"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  {new Date(msg.timestamp).toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Write a reply…"
+            rows={3}
+            className="w-full resize-none rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none"
+            style={{
+              background: "var(--color-surface2)",
+              borderColor: "var(--color-border)",
+              color: "var(--color-ink)",
+              fontFamily: "var(--font-sans)",
+            }}
+          />
+          <button
+            onClick={handleSendReply}
+            disabled={!replyText.trim()}
+            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
+            style={{
+              background: "var(--color-accent)",
+              boxShadow: "var(--shadow-accent)",
+            }}
+          >
+            <Send size={14} strokeWidth={2} /> Send reply
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Formulaire nouveau ticket enrichi ──────────────────────────
   if (showForm) {
     return (
       <div className="flex flex-col gap-4 animate-fade-up">
@@ -1882,7 +2166,6 @@ function SupportTab({
         >
           <ArrowLeft size={14} strokeWidth={2} /> Back
         </button>
-
         <div
           className="rounded-2xl p-5"
           style={{
@@ -1894,9 +2177,8 @@ function SupportTab({
             className="mb-4 text-[15px] font-bold"
             style={{ color: "var(--color-ink)" }}
           >
-            New message
+            New Support Request
           </p>
-
           {sent ? (
             <div className="flex flex-col items-center gap-2 py-6 text-center animate-scale-in">
               <CheckCircle2
@@ -1908,7 +2190,7 @@ function SupportTab({
                 className="text-[14px] font-semibold"
                 style={{ color: "var(--color-ink)" }}
               >
-                Message sent
+                Request submitted
               </p>
               <p
                 className="text-[12.5px]"
@@ -1918,13 +2200,113 @@ function SupportTab({
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
+              {/* Name */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Subject
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={customerName || "Guest"}
+                  disabled
+                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                />
+              </div>
+              {/* Email */}
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Response Email
+                </label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  disabled
+                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                />
+              </div>
+              {/* Request Type */}
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Request Type <span className="text-(--color-accent)">*</span>
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as any)}
+                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none cursor-pointer"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  <option value="question">Question</option>
+                  <option value="complaint">Complaint</option>
+                  <option value="feedback">Feedback</option>
+                </select>
+              </div>
+              {/* Related Order */}
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Related Order (optional)
+                </label>
+                <select
+                  value={selectedOrderId}
+                  onChange={(e) => setSelectedOrderId(e.target.value)}
+                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none cursor-pointer"
+                  style={{
+                    background: "var(--color-surface2)",
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  <option value="">None</option>
+                  {orders.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.id} —{" "}
+                      {new Date(o.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      · {currencySymbol}
+                      {o.totalAmount.toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Subject */}
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Subject <span className="text-(--color-accent)">*</span>
                 </label>
                 <input
                   type="text"
@@ -1946,12 +2328,13 @@ function SupportTab({
                   }
                 />
               </div>
+              {/* Message */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Message
+                  Description <span className="text-(--color-accent)">*</span>
                 </label>
                 <textarea
                   placeholder="Describe your issue or question…"
@@ -1973,21 +2356,126 @@ function SupportTab({
                   }
                 />
               </div>
+              {/* File upload */}
+              <div>
+                <label
+                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Attachments (max 3, 5MB each — JPEG, PNG, WebP, GIF)
+                </label>
+                {/* Selected files preview */}
+                {files.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {files.map((file, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px]"
+                        style={{
+                          background: "var(--color-surface2)",
+                          borderColor: "var(--color-border)",
+                          color: "var(--color-ink2)",
+                        }}
+                      >
+                        <Paperclip size={13} strokeWidth={1.75} />
+                        <span className="max-w-35 truncate">{file.name}</span>
+                        <button
+                          onClick={() => handleRemoveFile(i)}
+                          className="flex items-center justify-center w-5 h-5 rounded-full text-(--color-ink4) hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                        >
+                          <X size={12} strokeWidth={2} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Drop zone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-[13px] cursor-pointer transition-colors ${files.length >= 3 ? "opacity-50 pointer-events-none" : ""}`}
+                  style={{
+                    borderColor: "var(--color-border)",
+                    color: "var(--color-ink4)",
+                    background: "var(--color-surface2)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (files.length < 3)
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "var(--color-accent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--color-border)";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (files.length < 3)
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "var(--color-accent)";
+                  }}
+                  onDragLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--color-border)";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (files.length >= 3) return;
+                    const dropped = Array.from(e.dataTransfer.files);
+                    const validTypes = [
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp",
+                      "image/gif",
+                    ];
+                    const maxSize = 5 * 1024 * 1024;
+                    const filtered = dropped.filter(
+                      (f) => validTypes.includes(f.type) && f.size <= maxSize,
+                    );
+                    setFiles((prev) => {
+                      const combined = [...prev, ...filtered];
+                      return combined.slice(0, 3);
+                    });
+                    (e.currentTarget as HTMLElement).style.borderColor =
+                      "var(--color-border)";
+                  }}
+                >
+                  <Upload size={18} strokeWidth={1.75} />
+                  <span>Choose files or drag & drop here</span>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: "none" }}
+                />
+              </div>
+              {/* Submit */}
               <button
                 onClick={handleCreate}
-                disabled={sending || !subject.trim() || !message.trim()}
+                disabled={
+                  sending ||
+                  uploadingFiles ||
+                  !subject.trim() ||
+                  !message.trim()
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",
                 }}
               >
-                {sending ? (
+                {sending || uploadingFiles ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Send size={15} strokeWidth={2} />
                 )}
-                {sending ? "Sending…" : "Send message"}
+                {uploadingFiles
+                  ? "Uploading files…"
+                  : sending
+                    ? "Submitting…"
+                    : "Submit Request"}
               </button>
             </div>
           )}
@@ -1995,6 +2483,9 @@ function SupportTab({
       </div>
     );
   }
+
+  // ── Liste des tickets ───────────────────────────────────────────
+  if (loading) return <SkeletonList />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -2021,11 +2512,11 @@ function SupportTab({
           >
             <Plus size={14} strokeWidth={2.5} /> New message
           </button>
-
           {interactions.map((t) => (
-            <div
+            <button
               key={t.id}
-              className="rounded-2xl p-4"
+              onClick={() => openTicket(t)}
+              className="w-full text-left rounded-2xl p-4 transition-all duration-200 hover:shadow-(--shadow-md)"
               style={{
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-border)",
@@ -2052,12 +2543,8 @@ function SupportTab({
                   <span
                     className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
                     style={{
-                      background:
-                        t.status === "open"
-                          ? "#fef3c7"
-                          : "var(--color-surface2)",
-                      color:
-                        t.status === "open" ? "#d97706" : "var(--color-ink4)",
+                      background: t.status === "open" ? "#fef3c7" : "#d1fae5",
+                      color: t.status === "open" ? "#d97706" : "#065f46",
                     }}
                   >
                     {t.status === "open" ? "Open" : "Resolved"}
@@ -2068,9 +2555,13 @@ function SupportTab({
                   >
                     {timeAgo(t.updatedAt)}
                   </span>
+                  <ChevronRight
+                    size={14}
+                    style={{ color: "var(--color-ink4)" }}
+                  />
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </>
       )}

@@ -12,6 +12,7 @@ import {
   ThumbsUp,
   HelpCircle,
   RefreshCw,
+  Paperclip,
   Eye,
   Clock,
   User,
@@ -48,6 +49,7 @@ export interface AdminInteraction {
     productId?: string;
     productTitle?: string;
     linkTo?: string;
+    attachments?: { url: string; name: string; size: number }[];
   };
   messages: InteractionMessage[];
 }
@@ -627,6 +629,52 @@ function TicketDetail({
           )}
         </div>
       )}
+
+      {/* Pièces jointes */}
+      {ticket.metadata?.attachments &&
+        ticket.metadata.attachments.length > 0 && (
+          <div
+            style={{
+              background: "var(--color-surface2)",
+              borderRadius: 12,
+              padding: 12,
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              fontSize: 12,
+              color: "var(--color-ink2)",
+            }}
+          >
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontWeight: 600,
+              }}
+            >
+              <Paperclip size={12} /> Pièces jointes :
+            </span>
+            {ticket.metadata.attachments.map((att: any, i: number) => (
+              <a
+                key={i}
+                href={att.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "var(--color-accent)",
+                  textDecoration: "underline",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Paperclip size={11} />
+                {att.name}
+              </a>
+            ))}
+          </div>
+        )}
 
       {/* Messages */}
       <div
