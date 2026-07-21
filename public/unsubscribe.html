@@ -206,137 +206,134 @@
     </div>
 
     <script>
-      const params = new URLSearchParams(window.location.search);
-      const email = params.get("email");
-      const SUPABASE_URL = "https://hkbybsycaylobvbnnwak.supabase.co";
-      const ANON_KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTU3MTQsImV4cCI6MjA5NzEzMTcxNH0.KxfGGn0O0DLIj8cZ5R0lITjMWAPhNPY5RgDGj7zaUgs";
-      const headers = {
-        apikey: ANON_KEY,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      };
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get("email");
+        const SUPABASE_URL = "https://hkbybsycaylobvbnnwak.supabase.co";
+        const ANON_KEY =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTU3MTQsImV4cCI6MjA5NzEzMTcxNH0.KxfGGn0O0DLIj8cZ5R0lITjMWAPhNPY5RgDGj7zaUgs";
+        const headers = {
+          apikey: ANON_KEY,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        };
 
-      if (!email) {
-        document.getElementById("status").textContent =
-          "Invalid unsubscribe link. No email provided.";
-        return;
-      }
-
-      // Load current preferences
-      async function loadState() {
-        try {
-          // 1. Newsletter subscription
-          const nsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
-            { headers },
-          );
-          const nsData = await nsRes.json();
-          document.getElementById("opt-newsletter").checked = nsData.length > 0;
-
-          // 2. Customer email preferences (only if customer exists)
-          const custRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id,email_preferences`,
-            { headers },
-          );
-          const custData = await custRes.json();
-          if (custData.length > 0 && custData[0].email_preferences) {
-            const prefs = custData[0].email_preferences;
-            document.getElementById("opt-confirmation").checked =
-              prefs.order_confirmation !== false;
-            document.getElementById("opt-shipping").checked =
-              prefs.shipping_update !== false;
-            document.getElementById("opt-promotions").checked =
-              prefs.promotions !== false;
-          } else {
-            // No customer account – hide customer‑only options
-            document.getElementById("customer-opts").style.display = "none";
-          }
-
-          document.getElementById("status").style.display = "none";
-          document.getElementById("actions").style.display = "block";
-        } catch (err) {
+        if (!email) {
           document.getElementById("status").textContent =
-            "Unable to load your preferences. Please try again later.";
-        }
-      }
+            "Invalid unsubscribe link. No email provided.";
+        } else {
+          async function loadState() {
+            try {
+              const nsRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
+                { headers },
+              );
+              const nsData = await nsRes.json();
+              document.getElementById("opt-newsletter").checked =
+                nsData.length > 0;
 
-      // Save changes
-      window.updatePreferences = async function () {
-        const wantNewsletter =
-          document.getElementById("opt-newsletter").checked;
-        const wantConfirmation =
-          document.getElementById("opt-confirmation")?.checked ?? true;
-        const wantShipping =
-          document.getElementById("opt-shipping")?.checked ?? true;
-        const wantPromotions =
-          document.getElementById("opt-promotions")?.checked ?? true;
+              const custRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id,email_preferences`,
+                { headers },
+              );
+              const custData = await custRes.json();
+              if (custData.length > 0 && custData[0].email_preferences) {
+                const prefs = custData[0].email_preferences;
+                document.getElementById("opt-confirmation").checked =
+                  prefs.order_confirmation !== false;
+                document.getElementById("opt-shipping").checked =
+                  prefs.shipping_update !== false;
+                document.getElementById("opt-promotions").checked =
+                  prefs.promotions !== false;
+              } else {
+                document.getElementById("customer-opts").style.display = "none";
+              }
 
-        try {
-          // 1. Newsletter subscription
-          const nsRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
-            { headers },
-          );
-          const nsData = await nsRes.json();
-          const isSubscribed = nsData.length > 0;
-
-          if (wantNewsletter && !isSubscribed) {
-            await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers`, {
-              method: "POST",
-              headers,
-              body: JSON.stringify({ email }),
-            });
-          } else if (!wantNewsletter && isSubscribed) {
-            await fetch(
-              `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}`,
-              { method: "DELETE", headers },
-            );
+              document.getElementById("status").style.display = "none";
+              document.getElementById("actions").style.display = "block";
+            } catch (err) {
+              document.getElementById("status").textContent =
+                "Unable to load your preferences. Please try again later.";
+            }
           }
 
-          // 2. Customer preferences (if account exists)
-          const custRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id`,
-            { headers },
-          );
-          const custData = await custRes.json();
-          if (custData.length > 0) {
-            await fetch(
-              `${SUPABASE_URL}/rest/v1/customers?id=eq.${custData[0].id}`,
-              {
-                method: "PATCH",
-                headers,
-                body: JSON.stringify({
-                  email_preferences: {
-                    order_confirmation: wantConfirmation,
-                    shipping_update: wantShipping,
-                    promotions: wantPromotions,
+          async function updatePreferences() {
+            const wantNewsletter =
+              document.getElementById("opt-newsletter").checked;
+            const wantConfirmation =
+              document.getElementById("opt-confirmation")?.checked ?? true;
+            const wantShipping =
+              document.getElementById("opt-shipping")?.checked ?? true;
+            const wantPromotions =
+              document.getElementById("opt-promotions")?.checked ?? true;
+
+            try {
+              const nsRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=email`,
+                { headers },
+              );
+              const nsData = await nsRes.json();
+              const isSubscribed = nsData.length > 0;
+
+              if (wantNewsletter && !isSubscribed) {
+                await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers`, {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify({ email }),
+                });
+              } else if (!wantNewsletter && isSubscribed) {
+                await fetch(
+                  `${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(email)}`,
+                  { method: "DELETE", headers },
+                );
+              }
+
+              const custRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/customers?email=eq.${encodeURIComponent(email)}&select=id`,
+                { headers },
+              );
+              const custData = await custRes.json();
+              if (custData.length > 0) {
+                await fetch(
+                  `${SUPABASE_URL}/rest/v1/customers?id=eq.${custData[0].id}`,
+                  {
+                    method: "PATCH",
+                    headers,
+                    body: JSON.stringify({
+                      email_preferences: {
+                        order_confirmation: wantConfirmation,
+                        shipping_update: wantShipping,
+                        promotions: wantPromotions,
+                      },
+                    }),
                   },
-                }),
-              },
-            );
+                );
+              }
+
+              document.getElementById("actions").style.display = "none";
+              document.getElementById("done").style.display = "block";
+            } catch (err) {
+              alert("Something went wrong. Please try again.");
+            }
           }
 
-          document.getElementById("actions").style.display = "none";
-          document.getElementById("done").style.display = "block";
-        } catch (err) {
-          alert("Something went wrong. Please try again.");
+          async function unsubscribeAll() {
+            document.getElementById("opt-newsletter").checked = false;
+            var confEl = document.getElementById("opt-confirmation");
+            var shipEl = document.getElementById("opt-shipping");
+            var promoEl = document.getElementById("opt-promotions");
+            if (confEl) confEl.checked = false;
+            if (shipEl) shipEl.checked = false;
+            if (promoEl) promoEl.checked = false;
+            await updatePreferences();
+          }
+
+          window.updatePreferences = updatePreferences;
+          window.unsubscribeAll = unsubscribeAll;
+
+          loadState();
         }
-      };
-
-      // Unsubscribe from everything
-      window.unsubscribeAll = async function () {
-        document.getElementById("opt-newsletter").checked = false;
-        const confEl = document.getElementById("opt-confirmation");
-        const shipEl = document.getElementById("opt-shipping");
-        const promoEl = document.getElementById("opt-promotions");
-        if (confEl) confEl.checked = false;
-        if (shipEl) shipEl.checked = false;
-        if (promoEl) promoEl.checked = false;
-        await updatePreferences();
-      };
-
-      loadState();
+      })();
     </script>
   </body>
 </html>

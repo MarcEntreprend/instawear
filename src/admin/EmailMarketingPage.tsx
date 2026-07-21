@@ -2659,12 +2659,14 @@ function AutomationsSection({
 
 // ─── Subscribers Section ──────────────────────────────────────────────────────
 
+// Remplace toute la fonction SubscribersSection par ce bloc
+
 function SubscribersSection({
   toast,
 }: {
   toast: (msg: string, type?: "success" | "error") => void;
 }) {
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [allSubscribers, setAllSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -2672,27 +2674,104 @@ function SubscribersSection({
   const [addError, setAddError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "alpha">("newest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  const load = useCallback(async () => {
+  // Filtres disponibles
+  const FILTERS = [
+    { key: "all", label: "Tous" },
+    { key: "all_customers", label: "👥 Tous les clients" },
+    { key: "newsletter", label: "📰 Newsletter" },
+    { key: "order_confirmation", label: "📦 Confirmations" },
+    { key: "shipping_update", label: "🚚 Shipping" },
+    { key: "promotions", label: "🎉 Promos" },
+  ];
+
+  const loadAll = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const results: Subscriber[] = [];
+    const seen = new Set<string>();
+
+    // 1. Newsletter subscribers
+    const { data: newsletterSubs } = await supabase
       .from("newsletter_subscribers")
-      .select("email, subscribed_at")
-      .order("subscribed_at", { ascending: false });
-    setSubscribers(
-      (data ?? []).map((r: any) => ({ ...r, status: "active" as const })),
-    );
+      .select("email, subscribed_at");
+    for (const row of newsletterSubs ?? []) {
+      if (!seen.has(row.email)) {
+        seen.add(row.email);
+        results.push({
+          email: row.email,
+          subscribed_at: row.subscribed_at,
+          status: "active",
+          source: "newsletter",
+        });
+      }
+    }
+
+    // 2. All customers (avec ou sans préférences)
+    const { data: customers } = await supabase
+      .from("customers")
+      .select("email, registration_date, email_preferences");
+
+    for (const cust of customers ?? []) {
+      if (!cust.email) continue;
+      const prefs = cust.email_preferences || {};
+      const flags: string[] = [];
+
+      // Toujours ajouter "all_customers" pour le filtre global
+      if (!seen.has(cust.email)) {
+        seen.add(cust.email);
+        results.push({
+          email: cust.email,
+          subscribed_at: cust.registration_date || new Date().toISOString(),
+          status: "active",
+          source: "all_customers",
+        });
+      }
+
+      // Ajouter les flags spécifiques pour les autres filtres
+      // On met à jour l'entrée existante plutôt que d'en créer une nouvelle
+      if (prefs.order_confirmation) flags.push("order_confirmation");
+      if (prefs.shipping_update) flags.push("shipping_update");
+      if (prefs.promotions) flags.push("promotions");
+
+      if (flags.length > 0) {
+        // Trouver l'entrée existante et mettre à jour son source
+        const existing = results.find((r) => r.email === cust.email);
+        if (existing) {
+          existing.source = [
+            existing.source,
+            ...flags.filter((f) => !existing.source!.includes(f)),
+          ]
+            .filter(Boolean)
+            .join(",");
+        }
+      }
+    }
+
+    setAllSubscribers(results);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadAll();
+  }, [loadAll]);
 
+  // Filtrage
   const filtered = useMemo(() => {
-    let list = subscribers.filter((s) =>
-      s.email.toLowerCase().includes(search.toLowerCase()),
-    );
+    let list = allSubscribers;
+
+    // Filtre par type
+    if (activeFilter !== "all") {
+      list = list.filter((s) => (s.source || "").includes(activeFilter));
+    }
+
+    // Recherche textuelle
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter((sub) => sub.email.toLowerCase().includes(s));
+    }
+
+    // Tri
     if (sortBy === "newest")
       list = [...list].sort(
         (a, b) =>
@@ -2706,12 +2785,25 @@ function SubscribersSection({
           new Date(b.subscribed_at).getTime(),
       );
     else list = [...list].sort((a, b) => a.email.localeCompare(b.email));
+
     return list;
-  }, [subscribers, search, sortBy]);
+  }, [allSubscribers, search, sortBy, activeFilter]);
+
+  // Compteurs pour les pills
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: allSubscribers.length };
+    for (const f of FILTERS) {
+      if (f.key === "all") continue;
+      c[f.key] = allSubscribers.filter((s) =>
+        (s.source || "").includes(f.key),
+      ).length;
+    }
+    return c;
+  }, [allSubscribers]);
 
   const handleAdd = async () => {
     if (!newEmail.trim() || !newEmail.includes("@")) {
-      setAddError("Email invalide.");
+      setAddError("Invalid email.");
       return;
     }
     setAdding(true);
@@ -2723,32 +2815,35 @@ function SubscribersSection({
       setAddError(error.message);
     } else {
       setNewEmail("");
-      toast("Abonné ajouté ✓");
-      load();
+      toast("Subscriber added ✓");
+      loadAll();
     }
     setAdding(false);
   };
 
   const handleDelete = async (email: string) => {
+    // Supprimer de la newsletter (seule source qu'on peut supprimer directement)
     await supabase.from("newsletter_subscribers").delete().eq("email", email);
-    toast("Abonné supprimé.");
-    load();
+    toast("Subscriber removed.");
+    loadAll();
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Supprimer ${selectedIds.size} abonné(s) ?`)) return;
+    if (!window.confirm(`Remove ${selectedIds.size} subscriber(s)?`)) return;
     for (const email of selectedIds) {
       await supabase.from("newsletter_subscribers").delete().eq("email", email);
     }
-    toast(`${selectedIds.size} abonné(s) supprimé(s).`);
+    toast(`${selectedIds.size} subscriber(s) removed.`);
     setSelectedIds(new Set());
-    load();
+    loadAll();
   };
 
   const handleExportCSV = () => {
     const csv = [
-      "email,subscribed_at",
-      ...subscribers.map((s) => `${s.email},${s.subscribed_at}`),
+      "email,subscribed_at,type",
+      ...filtered.map(
+        (s) => `${s.email},${s.subscribed_at},${s.source || "unknown"}`,
+      ),
     ].join("\n");
     const blob = new Blob(["\uFEFF" + csv], {
       type: "text/csv;charset=utf-8;",
@@ -2759,7 +2854,7 @@ function SubscribersSection({
     a.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast("Export CSV téléchargé.");
+    toast("CSV exported.");
   };
 
   const handleToggleSelect = (email: string) => {
@@ -2771,8 +2866,40 @@ function SubscribersSection({
     });
   };
 
+  const sourceLabel = (source?: string): string => {
+    if (!source) return "Unknown";
+    const map: Record<string, string> = {
+      all_customers: "All customers",
+      newsletter: "Newsletter",
+      order_confirmation: "Order confirmations",
+      shipping_update: "Shipping updates",
+      promotions: "Promos",
+    };
+    return source
+      .split(",")
+      .map((s) => map[s.trim()] || s)
+      .join(", ");
+  };
+
+  const sourceColor = (source?: string): { bg: string; color: string } => {
+    if (!source)
+      return { bg: "var(--color-surface2)", color: "var(--color-ink4)" };
+    if (source.includes("newsletter"))
+      return { bg: "var(--color-success-bg)", color: "var(--color-success)" };
+    if (source.includes("order_confirmation"))
+      return { bg: "#dbeafe", color: "#1e40af" };
+    if (source.includes("shipping_update"))
+      return { bg: "#d1fae5", color: "#065f46" };
+    if (source.includes("promotions"))
+      return { bg: "#ede9fe", color: "#7c3aed" };
+    if (source.includes("all_customers"))
+      return { bg: "var(--color-surface2)", color: "var(--color-ink2)" };
+    return { bg: "var(--color-surface2)", color: "var(--color-ink3)" };
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -2789,7 +2916,7 @@ function SubscribersSection({
             margin: 0,
           }}
         >
-          Abonnés{" "}
+          Subscribers{" "}
           <span
             style={{
               fontSize: 14,
@@ -2797,18 +2924,18 @@ function SubscribersSection({
               fontWeight: 500,
             }}
           >
-            ({subscribers.length})
+            ({allSubscribers.length})
           </span>
         </h3>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button onClick={handleExportCSV} style={secondaryBtn}>
-            <Download size={13} strokeWidth={1.75} /> Exporter CSV
+            <Download size={13} strokeWidth={1.75} /> Export CSV
           </button>
           <button
-            onClick={() => toast("Import CSV — bientôt disponible.", "error")}
+            onClick={() => toast("CSV import — coming soon.", "error")}
             style={secondaryBtn}
           >
-            <Upload size={13} strokeWidth={1.75} /> Importer CSV
+            <Upload size={13} strokeWidth={1.75} /> Import CSV
           </button>
         </div>
       </div>
@@ -2825,7 +2952,7 @@ function SubscribersSection({
               setNewEmail(e.target.value);
               setAddError(null);
             }}
-            placeholder="Ajouter un email…"
+            placeholder="Add email to newsletter…"
             style={inputStyle}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
           />
@@ -2848,8 +2975,58 @@ function SubscribersSection({
           ) : (
             <Plus size={14} strokeWidth={2} />
           )}{" "}
-          Ajouter
+          Add
         </button>
+      </div>
+
+      {/* Filter pills */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setActiveFilter(f.key)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 999,
+              border:
+                activeFilter === f.key
+                  ? "1.5px solid var(--color-accent)"
+                  : "1px solid var(--color-border)",
+              background:
+                activeFilter === f.key
+                  ? "var(--color-accent-bg)"
+                  : "var(--color-surface)",
+              color:
+                activeFilter === f.key
+                  ? "var(--color-accent)"
+                  : "var(--color-ink3)",
+              fontSize: 12.5,
+              fontWeight: activeFilter === f.key ? 700 : 500,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.15s",
+            }}
+          >
+            {f.label}
+            <span
+              style={{
+                background:
+                  activeFilter === f.key
+                    ? "var(--color-accent)"
+                    : "var(--color-surface2)",
+                color: activeFilter === f.key ? "white" : "var(--color-ink4)",
+                borderRadius: 999,
+                padding: "1px 7px",
+                fontSize: 10.5,
+                fontWeight: 700,
+              }}
+            >
+              {counts[f.key] ?? 0}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Toolbar */}
@@ -2876,7 +3053,7 @@ function SubscribersSection({
           />
           <input
             type="text"
-            placeholder="Rechercher…"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ ...inputStyle, paddingLeft: 32 }}
@@ -2887,8 +3064,8 @@ function SubscribersSection({
           onChange={(e) => setSortBy(e.target.value as any)}
           style={{ ...inputStyle, width: "auto", padding: "8px 12px" }}
         >
-          <option value="newest">Plus récents</option>
-          <option value="oldest">Plus anciens</option>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
           <option value="alpha">A → Z</option>
         </select>
         {selectedIds.size > 0 && (
@@ -2900,8 +3077,7 @@ function SubscribersSection({
               borderColor: "#ef4444",
             }}
           >
-            <Trash2 size={13} strokeWidth={1.75} /> Supprimer (
-            {selectedIds.size})
+            <Trash2 size={13} strokeWidth={1.75} /> Remove ({selectedIds.size})
           </button>
         )}
       </div>
@@ -2912,8 +3088,8 @@ function SubscribersSection({
       ) : filtered.length === 0 ? (
         <EmptyPlaceholder
           icon={<Users size={24} strokeWidth={1.5} />}
-          title="Aucun abonné trouvé"
-          sub="Ajoutez des abonnés ou importez un fichier CSV."
+          title="No subscribers found"
+          sub="Add subscribers manually or import a CSV file."
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2940,81 +3116,87 @@ function SubscribersSection({
               }
               style={{ accentColor: "var(--color-accent)" }}
             />
-            Tout sélectionner ({filtered.length})
+            Select all ({filtered.length})
           </label>
-          {filtered.map((s) => (
-            <div
-              key={s.email}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 14px",
-                borderRadius: 10,
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={selectedIds.has(s.email)}
-                onChange={() => handleToggleSelect(s.email)}
-                style={{ accentColor: "var(--color-accent)", flexShrink: 0 }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p
+
+          {filtered.map((s) => {
+            const sc = sourceColor(s.source);
+            return (
+              <div
+                key={s.email}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(s.email)}
+                  onChange={() => handleToggleSelect(s.email)}
+                  style={{ accentColor: "var(--color-accent)", flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      color: "var(--color-ink)",
+                      margin: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {s.email}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-ink4)",
+                      margin: 0,
+                    }}
+                  >
+                    Subscribed {formatDate(s.subscribed_at)}
+                  </p>
+                </div>
+                {/* Type badge */}
+                <span
                   style={{
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    color: "var(--color-ink)",
-                    margin: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    background: sc.bg,
+                    color: sc.color,
+                    flexShrink: 0,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {s.email}
-                </p>
-                <p
-                  style={{
-                    fontSize: 11,
-                    color: "var(--color-ink4)",
-                    margin: 0,
-                  }}
+                  {sourceLabel(s.source)}
+                </span>
+                <button
+                  onClick={() => handleDelete(s.email)}
+                  style={{ ...iconActionBtn, color: "#ef4444" }}
+                  title="Remove"
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background =
+                      "#FEF2F2")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background =
+                      "var(--color-surface2)")
+                  }
                 >
-                  Abonné le {formatDate(s.subscribed_at)}
-                </p>
+                  <Trash2 size={13} strokeWidth={1.75} />
+                </button>
               </div>
-              <span
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  background: "var(--color-success-bg)",
-                  color: "var(--color-success)",
-                  flexShrink: 0,
-                }}
-              >
-                Actif
-              </span>
-              <button
-                onClick={() => handleDelete(s.email)}
-                style={{ ...iconActionBtn, color: "#ef4444" }}
-                title="Désabonner"
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "#FEF2F2")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "var(--color-surface2)")
-                }
-              >
-                <Trash2 size={13} strokeWidth={1.75} />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
