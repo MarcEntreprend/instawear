@@ -185,6 +185,12 @@ export default function AccountPage({
         setCustomerId(cust.id);
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
+        // Récupérer le vrai nom depuis la table customers
+        customerApi.get(cust.id).then((c) => {
+          if (c?.name) setCustomerName(c.name);
+          if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
+        });
+
         // Charger les préférences
         customerApi.get(cust.id).then((c) => {
           if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
@@ -734,6 +740,7 @@ export default function AccountPage({
                 orders={orders}
                 preferences={customerPreferences}
                 onUpdatePreferences={handleUpdatePreferences}
+                customerId={customerId || ""}
               />
             )}
             {tab === "support" && (
@@ -2048,13 +2055,14 @@ function SupportTab({
   );
 }
 
-// ─── ProfileTab ───────────────────────────────────────────────────────
+// ─── ProfileTab (version enrichie) ─────────────────────────────────
 function ProfileTab({
   customerEmail,
   customerName,
   orders,
   preferences,
   onUpdatePreferences,
+  customerId,
 }: {
   customerEmail: string;
   customerName: string;
@@ -2064,13 +2072,91 @@ function ProfileTab({
     shipping_update: boolean;
     promotions: boolean;
   };
-  onUpdatePreferences: (prefs: {
-    order_confirmation: boolean;
-    shipping_update: boolean;
-    promotions: boolean;
-  }) => void;
+  onUpdatePreferences: (prefs: typeof preferences) => void;
+  customerId: string;
 }) {
+  // ── États locaux ───────────────────────────────────────────────
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(customerName);
+  const [dob, setDob] = useState("");
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [showAddAddress, setShowAddAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    full_name: "",
+    address: "",
+    city: "",
+    zip: "",
+    country: "US",
+    phone: "",
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
+
   const [copied, setCopied] = useState(false);
+
+  // ── Charger les données ─────────────────────────────────────────
+  useEffect(() => {
+    if (!customerId) return;
+    // Charger la date de naissance
+    customerApi.get(customerId).then((c) => {
+      if (c?.date_of_birth) setDob(c.date_of_birth);
+    });
+    // Charger les adresses
+    setLoadingAddresses(true);
+    customerApi
+      .getAddresses(customerId)
+      .then(setAddresses)
+      .finally(() => setLoadingAddresses(false));
+  }, [customerId]);
+
+  // ── Handlers ────────────────────────────────────────────────────
+  const handleSaveName = async () => {
+    if (!customerId || !nameInput.trim()) return;
+    await customerApi.updateProfile(customerId, { name: nameInput.trim() });
+    setEditingName(false);
+  };
+
+  const handleSaveDob = async () => {
+    if (!customerId) return;
+    await customerApi.updateProfile(customerId, {
+      date_of_birth: dob || null,
+    });
+  };
+
+  const handleAddAddress = async () => {
+    if (!customerId) return;
+    setSavingAddress(true);
+    try {
+      await customerApi.addAddress(customerId, newAddress);
+      const updated = await customerApi.getAddresses(customerId);
+      setAddresses(updated);
+      setShowAddAddress(false);
+      setNewAddress({
+        full_name: "",
+        address: "",
+        city: "",
+        zip: "",
+        country: "US",
+        phone: "",
+      });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    await customerApi.deleteAddress(id);
+    setAddresses((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleSetDefault = async (id: string) => {
+    await customerApi.setDefaultAddress(customerId, id);
+    setAddresses((prev) =>
+      prev.map((a) => ({ ...a, is_default: a.id === id })),
+    );
+  };
 
   const copyEmail = () => {
     navigator.clipboard.writeText(customerEmail).catch(() => {});
@@ -2078,19 +2164,9 @@ function ProfileTab({
     setTimeout(() => setCopied(false), 1600);
   };
 
-  // Extract latest shipping address from most recent order that has one
-  const savedAddress =
-    orders
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .find((o) => o.shippingAddress)?.shippingAddress ?? null;
-
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
-      {/* Identity card */}
+      {/* ── Identity card ─────────────────────────────────────────── */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -2110,12 +2186,43 @@ function ProfileTab({
             {customerEmail ? initials(customerEmail, customerName) : "?"}
           </div>
           <div className="min-w-0 flex-1">
-            <p
-              className="text-[17px] font-bold"
-              style={{ color: "var(--color-ink)" }}
-            >
-              {customerName || "Guest User"}
-            </p>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="rounded-xl border px-3 py-1 text-sm"
+                  style={{
+                    borderColor: "var(--color-border)",
+                    background: "var(--color-surface2)",
+                    color: "var(--color-ink)",
+                  }}
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                />
+                <button
+                  onClick={handleSaveName}
+                  className="text-[11px] font-bold text-(--color-accent)"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="text-[11px] text-(--color-ink4)"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <p
+                className="text-[17px] font-bold cursor-pointer hover:underline"
+                style={{ color: "var(--color-ink)" }}
+                onClick={() => setEditingName(true)}
+              >
+                {customerName || "Set your name"}
+              </p>
+            )}
             <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>
               InstaWear Customer
             </p>
@@ -2126,22 +2233,7 @@ function ProfileTab({
           className="flex flex-col gap-3 pt-4"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.08em]"
-                style={{ color: "var(--color-ink4)" }}
-              >
-                Name
-              </p>
-              <p
-                className="text-[13.5px] font-medium"
-                style={{ color: "var(--color-ink)" }}
-              >
-                {customerName || "—"}
-              </p>
-            </div>
-          </div>
+          {/* Email */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
@@ -2172,10 +2264,34 @@ function ProfileTab({
               )}
             </button>
           </div>
+
+          {/* Date of birth */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[10px] font-semibold uppercase tracking-[0.08em]"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                Date of Birth
+              </p>
+              <input
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                onBlur={handleSaveDob}
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface2)",
+                  color: "var(--color-ink)",
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Saved address */}
+      {/* ── Addresses ─────────────────────────────────────────────── */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -2194,65 +2310,204 @@ function ProfileTab({
               className="text-[12px] font-semibold uppercase tracking-[0.08em]"
               style={{ color: "var(--color-ink4)" }}
             >
-              Saved Address
+              Shipping Addresses
             </p>
           </div>
-          {/* Placeholder — future: edit address */}
-          <button
-            className="flex items-center gap-1 text-[11.5px] font-semibold transition-colors"
-            style={{ color: "var(--color-ink4)" }}
-            title="Edit address (coming soon)"
-          >
-            <Edit3 size={12} strokeWidth={1.75} /> Edit
-          </button>
+          {addresses.length < 3 && (
+            <button
+              onClick={() => setShowAddAddress(!showAddAddress)}
+              className="flex items-center gap-1 text-[11.5px] font-semibold text-(--color-accent)"
+            >
+              <Plus size={14} strokeWidth={2} /> Add
+            </button>
+          )}
         </div>
 
-        {savedAddress ? (
+        {/* Add address form */}
+        {showAddAddress && (
           <div
-            className="flex items-start gap-3 rounded-xl p-3"
-            style={{ background: "var(--color-surface2)" }}
+            className="mb-4 rounded-xl p-3"
+            style={{
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+            }}
           >
-            <div
-              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-              style={{
-                background: "var(--color-accent-bg)",
-                color: "var(--color-accent)",
-              }}
-            >
-              <Home size={14} strokeWidth={1.75} />
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <input
+                placeholder="Full name"
+                value={newAddress.full_name}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, full_name: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <input
+                placeholder="Phone"
+                value={newAddress.phone}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, phone: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <input
+                placeholder="Address"
+                value={newAddress.address}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, address: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <input
+                placeholder="City"
+                value={newAddress.city}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, city: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <input
+                placeholder="ZIP"
+                value={newAddress.zip}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, zip: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <select
+                value={newAddress.country}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, country: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              >
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="GB">United Kingdom</option>
+                <option value="FR">France</option>
+              </select>
             </div>
-            <div>
-              <p
-                className="text-[13px] font-semibold"
-                style={{ color: "var(--color-ink)" }}
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowAddAddress(false)}
+                className="text-xs font-semibold text-(--color-ink4)"
               >
-                {savedAddress.fullName}
-              </p>
-              <p
-                className="text-[12px] leading-relaxed"
-                style={{ color: "var(--color-ink3)" }}
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAddress}
+                disabled={savingAddress}
+                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold text-white"
               >
-                {savedAddress.address}
-                <br />
-                {savedAddress.city}, {savedAddress.zip}
-                <br />
-                {savedAddress.country}
-              </p>
+                {savingAddress ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </button>
             </div>
           </div>
-        ) : (
-          <div
-            className="rounded-xl p-4 text-center"
-            style={{ background: "var(--color-surface2)" }}
+        )}
+
+        {/* Address list */}
+        {loadingAddresses ? (
+          <SkeletonList />
+        ) : addresses.length === 0 ? (
+          <p
+            className="text-[12.5px] text-center py-2"
+            style={{ color: "var(--color-ink4)" }}
           >
-            <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>
-              Your shipping address will be saved after your first order.
-            </p>
+            No saved addresses. Your first order will save one automatically.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {addresses.map((addr) => (
+              <div
+                key={addr.id}
+                className="flex items-start gap-3 rounded-xl p-3"
+                style={{
+                  background: addr.is_default
+                    ? "var(--color-accent-bg)"
+                    : "var(--color-surface2)",
+                  border: `1px solid ${addr.is_default ? "var(--color-accent)" + "40" : "var(--color-border)"}`,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="default_address"
+                  checked={addr.is_default}
+                  onChange={() => handleSetDefault(addr.id)}
+                  style={{ accentColor: "var(--color-accent)", marginTop: 3 }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[13px] font-semibold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {addr.full_name}
+                  </p>
+                  <p
+                    className="text-[12px] leading-relaxed"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    {addr.address}
+                    <br />
+                    {addr.city}, {addr.zip}
+                    <br />
+                    {addr.country}
+                  </p>
+                  {addr.phone && (
+                    <p
+                      className="text-[11px] mt-0.5"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {addr.phone}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteAddress(addr.id)}
+                  className="text-rose-400 hover:text-rose-600 p-1"
+                  title="Delete address"
+                >
+                  <Trash2 size={14} strokeWidth={2} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Preferences (placeholder — future feature) */}
+      {/* Preferences (inchangé) */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -2311,12 +2566,6 @@ function ProfileTab({
             );
           })}
         </div>
-        {/* <p
-          className="mt-3 text-[11.5px]"
-          style={{ color: "var(--color-ink4)" }}
-        >
-          Notification preferences — coming soon.
-        </p> */}
       </div>
 
       {/* Danger zone */}

@@ -568,6 +568,80 @@ export const customerApi = {
       .eq("id", customerId);
     if (error) throw error;
   },
+
+  // ── Profil ─────────────────────────────────────────────────────────
+  async updateProfile(
+    customerId: string,
+    data: { name?: string; date_of_birth?: string | null },
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("customers")
+      .update(data)
+      .eq("id", customerId);
+    if (error) throw error;
+  },
+
+  // ── Adresses ───────────────────────────────────────────────────────
+  async getAddresses(customerId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("customer_addresses")
+      .select("*")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async addAddress(
+    customerId: string,
+    address: Omit<any, "id" | "customer_id" | "created_at">,
+  ): Promise<void> {
+    // Vérifier le nombre d'adresses existantes (max 3)
+    const { count } = await supabase
+      .from("customer_addresses")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId);
+    if (count != null && count >= 3) {
+      throw new Error("Maximum 3 addresses allowed.");
+    }
+    const { error } = await supabase.from("customer_addresses").insert({
+      customer_id: customerId,
+      ...address,
+    });
+    if (error) throw error;
+  },
+
+  async updateAddress(addressId: string, data: Partial<any>): Promise<void> {
+    const { error } = await supabase
+      .from("customer_addresses")
+      .update(data)
+      .eq("id", addressId);
+    if (error) throw error;
+  },
+
+  async deleteAddress(addressId: string): Promise<void> {
+    const { error } = await supabase
+      .from("customer_addresses")
+      .delete()
+      .eq("id", addressId);
+    if (error) throw error;
+  },
+
+  async setDefaultAddress(
+    customerId: string,
+    addressId: string,
+  ): Promise<void> {
+    // Désactiver toutes les adresses du client
+    await supabase
+      .from("customer_addresses")
+      .update({ is_default: false })
+      .eq("customer_id", customerId);
+    // Activer celle sélectionnée
+    await supabase
+      .from("customer_addresses")
+      .update({ is_default: true })
+      .eq("id", addressId);
+  },
 };
 
 export const orderApi = {
@@ -1753,19 +1827,50 @@ export const newsletterApi = {
 
     if (error) throw error;
 
-    // Envoyer un email de bienvenue (optionnel, asynchrone)
-    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({
-        to: email,
-        subject: "Welcome to InstaWear!",
-        html: `<h1>You're in!</h1><p>You'll be the first to know about new drops and exclusive deals.</p>`,
-      }),
-    }).catch(() => {});
+    // Envoyer un email de bienvenue personnalisé via le template automation
+    try {
+      const { data: auto } = await supabase
+        .from("email_automations")
+        .select("subject, html_body")
+        .eq("trigger_type", "welcome")
+        .eq("enabled", true)
+        .maybeSingle();
+
+      const subject = auto?.subject || "Welcome to InstaWear! 🎉";
+      let html =
+        auto?.html_body ||
+        `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
+  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 8px">Welcome to InstaWear! 🎉</h1>
+  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">You're now part of our community. You'll be the first to know about <strong>new drops</strong>, <strong>limited collections</strong>, and <strong>exclusive deals</strong> for global events.</p>
+  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">We print each piece on demand — zero waste, zero overstock. Just event‑ready style, delivered to your door.</p>
+  <a href="https://instawear.vercel.app" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Explore the Collection →</a>
+  <p style="font-size:11px;color:#b5b3af;margin-top:32px;text-align:center">
+    InstaWear · 123 Main Street, Doral, FL 10001<br>
+    <a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a>
+  </p>
+</div>`;
+
+      html = html
+        .replace(/{{name}}/g, email.split("@")[0])
+        .replace(/{{email}}/g, email)
+        .replace(/{{brand}}/g, "InstaWear")
+        .replace(/{{footer}}/g, "InstaWear · 123 Main Street, Doral, FL 10001")
+        .replace(
+          /{{unsubscribe_link}}/g,
+          `https://instawear.vercel.app/unsubscribe?email=${encodeURIComponent(email)}`,
+        );
+
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ to: email, subject, html }),
+      }).catch(() => {});
+    } catch {
+      // fallback
+    }
 
     return { success: true, message: "Welcome! You're now subscribed." };
   },

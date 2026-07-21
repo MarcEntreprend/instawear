@@ -51,6 +51,7 @@ export interface Customer {
   id: string;
   email: string;
   name?: string;
+  date_of_birth?: string | null;
   registrationDate: string;
   lastLoginDate?: string;
   emailPreferences?: {

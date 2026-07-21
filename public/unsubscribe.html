@@ -1,0 +1,87 @@
+<!-- public/unsubscribe.html -->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unsubscribe - InstaWear</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 500px;
+        margin: 80px auto;
+        padding: 0 20px;
+        text-align: center;
+        background: #fafaf8;
+        color: #1a1916;
+      }
+      h1 {
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #7a7872;
+        margin-bottom: 24px;
+      }
+      button {
+        padding: 12px 28px;
+        background: #ff5c35;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Unsubscribe</h1>
+    <p id="status">Processing your request…</p>
+    <button id="unsub-btn" onclick="unsubscribe()" style="display: none">
+      Confirm Unsubscribe
+    </button>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const email = params.get("email");
+      if (!email) {
+        document.getElementById("status").textContent =
+          "Invalid unsubscribe link.";
+      } else {
+        document.getElementById("status").textContent =
+          `Click below to unsubscribe ${email} from InstaWear emails.`;
+        document.getElementById("unsub-btn").style.display = "inline-block";
+      }
+      async function unsubscribe() {
+        const btn = document.getElementById("unsub-btn");
+        btn.disabled = true;
+        btn.textContent = "Processing…";
+        try {
+          const res = await fetch(
+            "https://hkbybsycaylobvbnnwak.supabase.co/rest/v1/newsletter_subscribers?email=eq." +
+              encodeURIComponent(email),
+            {
+              method: "DELETE",
+              headers: {
+                apikey:
+                  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTU3MTQsImV4cCI6MjA5NzEzMTcxNH0.KxfGGn0O0DLIj8cZ5R0lITjMWAPhNPY5RgDGj7zaUgs",
+                "Content-Type": "application/json",
+              },
+            },
+          );
+          document.getElementById("status").textContent =
+            "You have been unsubscribed. We're sorry to see you go.";
+          btn.style.display = "none";
+        } catch (e) {
+          document.getElementById("status").textContent =
+            "Something went wrong. Please try again later.";
+        }
+      }
+    </script>
+  </body>
+</html>

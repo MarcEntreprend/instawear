@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Trash2,
+  Info,
   Search,
   X,
   Plus,
@@ -159,7 +160,7 @@ const TEMPLATES: {
     <p style="font-size:18px;font-weight:700;color:#1a1916;margin:8px 0 24px">de réduction sur toute la collection</p>
     <a href="{{cta_link}}" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Profiter de l'offre →</a>
   </div>
-  <p style="font-size:12px;color:#b5b3af;text-align:center">{{footer}}</p>
+<p style="font-size:12px;color:#b5b3af;text-align:center;margin-top:24px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
 </div>`,
   },
   {
@@ -173,7 +174,7 @@ const TEMPLATES: {
   <h2 style="font-size:28px;font-weight:800;color:#1a1916;margin:0 0 16px">{{product_name}}</h2>
   <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">{{product_description}}</p>
   <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Découvrir →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">{{footer}}</p>
+  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
 </div>`,
   },
   {
@@ -187,7 +188,7 @@ const TEMPLATES: {
   <p style="font-size:17px;font-weight:600;color:#1a1916;margin:0 0 8px">Bonjour {{name}},</p>
   <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">Vous avez laissé des articles dans votre panier. Ils ne vous attendront pas éternellement…</p>
   <a href="{{cart_link}}" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Finaliser ma commande →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">{{footer}}</p>
+  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
 </div>`,
   },
   {
@@ -200,7 +201,7 @@ const TEMPLATES: {
   <h2 style="font-size:28px;font-weight:800;color:#1a1916;margin:0 0 16px">{{title}}</h2>
   <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">{{body}}</p>
   <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">En savoir plus →</a>
-  <p style="font-size:12px;color:#b5b3af;margin-top:32px">{{footer}}</p>
+  <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
 </div>`,
   },
 ];
@@ -1355,6 +1356,7 @@ function ComposeSection({
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showQualityDetails, setShowQualityDetails] = useState(false);
+  const [showVariablesModal, setShowVariablesModal] = useState(false);
 
   const quality = useMemo(
     () => emailQualityScore(subject, html),
@@ -1455,9 +1457,51 @@ function ComposeSection({
       emails = (data ?? []).map((r: any) => r.email);
     }
 
+    // Remplacer les variables dans le sujet (commun à tous les destinataires)
     let sent = 0;
     for (const email of emails) {
       if (!email?.includes("@")) continue;
+
+      const unsubscribeUrl = `https://instawear.vercel.app/unsubscribe?email=${encodeURIComponent(email)}`;
+      const footerHtml = `InstaWear · 123 Main Street, Doral, FL 10001<br><a href="${unsubscribeUrl}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a>`;
+
+      // Récupérer le nom du client
+      let recipientName = "Valued Customer";
+      try {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("name")
+          .eq("email", email)
+          .maybeSingle();
+        if (customer?.name) recipientName = customer.name;
+      } catch {
+        /* fallback to Valued Customer */
+      }
+
+      // Personnaliser le sujet pour ce destinataire
+      const personalizedSubject = subject
+        .replace(/{{name}}/g, recipientName)
+        .replace(/{{brand}}/g, "InstaWear")
+        .replace(/{{discount}}/g, "20")
+        .replace(/{{product_name}}/g, "our new collection")
+        .replace(/{{title}}/g, title);
+
+      // Personnaliser le corps HTML
+      let personalizedHtml = html
+        .replace(/{{name}}/g, recipientName)
+        .replace(/{{email}}/g, email)
+        .replace(/{{brand}}/g, "InstaWear")
+        .replace(/{{footer}}/g, footerHtml)
+        .replace(/{{unsubscribe_link}}/g, unsubscribeUrl)
+        .replace(/{{discount}}/g, "20")
+        .replace(/{{cta_link}}/g, "https://instawear.vercel.app")
+        .replace(/{{order_id}}/g, "—")
+        .replace(/{{product_name}}/g, "our new collection")
+        .replace(/{{product_description}}/g, "Check out our latest event wear.")
+        .replace(/{{title}}/g, subject)
+        .replace(/{{body}}/g, html.replace(/<[^>]+>/g, "").substring(0, 200))
+        .replace(/{{cart_link}}/g, "https://instawear.vercel.app");
+
       try {
         await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
@@ -1467,7 +1511,11 @@ function ComposeSection({
               "Content-Type": "application/json",
               apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
             },
-            body: JSON.stringify({ to: email, subject, html }),
+            body: JSON.stringify({
+              to: email,
+              subject: personalizedSubject,
+              html: personalizedHtml,
+            }),
           },
         );
         sent++;
@@ -1475,7 +1523,6 @@ function ComposeSection({
         /* skip */
       }
     }
-
     // Enregistrer la campagne comme envoyée
     const campaignPayload = {
       title,
@@ -1638,6 +1685,27 @@ function ComposeSection({
                 }}
                 placeholder="<div>Votre contenu HTML ici…</div>"
               />
+
+              <button
+                onClick={() => setShowVariablesModal(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginBottom: 10,
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-surface2)",
+                  color: "var(--color-ink2)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                <Info size={14} /> Variables
+              </button>
+
               {/* Variables hint */}
               <div
                 style={{
@@ -1987,6 +2055,141 @@ function ComposeSection({
           </div>
         </div>
       </div>
+
+      {/* ── Modal Variables disponibles ─────────────────────────── */}
+      {showVariablesModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(26,20,10,0.5)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setShowVariablesModal(false)}
+        >
+          <div
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 500,
+              width: "90%",
+              boxShadow: "var(--shadow-xl)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "var(--color-ink)",
+                }}
+              >
+                Variables disponibles
+              </h4>
+              <button
+                onClick={() => setShowVariablesModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--color-ink4)",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                {
+                  var: "{{name}}",
+                  desc: "Nom du client (remplacé par “Valued Customer” si inconnu)",
+                },
+                { var: "{{email}}", desc: "Email du destinataire" },
+                { var: "{{brand}}", desc: "Nom de la marque (InstaWear)" },
+                {
+                  var: "{{discount}}",
+                  desc: "Pourcentage de réduction (ex. 20)",
+                },
+                {
+                  var: "{{cta_link}}",
+                  desc: "Lien vers la page d’accueil du site",
+                },
+                {
+                  var: "{{unsubscribe_link}}",
+                  desc: "Lien de désabonnement généré automatiquement",
+                },
+                {
+                  var: "{{footer}}",
+                  desc: "Pied de page avec adresse et lien de désabonnement",
+                },
+                {
+                  var: "{{product_name}}",
+                  desc: "Nom du produit (valeur générique par défaut)",
+                },
+                {
+                  var: "{{product_description}}",
+                  desc: "Description du produit",
+                },
+                {
+                  var: "{{title}}",
+                  desc: "Sujet de l’email (utilise le sujet saisi)",
+                },
+                {
+                  var: "{{body}}",
+                  desc: "Extrait du corps HTML (200 premiers caractères)",
+                },
+                {
+                  var: "{{order_id}}",
+                  desc: "ID de commande (non applicable en campagne)",
+                },
+                { var: "{{cart_link}}", desc: "Lien vers le panier" },
+              ].map((item) => (
+                <div
+                  key={item.var}
+                  style={{ display: "flex", gap: 12, alignItems: "baseline" }}
+                >
+                  <code
+                    style={{
+                      background: "var(--color-surface2)",
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--color-accent)",
+                    }}
+                  >
+                    {item.var}
+                  </code>
+                  <span
+                    style={{
+                      fontSize: 12.5,
+                      color: "var(--color-ink3)",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {item.desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
