@@ -275,7 +275,7 @@ The test: Every changed line should trace directly to my request.
 
 - [x] **Remplacer Telegram par email** : envoyer la confirmation de commande par email (pas seulement Telegram)
 - [ ] qd le user ne trouve pas la page recherchée -> 404
-- [ ] bouton desinscription dans profil
+- [x] bouton desinscription dans profil
 
 #### Produits
 
