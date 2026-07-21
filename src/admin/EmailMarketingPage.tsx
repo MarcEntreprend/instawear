@@ -40,10 +40,6 @@ import {
   Eye,
   Copy,
   Edit3,
-  Calendar,
-  Clock,
-  Play,
-  Pause,
   ChevronRight,
   ChevronDown,
   FileText,
@@ -66,6 +62,7 @@ import {
   Layers,
   Sparkles,
 } from "lucide-react";
+import * as S from "./adminStyles";
 import { supabase } from "../lib/supabaseClient";
 import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
 import VariablesModal from "./emailMarketing/VariablesModal";

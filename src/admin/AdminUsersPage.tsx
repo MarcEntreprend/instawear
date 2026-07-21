@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAdminUsers } from "./adminHooks";
 import { AdminUser, AdminRole } from "./adminTypes";
+import { iconBtn } from "./adminStyles";
 
 // ─── Badge de rôle ──────────────────────────────────────────────────────────
 const ROLE_BADGE: Record<
@@ -50,18 +51,6 @@ function RoleBadge({ role }: { role: AdminRole }) {
     </span>
   );
 }
-
-// ─── Petit bouton d'action ──────────────────────────────────────────────────
-const iconBtn: React.CSSProperties = {
-  background: "var(--color-surface2)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 8,
-  padding: 6,
-  cursor: "pointer",
-  color: "var(--color-ink2)",
-  display: "flex",
-  alignItems: "center",
-};
 
 export default function AdminUsersPage() {
   const {
