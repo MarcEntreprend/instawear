@@ -30,6 +30,7 @@ import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
+import NotFound from "./components/NotFound";
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // set to true to show delivery info on cards
@@ -168,6 +169,8 @@ export default function App() {
 
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
   const [showNewAdmin, setShowNewAdmin] = useState(false);
+
+  const [showNotFound, setShowNotFound] = useState(false); // not found
 
   useEffect(() => {
     if (showNewAdmin) {
@@ -619,6 +622,31 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [searchTerm, selectedCategory, selectedEventType]);
 
+  // Détecter les URLs inconnues pour afficher la page 404
+  useEffect(() => {
+    const checkRoute = () => {
+      const path = window.location.pathname;
+      // Routes connues
+      const knownPaths = ["/", "/unsubscribe", "/index.html"];
+      // Chemins statiques (fichiers dans /public)
+      const isStaticFile =
+        path.startsWith("/flags/") ||
+        path.startsWith("/InstaWear-") ||
+        path === "/globe-off.svg" ||
+        path === "/unsubscribe.html";
+
+      if (!knownPaths.includes(path) && !isStaticFile && path !== "/") {
+        setShowNotFound(true);
+      } else {
+        setShowNotFound(false);
+      }
+    };
+
+    checkRoute();
+    window.addEventListener("popstate", checkRoute);
+    return () => window.removeEventListener("popstate", checkRoute);
+  }, []);
+
   const handleOpenFavorites = () => {
     setShowFavoritesOnly(true);
     setActiveTab("store");
@@ -938,6 +966,14 @@ export default function App() {
             if (product) {
               setSelectedProduct(product);
             }
+          }}
+        />
+      )}
+
+      {showNotFound && (
+        <NotFound
+          onBack={() => {
+            window.location.href = "/";
           }}
         />
       )}

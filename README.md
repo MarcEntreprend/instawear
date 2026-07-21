@@ -222,7 +222,7 @@ The test: Every changed line should trace directly to my request.
 
 #### Panier
 
-- [ ] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
+- [*] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
 - [x] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
 - [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
 - [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
