@@ -442,6 +442,8 @@ export default function ProductFormPanel({
         price: price || form.price,
         colors: colors.length > 0 ? colors : form.colors,
         colorNames: colorNames.length > 0 ? colorNames : form.colorNames,
+        colorImages:
+          colorImages.length > 0 ? colorImages : (form as any).colorImages,
         sizes: sizes.length > 0 ? sizes : form.sizes,
         gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
         lastExternalSync: new Date().toISOString(),

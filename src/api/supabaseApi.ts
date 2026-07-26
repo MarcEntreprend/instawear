@@ -37,6 +37,7 @@ interface ProductRow {
   stock_quantity?: number | null;
   colors: string[];
   color_names?: string[] | null;
+  color_images?: string[] | null;
   sizes: string[];
   size_surcharge?: Record<string, number> | null;
   size_guide?: Record<string, { bust: number; length: number }> | null;
@@ -80,6 +81,7 @@ const mapProduct = (row: any): AdminProduct => ({
   stockQuantity: row.stock_quantity,
   colors: row.colors,
   colorNames: row.color_names,
+  colorImages: row.color_images,
   sizes: row.sizes,
   sizeSurcharge: row.size_surcharge,
   sizeGuide: row.size_guide,
@@ -184,6 +186,7 @@ export const productApi = {
       stock_quantity: product.stockQuantity,
       colors: product.colors,
       color_names: product.colorNames,
+      color_images: product.colorImages,
       sizes: product.sizes,
       size_surcharge: product.sizeSurcharge,
       size_guide: product.sizeGuide,
@@ -256,6 +259,7 @@ export const productApi = {
       stock_quantity: updates.stockQuantity,
       colors: updates.colors,
       color_names: updates.colorNames,
+      color_images: updates.colorImages,
       sizes: updates.sizes,
       size_surcharge: updates.sizeSurcharge,
       size_guide: updates.sizeGuide,

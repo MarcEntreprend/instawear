@@ -16,6 +16,7 @@ export interface AdminProduct {
   inStock: boolean;
   stockQuantity?: number;
   colors: string[];
+  colorImages?: string[] | null;
   colorNames?: string[];
   sizes: string[];
   sizeSurcharge?: Record<string, number>;

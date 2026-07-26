@@ -20,7 +20,28 @@ export default function ProductQuickViewModal({
   // state pour suivre l'image active, et rendre les miniatures cliquables.
   const [activeImage, setActiveImage] = React.useState(0);
 
+  const [pickedColorIdx, setPickedColorIdx] = React.useState<number | null>(
+    null,
+  );
+
   const currencySymbol = useCurrencySymbol();
+
+  const hasColorImages = product.colorImages && product.colorImages.length > 0;
+
+  const allImages = [
+    product.image || PLACEHOLDER_IMG,
+
+    ...(product.gallery || []).filter(
+      (url) => url && url !== (product.image || PLACEHOLDER_IMG),
+    ),
+  ];
+
+  const displayImage =
+    pickedColorIdx !== null &&
+    product.colorImages &&
+    product.colorImages[pickedColorIdx]
+      ? product.colorImages[pickedColorIdx]
+      : allImages[activeImage] || PLACEHOLDER_IMG;
 
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
@@ -105,16 +126,7 @@ export default function ProductQuickViewModal({
               }}
             >
               <img
-                src={(() => {
-                  const allImages = [
-                    product.image || PLACEHOLDER_IMG,
-                    ...(product.gallery || []).filter(
-                      (url) =>
-                        url && url !== (product.image || PLACEHOLDER_IMG),
-                    ),
-                  ];
-                  return allImages[activeImage] || PLACEHOLDER_IMG;
-                })()}
+                src={displayImage}
                 alt={product.title}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
@@ -159,55 +171,137 @@ export default function ProductQuickViewModal({
               </div>
             </div>
             {/* Galerie complète (image principale + images additionnelles) */}
-            {(() => {
-              const allImages = [
-                product.image || PLACEHOLDER_IMG,
-                ...(product.gallery || []).filter(
-                  (url) => url && url !== (product.image || PLACEHOLDER_IMG),
-                ),
-              ];
-              if (allImages.length <= 1) return null;
-              return (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(50px, 1fr))",
-                    gap: 6,
-                    marginTop: 10,
-                  }}
-                >
-                  {allImages.map((url, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActiveImage(idx)}
-                      style={{
-                        width: "100%",
-                        aspectRatio: "1 / 1",
-                        borderRadius: 8,
-                        overflow: "hidden",
-                        border:
-                          activeImage === idx
-                            ? "2px solid var(--color-accent)"
-                            : "1px solid var(--color-border)",
-                        padding: 0,
-                        cursor: "pointer",
-                        background: "none",
-                      }}
-                    >
-                      <img
-                        src={url}
-                        alt=""
+            {!(
+              pickedColorIdx !== null && product.colorImages?.[pickedColorIdx]
+            ) &&
+              (() => {
+                if (allImages.length <= 1) return null;
+
+                return (
+                  <div
+                    style={{
+                      display: "grid",
+
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(50px, 1fr))",
+
+                      gap: 6,
+
+                      marginTop: 10,
+                    }}
+                  >
+                    {allImages.map((url, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setActiveImage(idx);
+
+                          setPickedColorIdx(null);
+                        }}
                         style={{
                           width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
+
+                          aspectRatio: "1 / 1",
+
+                          borderRadius: 8,
+
+                          overflow: "hidden",
+
+                          border:
+                            activeImage === idx
+                              ? "2px solid var(--color-accent)"
+                              : "1px solid var(--color-border)",
+
+                          padding: 0,
+
+                          cursor: "pointer",
+
+                          background: "none",
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt=""
+                          style={{
+                            width: "100%",
+
+                            height: "100%",
+
+                            objectFit: "cover",
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+            {/* Color dots selector */}
+
+            {product.colors.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <p
+                  style={{
+                    fontSize: 11,
+
+                    fontWeight: 600,
+
+                    color: "var(--color-ink3)",
+
+                    textTransform: "uppercase",
+
+                    marginBottom: 6,
+                  }}
+                >
+                  Couleurs ({product.colors.length})
+                </p>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {product.colors.map((c, idx) => {
+                    const isPicked = pickedColorIdx === idx;
+
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setPickedColorIdx(isPicked ? null : idx);
+
+                          if (!isPicked) setActiveImage(0);
+                        }}
+                        title={product.colorNames?.[idx] || c}
+                        style={{
+                          width: 28,
+
+                          height: 28,
+
+                          borderRadius: "50%",
+
+                          backgroundColor: c,
+
+                          border: `2.5px solid ${
+                            isPicked
+                              ? "var(--color-accent)"
+                              : "var(--color-border)"
+                          }`,
+
+                          boxShadow: isPicked
+                            ? "0 0 0 2px rgba(255,92,53,.25)"
+                            : "none",
+
+                          transform: isPicked ? "scale(1.15)" : "scale(1)",
+
+                          cursor: "pointer",
+
+                          padding: 0,
+
+                          transition: "all 0.15s",
                         }}
                       />
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
-              );
-            })()}
+              </div>
+            )}
           </div>
 
           {/* Colonne droite - Infos */}

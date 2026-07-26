@@ -35,10 +35,18 @@ export default function ProductDetailModal({
   const [pickedColor, setPickedColor] = useState<string>("");
   const [pickedSize, setPickedSize] = useState<string>("M");
 
+  const colorIdx = pickedColor ? product.colors.indexOf(pickedColor) : 0;
+
+  const hasColorImage = product.colorImages && product.colorImages[colorIdx];
+
   const allImages = [
     product.image || PLACEHOLDER_IMG,
     ...(product.gallery || []),
   ];
+
+  const displayImage = hasColorImage
+    ? product.colorImages![colorIdx]
+    : allImages[activeGalleryIndex];
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -67,12 +75,12 @@ export default function ProductDetailModal({
                 </span>
               )}
               <img
-                src={allImages[activeGalleryIndex]}
+                src={displayImage}
                 alt={product.title}
                 className="w-full h-full object-cover"
               />
             </div>
-            {allImages.length > 1 && (
+            {!hasColorImage && allImages.length > 1 && (
               <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
                 {allImages.map((img, idx) => (
                   <div

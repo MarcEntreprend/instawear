@@ -6,6 +6,8 @@ import { storageApi } from "../api/storageApi";
 import { Upload } from "lucide-react";
 import { AdminProduct } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
+import TagInput from "../components/TagInput";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
 interface PrintfulProductFormProps {
   onBack: () => void;
@@ -36,6 +38,11 @@ export default function PrintfulProductForm({
   // Image et galerie éditables
   const [mainImageUrl, setMainImageUrl] = useState<string>("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+
+  const [colors, setColors] = useState<string[]>([]);
+  const [colorNames, setColorNames] = useState<string[]>([]);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colorImages, setColorImages] = useState<string[]>([]);
 
   // Pricing
   const [printfulCost, setPrintfulCost] = useState<number>(0); // Printful price (non modifiable)
@@ -124,13 +131,26 @@ export default function PrintfulProductForm({
           }
           if (matchedSty) setStyle(matchedSty);
 
-          // Pré‑remplir les images
-          setMainImageUrl(data.thumbnail_url || "");
-          const initialGallery = vars
-            .map((v: any) => (v.product_image || v.preview_url) as string)
+          // Pré-remplir les images depuis les données enrichies
+
+          setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
+
+          const colorGallery = (data.color_images || []) as string[];
+
+          const catalogGallery = (data.catalog_variants || [])
+
+            .map((v: any) => v.image as string)
             .filter(Boolean) as string[];
-          setGalleryImages([...new Set(initialGallery)].slice(0, 12));
+          const initialGallery = [
+            ...new Set([...colorGallery, ...catalogGallery]),
+          ].slice(0, 12);
+          setGalleryImages(initialGallery.length > 0 ? initialGallery : []);
         }
+        // Pré-remplir les couleurs, noms de couleurs, tailles et images par couleur
+        setColors((data.colors as string[]) || []);
+        setColorNames((data.color_names as string[]) || []);
+        setSizes((data.sizes as string[]) || []);
+        setColorImages((data.color_images as string[]) || []);
       })
       .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
@@ -160,46 +180,6 @@ export default function PrintfulProductForm({
       .catch((err) => console.warn("Estimation shipping non récupérée", err));
   }, [selectedVariantId, variants]);
 
-  // // Récupérer le coût d'impression (Printful price) via l'API catalogue
-  // useEffect(() => {
-  //   if (!selectedVariantId || variants.length === 0) return;
-  //   const v = variants.find((v: any) => v.id.toString() === selectedVariantId);
-  //   if (!v || !v.product || !v.product.product_id || !v.product.variant_id)
-  //     return;
-
-  //   const catalogProductId = v.product.product_id; // ex: 509
-  //   const catalogVariantId = v.product.variant_id; // ex: 12829
-
-  //   setCostLoading(true);
-  //   fetch(`https://api.printful.com/products/${catalogProductId}`)
-  //     .then((res) => {
-  //       if (!res.ok)
-  //         throw new Error("Impossible de récupérer le produit catalogue");
-  //       return res.json();
-  //     })
-  //     .then((data) => {
-  //       const variants = data?.result?.variants;
-  //       if (!Array.isArray(variants)) throw new Error("Variants introuvables");
-  //       const target = variants.find((v2: any) => v2.id == catalogVariantId);
-  //       if (!target) throw new Error("Variant non trouvé dans le catalogue");
-  //       const cost = target.price; // chaîne ou nombre
-  //       if (typeof cost === "string") {
-  //         setPrintfulCost(parseFloat(cost));
-  //       } else if (typeof cost === "number") {
-  //         setPrintfulCost(cost);
-  //       } else {
-  //         throw new Error("Prix manquant");
-  //       }
-  //     })
-  //     .catch((err) => {
-  //       console.warn("Coût d'impression non récupéré", err);
-  //       setError(
-  //         "Impossible de récupérer le coût d'impression. Vérifiez la connexion.",
-  //       );
-  //     })
-  //     .finally(() => setCostLoading(false));
-  // }, [selectedVariantId, variants]);
-
   // Recalcul dynamique du Retail price
   useEffect(() => {
     const newPrice =
@@ -209,6 +189,20 @@ export default function PrintfulProductForm({
 
   // Revenue = retail - (printful cost + shipping)
   const revenue = price - (printfulCost + shippingEstimate);
+
+  // Helper : retrouve un code hex pour une couleur, même si Printful ne renvoie que le nom
+  const findHexForColor = (colorNameOrCode: string): string => {
+    if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(colorNameOrCode))
+      return colorNameOrCode;
+    // Cherche un hex dans les variants synchronisés
+    const match = (variants || []).find(
+      (v: any) =>
+        (v.color_code || v.color) === colorNameOrCode &&
+        v.color_code &&
+        /^#/.test(v.color_code),
+    );
+    return match?.color_code || "#CCCCCC";
+  };
 
   const handleImport = async () => {
     setError(null);
@@ -228,28 +222,19 @@ export default function PrintfulProductForm({
       const title = pfData.name || "";
       const mainImage = mainImageUrl || pfData.thumbnail_url || "";
 
-      const colors = pfData.variants
-        .map((v: any) => v.color_code as string)
-        .filter(Boolean) as string[];
-      const colorNames = pfData.variants
-        .map((v: any) => v.color as string)
-        .filter(Boolean) as string[];
-      const sizes = pfData.variants
-        .map((v: any) => v.size as string)
-        .filter(Boolean) as string[];
-      const gallery: string[] =
+      const allImages: string[] =
         galleryImages.length > 0
           ? galleryImages
           : (
               [
                 ...new Set(
-                  pfData.variants
-                    .map(
-                      (v: any) => (v.product_image || v.preview_url) as string,
-                    )
-                    .filter(Boolean),
+                  (pfData.color_images || []).concat(
+                    (pfData.catalog_variants || []).map(
+                      (v: any) => v.image as string,
+                    ),
+                  ),
                 ),
-              ] as string[]
+              ].filter(Boolean) as string[]
             ).slice(0, 12);
 
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
@@ -259,15 +244,16 @@ export default function PrintfulProductForm({
         description: title,
         fullDescription: "",
         image: mainImage,
-        gallery,
+        gallery: allImages,
         mockupPreset: "",
         price: price, // Retail price calculé
         originalPrice: undefined,
         inStock: true,
         stockQuantity: 100,
-        colors: [...new Set(colors)],
-        colorNames: [...new Set(colorNames)] as string[],
-        sizes: [...new Set(sizes)],
+        colors: colors,
+        colorNames: colorNames,
+        colorImages: colorImages.length > 0 ? colorImages : null,
+        sizes: sizes,
         sizeSurcharge: {},
         sizeGuide: undefined,
         category: category as AdminProduct["category"],
@@ -749,6 +735,201 @@ export default function PrintfulProductForm({
             </label>
           </div>
         </div>
+
+        {/* ── Variantes : tableau couleurs × tailles ────────────────── */}
+        {colors.length > 0 && sizes.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label style={labelStyle}>
+              Variantes – {colors.length} couleur{colors.length > 1 ? "s" : ""}{" "}
+              × {sizes.length} taille{sizes.length > 1 ? "s" : ""}
+            </label>
+
+            {/* Tableau */}
+            <div
+              style={{
+                overflowX: "auto",
+                borderRadius: 12,
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 12,
+                  color: "var(--color-ink)",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "var(--color-surface2)" }}>
+                    <th
+                      style={{
+                        padding: "8px 10px",
+                        textAlign: "left",
+                        fontWeight: 700,
+                        color: "var(--color-ink3)",
+                        borderBottom: "1px solid var(--color-border)",
+                      }}
+                    >
+                      Taille ↓ / Couleur →
+                    </th>
+                    {colors.map((colorCode, i) => (
+                      <th
+                        key={i}
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: "center",
+                          borderBottom: "1px solid var(--color-border)",
+                          minWidth: 80,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              background: findHexForColor(colorCode),
+                              border: "1px solid var(--color-border)",
+                              display: "inline-block",
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "var(--color-ink2)",
+                            }}
+                          >
+                            {colorNames[i] || colorCode}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sizes.map((size, rowIdx) => (
+                    <tr
+                      key={size}
+                      style={{
+                        background:
+                          rowIdx % 2 === 0
+                            ? "var(--color-surface)"
+                            : "var(--color-surface2)",
+                      }}
+                    >
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontWeight: 700,
+                          color: "var(--color-ink2)",
+                          borderBottom: "1px solid var(--color-border)",
+                        }}
+                      >
+                        {size}
+                      </td>
+                      {colors.map((_, colIdx) => {
+                        const catalogVariant = (variants || []).find(
+                          (v: any) =>
+                            (v.color_code || v.color) === colors[colIdx] &&
+                            v.size === size,
+                        );
+                        const imgSrc =
+                          [
+                            catalogVariant?.image,
+                            catalogVariant?.preview_url,
+                            colorImages[colIdx],
+                          ].find((url) => url && url.trim().length > 0) ||
+                          PLACEHOLDER_IMG;
+                        return (
+                          <td
+                            key={colIdx}
+                            style={{
+                              padding: 4,
+                              textAlign: "center",
+                              borderBottom: "1px solid var(--color-border)",
+                            }}
+                          >
+                            <img
+                              src={imgSrc}
+                              alt={`${colorNames[colIdx] || colors[colIdx]} - ${size}`}
+                              style={{
+                                width: 52,
+                                height: 52,
+                                borderRadius: 6,
+                                objectFit: "cover",
+                                border: "1px solid var(--color-border)",
+                              }}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src =
+                                  PLACEHOLDER_IMG;
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Édition rapide des listes */}
+            <details style={{ marginTop: 8 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--color-ink4)",
+                }}
+              >
+                Modifier les listes
+              </summary>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginTop: 8,
+                }}
+              >
+                <div>
+                  <label style={labelStyle}>Couleurs (hex)</label>
+                  <TagInput
+                    value={colors}
+                    onChange={(v) => setColors(v)}
+                    placeholder="#FF0000"
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Noms des couleurs</label>
+                  <TagInput
+                    value={colorNames}
+                    onChange={(v) => setColorNames(v)}
+                    placeholder="Rouge"
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Tailles</label>
+                  <TagInput
+                    value={sizes}
+                    onChange={(v) => setSizes(v)}
+                    placeholder="M"
+                  />
+                </div>
+              </div>
+            </details>
+          </div>
+        )}
 
         {/* ── Pricing ────────────────────────────────────────────── */}
         <div

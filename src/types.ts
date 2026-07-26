@@ -24,6 +24,7 @@ export interface Product {
   image: string;
   gallery: string[];
   colors: string[];
+  colorImages?: string[] | null;
   colorNames?: string[];
   sizes: string[];
   // Price surcharge per size. Keys must match entries in sizes[].

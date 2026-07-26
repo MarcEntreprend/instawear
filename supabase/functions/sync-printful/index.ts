@@ -117,7 +117,8 @@ export default {
             );
             if (catalogRes.ok) {
               const catalogData = await catalogRes.json();
-              const catalogResult = catalogData?.result?.product;
+              const catalogResult =
+                catalogData?.result?.product || catalogData?.result;
               if (catalogResult) {
                 catalogProductName = catalogResult.name || "";
                 catalogProductImage = catalogResult.image || "";
@@ -411,9 +412,9 @@ export default {
           const detailData = await detailRes.json();
           const detail = detailData.result;
           const syncProduct = detail.sync_product;
-          const variants = detail.sync_variants ?? [];
+          const syncVariants = detail.sync_variants ?? [];
+          const mainVariant = syncVariants[0];
 
-          const mainVariant = variants[0];
           const imageUrl =
             syncProduct?.thumbnail_url ||
             mainVariant?.files?.[0]?.thumbnail_url ||
@@ -422,11 +423,94 @@ export default {
             ? parseFloat(mainVariant.retail_price)
             : null;
 
-          const colors: string[] = [];
-          const sizes: string[] = [];
-          for (const v of variants) {
-            if (v.color && !colors.includes(v.color)) colors.push(v.color);
-            if (v.size && !sizes.includes(v.size)) sizes.push(v.size);
+          let colors: string[] = [];
+          let colorNames: string[] = [];
+          let colorImages: string[] = [];
+          let sizes: string[] = [];
+          let catalogGallery: string[] = [];
+
+          const catalogProductId =
+            mainVariant?.product?.product_id || mainVariant?.product_id;
+
+          if (catalogProductId) {
+            try {
+              const catalogRes = await fetch(
+                `https://api.printful.com/products/${catalogProductId}`,
+              );
+              if (catalogRes.ok) {
+                const catalogData = await catalogRes.json();
+                const catalogResult =
+                  catalogData?.result?.product || catalogData?.result;
+                if (catalogResult) {
+                  const catalogVariants = catalogResult.variants || [];
+                  const colorMap = new Map<
+                    string,
+                    { code: string; name: string; image: string }
+                  >();
+                  for (const v of catalogVariants) {
+                    const code = (v.color_code || v.color || "").trim();
+                    const name = (v.color || "").trim();
+                    const img = (v.image || "").trim();
+                    if (code && !colorMap.has(code)) {
+                      colorMap.set(code, { code, name, image: img });
+                    }
+                    if (v.size) sizes.push(v.size);
+                  }
+                  sizes = [...new Set(sizes)];
+                  colors = [...colorMap.values()].map((c) => c.code);
+                  colorNames = [...colorMap.values()].map((c) => c.name);
+                  colorImages = [...colorMap.values()]
+                    .map((c) => c.image)
+                    .filter(Boolean);
+                  catalogGallery = [
+                    ...new Set(
+                      catalogVariants
+                        .map((v: any) => v.image as string)
+                        .filter(Boolean),
+                    ),
+                  ].slice(0, 12);
+                  if (catalogGallery.length === 0 && catalogResult.image) {
+                    catalogGallery = [catalogResult.image];
+                  }
+                }
+              }
+            } catch {
+              // fallback to sync_variants
+            }
+          }
+
+          if (colors.length === 0) {
+            for (const v of syncVariants) {
+              const code = (v.color_code || v.color || "").trim();
+              const name = (v.color || "").trim();
+              if (code && !colors.includes(code)) colors.push(code);
+              if (name && !colorNames.includes(name)) colorNames.push(name);
+              if (v.size && !sizes.includes(v.size)) sizes.push(v.size);
+            }
+          }
+
+          const gallery =
+            catalogGallery.length > 0
+              ? catalogGallery
+              : mainVariant?.files?.map((f: any) => f.thumbnail_url) || [];
+
+          const productPayload: Record<string, any> = {
+            title: syncProduct?.name || pfProduct.name || "Sans titre",
+            image: imageUrl,
+            gallery,
+            price: price ?? 0,
+            colors,
+            color_names: colorNames.length > 0 ? colorNames : null,
+            sizes,
+            last_external_sync: new Date().toISOString(),
+            external_variant_id: mainVariant?.id?.toString() || null,
+          };
+
+          try {
+            productPayload.color_images =
+              colorImages.length > 0 ? colorImages : null;
+          } catch {
+            // column may not exist yet
           }
 
           // Vérifier si le produit existe déjà dans InstaWear
@@ -437,44 +521,50 @@ export default {
             .maybeSingle();
 
           if (existing) {
-            // Mettre à jour
-            await supabaseAdmin
-              .from("products")
-              .update({
-                title: syncProduct?.name || pfProduct.name || "Sans titre",
-                image: imageUrl,
-                gallery:
-                  mainVariant?.files?.map((f: any) => f.thumbnail_url) || [],
-                price: price ?? 0,
-                colors: colors,
-                sizes: sizes,
-                last_external_sync: new Date().toISOString(),
-                external_variant_id: mainVariant?.id?.toString() || null,
-              })
-              .eq("id", existing.id);
+            const updatePayload = { ...productPayload };
+            try {
+              await supabaseAdmin
+                .from("products")
+                .update(updatePayload)
+                .eq("id", existing.id);
+            } catch (e: any) {
+              delete updatePayload.color_images;
+              await supabaseAdmin
+                .from("products")
+                .update(updatePayload)
+                .eq("id", existing.id);
+            }
           } else {
-            // Créer un nouveau produit
             const productId = `prod-printful-${pfProduct.id}`;
-            await supabaseAdmin.from("products").insert({
-              id: productId,
-              is_active: true,
-              title: syncProduct?.name || pfProduct.name || "Sans titre",
-              brand: "INSTAWEAR",
-              description: syncProduct?.name || "",
-              image: imageUrl,
-              gallery:
-                mainVariant?.files?.map((f: any) => f.thumbnail_url) || [],
-              price: price ?? 0,
-              colors: colors,
-              sizes: sizes,
-              category: "tshirt",
-              event_type: "culture",
-              style: "street",
-              tags: [],
-              external_product_id: pfProduct.id.toString(),
-              external_variant_id: mainVariant?.id?.toString() || null,
-              last_external_sync: new Date().toISOString(),
-            });
+            const insertPayload = { ...productPayload };
+            try {
+              await supabaseAdmin.from("products").insert({
+                id: productId,
+                is_active: true,
+                brand: "INSTAWEAR",
+                description: syncProduct?.name || "",
+                category: "tshirt",
+                event_type: "culture",
+                style: "street",
+                tags: [],
+                external_product_id: pfProduct.id.toString(),
+                ...insertPayload,
+              });
+            } catch (e: any) {
+              delete insertPayload.color_images;
+              await supabaseAdmin.from("products").insert({
+                id: productId,
+                is_active: true,
+                brand: "INSTAWEAR",
+                description: syncProduct?.name || "",
+                category: "tshirt",
+                event_type: "culture",
+                style: "street",
+                tags: [],
+                external_product_id: pfProduct.id.toString(),
+                ...insertPayload,
+              });
+            }
           }
 
           syncedCount++;

@@ -57,6 +57,16 @@ export default function ProductModal({
 
   const currencySymbol = useCurrencySymbol();
 
+  const colorIdx = product.colors.indexOf(selectedColor);
+
+  const activeImage = (() => {
+    if (colorIdx >= 0 && product.colorImages && product.colorImages[colorIdx]) {
+      return product.colorImages[colorIdx];
+    }
+
+    return product.gallery?.[galleryIdx] || product.image || PLACEHOLDER_IMG;
+  })();
+
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
@@ -118,78 +128,76 @@ export default function ProductModal({
             style={{ background: "var(--color-surface2)" }}
           >
             <img
-              src={
-                product.gallery?.[galleryIdx] ||
-                product.image ||
-                PLACEHOLDER_IMG
-              }
+              src={activeImage}
               alt={product.title}
               className="w-full h-full object-cover md:rounded-tl-2xl"
             />
-            {product.gallery && product.gallery.length > 1 && (
-              <>
-                <button
-                  onClick={prevImage}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
-                  style={{
-                    background: "rgba(255,255,255,.85)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                >
-                  <ChevronLeft size={16} strokeWidth={2} />
-                </button>
-                <button
-                  onClick={nextImage}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
-                  style={{
-                    background: "rgba(255,255,255,.85)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                >
-                  <ChevronRight size={16} strokeWidth={2} />
-                </button>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {product.gallery.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setGalleryIdx(i)}
-                      className="rounded-full transition-all"
-                      style={{
-                        width: galleryIdx === i ? 20 : 6,
-                        height: 6,
-                        background:
-                          galleryIdx === i ? "white" : "rgba(255,255,255,.5)",
-                      }}
-                    />
-                  ))}
-                </div>
-                {/* Thumbnails */}
-                <div
-                  className="flex gap-2 p-3"
-                  style={{ background: "var(--color-surface)" }}
-                >
-                  {product.gallery.map((img, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setGalleryIdx(i)}
-                      className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors"
-                      style={{
-                        borderColor:
-                          galleryIdx === i
-                            ? "var(--color-accent)"
-                            : "transparent",
-                      }}
-                    >
-                      <img
-                        src={img || PLACEHOLDER_IMG}
-                        alt=""
-                        className="w-full h-full object-cover"
+            {!product.colorImages?.[colorIdx] &&
+              product.gallery &&
+              product.gallery.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
+                    style={{
+                      background: "rgba(255,255,255,.85)",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <ChevronLeft size={16} strokeWidth={2} />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
+                    style={{
+                      background: "rgba(255,255,255,.85)",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <ChevronRight size={16} strokeWidth={2} />
+                  </button>
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {product.gallery.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setGalleryIdx(i)}
+                        className="rounded-full transition-all"
+                        style={{
+                          width: galleryIdx === i ? 20 : 6,
+                          height: 6,
+                          background:
+                            galleryIdx === i ? "white" : "rgba(255,255,255,.5)",
+                        }}
                       />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+                    ))}
+                  </div>
+                  {/* Thumbnails */}
+                  <div
+                    className="flex gap-2 p-3"
+                    style={{ background: "var(--color-surface)" }}
+                  >
+                    {product.gallery.map((img, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setGalleryIdx(i)}
+                        className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors"
+                        style={{
+                          borderColor:
+                            galleryIdx === i
+                              ? "var(--color-accent)"
+                              : "transparent",
+                        }}
+                      >
+                        <img
+                          src={img || PLACEHOLDER_IMG}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
           </div>
 
           {/* Info */}
