@@ -80,6 +80,21 @@ function formatCardNumber(value: string): string {
   return cleaned.replace(/(\d{4})(?=\d)/g, "$1 ");
 }
 
+function formatCPFCNPJ(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, "$1.$2")
+      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1-$2");
+  }
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
 function formatExpiry(value: string): string {
   const cleaned = value.replace(/\D/g, "").slice(0, 4);
   if (cleaned.length >= 3) return cleaned.slice(0, 2) + "/" + cleaned.slice(2);
@@ -955,7 +970,7 @@ function ContactStep({
               id="taxNumber"
               required
               value={taxNumber}
-              onChange={(e) => setTaxNumber(e.target.value)}
+              onChange={(e) => setTaxNumber(formatCPFCNPJ(e.target.value))}
               placeholder="000.000.000-00"
               autoComplete="off"
               error={errors.taxNumber}
