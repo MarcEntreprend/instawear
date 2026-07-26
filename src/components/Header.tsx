@@ -331,26 +331,40 @@ export default function Header({
             className="flex items-center gap-2 shrink-0 group"
             aria-label="InstaWear — Accueil"
           >
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105 relative overflow-hidden"
-              style={{
-                background: "var(--color-accent)",
-                boxShadow: "var(--shadow-accent)",
-              }}
-            >
+            <div className="relative shrink-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105 relative overflow-hidden"
+                style={{
+                  background: "var(--color-accent)",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                <img
+                  src="/InstaWear-logo.png"
+                  alt="InstaWear"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    const el = e.currentTarget as HTMLImageElement;
+                    el.style.display = "none";
+                    (el.nextElementSibling as HTMLElement).style.display =
+                      "flex";
+                  }}
+                />
+                <span className="hidden absolute inset-0 items-center justify-center">
+                  I
+                </span>
+              </div>
+              {/* Drapeau en badge */}
               <img
-                src="/InstaWear-logo.png"
-                alt="InstaWear"
-                className="absolute inset-0 w-full h-full object-cover"
+                src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
+                alt={detectedCountry || "US"}
+                className="absolute -top-0.5 -right-0.5 w-4 h-3 rounded-sm object-cover border border-white"
+                style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }}
+                title={`Shipping to ${detectedCountry || "US"}`}
                 onError={(e) => {
-                  const el = e.currentTarget as HTMLImageElement;
-                  el.style.display = "none";
-                  (el.nextElementSibling as HTMLElement).style.display = "flex";
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
-              <span className="hidden absolute inset-0 items-center justify-center">
-                I
-              </span>
             </div>
             <span
               className="font-black text-xl tracking-tight hidden sm:block"
@@ -361,18 +375,6 @@ export default function Header({
             >
               Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
             </span>
-            {detectedCountry && (
-              <img
-                src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
-                alt={detectedCountry || "US"}
-                className="w-5 h-4 rounded-sm object-cover"
-                style={{ marginLeft: 4, flexShrink: 0 }}
-                title={`Shipping to ${detectedCountry || "US"}`}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-            )}
           </button>
 
           {/* Nav links — desktop (logique v3, visuel v2) */}
@@ -664,29 +666,44 @@ export default function Header({
               )}
             </button>
 
-            {/* User / Admin */}
+            {/* User — mobile uniquement */}
             {isAdminLoggedIn || isUserLoggedIn ? (
               <button
-                onClick={onOpenProfile}
-                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
+                onClick={isUserLoggedIn ? onOpenAccount : onOpenProfile}
+                className="flex md:hidden p-2 rounded-xl transition-all duration-200"
                 style={{
                   color: isAdminLoggedIn
                     ? "var(--color-accent)"
                     : "var(--color-ink2)",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--color-surface2)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 20px rgba(0,0,0,0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-                aria-label="My profile"
-                title="My profile"
+              >
+                <User size={20} strokeWidth={1.8} />
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="flex md:hidden p-2 rounded-xl transition-all duration-200"
+                style={{ color: "var(--color-ink2)" }}
+              >
+                <User size={20} strokeWidth={1.8} />
+              </button>
+            )}
+
+            {/* User / Admin */}
+            {isUserLoggedIn ? (
+              <button
+                onClick={onOpenAccount}
+                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
+                style={{ color: "var(--color-ink2)" }}
+              >
+                <User size={18} strokeWidth={1.8} />
+                Account
+              </button>
+            ) : isAdminLoggedIn ? (
+              <button
+                onClick={onOpenProfile}
+                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
+                style={{ color: "var(--color-accent)" }}
               >
                 <User size={20} strokeWidth={1.8} />
               </button>
@@ -695,25 +712,12 @@ export default function Header({
                 onClick={onOpenAuth}
                 className="hidden md:flex p-2 rounded-xl transition-all duration-200"
                 style={{ color: "var(--color-ink2)" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--color-surface2)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 20px rgba(0,0,0,0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-                aria-label="Sign in / Sign up"
-                title="Sign in / Sign up"
               >
                 <User size={20} strokeWidth={1.8} />
               </button>
             )}
 
-            {isUserLoggedIn && (
+            {/* {isUserLoggedIn && (
               <button
                 onClick={onOpenAccount}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
@@ -721,7 +725,7 @@ export default function Header({
                 <User size={16} />
                 Account
               </button>
-            )}
+            )} */}
 
             {/* Cart */}
             <button
