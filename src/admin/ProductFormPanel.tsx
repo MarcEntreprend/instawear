@@ -379,7 +379,7 @@ export default function ProductFormPanel({
           colors = [
             ...new Set(
               fallbackCatalogVariants
-                .map((v: any) => v.color_code || v.color)
+                .map((v: any) => v.color_code2 || v.color_code || v.color)
                 .filter(Boolean),
             ),
           ];
@@ -396,7 +396,9 @@ export default function ProductFormPanel({
         } else {
           colors = [
             ...new Set(
-              variants.map((v: any) => v.color_code || v.color).filter(Boolean),
+              variants
+                .map((v: any) => v.color_code2 || v.color_code || v.color)
+                .filter(Boolean),
             ),
           ];
           colorNames = [

@@ -25,6 +25,7 @@ export default function PrintfulProductForm({
   const [loadingList, setLoadingList] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [variants, setVariants] = useState<any[]>([]);
+  const [catalogVariants, setCatalogVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
   const [loadingVariants, setLoadingVariants] = useState(false);
 
@@ -151,6 +152,7 @@ export default function PrintfulProductForm({
         setColorNames((data.color_names as string[]) || []);
         setSizes((data.sizes as string[]) || []);
         setColorImages((data.color_images as string[]) || []);
+        setCatalogVariants((data.catalog_variants as any[]) || []);
       })
       .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
@@ -194,14 +196,67 @@ export default function PrintfulProductForm({
   const findHexForColor = (colorNameOrCode: string): string => {
     if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(colorNameOrCode))
       return colorNameOrCode;
-    // Cherche un hex dans les variants synchronisés
-    const match = (variants || []).find(
+    const normalized = colorNameOrCode.toLowerCase().replace(/\s+/g, "_");
+    const staticMap: Record<string, string> = {
+      black: "#1A1A1A",
+      white: "#FFFFFF",
+      red: "#CC0000",
+      navy: "#000080",
+      dark_heather: "#3E3E3E",
+      heather: "#C0C0C0",
+      light_blue: "#ADD8E6",
+      royal: "#4169E1",
+      sport_grey: "#808080",
+      sand: "#C2B280",
+      light_pink: "#FFB6C1",
+      ash: "#B2BEB5",
+      charcoal: "#36454F",
+      forest: "#228B22",
+      purple: "#800080",
+      gold: "#FFD700",
+      orange: "#FFA500",
+      yellow: "#FFFF00",
+      green: "#008000",
+      blue: "#0000FF",
+      pink: "#FFC0CB",
+      grey: "#808080",
+      gray: "#808080",
+      brown: "#A52A2A",
+      beige: "#F5F5DC",
+      silver: "#C0C0C0",
+      maroon: "#800000",
+      olive: "#808000",
+      teal: "#008080",
+      heather_grey: "#9B9B9B",
+      sport_gray: "#808080",
+      dark_grey: "#A9A9A9",
+      dark_gray: "#A9A9A9",
+      dark_chocolate: "#4A3728",
+      blush: "#DE5D83",
+      baby_blue: "#89CFF0",
+      mustard: "#FFDB58",
+      burgundy: "#800020",
+      mint: "#98FF98",
+      lavender: "#E6E6FA",
+      khaki: "#C3B091",
+    };
+    const staticHex =
+      staticMap[normalized] || staticMap[colorNameOrCode.toLowerCase()] || null;
+    if (staticHex) return staticHex;
+    const match = (catalogVariants || []).find(
       (v: any) =>
-        (v.color_code || v.color) === colorNameOrCode &&
-        v.color_code &&
-        /^#/.test(v.color_code),
+        v.color_code2 &&
+        /^#/.test(v.color_code2) &&
+        (v.color || "").toLowerCase() === colorNameOrCode.toLowerCase(),
     );
-    return match?.color_code || "#CCCCCC";
+    if (match?.color_code2) return match.color_code2;
+    const match2 = (variants || []).find(
+      (v: any) =>
+        v.color_code &&
+        /^#/.test(v.color_code) &&
+        (v.color || "").toLowerCase() === colorNameOrCode.toLowerCase(),
+    );
+    return match2?.color_code || "#CCCCCC";
   };
 
   const handleImport = async () => {
@@ -837,18 +892,41 @@ export default function PrintfulProductForm({
                         {size}
                       </td>
                       {colors.map((_, colIdx) => {
-                        const catalogVariant = (variants || []).find(
+                        const colorName = (
+                          colorNames[colIdx] ||
+                          colors[colIdx] ||
+                          ""
+                        ).toLowerCase();
+                        const catVar = (catalogVariants || []).find(
                           (v: any) =>
-                            (v.color_code || v.color) === colors[colIdx] &&
-                            v.size === size,
+                            (v.color || v.color_code || "").toLowerCase() ===
+                              colorName && v.size === size,
+                        );
+                        const synVar = (variants || []).find(
+                          (v: any) =>
+                            (v.color || v.color_code || "").toLowerCase() ===
+                              colorName && v.size === size,
                         );
                         const imgSrc =
                           [
-                            catalogVariant?.image,
-                            catalogVariant?.preview_url,
+                            catVar?.image,
+                            synVar?.product?.image,
+                            synVar?.product_image,
                             colorImages[colIdx],
                           ].find((url) => url && url.trim().length > 0) ||
                           PLACEHOLDER_IMG;
+                        const variantPrice =
+                          catVar?.price != null
+                            ? parseFloat(catVar.price)
+                            : synVar?.price != null
+                              ? parseFloat(synVar.price)
+                              : synVar?.retail_price != null
+                                ? parseFloat(synVar.retail_price)
+                                : null;
+                        const variantCost =
+                          variantPrice != null && variantPrice > 0
+                            ? variantPrice
+                            : null;
                         return (
                           <td
                             key={colIdx}
@@ -873,6 +951,18 @@ export default function PrintfulProductForm({
                                   PLACEHOLDER_IMG;
                               }}
                             />
+                            {variantCost != null && (
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  color: "var(--color-ink4)",
+                                  marginTop: 2,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {pfCurrency} {variantCost.toFixed(2)}
+                              </div>
+                            )}
                           </td>
                         );
                       })}

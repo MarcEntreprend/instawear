@@ -9,6 +9,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── Fallback color name → hex (Printful n'a pas toujours un color_code2) ──
+const COLOR_NAME_TO_HEX: Record<string, string> = {
+  black: "#1A1A1A",
+  white: "#FFFFFF",
+  red: "#CC0000",
+  navy: "#000080",
+  "dark heather": "#3E3E3E",
+  heather: "#C0C0C0",
+  "light blue": "#ADD8E6",
+  royal: "#4169E1",
+  "sport grey": "#808080",
+  sand: "#C2B280",
+  "light pink": "#FFB6C1",
+  ash: "#B2BEB5",
+  charcoal: "#36454F",
+  forest: "#228B22",
+  purple: "#800080",
+  gold: "#FFD700",
+  orange: "#FFA500",
+  yellow: "#FFFF00",
+  green: "#008000",
+  blue: "#0000FF",
+  pink: "#FFC0CB",
+  grey: "#808080",
+  gray: "#808080",
+  brown: "#A52A2A",
+  beige: "#F5F5DC",
+  silver: "#C0C0C0",
+  maroon: "#800000",
+  olive: "#808000",
+  teal: "#008080",
+  aqua: "#00FFFF",
+  coral: "#FF7F50",
+  mint: "#98FF98",
+  lavender: "#E6E6FA",
+  khaki: "#C3B091",
+  mustard: "#FFDB58",
+  burgundy: "#800020",
+  blush: "#DE5D83",
+  "baby blue": "#89CFF0",
+  lime: "#00FF00",
+  cream: "#FFFDD0",
+  tan: "#D2B48C",
+  chocolate: "#7B3F00",
+  indigo: "#4B0082",
+  violet: "#8F00FF",
+  crimson: "#DC143C",
+  "dark chocolate": "#4A3728",
+  "heather grey": "#9B9B9B",
+  "sport gray": "#808080",
+  "dark grey": "#A9A9A9",
+  "dark gray": "#A9A9A9",
+};
+
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -129,6 +183,7 @@ export default {
                     name: v.name,
                     color: v.color || "",
                     color_code: v.color_code || "",
+                    color_code2: v.color_code2 || "",
                     size: v.size || "",
                     price: v.price,
                     currency: v.currency,
@@ -152,11 +207,20 @@ export default {
         for (const v of catalogVariants.length > 0
           ? catalogVariants
           : syncVariants) {
-          const code = v.color_code || v.color || "";
+          const hex =
+            v.color_code2 ||
+            (v.color_code && /^#/.test(v.color_code) ? v.color_code : null) ||
+            COLOR_NAME_TO_HEX[
+              (v.color || "").toLowerCase().replace(/\s+/g, "_")
+            ] ||
+            COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
+            "";
+          const code = hex || v.color_code || v.color || "";
           const name = v.color || "";
-          if (code && !allColorsMap.has(code)) {
-            allColorsMap.set(code, {
-              code,
+          const dedupKey = hex || code;
+          if (dedupKey && !allColorsMap.has(dedupKey)) {
+            allColorsMap.set(dedupKey, {
+              code: hex || code,
               name,
               image: v.image || (v as any).product_image || "",
             });
@@ -227,7 +291,8 @@ export default {
           if (!res.ok)
             throw new Error(`Printful catalogue error ${res.status}`);
           const data = await res.json();
-          const variants = data?.result?.variants;
+          const catalogResult = data?.result?.product || data?.result;
+          const variants = catalogResult?.variants;
           if (!Array.isArray(variants))
             throw new Error("Variants introuvables");
           const target = variants.find((v: any) => v.id == variantId);
@@ -448,11 +513,26 @@ export default {
                     { code: string; name: string; image: string }
                   >();
                   for (const v of catalogVariants) {
-                    const code = (v.color_code || v.color || "").trim();
+                    const hex =
+                      v.color_code2 ||
+                      (v.color_code && /^#/.test(v.color_code)
+                        ? v.color_code
+                        : null) ||
+                      COLOR_NAME_TO_HEX[
+                        (v.color || "").toLowerCase().replace(/\s+/g, "_")
+                      ] ||
+                      COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
+                      "";
+                    const code = hex || (v.color_code || v.color || "").trim();
                     const name = (v.color || "").trim();
                     const img = (v.image || "").trim();
-                    if (code && !colorMap.has(code)) {
-                      colorMap.set(code, { code, name, image: img });
+                    const dedupKey = hex || code;
+                    if (dedupKey && !colorMap.has(dedupKey)) {
+                      colorMap.set(dedupKey, {
+                        code: hex || code,
+                        name,
+                        image: img,
+                      });
                     }
                     if (v.size) sizes.push(v.size);
                   }
@@ -481,9 +561,14 @@ export default {
 
           if (colors.length === 0) {
             for (const v of syncVariants) {
-              const code = (v.color_code || v.color || "").trim();
-              const name = (v.color || "").trim();
-              if (code && !colors.includes(code)) colors.push(code);
+              const raw = (v.color_code || v.color || "").trim();
+              const hex =
+                (/^#/.test(raw) ? raw : null) ||
+                COLOR_NAME_TO_HEX[raw.toLowerCase().replace(/\s+/g, "_")] ||
+                COLOR_NAME_TO_HEX[raw.toLowerCase()] ||
+                raw;
+              const name = (v.color || raw).trim();
+              if (hex && !colors.includes(hex)) colors.push(hex);
               if (name && !colorNames.includes(name)) colorNames.push(name);
               if (v.size && !sizes.includes(v.size)) sizes.push(v.size);
             }
