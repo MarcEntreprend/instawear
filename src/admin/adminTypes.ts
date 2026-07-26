@@ -1,6 +1,13 @@
 //src\admin\adminTypes.ts
 
 // ─── Extended Product type for admin (all fields from spec §2.1) ───────────
+export interface AdminProductVariant {
+  color: string;
+  color_name: string;
+  image: string;
+  sizes: Record<string, { price: number }>;
+}
+
 export interface AdminProduct {
   id: string;
   isActive: boolean;
@@ -45,6 +52,8 @@ export interface AdminProduct {
   boughtLastMonth: number;
   createdAt: string;
   updatedAt: string;
+  /** Source of truth for variants. Replaces parallel arrays. */
+  variants?: AdminProductVariant[];
 }
 
 // ─── Customer (§2.2) ───────────────────────────────────────────────────────

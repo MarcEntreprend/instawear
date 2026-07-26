@@ -47,9 +47,22 @@ export default function ProductModal({
   onClose,
   countdownStr,
 }: ProductModalProps) {
-  const [selectedColor, setSelectedColor] = useState(product.colors[0]);
+  const hasVariants = product.variants && product.variants.length > 0;
+  const dispColors = hasVariants
+    ? product.variants!.map((v) => v.color)
+    : product.colors;
+  const dispColorNames = hasVariants
+    ? product.variants!.map((v) => v.color_name)
+    : product.colorNames;
+  const dispSizes = hasVariants
+    ? [
+        ...new Set(product.variants!.flatMap((v) => Object.keys(v.sizes))),
+      ].sort()
+    : product.sizes;
+
+  const [selectedColor, setSelectedColor] = useState(dispColors[0]);
   const [selectedSize, setSelectedSize] = useState(
-    product.sizes.includes("M") ? "M" : product.sizes[0],
+    dispSizes.includes("M") ? "M" : dispSizes[0],
   );
   const [galleryIdx, setGalleryIdx] = useState(0);
   const [showGuide, setShowGuide] = useState(false);
@@ -57,7 +70,9 @@ export default function ProductModal({
 
   const currencySymbol = useCurrencySymbol();
 
-  const colorIdx = product.colors.indexOf(selectedColor);
+  const colorIdx = dispColors.indexOf(selectedColor);
+  const activeVariant =
+    hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
 
   const cleanColorImages = (product.colorImages || []).filter(
     (url) => url && url.trim().length > 0,
@@ -68,18 +83,27 @@ export default function ProductModal({
   );
 
   const activeImage = (() => {
+    if (activeVariant?.image && activeVariant.image.trim().length > 0) {
+      return activeVariant.image;
+    }
     if (colorIdx >= 0 && cleanColorImages[colorIdx]) {
       return cleanColorImages[colorIdx];
     }
-
     return cleanGallery[galleryIdx] || product.image || PLACEHOLDER_IMG;
   })();
 
-  const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
-    : 0;
+  const currentVariantPrice = activeVariant?.sizes?.[selectedSize]?.price;
 
-  const dynPrice = product.price + (SIZE_SURCHARGE[selectedSize] || 0);
+  // Calcul du pourcentage de réduction (si originalPrice est défini)
+  const discount =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
+
+  const dynPrice =
+    currentVariantPrice != null
+      ? currentVariantPrice
+      : product.price + (SIZE_SURCHARGE[selectedSize] || 0);
 
   const prevImage = () =>
     setGalleryIdx((i) => (i - 1 + cleanGallery.length) % cleanGallery.length);
@@ -272,12 +296,14 @@ export default function ProductModal({
                   >
                     {product.originalPrice.toFixed(2)} {currencySymbol}
                   </span>
-                  <span
-                    className="badge text-gray-900"
-                    style={{ background: "var(--color-accent)" }}
-                  >
-                    -{discount}%
-                  </span>
+                  {discount > 0 && (
+                    <span
+                      className="badge text-gray-900"
+                      style={{ background: "var(--color-accent)" }}
+                    >
+                      -{discount}%
+                    </span>
+                  )}
                 </>
               )}
               {SIZE_SURCHARGE[selectedSize] > 0 && (
@@ -309,13 +335,12 @@ export default function ProductModal({
               >
                 Couleur :{" "}
                 <span style={{ color: "var(--color-ink)" }}>
-                  {product.colorNames?.[
-                    product.colors.indexOf(selectedColor)
-                  ] || selectedColor}
+                  {dispColorNames?.[dispColors.indexOf(selectedColor)] ||
+                    selectedColor}
                 </span>
               </p>
               <div className="flex gap-2 flex-wrap">
-                {product.colors.map((c, i) => (
+                {dispColors.map((c, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedColor(c)}
@@ -332,7 +357,7 @@ export default function ProductModal({
                       transform:
                         selectedColor === c ? "scale(1.1)" : "scale(1)",
                     }}
-                    title={product.colorNames?.[i]}
+                    title={dispColorNames?.[i]}
                   />
                 ))}
               </div>
@@ -360,7 +385,7 @@ export default function ProductModal({
                 </button>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {product.sizes.map((s) => (
+                {dispSizes.map((s) => (
                   <button
                     key={s}
                     onClick={() => setSelectedSize(s)}

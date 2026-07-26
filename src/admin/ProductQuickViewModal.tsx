@@ -20,16 +20,25 @@ export default function ProductQuickViewModal({
   // state pour suivre l'image active, et rendre les miniatures cliquables.
   const [activeImage, setActiveImage] = React.useState(0);
 
+  const hasVariants = product.variants && product.variants.length > 0;
+  const dispColors = hasVariants
+    ? product.variants!.map((v) => v.color)
+    : product.colors;
+  const dispColorNames = hasVariants
+    ? product.variants!.map((v) => v.color_name)
+    : product.colorNames;
+
   const [pickedColorIdx, setPickedColorIdx] = React.useState<number | null>(
-    product.colorImages &&
-      product.colorImages.filter((u) => u && u.trim().length > 0).length > 0
-      ? 0
-      : null,
+    dispColors.length > 0 ? 0 : null,
   );
 
   const currencySymbol = useCurrencySymbol();
 
-  const filteredColorImages = (product.colorImages || []).filter(
+  const variantImages: string[] = hasVariants
+    ? product.variants!.map((v) => v.image || "")
+    : product.colorImages || [];
+
+  const filteredColorImages = variantImages.filter(
     (url) => url && url.trim().length > 0,
   );
 
@@ -239,67 +248,21 @@ export default function ProductQuickViewModal({
 
             {/* Color dots selector */}
 
-            {product.colors.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <p
-                  style={{
-                    fontSize: 11,
-
-                    fontWeight: 600,
-
-                    color: "var(--color-ink3)",
-
-                    textTransform: "uppercase",
-
-                    marginBottom: 6,
-                  }}
-                >
-                  Couleurs ({product.colors.length})
-                </p>
-
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {product.colors.map((c, idx) => {
-                    const isPicked = pickedColorIdx === idx;
-
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => {
-                          setPickedColorIdx(isPicked ? null : idx);
-
-                          if (!isPicked) setActiveImage(0);
-                        }}
-                        title={product.colorNames?.[idx] || c}
-                        style={{
-                          width: 28,
-
-                          height: 28,
-
-                          borderRadius: "50%",
-
-                          backgroundColor: c,
-
-                          border: `2.5px solid ${
-                            isPicked
-                              ? "var(--color-accent)"
-                              : "var(--color-border)"
-                          }`,
-
-                          boxShadow: isPicked
-                            ? "0 0 0 2px rgba(255,92,53,.25)"
-                            : "none",
-
-                          transform: isPicked ? "scale(1.15)" : "scale(1)",
-
-                          cursor: "pointer",
-
-                          padding: 0,
-
-                          transition: "all 0.15s",
-                        }}
-                      />
-                    );
-                  })}
+            {dispColors.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Color
+                </label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {dispColors.map((c, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPickedColorIdx(idx)}
+                      className={`rounded-full w-7 h-7 border-2 transition ${pickedColorIdx === idx ? "border-cyan-400" : "border-gray-200"}`}
+                      style={{ backgroundColor: c }}
+                      title={dispColorNames?.[idx] || c}
+                    />
+                  ))}
                 </div>
               </div>
             )}

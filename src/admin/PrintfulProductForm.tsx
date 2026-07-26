@@ -299,6 +299,30 @@ export default function PrintfulProductForm({
         (url) => url && url.trim().length > 0,
       );
 
+      const computedVariants = colors
+        .filter((c) => c && c.trim().length > 0)
+        .map((colorCode, idx) => {
+          const cname = colorNames[idx] || colorCode;
+          const cimg = cleanColorImgs[idx] || "";
+          const sizesWithPrices: Record<string, { price: number }> = {};
+          for (const size of sizes) {
+            const catVar = (catalogVariants || []).find(
+              (v: any) =>
+                (v.color || "").toLowerCase() === cname.toLowerCase() &&
+                v.size === size,
+            );
+            if (catVar?.price != null) {
+              sizesWithPrices[size] = { price: parseFloat(catVar.price) };
+            }
+          }
+          return {
+            color: colorCode,
+            color_name: cname,
+            image: cimg,
+            sizes: sizesWithPrices,
+          };
+        });
+
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,
         title,
@@ -316,6 +340,7 @@ export default function PrintfulProductForm({
         colorNames: colorNames.slice(0, colors.length),
         colorImages: cleanColorImgs.length > 0 ? cleanColorImgs : null,
         sizes: sizes.filter((s) => s && s.trim().length > 0),
+        variants: computedVariants.length > 0 ? computedVariants : undefined,
         sizeSurcharge: {},
         sizeGuide: undefined,
         category: category as AdminProduct["category"],

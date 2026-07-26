@@ -33,27 +33,68 @@ export default function ProductDetailModal({
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [pickedColor, setPickedColor] = useState<string>(
-    product.colors[0] || "",
+    product.variants?.length
+      ? product.variants[0].color
+      : product.colors[0] || "",
   );
   const [pickedSize, setPickedSize] = useState<string>(
-    product.sizes.includes("M") ? "M" : product.sizes[0] || "M",
+    product.variants?.length
+      ? Object.keys(product.variants[0].sizes).includes("M")
+        ? "M"
+        : Object.keys(product.variants[0].sizes)[0] || "M"
+      : product.sizes.includes("M")
+        ? "M"
+        : product.sizes[0] || "M",
   );
 
-  const colorIdx = pickedColor ? product.colors.indexOf(pickedColor) : 0;
+  const hasVariants = product.variants && product.variants.length > 0;
+
+  const dispColors = hasVariants
+    ? product.variants!.map((v) => v.color)
+    : product.colors;
+  const dispColorNames = hasVariants
+    ? product.variants!.map((v) => v.color_name)
+    : product.colorNames;
+  const dispSizes = hasVariants
+    ? [
+        ...new Set(product.variants!.flatMap((v) => Object.keys(v.sizes))),
+      ].sort()
+    : product.sizes;
+
+  const colorIdx = pickedColor ? dispColors.indexOf(pickedColor) : 0;
+  const activeVariant =
+    hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
 
   const cleanColorImages = (product.colorImages || []).filter(
     (url) => url && url.trim().length > 0,
   );
 
-  const hasColorImage = cleanColorImages[colorIdx];
+  const hasColorImage = activeVariant
+    ? activeVariant.image && activeVariant.image.trim().length > 0
+    : cleanColorImages[colorIdx];
 
   const allImages = [product.image, ...(product.gallery || [])].filter(
     (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
   );
 
   const displayImage = hasColorImage
-    ? cleanColorImages[colorIdx]
+    ? activeVariant
+      ? activeVariant.image
+      : cleanColorImages[colorIdx]
     : allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
+
+  const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
+  const displayPrice =
+    currentVariantPrice != null ? currentVariantPrice : product.price;
+  const surcharge = displayPrice - product.price;
+  const sizeSurcharge = hasVariants
+    ? Object.fromEntries(
+        dispSizes.map((s) => {
+          const p = activeVariant?.sizes?.[s]?.price ?? product.price;
+          return [s, p - product.price];
+        }),
+      )
+    : product.sizeSurcharge;
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -143,10 +184,7 @@ export default function ProductDetailModal({
                     Event price
                   </p>
                   <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
-                    {(
-                      product.price + (product.sizeSurcharge?.[pickedSize] ?? 0)
-                    ).toFixed(2)}{" "}
-                    {currencySymbol}
+                    {displayPrice.toFixed(2)} {currencySymbol}
                   </p>
                 </div>
                 {product.originalPrice && (
@@ -183,13 +221,12 @@ export default function ProductDetailModal({
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                   Color :{" "}
                   {pickedColor
-                    ? product.colorNames?.[
-                        product.colors.indexOf(pickedColor)
-                      ] || pickedColor
+                    ? dispColorNames?.[dispColors.indexOf(pickedColor)] ||
+                      pickedColor
                     : "Select"}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {product.colors.map((c, idx) => {
+                  {dispColors.map((c, idx) => {
                     const isPicked =
                       pickedColor === c || (!pickedColor && idx === 0);
                     return (
@@ -198,7 +235,7 @@ export default function ProductDetailModal({
                         onClick={() => setPickedColor(c)}
                         className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"}`}
                         style={{ backgroundColor: c }}
-                        title={product.colorNames?.[idx] || ""}
+                        title={dispColorNames?.[idx] || ""}
                       />
                     );
                   })}
@@ -262,7 +299,7 @@ export default function ProductDetailModal({
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
-                  {product.sizes.map((s) => (
+                  {dispSizes.map((s) => (
                     <button
                       key={s}
                       onClick={() => setPickedSize(s)}

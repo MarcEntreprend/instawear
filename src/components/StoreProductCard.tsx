@@ -32,6 +32,13 @@ export default function StoreProductCard({
   showDeliveryInfo = false,
   getDeliverEstimateString,
 }: StoreProductCardProps) {
+  const variantColors = product.variants?.length
+    ? product.variants.map((v) => v.color)
+    : product.colors;
+  const variantColorNames = product.variants?.length
+    ? product.variants.map((v) => v.color_name)
+    : product.colorNames;
+
   return (
     <div
       key={product.id}
@@ -81,28 +88,28 @@ export default function StoreProductCard({
         </div>
         {/* Color dots */}
         <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
-          {product.colors.length <= 3 ? (
-            product.colors.map((c, idx) => (
+          {variantColors.length <= 3 ? (
+            variantColors.map((c, idx) => (
               <span
                 key={idx}
                 className="w-3 h-3 rounded-full border border-gray-200 block"
                 style={{ backgroundColor: c }}
-                title={product.colorNames?.[idx] || c}
+                title={variantColorNames?.[idx] || c}
               />
             ))
           ) : (
             <>
-              {product.colors.slice(0, 2).map((c, idx) => (
+              {variantColors.slice(0, 2).map((c, idx) => (
                 <span
                   key={idx}
                   className="w-3 h-3 rounded-full border border-gray-200 block"
                   style={{ backgroundColor: c }}
-                  title={product.colorNames?.[idx] || c}
+                  title={variantColorNames?.[idx] || c}
                 />
               ))}
               <span
                 className="color-wheel"
-                title={`+${product.colors.length - 2} colors`}
+                title={`+${variantColors.length - 2} colors`}
               />
             </>
           )}

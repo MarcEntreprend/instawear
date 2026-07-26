@@ -229,12 +229,38 @@ export default {
         }
 
         const uniqueColors = [...allColorsMap.values()];
-        const uniqueColorCodes = uniqueColors.map((c) => c.code);
-        const uniqueColorNames = uniqueColors.map((c) => c.name);
+        const uniqueColorCodes = uniqueColors.map((c: any) => c.code);
+        const uniqueColorNames = uniqueColors.map((c: any) => c.name);
         const uniqueColorImages = uniqueColors
           .map((c: any) => c.image)
           .filter((img: string) => img && img.trim().length > 0);
         const uniqueSizes = [...allSizesSet];
+
+        const variants = uniqueColors.map((c: any) => {
+          const sizesWithPrices: Record<string, { price: number }> = {};
+          for (const v of catalogVariants) {
+            const vHex =
+              v.color_code2 ||
+              (v.color_code && /^#/.test(v.color_code) ? v.color_code : null) ||
+              COLOR_NAME_TO_HEX[
+                (v.color || "").toLowerCase().replace(/\s+/g, "_")
+              ] ||
+              COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
+              "";
+            const vCode = vHex || v.color_code || v.color || "";
+            if ((vHex && vHex === c.code) || vCode === c.code) {
+              if (v.size && v.price) {
+                sizesWithPrices[v.size] = { price: parseFloat(v.price) };
+              }
+            }
+          }
+          return {
+            color: c.code,
+            color_name: c.name,
+            image: c.image,
+            sizes: sizesWithPrices,
+          };
+        });
 
         const productData = {
           id: syncProduct?.id || detail.id,
@@ -254,7 +280,8 @@ export default {
           original_price: mainVariant?.retail_price
             ? Math.round(parseFloat(mainVariant.retail_price) * 1.3 * 100) / 100
             : null,
-          variants: syncVariants.map((v: any) => ({
+          variants,
+          sync_variants: syncVariants.map((v: any) => ({
             id: v.id,
             external_id: v.external_id || v.sku,
             size: v.size,
@@ -501,6 +528,7 @@ export default {
           let catalogGallery: string[] = [];
           let sizeSurcharge: Record<string, number> = {};
           let catalogVariantPrices: { size: string; price: number }[] = [];
+          let variants: any[] = [];
 
           const catalogProductId =
             mainVariant?.product?.product_id || mainVariant?.product_id;
@@ -590,6 +618,37 @@ export default {
                   if (catalogGallery.length === 0 && catalogResult.image) {
                     catalogGallery = [catalogResult.image];
                   }
+
+                  variants = [...colorMap.entries()].map(([key, c]) => {
+                    const sizesWithPrices: Record<string, { price: number }> =
+                      {};
+                    for (const v of catalogVariants) {
+                      const vHex =
+                        v.color_code2 ||
+                        (v.color_code && /^#/.test(v.color_code)
+                          ? v.color_code
+                          : null) ||
+                        COLOR_NAME_TO_HEX[
+                          (v.color || "").toLowerCase().replace(/\s+/g, "_")
+                        ] ||
+                        COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
+                        "";
+                      const vCode = vHex || v.color_code || v.color || "";
+                      if ((vHex && vHex === c.code) || vCode === c.code) {
+                        if (v.size && v.price) {
+                          sizesWithPrices[v.size] = {
+                            price: parseFloat(v.price),
+                          };
+                        }
+                      }
+                    }
+                    return {
+                      color: c.code,
+                      color_name: c.name,
+                      image: c.image,
+                      sizes: sizesWithPrices,
+                    };
+                  });
                 }
               }
             } catch {
@@ -641,6 +700,7 @@ export default {
             sizes,
             size_surcharge:
               Object.keys(sizeSurcharge).length > 0 ? sizeSurcharge : null,
+            variants: variants.length > 0 ? variants : null,
             last_external_sync: new Date().toISOString(),
             external_variant_id: mainVariant?.id?.toString() || null,
           };

@@ -12,6 +12,13 @@ export interface NavLink {
   category: string | null;
 }
 
+export interface ProductVariant {
+  color: string;
+  color_name: string;
+  image: string;
+  sizes: Record<string, { price: number }>;
+}
+
 export interface Product {
   id: string;
   isActive: boolean;
@@ -46,6 +53,8 @@ export interface Product {
   eventType: string;
   category: string;
   style: string;
+  /** Source of truth for variants. Replaces parallel colors/colorNames/colorImages/sizes/sizeSurcharge. */
+  variants?: ProductVariant[];
 }
 
 export interface CartItem {

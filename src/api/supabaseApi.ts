@@ -41,6 +41,7 @@ interface ProductRow {
   sizes: string[];
   size_surcharge?: Record<string, number> | null;
   size_guide?: Record<string, { bust: number; length: number }> | null;
+  variants?: any[] | null;
   category: string;
   event_type: string;
   style: string;
@@ -85,6 +86,7 @@ const mapProduct = (row: any): AdminProduct => ({
   sizes: row.sizes,
   sizeSurcharge: row.size_surcharge,
   sizeGuide: row.size_guide,
+  variants: row.variants,
   category: row.category,
   eventType: row.event_type,
   style: row.style,
@@ -192,6 +194,7 @@ export const productApi = {
       sizes: product.sizes,
       size_surcharge: product.sizeSurcharge,
       size_guide: product.sizeGuide,
+      variants: product.variants,
       category: product.category,
       event_type: product.eventType,
       style: product.style,
@@ -270,6 +273,7 @@ export const productApi = {
       sizes: updates.sizes,
       size_surcharge: updates.sizeSurcharge,
       size_guide: updates.sizeGuide,
+      variants: updates.variants,
       category: updates.category,
       event_type: updates.eventType,
       style: updates.style,

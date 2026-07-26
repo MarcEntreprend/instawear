@@ -34,6 +34,7 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   sizes: ["S", "M", "L", "XL"],
   sizeSurcharge: {},
   sizeGuide: undefined,
+  variants: undefined,
   category: "tshirt",
   eventType: "culture",
   style: "street",
@@ -301,6 +302,7 @@ export default function ProductFormPanel({
         colorImages: (product.colorImages || []).filter(
           (url) => url && url.trim().length > 0,
         ),
+        variants: product.variants || undefined,
         sizeSurcharge: product.sizeSurcharge || {},
         sizeGuide: product.sizeGuide,
         category: product.category,
@@ -452,6 +454,10 @@ export default function ProductFormPanel({
         colorImages:
           colorImages.length > 0 ? colorImages : (form as any).colorImages,
         sizes: sizes.length > 0 ? sizes : form.sizes,
+        variants:
+          pfProduct.variants && pfProduct.variants.length > 0
+            ? pfProduct.variants
+            : (form as any).variants,
         gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
         lastExternalSync: new Date().toISOString(),
         printfulPrice: price || undefined,
@@ -501,6 +507,7 @@ export default function ProductFormPanel({
       colorImages:
         cleanedColorImages.length > 0 ? cleanedColorImages : undefined,
       sizes: cleanedSizes,
+      variants: form.variants || undefined,
       ratings: form.ratings || { score: 5, count: 0 },
       boughtLastMonth: form.boughtLastMonth || 0,
     });
@@ -881,156 +888,194 @@ export default function ProductFormPanel({
         </div>
 
         {/* Variants preview grid (colors × sizes) */}
-        {form.colors.length > 0 && form.sizes.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <label style={labelStyle}>
-              Variantes – {form.colors.length} couleur
-              {form.colors.length > 1 ? "s" : ""} × {form.sizes.length} taille
-              {form.sizes.length > 1 ? "s" : ""}
-            </label>
+        {(() => {
+          const vnts =
+            form.variants && form.variants.length > 0 ? form.variants : null;
+          const dispColors = vnts
+            ? vnts.map((v) => v.color).filter((c) => c && c.trim().length > 0)
+            : form.colors;
+          const dispColorNames = vnts
+            ? vnts.map((v) => v.color_name)
+            : form.colorNames;
+          const dispColorImages = vnts
+            ? vnts.map((v) => v.image)
+            : form.colorImages;
+          const dispSizes = vnts
+            ? [
+                ...new Set(vnts.flatMap((v) => Object.keys(v.sizes || {}))),
+              ].sort()
+            : form.sizes;
 
-            <div
-              style={{
-                overflowX: "auto",
-                borderRadius: 12,
-                border: "1px solid var(--color-border)",
-              }}
-            >
-              <table
+          if (dispColors.length === 0 || dispSizes.length === 0) return null;
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <label style={labelStyle}>
+                Variantes – {dispColors.length} couleur
+                {dispColors.length > 1 ? "s" : ""} × {dispSizes.length} taille
+                {dispSizes.length > 1 ? "s" : ""}
+              </label>
+
+              <div
                 style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: 12,
-                  color: "var(--color-ink)",
+                  overflowX: "auto",
+                  borderRadius: 12,
+                  border: "1px solid var(--color-border)",
                 }}
               >
-                <thead>
-                  <tr style={{ background: "var(--color-surface2)" }}>
-                    <th
-                      style={{
-                        padding: "8px 10px",
-                        textAlign: "left",
-                        fontWeight: 700,
-                        color: "var(--color-ink3)",
-                        borderBottom: "1px solid var(--color-border)",
-                      }}
-                    >
-                      Taille ↓ / Couleur →
-                    </th>
-                    {form.colors.map((colorCode, i) => (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 12,
+                    color: "var(--color-ink)",
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "var(--color-surface2)" }}>
                       <th
-                        key={i}
-                        style={{
-                          padding: "6px 8px",
-                          textAlign: "center",
-                          borderBottom: "1px solid var(--color-border)",
-                          minWidth: 80,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              background: colorCode,
-                              border: "1px solid var(--color-border)",
-                              display: "inline-block",
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 600,
-                              color: "var(--color-ink2)",
-                            }}
-                          >
-                            {form.colorNames?.[i] || colorCode}
-                          </span>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.sizes.map((size, rowIdx) => (
-                    <tr
-                      key={size}
-                      style={{
-                        background:
-                          rowIdx % 2 === 0
-                            ? "var(--color-surface)"
-                            : "var(--color-surface2)",
-                      }}
-                    >
-                      <td
                         style={{
                           padding: "8px 10px",
+                          textAlign: "left",
                           fontWeight: 700,
-                          color: "var(--color-ink2)",
+                          color: "var(--color-ink3)",
                           borderBottom: "1px solid var(--color-border)",
                         }}
                       >
-                        {size}
-                      </td>
-                      {form.colors.map((_, colIdx) => {
-                        const colorImage = form.colorImages?.[colIdx] || null;
-                        const hasImage =
-                          colorImage && colorImage.trim().length > 0;
-                        return (
-                          <td
-                            key={colIdx}
+                        Taille ↓ / Couleur →
+                      </th>
+                      {dispColors.map((colorCode, i) => (
+                        <th
+                          key={i}
+                          style={{
+                            padding: "6px 8px",
+                            textAlign: "center",
+                            borderBottom: "1px solid var(--color-border)",
+                            minWidth: 80,
+                          }}
+                        >
+                          <div
                             style={{
-                              padding: 4,
-                              textAlign: "center",
-                              borderBottom: "1px solid var(--color-border)",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 4,
                             }}
                           >
-                            {hasImage ? (
-                              <img
-                                src={colorImage!}
-                                alt={`${form.colorNames?.[colIdx] || form.colors[colIdx]} - ${size}`}
-                                style={{
-                                  width: 52,
-                                  height: 52,
-                                  borderRadius: 6,
-                                  objectFit: "cover",
-                                  border: "1px solid var(--color-border)",
-                                }}
-                                onError={(e) => {
-                                  (
-                                    e.currentTarget as HTMLImageElement
-                                  ).style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  color: "var(--color-ink4)",
-                                  fontStyle: "italic",
-                                }}
-                              >
-                                —
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
+                            <span
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                background: colorCode,
+                                border: "1px solid var(--color-border)",
+                                display: "inline-block",
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "var(--color-ink2)",
+                              }}
+                            >
+                              {dispColorNames?.[i] || colorCode}
+                            </span>
+                          </div>
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {dispSizes.map((size, rowIdx) => (
+                      <tr
+                        key={size}
+                        style={{
+                          background:
+                            rowIdx % 2 === 0
+                              ? "var(--color-surface)"
+                              : "var(--color-surface2)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "8px 10px",
+                            fontWeight: 700,
+                            color: "var(--color-ink2)",
+                            borderBottom: "1px solid var(--color-border)",
+                          }}
+                        >
+                          {size}
+                        </td>
+                        {dispColors.map((_, colIdx) => {
+                          const colorImage = vnts
+                            ? vnts[colIdx]?.image
+                            : dispColorImages?.[colIdx] || null;
+                          const hasImage =
+                            colorImage && colorImage.trim().length > 0;
+                          const variantPrice = vnts
+                            ? vnts[colIdx]?.sizes?.[size]?.price
+                            : null;
+                          return (
+                            <td
+                              key={colIdx}
+                              style={{
+                                padding: 4,
+                                textAlign: "center",
+                                borderBottom: "1px solid var(--color-border)",
+                              }}
+                            >
+                              {hasImage ? (
+                                <img
+                                  src={colorImage!}
+                                  alt={`${dispColorNames?.[colIdx] || dispColors[colIdx]} - ${size}`}
+                                  style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 6,
+                                    objectFit: "cover",
+                                    border: "1px solid var(--color-border)",
+                                  }}
+                                  onError={(e) => {
+                                    (
+                                      e.currentTarget as HTMLImageElement
+                                    ).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    color: "var(--color-ink4)",
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  —
+                                </span>
+                              )}
+                              {variantPrice != null && (
+                                <div
+                                  style={{
+                                    fontSize: 9,
+                                    color: "var(--color-ink4)",
+                                    marginTop: 2,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  ${variantPrice.toFixed(2)}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Size surcharge: keep as text for now, could be enhanced */}
         <div>
