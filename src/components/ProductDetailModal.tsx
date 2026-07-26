@@ -35,7 +35,9 @@ export default function ProductDetailModal({
   const [pickedColor, setPickedColor] = useState<string>(
     product.colors[0] || "",
   );
-  const [pickedSize, setPickedSize] = useState<string>("M");
+  const [pickedSize, setPickedSize] = useState<string>(
+    product.sizes.includes("M") ? "M" : product.sizes[0] || "M",
+  );
 
   const colorIdx = pickedColor ? product.colors.indexOf(pickedColor) : 0;
 

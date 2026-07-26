@@ -129,11 +129,15 @@ export default function App() {
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product || !product.isActive) return null;
+                const unitPrice =
+                  product.price +
+                  (product.sizeSurcharge?.[item.selectedSize] ?? 0);
                 return {
                   product,
                   selectedColor: item.selectedColor,
                   selectedSize: item.selectedSize,
                   quantity: item.quantity,
+                  unitPrice,
                 };
               })
               .filter((ci): ci is CartItem => ci !== null),
@@ -408,6 +412,8 @@ export default function App() {
   const addToCart = (product: Product, color: string, size: string) => {
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
+    const unitPrice =
+      product.price + (product.sizeSurcharge?.[targetSize] ?? 0);
 
     const existingIndex = cart.findIndex(
       (item) =>
@@ -428,6 +434,7 @@ export default function App() {
           selectedColor: targetColor,
           selectedSize: targetSize,
           quantity: 1,
+          unitPrice,
         },
       ]);
     }
@@ -719,6 +726,18 @@ export default function App() {
   // Exclude inactive products from suggestions
   const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
+  if (showNotFound) {
+    return (
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans">
+        <NotFound
+          onBack={() => {
+            window.location.href = "/";
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
@@ -997,13 +1016,13 @@ export default function App() {
         />
       )}
 
-      {showNotFound && (
+      {/* {showNotFound && (
         <NotFound
           onBack={() => {
             window.location.href = "/";
           }}
         />
-      )}
+      )} */}
     </div>
   );
 }

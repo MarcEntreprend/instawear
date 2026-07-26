@@ -24,10 +24,7 @@ export default function CartDrawer({
   onCheckout,
   onSelectProduct,
 }: CartDrawerProps) {
-  const total = cart.reduce(
-    (a, item) => a + item.product.price * item.quantity,
-    0,
-  );
+  const total = cart.reduce((a, item) => a + item.unitPrice * item.quantity, 0);
   const { cost: shippingCost, threshold } = useShippingSettings();
   const freeShipping = total >= threshold;
   const remaining = Math.max(0, threshold - total);
@@ -235,7 +232,8 @@ export default function CartDrawer({
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {(item.product.price * item.quantity).toFixed(2)}{" "}
+                        {" "}
+                        {(item.unitPrice * item.quantity).toFixed(2)}{" "}
                         {currencySymbol}
                       </span>
                       <div className="flex items-center gap-1">

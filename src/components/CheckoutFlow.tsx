@@ -169,7 +169,7 @@ function sendTelegramNotification(
     cart
       .map(
         (item) =>
-          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) \u00D7${item.quantity} = ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}`,
+          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) \u00D7${item.quantity} = ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}`,
       )
       .join("\n") +
     `\n\n\u{1F4B0} *Total:* ${total.toFixed(2)} ${currencySymbol}`;
@@ -208,7 +208,7 @@ function sendOrderEmail(
             </p>
           </td>
           <td style="vertical-align: top; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;">
-            ${(item.product.price * item.quantity).toFixed(2)} ${currencySymbol}
+            ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}
           </td>
         </tr></table>
       </td>
@@ -464,11 +464,11 @@ function OrderSummaryPanel({
                     </p>
                     <p className="text-[10px] text-(--color-ink3)">
                       {item.selectedSize} \u00B7 {item.quantity} \u00D7{" "}
-                      {item.product.price.toFixed(2)} {currencySymbol}
+                      {item.unitPrice.toFixed(2)} {currencySymbol}
                     </p>
                   </div>
                   <span className="text-xs font-black text-(--color-ink) shrink-0">
-                    {(item.product.price * item.quantity).toFixed(2)}{" "}
+                    {(item.unitPrice * item.quantity).toFixed(2)}{" "}
                     {currencySymbol}
                   </span>
                 </div>
@@ -623,8 +623,7 @@ function CartReviewStep({
                   </button>
                 </div>
                 <span className="text-sm font-black text-(--color-ink)">
-                  {(item.product.price * item.quantity).toFixed(2)}{" "}
-                  {currencySymbol}
+                  {(item.unitPrice * item.quantity).toFixed(2)} {currencySymbol}
                 </span>
               </div>
             </div>
@@ -1223,7 +1222,7 @@ function StripeCardForm({
             selectedColor: item.selectedColor || "#000000",
             selectedSize: item.selectedSize || "M",
             quantity: item.quantity,
-            unitPrice: item.product.price,
+            unitPrice: item.unitPrice,
           })),
         } as any);
         sendTelegramNotification(
@@ -1833,8 +1832,7 @@ export default function CheckoutFlow({
   }, [step]);
 
   const cartTotal = useMemo(
-    () =>
-      cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0),
+    () => cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
     [cart],
   );
 
@@ -1980,7 +1978,7 @@ export default function CheckoutFlow({
           selectedColor: item.selectedColor || "#000000",
           selectedSize: item.selectedSize || "M",
           quantity: item.quantity,
-          unitPrice: item.product.price,
+          unitPrice: item.unitPrice,
         })),
       } as any);
 
@@ -2109,7 +2107,7 @@ export default function CheckoutFlow({
             selectedColor: item.selectedColor || "#000000",
             selectedSize: item.selectedSize || "M",
             quantity: item.quantity,
-            unitPrice: item.product.price,
+            unitPrice: item.unitPrice,
           })),
         } as any);
 

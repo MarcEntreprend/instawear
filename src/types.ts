@@ -53,6 +53,8 @@ export interface CartItem {
   selectedColor: string;
   selectedSize: string;
   quantity: number;
+  /** Price per unit including size-specific surcharge */
+  unitPrice: number;
 }
 
 export interface OrderForm {

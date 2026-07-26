@@ -250,6 +250,10 @@ export default {
           color_names: uniqueColorNames,
           color_images: uniqueColorImages,
           sizes: uniqueSizes,
+          retail_price: mainVariant?.retail_price || null,
+          original_price: mainVariant?.retail_price
+            ? Math.round(parseFloat(mainVariant.retail_price) * 1.3 * 100) / 100
+            : null,
           variants: syncVariants.map((v: any) => ({
             id: v.id,
             external_id: v.external_id || v.sku,
@@ -495,6 +499,8 @@ export default {
           let colorImages: string[] = [];
           let sizes: string[] = [];
           let catalogGallery: string[] = [];
+          let sizeSurcharge: Record<string, number> = {};
+          let catalogVariantPrices: { size: string; price: number }[] = [];
 
           const catalogProductId =
             mainVariant?.product?.product_id || mainVariant?.product_id;
@@ -551,6 +557,36 @@ export default {
                         .filter((img: string) => img && img.trim().length > 0),
                     ),
                   ].slice(0, 12);
+
+                  // Compute size surcharge from variant price differences
+                  catalogVariantPrices = catalogVariants
+                    .map((v: any) => ({
+                      size: v.size,
+                      price: parseFloat(v.price) || 0,
+                    }))
+                    .filter(
+                      (p: { size: string; price: number }) =>
+                        p.size && p.price > 0,
+                    );
+                  const minPrice =
+                    catalogVariantPrices.length > 0
+                      ? Math.min(...catalogVariantPrices.map((p) => p.price))
+                      : 0;
+                  if (minPrice > 0) {
+                    for (const vp of catalogVariantPrices) {
+                      if (vp.price > minPrice) {
+                        const surcharge =
+                          Math.round((vp.price - minPrice) * 100) / 100;
+                        if (
+                          !sizeSurcharge[vp.size] ||
+                          surcharge < sizeSurcharge[vp.size]
+                        ) {
+                          sizeSurcharge[vp.size] = surcharge;
+                        }
+                      }
+                    }
+                  }
+
                   if (catalogGallery.length === 0 && catalogResult.image) {
                     catalogGallery = [catalogResult.image];
                   }
@@ -563,16 +599,27 @@ export default {
 
           if (colors.length === 0) {
             for (const v of syncVariants) {
-              const raw = (v.color_code || v.color || "").trim();
+              const productName = v.product?.name || v.name || "";
+              const raw = (productName || "").trim();
+              const colorFromName = raw.split("/").pop()?.trim() || raw;
               const hex =
                 (/^#/.test(raw) ? raw : null) ||
                 COLOR_NAME_TO_HEX[raw.toLowerCase().replace(/\s+/g, "_")] ||
                 COLOR_NAME_TO_HEX[raw.toLowerCase()] ||
+                COLOR_NAME_TO_HEX[
+                  colorFromName.toLowerCase().replace(/\s+/g, "_")
+                ] ||
+                COLOR_NAME_TO_HEX[colorFromName.toLowerCase()] ||
                 raw;
-              const name = (v.color || raw).trim();
+              const name = colorFromName || raw;
               if (hex && !colors.includes(hex)) colors.push(hex);
               if (name && !colorNames.includes(name)) colorNames.push(name);
-              if (v.size && !sizes.includes(v.size)) sizes.push(v.size);
+              const sizeMatch = v.name?.match(
+                /\b(S|M|L|XL|2XL|3XL|4XL|5XL|XS)\b/i,
+              );
+              const size =
+                v.size || (sizeMatch ? sizeMatch[1].toUpperCase() : null);
+              if (size && !sizes.includes(size)) sizes.push(size);
             }
           }
 
@@ -588,9 +635,12 @@ export default {
             image: imageUrl,
             gallery,
             price: price ?? 0,
+            original_price: price ? Math.round(price * 1.3 * 100) / 100 : null,
             colors,
             color_names: colorNames.length > 0 ? colorNames : null,
             sizes,
+            size_surcharge:
+              Object.keys(sizeSurcharge).length > 0 ? sizeSurcharge : null,
             last_external_sync: new Date().toISOString(),
             external_variant_id: mainVariant?.id?.toString() || null,
           };
