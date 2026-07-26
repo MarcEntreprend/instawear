@@ -110,6 +110,12 @@ export default function App() {
   // Charger le panier de l'utilisateur connecté depuis Supabase
   useEffect(() => {
     const loadCart = async () => {
+      // ⛔ Ne pas recharger le panier depuis Supabase pendant un retour Stripe
+      if (window.location.search.includes("order=success")) {
+        setCartLoaded(true); // évite aussi la synchro
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -551,6 +557,7 @@ export default function App() {
             return;
           }
 
+          // Avertissement silencieux si l'email ne correspond pas
           const {
             data: { user },
           } = await supabase.auth.getUser();
@@ -559,13 +566,33 @@ export default function App() {
             order.client_email &&
             order.client_email !== user.email
           ) {
-            showToast("This order does not belong to you.", "error");
-            return;
+            console.warn(
+              "Stripe return: order email does not match logged-in user email. Order:",
+              orderId,
+            );
           }
 
-          // Clear cart and show confirmation screen
+          // Vider le panier localement
           setCart([]);
           setCartLoaded(false);
+
+          // Vider le panier dans Supabase (indépendant du cache)
+          const {
+            data: { user: currentUser },
+          } = await supabase.auth.getUser();
+          if (currentUser?.email) {
+            const { data: customerData } = await supabase
+              .from("customers")
+              .select("id")
+              .eq("email", currentUser.email)
+              .maybeSingle();
+            if (customerData) {
+              await customerApi.clearCart(customerData.id);
+              console.log("🗑️ Cart cleared in Supabase for", currentUser.email);
+            }
+          }
+
+          // Afficher l'écran de confirmation
           setStripeConfirmOrderId(orderId);
         } catch (e) {
           console.error("Error verifying Stripe order", e);
@@ -749,7 +776,7 @@ export default function App() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Client Customer Main Storefront View */}
-      {activeTab === "store" && (
+      {activeTab === "store" && !stripeConfirmOrderId && (
         <main
           className="flex-1 flex flex-col gap-8 pb-16"
           id="view-customer-storefront"

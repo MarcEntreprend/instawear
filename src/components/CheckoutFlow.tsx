@@ -1995,13 +1995,27 @@ export default function CheckoutFlow({
           },
           body: JSON.stringify({
             orderId: newOrderId,
-            lineItems: cart.map((item) => ({
-              name: item.product.title,
-              image: item.product.image || PLACEHOLDER_IMG,
-              unitAmount: Math.round(item.product.price * 100),
-              quantity: item.quantity,
-              currency: "usd",
-            })),
+            lineItems: [
+              ...cart.map((item) => ({
+                name: item.product.title,
+                image: item.product.image || PLACEHOLDER_IMG,
+                unitAmount: Math.round(item.product.price * 100),
+                quantity: item.quantity,
+                currency: currencyCode, // devise dynamique
+              })),
+              // Ajouter les frais de port comme un item séparé si > 0
+              ...(shippingCost > 0
+                ? [
+                    {
+                      name: "Shipping",
+                      image: window.location.origin + PLACEHOLDER_IMG,
+                      unitAmount: Math.round(shippingCost * 100),
+                      quantity: 1,
+                      currency: currencyCode,
+                    },
+                  ]
+                : []),
+            ],
             customerEmail: email,
             successUrl: `${window.location.origin}/?order=success&id=${newOrderId}`,
             cancelUrl: `${window.location.origin}/?order=cancelled`,
@@ -2018,6 +2032,8 @@ export default function CheckoutFlow({
       window.location.href = url;
     } catch (err: any) {
       console.error(err);
+      // Supprimer la commande créée pour éviter les doublons
+      await supabase.from("orders").delete().eq("id", newOrderId);
       setPaymentError(
         err?.message || "An error occurred while creating the payment.",
       );
