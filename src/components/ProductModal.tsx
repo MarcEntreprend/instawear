@@ -59,12 +59,20 @@ export default function ProductModal({
 
   const colorIdx = product.colors.indexOf(selectedColor);
 
+  const cleanColorImages = (product.colorImages || []).filter(
+    (url) => url && url.trim().length > 0,
+  );
+
+  const cleanGallery = (product.gallery || []).filter(
+    (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
+  );
+
   const activeImage = (() => {
-    if (colorIdx >= 0 && product.colorImages && product.colorImages[colorIdx]) {
-      return product.colorImages[colorIdx];
+    if (colorIdx >= 0 && cleanColorImages[colorIdx]) {
+      return cleanColorImages[colorIdx];
     }
 
-    return product.gallery?.[galleryIdx] || product.image || PLACEHOLDER_IMG;
+    return cleanGallery[galleryIdx] || product.image || PLACEHOLDER_IMG;
   })();
 
   const discount = product.originalPrice
@@ -74,13 +82,8 @@ export default function ProductModal({
   const dynPrice = product.price + (SIZE_SURCHARGE[selectedSize] || 0);
 
   const prevImage = () =>
-    setGalleryIdx(
-      (i) =>
-        (i - 1 + (product.gallery?.length || 1)) %
-        (product.gallery?.length || 1),
-    );
-  const nextImage = () =>
-    setGalleryIdx((i) => (i + 1) % (product.gallery?.length || 1));
+    setGalleryIdx((i) => (i - 1 + cleanGallery.length) % cleanGallery.length);
+  const nextImage = () => setGalleryIdx((i) => (i + 1) % cleanGallery.length);
 
   const handleAdd = () => {
     onAddToCart(product, selectedColor, selectedSize);
@@ -132,72 +135,70 @@ export default function ProductModal({
               alt={product.title}
               className="w-full h-full object-cover md:rounded-tl-2xl"
             />
-            {!product.colorImages?.[colorIdx] &&
-              product.gallery &&
-              product.gallery.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
-                    style={{
-                      background: "rgba(255,255,255,.85)",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <ChevronLeft size={16} strokeWidth={2} />
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
-                    style={{
-                      background: "rgba(255,255,255,.85)",
-                      backdropFilter: "blur(8px)",
-                    }}
-                  >
-                    <ChevronRight size={16} strokeWidth={2} />
-                  </button>
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                    {product.gallery.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setGalleryIdx(i)}
-                        className="rounded-full transition-all"
-                        style={{
-                          width: galleryIdx === i ? 20 : 6,
-                          height: 6,
-                          background:
-                            galleryIdx === i ? "white" : "rgba(255,255,255,.5)",
-                        }}
+            {!cleanColorImages[colorIdx] && cleanGallery.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
+                  style={{
+                    background: "rgba(255,255,255,.85)",
+                    backdropFilter: "blur(8px)",
+                  }}
+                >
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full"
+                  style={{
+                    background: "rgba(255,255,255,.85)",
+                    backdropFilter: "blur(8px)",
+                  }}
+                >
+                  <ChevronRight size={16} strokeWidth={2} />
+                </button>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {cleanGallery.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGalleryIdx(i)}
+                      className="rounded-full transition-all"
+                      style={{
+                        width: galleryIdx === i ? 20 : 6,
+                        height: 6,
+                        background:
+                          galleryIdx === i ? "white" : "rgba(255,255,255,.5)",
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Thumbnails */}
+                <div
+                  className="flex gap-2 p-3"
+                  style={{ background: "var(--color-surface)" }}
+                >
+                  {cleanGallery.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setGalleryIdx(i)}
+                      className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors"
+                      style={{
+                        borderColor:
+                          galleryIdx === i
+                            ? "var(--color-accent)"
+                            : "transparent",
+                      }}
+                    >
+                      <img
+                        src={img || PLACEHOLDER_IMG}
+                        alt=""
+                        className="w-full h-full object-cover"
                       />
-                    ))}
-                  </div>
-                  {/* Thumbnails */}
-                  <div
-                    className="flex gap-2 p-3"
-                    style={{ background: "var(--color-surface)" }}
-                  >
-                    {product.gallery.map((img, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setGalleryIdx(i)}
-                        className="w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors"
-                        style={{
-                          borderColor:
-                            galleryIdx === i
-                              ? "var(--color-accent)"
-                              : "transparent",
-                        }}
-                      >
-                        <img
-                          src={img || PLACEHOLDER_IMG}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Info */}

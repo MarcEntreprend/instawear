@@ -22,7 +22,8 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   description: "",
   fullDescription: "",
   image: PLACEHOLDER_IMG,
-  gallery: [PLACEHOLDER_IMG],
+  gallery: [],
+  colorImages: undefined,
   mockupPreset: "",
   price: 24.99,
   originalPrice: undefined,
@@ -287,15 +288,19 @@ export default function ProductFormPanel({
         description: product.description,
         fullDescription: product.fullDescription || "",
         image: product.image || PLACEHOLDER_IMG,
-        gallery: product.gallery || [PLACEHOLDER_IMG],
+        gallery:
+          product.gallery && product.gallery.length > 0 ? product.gallery : [],
         mockupPreset: product.mockupPreset || "",
         price: product.price,
         originalPrice: product.originalPrice,
         inStock: product.inStock,
         stockQuantity: product.stockQuantity ?? 0,
-        colors: product.colors,
+        colors: product.colors.filter((c) => c && c.trim().length > 0),
         colorNames: product.colorNames || product.colors.map(() => ""),
-        sizes: product.sizes,
+        sizes: product.sizes.filter((s) => s && s.trim().length > 0),
+        colorImages: (product.colorImages || []).filter(
+          (url) => url && url.trim().length > 0,
+        ),
         sizeSurcharge: product.sizeSurcharge || {},
         sizeGuide: product.sizeGuide,
         category: product.category,
@@ -472,8 +477,30 @@ export default function ProductFormPanel({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanedGallery = (form.gallery || []).filter(
+      (url) => url && url !== PLACEHOLDER_IMG,
+    );
+    const cleanedColorImages = (form.colorImages || []).filter(
+      (url) => url && url.trim().length > 0,
+    );
+    const cleanedColors = (form.colors || []).filter(
+      (c) => c && c.trim().length > 0,
+    );
+    const cleanedSizes = (form.sizes || []).filter(
+      (s) => s && s.trim().length > 0,
+    );
+    const cleanedColorNames = (form.colorNames || []).slice(
+      0,
+      cleanedColors.length,
+    );
     const savedProduct = await onSave({
       ...form,
+      gallery: cleanedGallery,
+      colors: cleanedColors,
+      colorNames: cleanedColorNames,
+      colorImages:
+        cleanedColorImages.length > 0 ? cleanedColorImages : undefined,
+      sizes: cleanedSizes,
       ratings: form.ratings || { score: 5, count: 0 },
       boughtLastMonth: form.boughtLastMonth || 0,
     });
@@ -814,6 +841,29 @@ export default function ProductFormPanel({
           />
         </div>
         <div>
+          <label style={labelStyle}>
+            Images par couleur (URLs, même ordre que les couleurs)
+          </label>
+          <textarea
+            value={(form.colorImages || []).join("\n")}
+            onChange={(e) =>
+              update(
+                "colorImages",
+                e.target.value
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              )
+            }
+            rows={4}
+            style={{ ...inputStyle, resize: "vertical" }}
+            placeholder={`https://...?color=Noir\nhttps://...?color=Blanc`}
+          />
+          <p style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}>
+            Une URL par ligne, dans l’ordre des couleurs.
+          </p>
+        </div>
+        <div>
           <label style={labelStyle}>Tailles</label>
           <TagInput
             value={form.sizes}
@@ -829,6 +879,158 @@ export default function ProductFormPanel({
             placeholder="Carnaval"
           />
         </div>
+
+        {/* Variants preview grid (colors × sizes) */}
+        {form.colors.length > 0 && form.sizes.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label style={labelStyle}>
+              Variantes – {form.colors.length} couleur
+              {form.colors.length > 1 ? "s" : ""} × {form.sizes.length} taille
+              {form.sizes.length > 1 ? "s" : ""}
+            </label>
+
+            <div
+              style={{
+                overflowX: "auto",
+                borderRadius: 12,
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 12,
+                  color: "var(--color-ink)",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "var(--color-surface2)" }}>
+                    <th
+                      style={{
+                        padding: "8px 10px",
+                        textAlign: "left",
+                        fontWeight: 700,
+                        color: "var(--color-ink3)",
+                        borderBottom: "1px solid var(--color-border)",
+                      }}
+                    >
+                      Taille ↓ / Couleur →
+                    </th>
+                    {form.colors.map((colorCode, i) => (
+                      <th
+                        key={i}
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: "center",
+                          borderBottom: "1px solid var(--color-border)",
+                          minWidth: 80,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              background: colorCode,
+                              border: "1px solid var(--color-border)",
+                              display: "inline-block",
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "var(--color-ink2)",
+                            }}
+                          >
+                            {form.colorNames?.[i] || colorCode}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {form.sizes.map((size, rowIdx) => (
+                    <tr
+                      key={size}
+                      style={{
+                        background:
+                          rowIdx % 2 === 0
+                            ? "var(--color-surface)"
+                            : "var(--color-surface2)",
+                      }}
+                    >
+                      <td
+                        style={{
+                          padding: "8px 10px",
+                          fontWeight: 700,
+                          color: "var(--color-ink2)",
+                          borderBottom: "1px solid var(--color-border)",
+                        }}
+                      >
+                        {size}
+                      </td>
+                      {form.colors.map((_, colIdx) => {
+                        const colorImage = form.colorImages?.[colIdx] || null;
+                        const hasImage =
+                          colorImage && colorImage.trim().length > 0;
+                        return (
+                          <td
+                            key={colIdx}
+                            style={{
+                              padding: 4,
+                              textAlign: "center",
+                              borderBottom: "1px solid var(--color-border)",
+                            }}
+                          >
+                            {hasImage ? (
+                              <img
+                                src={colorImage!}
+                                alt={`${form.colorNames?.[colIdx] || form.colors[colIdx]} - ${size}`}
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: 6,
+                                  objectFit: "cover",
+                                  border: "1px solid var(--color-border)",
+                                }}
+                                onError={(e) => {
+                                  (
+                                    e.currentTarget as HTMLImageElement
+                                  ).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: 9,
+                                  color: "var(--color-ink4)",
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                —
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Size surcharge: keep as text for now, could be enhanced */}
         <div>
@@ -934,7 +1136,9 @@ export default function ProductFormPanel({
               Galerie d'images ({form.gallery?.length || 0}/6)
             </label>
             <GalleryInput
-              value={form.gallery || []}
+              value={(form.gallery || []).filter(
+                (url) => url && url.trim().length > 0,
+              )}
               onChange={(v) => update("gallery", v)}
               max={12}
             />

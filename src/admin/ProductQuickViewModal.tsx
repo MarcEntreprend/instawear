@@ -21,26 +21,27 @@ export default function ProductQuickViewModal({
   const [activeImage, setActiveImage] = React.useState(0);
 
   const [pickedColorIdx, setPickedColorIdx] = React.useState<number | null>(
-    null,
+    product.colorImages &&
+      product.colorImages.filter((u) => u && u.trim().length > 0).length > 0
+      ? 0
+      : null,
   );
 
   const currencySymbol = useCurrencySymbol();
 
-  const hasColorImages = product.colorImages && product.colorImages.length > 0;
+  const filteredColorImages = (product.colorImages || []).filter(
+    (url) => url && url.trim().length > 0,
+  );
 
-  const allImages = [
-    product.image || PLACEHOLDER_IMG,
+  const hasColorImages = filteredColorImages.length > 0;
 
-    ...(product.gallery || []).filter(
-      (url) => url && url !== (product.image || PLACEHOLDER_IMG),
-    ),
-  ];
+  const allImages = [product.image, ...(product.gallery || [])].filter(
+    (url) => url && url !== PLACEHOLDER_IMG,
+  );
 
   const displayImage =
-    pickedColorIdx !== null &&
-    product.colorImages &&
-    product.colorImages[pickedColorIdx]
-      ? product.colorImages[pickedColorIdx]
+    pickedColorIdx !== null && filteredColorImages[pickedColorIdx]
+      ? filteredColorImages[pickedColorIdx]
       : allImages[activeImage] || PLACEHOLDER_IMG;
 
   const discount = product.originalPrice
@@ -172,7 +173,7 @@ export default function ProductQuickViewModal({
             </div>
             {/* Galerie complète (image principale + images additionnelles) */}
             {!(
-              pickedColorIdx !== null && product.colorImages?.[pickedColorIdx]
+              pickedColorIdx !== null && filteredColorImages[pickedColorIdx]
             ) &&
               (() => {
                 if (allImages.length <= 1) return null;

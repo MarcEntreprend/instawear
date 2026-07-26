@@ -231,7 +231,9 @@ export default {
         const uniqueColors = [...allColorsMap.values()];
         const uniqueColorCodes = uniqueColors.map((c) => c.code);
         const uniqueColorNames = uniqueColors.map((c) => c.name);
-        const uniqueColorImages = uniqueColors.map((c) => c.image);
+        const uniqueColorImages = uniqueColors
+          .map((c: any) => c.image)
+          .filter((img: string) => img && img.trim().length > 0);
         const uniqueSizes = [...allSizesSet];
 
         const productData = {
@@ -541,12 +543,12 @@ export default {
                   colorNames = [...colorMap.values()].map((c) => c.name);
                   colorImages = [...colorMap.values()]
                     .map((c) => c.image)
-                    .filter(Boolean);
+                    .filter((img: string) => img && img.trim().length > 0);
                   catalogGallery = [
                     ...new Set(
                       catalogVariants
                         .map((v: any) => v.image as string)
-                        .filter(Boolean),
+                        .filter((img: string) => img && img.trim().length > 0),
                     ),
                   ].slice(0, 12);
                   if (catalogGallery.length === 0 && catalogResult.image) {
@@ -577,7 +579,9 @@ export default {
           const gallery =
             catalogGallery.length > 0
               ? catalogGallery
-              : mainVariant?.files?.map((f: any) => f.thumbnail_url) || [];
+              : (
+                  mainVariant?.files?.map((f: any) => f.thumbnail_url) || []
+                ).filter((u: string) => u && u.trim().length > 0);
 
           const productPayload: Record<string, any> = {
             title: syncProduct?.name || pfProduct.name || "Sans titre",

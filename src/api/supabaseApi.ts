@@ -58,7 +58,7 @@ interface ProductRow {
   last_external_sync?: string | null;
   printful_price?: number | null;
   printful_currency?: string | null;
-  shipping_estimate?: number | null; // colonne ajoutée
+  shipping_estimate?: number | null; // colonne
   ratings_score?: number | null;
   ratings_count?: number | null;
   bought_last_month?: number | null;
@@ -178,7 +178,7 @@ export const productApi = {
       description: product.description,
       full_description: product.fullDescription,
       image: product.image,
-      gallery: product.gallery,
+      gallery: product.gallery.filter((url) => url && url.trim().length > 0),
       mockup_preset: product.mockupPreset,
       price: product.price,
       original_price: product.originalPrice,
@@ -186,7 +186,9 @@ export const productApi = {
       stock_quantity: product.stockQuantity,
       colors: product.colors,
       color_names: product.colorNames,
-      color_images: product.colorImages,
+      color_images:
+        product.colorImages?.filter((url) => url && url.trim().length > 0) ||
+        null,
       sizes: product.sizes,
       size_surcharge: product.sizeSurcharge,
       size_guide: product.sizeGuide,
@@ -251,7 +253,9 @@ export const productApi = {
       description: updates.description,
       full_description: updates.fullDescription,
       image: updates.image,
-      gallery: updates.gallery,
+      gallery: updates.gallery?.filter(
+        (url: string) => url && url.trim().length > 0,
+      ),
       mockup_preset: updates.mockupPreset,
       price: updates.price,
       original_price: updates.originalPrice,
@@ -259,7 +263,10 @@ export const productApi = {
       stock_quantity: updates.stockQuantity,
       colors: updates.colors,
       color_names: updates.colorNames,
-      color_images: updates.colorImages,
+      color_images:
+        updates.colorImages?.filter(
+          (url: string) => url && url.trim().length > 0,
+        ) || null,
       sizes: updates.sizes,
       size_surcharge: updates.sizeSurcharge,
       size_guide: updates.sizeGuide,

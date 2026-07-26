@@ -32,21 +32,26 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [pickedColor, setPickedColor] = useState<string>("");
+  const [pickedColor, setPickedColor] = useState<string>(
+    product.colors[0] || "",
+  );
   const [pickedSize, setPickedSize] = useState<string>("M");
 
   const colorIdx = pickedColor ? product.colors.indexOf(pickedColor) : 0;
 
-  const hasColorImage = product.colorImages && product.colorImages[colorIdx];
+  const cleanColorImages = (product.colorImages || []).filter(
+    (url) => url && url.trim().length > 0,
+  );
 
-  const allImages = [
-    product.image || PLACEHOLDER_IMG,
-    ...(product.gallery || []),
-  ];
+  const hasColorImage = cleanColorImages[colorIdx];
+
+  const allImages = [product.image, ...(product.gallery || [])].filter(
+    (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
+  );
 
   const displayImage = hasColorImage
-    ? product.colorImages![colorIdx]
-    : allImages[activeGalleryIndex];
+    ? cleanColorImages[colorIdx]
+    : allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -136,7 +141,10 @@ export default function ProductDetailModal({
                     Event price
                   </p>
                   <p className="text-2xl md:text-3xl font-black text-gray-900 font-sans mt-0.5">
-                    {product.price.toFixed(2)} {currencySymbol}
+                    {(
+                      product.price + (product.sizeSurcharge?.[pickedSize] ?? 0)
+                    ).toFixed(2)}{" "}
+                    {currencySymbol}
                   </p>
                 </div>
                 {product.originalPrice && (

@@ -150,7 +150,10 @@ export default function PrintfulProductForm({
         // Pré-remplir les couleurs, noms de couleurs, tailles et images par couleur
         setColors((data.colors as string[]) || []);
         setColorNames((data.color_names as string[]) || []);
-        setSizes((data.sizes as string[]) || []);
+        setSizes(
+          (data.sizes as string[]).filter((s) => s && s.trim().length > 0) ||
+            [],
+        );
         setColorImages((data.color_images as string[]) || []);
         setCatalogVariants((data.catalog_variants as any[]) || []);
       })
@@ -279,7 +282,7 @@ export default function PrintfulProductForm({
 
       const allImages: string[] =
         galleryImages.length > 0
-          ? galleryImages
+          ? galleryImages.filter((url) => url && url.trim().length > 0)
           : (
               [
                 ...new Set(
@@ -291,6 +294,10 @@ export default function PrintfulProductForm({
                 ),
               ].filter(Boolean) as string[]
             ).slice(0, 12);
+
+      const cleanColorImgs = colorImages.filter(
+        (url) => url && url.trim().length > 0,
+      );
 
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,
@@ -305,10 +312,10 @@ export default function PrintfulProductForm({
         originalPrice: undefined,
         inStock: true,
         stockQuantity: 100,
-        colors: colors,
-        colorNames: colorNames,
-        colorImages: colorImages.length > 0 ? colorImages : null,
-        sizes: sizes,
+        colors: colors.filter((c) => c && c.trim().length > 0),
+        colorNames: colorNames.slice(0, colors.length),
+        colorImages: cleanColorImgs.length > 0 ? cleanColorImgs : null,
+        sizes: sizes.filter((s) => s && s.trim().length > 0),
         sizeSurcharge: {},
         sizeGuide: undefined,
         category: category as AdminProduct["category"],
@@ -378,6 +385,10 @@ export default function PrintfulProductForm({
     display: "block",
     marginBottom: 4,
   };
+
+  const cleanGallery = galleryImages.filter(
+    (url) => url && url.trim().length > 0,
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -600,90 +611,94 @@ export default function PrintfulProductForm({
               marginBottom: 8,
             }}
           >
-            {galleryImages.map((url, idx) => (
-              <span
-                key={idx}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "3px 8px",
-                  borderRadius: 999,
-                  background: "var(--color-surface2)",
-                  border: "1px solid var(--color-border)",
-                  fontSize: 12,
-                  color: "var(--color-ink2)",
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                }}
-              >
+            {galleryImages
+              .filter((url) => url && url.trim().length > 0)
+              .map((url, idx) => (
                 <span
+                  key={idx}
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 4,
+                    padding: "3px 8px",
+                    borderRadius: 999,
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    fontSize: 12,
+                    color: "var(--color-ink2)",
                     maxWidth: "100%",
                     overflow: "hidden",
                   }}
                 >
                   <span
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      maxWidth: "100%",
                       overflow: "hidden",
-                      flexShrink: 0,
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
                     }}
                   >
-                    <img
-                      src={url}
-                      alt=""
+                    <span
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
+                        width: 28,
+                        height: 28,
+                        borderRadius: 4,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        background: "var(--color-surface)",
+                        border: "1px solid var(--color-border)",
                       }}
-                    />
+                    >
+                      <img
+                        src={url}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </span>
+                    <span
+                      style={{
+                        maxWidth: 200,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {url}
+                    </span>
                   </span>
-                  <span
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setGalleryImages(
+                        galleryImages.filter((_, i) => i !== idx),
+                      )
+                    }
                     style={{
-                      maxWidth: 200,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      background: "var(--color-accent-soft)",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: 16,
+                      height: 16,
+                      cursor: "pointer",
+                      color: "var(--color-accent)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
                     }}
                   >
-                    {url}
-                  </span>
+                    ×
+                  </button>
                 </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setGalleryImages(galleryImages.filter((_, i) => i !== idx))
-                  }
-                  style={{
-                    background: "var(--color-accent-soft)",
-                    border: "none",
-                    borderRadius: "50%",
-                    width: 16,
-                    height: 16,
-                    cursor: "pointer",
-                    color: "var(--color-accent)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+              ))}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <input
