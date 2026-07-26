@@ -99,20 +99,91 @@ export default {
         const pfData = await pfRes.json();
         const detail = pfData.result;
         const syncProduct = detail.sync_product;
-        const variants = detail.sync_variants ?? [];
+        const syncVariants = detail.sync_variants ?? [];
 
-        // Construire un objet produit complet
-        const mainVariant = variants[0];
+        const mainVariant = syncVariants[0];
+
+        let catalogVariants: any[] = [];
+        let catalogProductName = "";
+        let catalogProductImage = "";
+
+        const catalogProductId =
+          mainVariant?.product?.product_id || mainVariant?.product_id;
+
+        if (catalogProductId) {
+          try {
+            const catalogRes = await fetch(
+              `https://api.printful.com/products/${catalogProductId}`,
+            );
+            if (catalogRes.ok) {
+              const catalogData = await catalogRes.json();
+              const catalogResult = catalogData?.result?.product;
+              if (catalogResult) {
+                catalogProductName = catalogResult.name || "";
+                catalogProductImage = catalogResult.image || "";
+                catalogVariants = (catalogResult.variants || []).map(
+                  (v: any) => ({
+                    id: v.id,
+                    product_id: v.product_id,
+                    name: v.name,
+                    color: v.color || "",
+                    color_code: v.color_code || "",
+                    size: v.size || "",
+                    price: v.price,
+                    currency: v.currency,
+                    image: v.image || "",
+                    availability_status: v.availability_status,
+                  }),
+                );
+              }
+            }
+          } catch {
+            // Silently fallback to sync variants only
+          }
+        }
+
+        const allColorsMap = new Map<
+          string,
+          { code: string; name: string; image: string }
+        >();
+        const allSizesSet = new Set<string>();
+
+        for (const v of catalogVariants.length > 0
+          ? catalogVariants
+          : syncVariants) {
+          const code = v.color_code || v.color || "";
+          const name = v.color || "";
+          if (code && !allColorsMap.has(code)) {
+            allColorsMap.set(code, {
+              code,
+              name,
+              image: v.image || (v as any).product_image || "",
+            });
+          }
+          if (v.size) allSizesSet.add(v.size);
+        }
+
+        const uniqueColors = [...allColorsMap.values()];
+        const uniqueColorCodes = uniqueColors.map((c) => c.code);
+        const uniqueColorNames = uniqueColors.map((c) => c.name);
+        const uniqueColorImages = uniqueColors.map((c) => c.image);
+        const uniqueSizes = [...allSizesSet];
+
         const productData = {
           id: syncProduct?.id || detail.id,
-          name: syncProduct?.name || detail.name || "",
+          name: syncProduct?.name || detail.name || catalogProductName || "",
           description: syncProduct?.description || "",
           thumbnail_url:
             syncProduct?.thumbnail_url ||
+            catalogProductImage ||
             mainVariant?.files?.[0]?.preview_url ||
             "",
           currency: mainVariant?.currency || "USD",
-          variants: variants.map((v: any) => ({
+          colors: uniqueColorCodes,
+          color_names: uniqueColorNames,
+          color_images: uniqueColorImages,
+          sizes: uniqueSizes,
+          variants: syncVariants.map((v: any) => ({
             id: v.id,
             external_id: v.external_id || v.sku,
             size: v.size,
@@ -124,10 +195,10 @@ export default {
             files: v.files || [],
             preview_url:
               v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "",
-            // Image du catalogue Printful pour cette couleur (varie selon la couleur)
             product_image: v.product?.image || "",
-            product: v.product || {}, // tout l'objet catalogue
+            product: v.product || {},
           })),
+          catalog_variants: catalogVariants,
         };
 
         return new Response(JSON.stringify(productData), {

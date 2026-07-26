@@ -344,6 +344,7 @@ export default function ProductFormPanel({
       const title = (pfProduct.name || pfProduct.title || "") as string;
       const description = (pfProduct.description || "") as string;
       const mainImage = (pfProduct.thumbnail_url ||
+        pfProduct.color_images?.[0] ||
         pfProduct.image ||
         form.image) as string;
 
@@ -360,23 +361,78 @@ export default function ProductFormPanel({
         ? parseFloat(matchedVariant.retail_price)
         : form.price;
 
-      const colors = variants
-        .map((v: any) => (v.color_code || v.color) as string)
-        .filter(Boolean) as string[];
-      const colorNames = variants
-        .map((v: any) => v.color as string)
-        .filter(Boolean) as string[];
-      const sizes = variants
-        .map((v: any) => v.size as string)
-        .filter(Boolean) as string[];
+      const colorsFromEdge = (pfProduct.colors || []) as string[];
+      const colorNamesFromEdge = (pfProduct.color_names || []) as string[];
+      const sizesFromEdge = (pfProduct.sizes || []) as string[];
 
-      const galleryImages = variants
+      let colors: string[];
+      let colorNames: string[];
+      let sizes: string[];
+
+      if (colorsFromEdge.length > 0) {
+        colors = colorsFromEdge;
+        colorNames = colorNamesFromEdge;
+        sizes = sizesFromEdge;
+      } else {
+        const fallbackCatalogVariants: any[] = pfProduct.catalog_variants || [];
+        if (fallbackCatalogVariants.length > 0) {
+          colors = [
+            ...new Set(
+              fallbackCatalogVariants
+                .map((v: any) => v.color_code || v.color)
+                .filter(Boolean),
+            ),
+          ];
+          colorNames = [
+            ...new Set(
+              fallbackCatalogVariants.map((v: any) => v.color).filter(Boolean),
+            ),
+          ];
+          sizes = [
+            ...new Set(
+              fallbackCatalogVariants.map((v: any) => v.size).filter(Boolean),
+            ),
+          ];
+        } else {
+          colors = [
+            ...new Set(
+              variants.map((v: any) => v.color_code || v.color).filter(Boolean),
+            ),
+          ];
+          colorNames = [
+            ...new Set(variants.map((v: any) => v.color).filter(Boolean)),
+          ];
+          sizes = [
+            ...new Set(variants.map((v: any) => v.size).filter(Boolean)),
+          ];
+        }
+      }
+
+      const colorImages: string[] = (pfProduct.color_images || []) as string[];
+
+      const catalogVariants: any[] = pfProduct.catalog_variants || [];
+      const catalogGallery = catalogVariants
+        .map((v: any) => v.image as string)
+        .filter((img: string) => img && !img.includes("placeholder"))
+        .slice(0, 6) as string[];
+
+      const variantsGallery = variants
         .map(
           (v: any) =>
-            (v.preview_url || v.image || v.file?.preview_url) as string,
+            (v.product_image ||
+              v.preview_url ||
+              v.image ||
+              v.file?.preview_url) as string,
         )
         .filter(Boolean)
         .slice(0, 6) as string[];
+
+      const galleryImages =
+        catalogGallery.length > 0
+          ? catalogGallery
+          : variantsGallery.length > 0
+            ? variantsGallery
+            : colorImages;
 
       const updatedForm = {
         ...form,
@@ -384,10 +440,9 @@ export default function ProductFormPanel({
         description: description || form.description,
         image: mainImage || form.image,
         price: price || form.price,
-        colors: colors.length > 0 ? [...new Set(colors)] : form.colors,
-        colorNames:
-          colorNames.length > 0 ? [...new Set(colorNames)] : form.colorNames,
-        sizes: sizes.length > 0 ? [...new Set(sizes)] : form.sizes,
+        colors: colors.length > 0 ? colors : form.colors,
+        colorNames: colorNames.length > 0 ? colorNames : form.colorNames,
+        sizes: sizes.length > 0 ? sizes : form.sizes,
         gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
         lastExternalSync: new Date().toISOString(),
         printfulPrice: price || undefined,
