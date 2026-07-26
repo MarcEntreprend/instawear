@@ -224,11 +224,11 @@ The test: Every changed line should trace directly to my request.
 
 - [*] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
 - [x] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
-- [ ] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
+- [*] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
 - [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
 - [x] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
-- [ ] **"This order does not belong to you"** : le message apparaît quand l'email du client connecté ne correspond pas à celui de la commande. Vérifier dans `App.tsx` (retour Stripe) et `CheckoutFlow.tsx` si le flux invité (utilisateur non connecté) est bien géré sans bloquer la commande.
-- [ ] **Écart prix checkout (14 $) vs Stripe (22 $)** : le total transmis à Stripe (`unitAmount: Math.round(item.product.price * 100)`) n'inclut pas les frais de port. Vérifier comment le `total` (avec shipping) est transmis à l'Edge Function `stripe-checkout`.
+- [x] **"This order does not belong to you"** : le message apparaît quand l'email du client connecté ne correspond pas à celui de la commande. Vérifier dans `App.tsx` (retour Stripe) et `CheckoutFlow.tsx` si le flux invité (utilisateur non connecté) est bien géré sans bloquer la commande.
+- [x] **Écart prix checkout (14 $) vs Stripe (22 $)** : le total transmis à Stripe (`unitAmount: Math.round(item.product.price * 100)`) n'inclut pas les frais de port. Vérifier comment le `total` (avec shipping) est transmis à l'Edge Function `stripe-checkout`.
 
 #### Header
 
@@ -269,7 +269,7 @@ The test: Every changed line should trace directly to my request.
 
 - [ ] **Animations réactives** : standardiser les effets hover/click sur tous les boutons (pills, liens, CTA)
 - [ ] **Icône animée** : point/badge animé dans le menu latéral admin quand une action est en cours
-- [ ] **Popups cachent boutons** : les popups peuvent cacher les boutons d'achats / paiements
+- [x] **Popups cachent boutons** : les popups peuvent cacher les boutons d'achats / paiements
 
 #### Email
 
