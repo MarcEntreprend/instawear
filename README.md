@@ -54,15 +54,18 @@ instawear/
 │   ├── InstaWear-logo-settings.png
 │   ├── InstaWear-logo-wh-middle-no-BG.png
 │   ├── InstaWear-logo.png
-│   └── Instawear-missing-item.svg
+│   ├── Instawear-missing-item.svg
+│   └── unsubscribe.html
 ├── src/
 │   ├── admin/
 │   │   ├── AdminDashboardNew.tsx
 │   │   ├── adminHooks.ts
 │   │   ├── AdminSidebar.tsx
+│   │   ├── adminStyles.ts
 │   │   ├── adminTypes.ts
 │   │   ├── AdminUsersPage.tsx
 │   │   ├── CustomersPage.tsx
+│   │   ├── EmailMarketingPage.tsx
 │   │   ├── HelpPage.tsx
 │   │   ├── IntegrationsPage.tsx
 │   │   ├── InteractionsPage.tsx
@@ -76,14 +79,15 @@ instawear/
 │   │   ├── ReportInfoModal.tsx
 │   │   ├── ReportsPage.tsx
 │   │   ├── SettingsPage.tsx
-│   │   └── useAdminHighlight.ts
+│   │   ├── useAdminHighlight.ts
+│   │   └── emailMarketing/
 │   ├── api/
 │   │   ├── storageApi.ts
 │   │   └── supabaseApi.ts
 │   ├── components/
 │   │   ├── AboutSection.tsx
-│   │   ├── AuthModal.tsx
 │   │   ├── AccountPage.tsx
+│   │   ├── AuthModal.tsx
 │   │   ├── CartDrawer.tsx
 │   │   ├── CatalogSection.tsx
 │   │   ├── CheckoutFlow.tsx
@@ -92,6 +96,7 @@ instawear/
 │   │   ├── Footer.tsx
 │   │   ├── Header.tsx
 │   │   ├── HeroCarousel.tsx
+│   │   ├── NotFound.tsx
 │   │   ├── OrderModal.tsx
 │   │   ├── OrderTrackingModal.tsx
 │   │   ├── ProductDetailModal.tsx
@@ -135,6 +140,8 @@ instawear/
 │       │   └── index.ts
 │       ├── reset-password/
 │       │   └── index.ts
+│       ├── send-email/
+│       │   └── index.ts
 │       ├── stripe-checkout/
 │       │   └── index.ts
 │       ├── stripe-webhook/
@@ -157,6 +164,7 @@ instawear/
 ├── README.md
 ├── server.ts
 ├── tsconfig.json
+├── vercel.json
 └── vite.config.ts
 ```
 
