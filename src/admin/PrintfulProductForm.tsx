@@ -80,12 +80,15 @@ export default function PrintfulProductForm({
     podApi
       .getProductDetails(selectedProductId)
       .then((data) => {
-        const vars = data.variants || [];
-        setVariants(vars);
-        if (vars.length > 0) {
-          setSelectedVariantId(vars[0].id.toString());
-          const first = vars[0];
-          const currency = first.currency || data.currency || "BRL";
+        // Utiliser sync_variants ou catalog_variants comme fallback pour le sélecteur
+        const rawVariants = data.sync_variants || data.catalog_variants || [];
+        setVariants(rawVariants);
+        if (rawVariants.length > 0) {
+          setSelectedVariantId(
+            rawVariants[0].id?.toString() || rawVariants[0].external_id || "",
+          );
+          const first = rawVariants[0];
+          const currency = first.currency || data.currency || "USD";
           setPfCurrency(currency);
 
           // Détection automatique catégorie / eventType / style
@@ -133,13 +136,11 @@ export default function PrintfulProductForm({
           if (matchedSty) setStyle(matchedSty);
 
           // Pré-remplir les images depuis les données enrichies
-
           setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
 
           const colorGallery = (data.color_images || []) as string[];
 
           const catalogGallery = (data.catalog_variants || [])
-
             .map((v: any) => v.image as string)
             .filter(Boolean) as string[];
           const initialGallery = [
@@ -148,12 +149,42 @@ export default function PrintfulProductForm({
           setGalleryImages(initialGallery.length > 0 ? initialGallery : []);
         }
         // Pré-remplir les couleurs, noms de couleurs, tailles et images par couleur
-        setColors((data.colors as string[]) || []);
-        setColorNames((data.color_names as string[]) || []);
-        setSizes(
-          (data.sizes as string[]).filter((s) => s && s.trim().length > 0) ||
-            [],
-        );
+        // Couleurs – avec fallback si l'Edge Function ne les remonte pas
+        const rawColors: string[] = (data.colors as string[]) || [];
+        if (rawColors.length === 0 && data.sync_variants?.length) {
+          // Fallback : extraire les couleurs des sync_variants
+          const fallbackSet = new Set<string>();
+          for (const v of data.sync_variants) {
+            const hex = v.color_code || v.color_code2 || v.color || "";
+            if (hex) fallbackSet.add(hex);
+          }
+          setColors([...fallbackSet]);
+        } else {
+          setColors(rawColors);
+        }
+
+        const rawColorNames: string[] = (data.color_names as string[]) || [];
+        if (rawColorNames.length === 0 && data.sync_variants?.length) {
+          const nameSet = new Set<string>();
+          for (const v of data.sync_variants) {
+            if (v.color) nameSet.add(v.color);
+          }
+          setColorNames([...nameSet]);
+        } else {
+          setColorNames(rawColorNames);
+        }
+
+        const rawSizes: string[] = (data.sizes as string[]) || [];
+        if (rawSizes.length === 0 && data.sync_variants?.length) {
+          const sizeSet = new Set<string>();
+          for (const v of data.sync_variants) {
+            if (v.size) sizeSet.add(v.size);
+          }
+          setSizes([...sizeSet]);
+        } else {
+          setSizes(rawSizes.filter((s) => s && s.trim().length > 0));
+        }
+
         setColorImages((data.color_images as string[]) || []);
         setCatalogVariants((data.catalog_variants as any[]) || []);
       })
@@ -306,11 +337,20 @@ export default function PrintfulProductForm({
           const cimg = cleanColorImgs[idx] || "";
           const sizesWithPrices: Record<string, { price: number }> = {};
           for (const size of sizes) {
-            const catVar = (catalogVariants || []).find(
+            // Chercher d'abord dans catalogVariants, puis dans les variants bruts
+            let catVar = (catalogVariants || []).find(
               (v: any) =>
-                (v.color || "").toLowerCase() === cname.toLowerCase() &&
-                v.size === size,
+                (v.color || v.color_code || "").toLowerCase() ===
+                  cname.toLowerCase() && v.size === size,
             );
+            if (!catVar) {
+              catVar = (variants || []).find(
+                (v: any) =>
+                  (v.color || v.color_code || "").toLowerCase() ===
+                    cname.toLowerCase() && v.size === size,
+              );
+            }
+
             if (catVar?.price != null) {
               sizesWithPrices[size] = { price: parseFloat(catVar.price) };
             }
@@ -414,6 +454,21 @@ export default function PrintfulProductForm({
   const cleanGallery = galleryImages.filter(
     (url) => url && url.trim().length > 0,
   );
+
+  const thStyle: React.CSSProperties = {
+    padding: "8px 12px",
+    textAlign: "center",
+    fontWeight: 700,
+    color: "var(--color-ink2)",
+    borderBottom: "1px solid var(--color-border)",
+    minWidth: 72,
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: "6px 10px",
+    textAlign: "center",
+    borderBottom: "1px solid var(--color-border)",
+    verticalAlign: "middle",
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -831,7 +886,7 @@ export default function PrintfulProductForm({
           </div>
         </div>
 
-        {/* ── Variantes : tableau couleurs × tailles ────────────────── */}
+        {/* ── Variantes : tableau couleurs (lignes) × tailles (colonnes) ── */}
         {colors.length > 0 && sizes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <label style={labelStyle}>
@@ -839,7 +894,6 @@ export default function PrintfulProductForm({
               × {sizes.length} taille{sizes.length > 1 ? "s" : ""}
             </label>
 
-            {/* Tableau */}
             <div
               style={{
                 overflowX: "auto",
@@ -855,133 +909,52 @@ export default function PrintfulProductForm({
                   color: "var(--color-ink)",
                 }}
               >
+                {/* En-tête : première cellule vide + une colonne par taille */}
                 <thead>
                   <tr style={{ background: "var(--color-surface2)" }}>
-                    <th
-                      style={{
-                        padding: "8px 10px",
-                        textAlign: "left",
-                        fontWeight: 700,
-                        color: "var(--color-ink3)",
-                        borderBottom: "1px solid var(--color-border)",
-                      }}
-                    >
-                      Taille ↓ / Couleur →
-                    </th>
-                    {colors.map((colorCode, i) => (
-                      <th
-                        key={i}
-                        style={{
-                          padding: "6px 8px",
-                          textAlign: "center",
-                          borderBottom: "1px solid var(--color-border)",
-                          minWidth: 80,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              background: findHexForColor(colorCode),
-                              border: "1px solid var(--color-border)",
-                              display: "inline-block",
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 600,
-                              color: "var(--color-ink2)",
-                            }}
-                          >
-                            {colorNames[i] || colorCode}
-                          </span>
-                        </div>
+                    <th style={thStyle}></th>
+                    {sizes.map((size) => (
+                      <th key={size} style={thStyle}>
+                        {size}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {sizes.map((size, rowIdx) => (
-                    <tr
-                      key={size}
-                      style={{
-                        background:
-                          rowIdx % 2 === 0
-                            ? "var(--color-surface)"
-                            : "var(--color-surface2)",
-                      }}
-                    >
-                      <td
+                  {/* Une ligne par couleur */}
+                  {colors.map((colorCode, rowIdx) => {
+                    const colorName = (
+                      colorNames[rowIdx] ||
+                      colorCode ||
+                      ""
+                    ).toLowerCase();
+                    const imgSrc = colorImages[rowIdx] || PLACEHOLDER_IMG;
+
+                    return (
+                      <tr
+                        key={colorCode}
                         style={{
-                          padding: "8px 10px",
-                          fontWeight: 700,
-                          color: "var(--color-ink2)",
-                          borderBottom: "1px solid var(--color-border)",
+                          background:
+                            rowIdx % 2 === 0
+                              ? "var(--color-surface)"
+                              : "var(--color-surface2)",
                         }}
                       >
-                        {size}
-                      </td>
-                      {colors.map((_, colIdx) => {
-                        const colorName = (
-                          colorNames[colIdx] ||
-                          colors[colIdx] ||
-                          ""
-                        ).toLowerCase();
-                        const catVar = (catalogVariants || []).find(
-                          (v: any) =>
-                            (v.color || v.color_code || "").toLowerCase() ===
-                              colorName && v.size === size,
-                        );
-                        const synVar = (variants || []).find(
-                          (v: any) =>
-                            (v.color || v.color_code || "").toLowerCase() ===
-                              colorName && v.size === size,
-                        );
-                        const imgSrc =
-                          [
-                            catVar?.image,
-                            synVar?.product?.image,
-                            synVar?.product_image,
-                            colorImages[colIdx],
-                          ].find((url) => url && url.trim().length > 0) ||
-                          PLACEHOLDER_IMG;
-                        const variantPrice =
-                          catVar?.price != null
-                            ? parseFloat(catVar.price)
-                            : synVar?.price != null
-                              ? parseFloat(synVar.price)
-                              : synVar?.retail_price != null
-                                ? parseFloat(synVar.retail_price)
-                                : null;
-                        const variantCost =
-                          variantPrice != null && variantPrice > 0
-                            ? variantPrice
-                            : null;
-                        return (
-                          <td
-                            key={colIdx}
+                        {/* Première cellule : image miniature */}
+                        <td style={tdStyle}>
+                          <div
                             style={{
-                              padding: 4,
-                              textAlign: "center",
-                              borderBottom: "1px solid var(--color-border)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
                             }}
                           >
                             <img
                               src={imgSrc}
-                              alt={`${colorNames[colIdx] || colors[colIdx]} - ${size}`}
+                              alt={colorName}
                               style={{
-                                width: 52,
-                                height: 52,
+                                width: 40,
+                                height: 40,
                                 borderRadius: 6,
                                 objectFit: "cover",
                                 border: "1px solid var(--color-border)",
@@ -991,23 +964,77 @@ export default function PrintfulProductForm({
                                   PLACEHOLDER_IMG;
                               }}
                             />
-                            {variantCost != null && (
-                              <div
-                                style={{
-                                  fontSize: 9,
-                                  color: "var(--color-ink4)",
-                                  marginTop: 2,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {pfCurrency} {variantCost.toFixed(2)}
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "var(--color-ink2)",
+                              }}
+                            >
+                              {colorNames[rowIdx] || colorCode}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Prix pour chaque taille */}
+                        {sizes.map((size) => {
+                          // Chercher le prix dans les données Printful
+                          let price: number | null = null;
+
+                          // 1) catalog_variants (données catalogue Printful)
+                          const cat = (catalogVariants || []).find(
+                            (v: any) =>
+                              (v.color || v.color_code || "").toLowerCase() ===
+                                colorName && v.size === size,
+                          );
+                          if (cat?.price != null) price = parseFloat(cat.price);
+
+                          // 2) sync_variants (données brutes du store Printful)
+                          if (price == null) {
+                            const syn = (variants || []).find(
+                              (v: any) =>
+                                (
+                                  v.color ||
+                                  v.color_code ||
+                                  ""
+                                ).toLowerCase() === colorName &&
+                                v.size === size,
+                            );
+                            if (syn?.price != null)
+                              price = parseFloat(syn.price);
+                            else if (syn?.retail_price != null)
+                              price = parseFloat(syn.retail_price);
+                          }
+
+                          return (
+                            <td key={size} style={tdStyle}>
+                              {price != null ? (
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: "var(--color-ink)",
+                                  }}
+                                >
+                                  {pfCurrency} {price.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    color: "var(--color-ink4)",
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  —
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

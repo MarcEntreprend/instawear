@@ -372,6 +372,11 @@ export default function ProductFormPanel({
       const colorNamesFromEdge = (pfProduct.color_names || []) as string[];
       const sizesFromEdge = (pfProduct.sizes || []) as string[];
 
+      // Caster les tableaux bruts pour éviter les erreurs TypeScript
+      const rawSyncVariants: any[] = (pfProduct.sync_variants || []) as any[];
+      const rawCatalogVariants: any[] = (pfProduct.catalog_variants ||
+        []) as any[];
+
       let colors: string[];
       let colorNames: string[];
       let sizes: string[];
@@ -380,41 +385,50 @@ export default function ProductFormPanel({
         colors = colorsFromEdge;
         colorNames = colorNamesFromEdge;
         sizes = sizesFromEdge;
-      } else {
-        const fallbackCatalogVariants: any[] = pfProduct.catalog_variants || [];
-        if (fallbackCatalogVariants.length > 0) {
-          colors = [
-            ...new Set(
-              fallbackCatalogVariants
-                .map((v: any) => v.color_code2 || v.color_code || v.color)
-                .filter(Boolean),
-            ),
-          ];
-          colorNames = [
-            ...new Set(
-              fallbackCatalogVariants.map((v: any) => v.color).filter(Boolean),
-            ),
-          ];
-          sizes = [
-            ...new Set(
-              fallbackCatalogVariants.map((v: any) => v.size).filter(Boolean),
-            ),
-          ];
-        } else {
-          colors = [
-            ...new Set(
-              variants
-                .map((v: any) => v.color_code2 || v.color_code || v.color)
-                .filter(Boolean),
-            ),
-          ];
-          colorNames = [
-            ...new Set(variants.map((v: any) => v.color).filter(Boolean)),
-          ];
-          sizes = [
-            ...new Set(variants.map((v: any) => v.size).filter(Boolean)),
-          ];
+      } else if (rawSyncVariants.length > 0) {
+        // Fallback : utiliser sync_variants (données brutes de l'Edge Function)
+        const syncVarColors = new Set<string>();
+        const syncVarNames = new Set<string>();
+        const syncVarSizes = new Set<string>();
+        for (const v of rawSyncVariants) {
+          const hex = v.color_code || v.color_code2 || v.color || "";
+          if (hex) syncVarColors.add(hex);
+          if (v.color) syncVarNames.add(v.color);
+          if (v.size) syncVarSizes.add(v.size);
         }
+        colors = [...syncVarColors];
+        colorNames = [...syncVarNames];
+        sizes = [...syncVarSizes];
+      } else if (rawCatalogVariants.length > 0) {
+        colors = [
+          ...new Set(
+            rawCatalogVariants
+              .map((v: any) => v.color_code2 || v.color_code || v.color)
+              .filter(Boolean),
+          ),
+        ];
+        colorNames = [
+          ...new Set(
+            rawCatalogVariants.map((v: any) => v.color).filter(Boolean),
+          ),
+        ];
+        sizes = [
+          ...new Set(
+            rawCatalogVariants.map((v: any) => v.size).filter(Boolean),
+          ),
+        ];
+      } else {
+        colors = [
+          ...new Set(
+            variants
+              .map((v: any) => v.color_code2 || v.color_code || v.color)
+              .filter(Boolean),
+          ),
+        ];
+        colorNames = [
+          ...new Set(variants.map((v: any) => v.color).filter(Boolean)),
+        ];
+        sizes = [...new Set(variants.map((v: any) => v.size).filter(Boolean))];
       }
 
       const colorImages: string[] = (pfProduct.color_images || []) as string[];
