@@ -16,7 +16,11 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
 `npx vite --host`
 
 npx vite --force
--> Ça redémarre Vite en ignorant le cache. Bon pour la suite !
+-> Ça redémarre Vite en ignorant le cache !
+
+3.  Déployer l'Edge Function
+
+npx supabase functions deploy sync-printful --no-verify-jwt
 
 # IPv4 Address
 
@@ -291,6 +295,7 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Size** : make sure they show up and are selectionable for specific purchase.
 - [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
 - [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
+- [ ] dans setting, comparer 5 produits synchronisés versus le nombre de produits nouveaux (4)
 
 #### Footer
 
