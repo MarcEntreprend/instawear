@@ -1,4 +1,5 @@
 // supabase\functions\sync-printful\index.ts
+
 // @ts-nocheck
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -63,6 +64,74 @@ const COLOR_NAME_TO_HEX: Record<string, string> = {
   "dark gray": "#A9A9A9",
 };
 
+// ─── Résout un hex de couleur à partir des champs Printful natifs ──────────
+function resolveHexColor(
+  rawColor: string,
+  rawCode?: string,
+  rawCode2?: string,
+): string {
+  if (rawCode2 && /^#/.test(rawCode2)) return rawCode2;
+  if (rawCode && /^#/.test(rawCode)) return rawCode;
+  const key = (rawColor || "").toLowerCase().replace(/\s+/g, "_");
+  return (
+    COLOR_NAME_TO_HEX[key] ||
+    COLOR_NAME_TO_HEX[(rawColor || "").toLowerCase()] ||
+    rawCode ||
+    rawColor ||
+    "#CCCCCC"
+  );
+}
+
+// ─── Source de vérité unique couleur × taille × prix ───────────────────────
+function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
+  const byColor = new Map<
+    string,
+    { name: string; sizes: Map<string, number>; image: string }
+  >();
+
+  for (const v of syncVariants || []) {
+    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    const name = (v.color || hex || "").trim();
+    if (!byColor.has(hex))
+      byColor.set(hex, { name, sizes: new Map(), image: "" });
+    const entry = byColor.get(hex)!;
+    if (v.size && v.retail_price != null) {
+      entry.sizes.set(v.size, parseFloat(v.retail_price));
+    }
+    if (!entry.image) {
+      entry.image =
+        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+    }
+  }
+
+  // Priorité aux images du catalogue (plus représentatives du produit)
+  for (const cv of catalogVariants || []) {
+    const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
+    const entry = byColor.get(hex);
+    if (entry) {
+      // L'image catalogue écrase toujours la preview si elle existe
+      if (cv.image) entry.image = cv.image;
+    }
+  }
+
+  const variants = [...byColor.entries()].map(([hex, entry]) => ({
+    color: hex,
+    color_name: entry.name,
+    image: entry.image,
+    sizes: Object.fromEntries(
+      [...entry.sizes.entries()].map(([size, price]) => [size, { price }]),
+    ),
+  }));
+
+  const colors = variants.map((v) => v.color);
+  const colorNames = variants.map((v) => v.color_name);
+  const colorImages = variants.map((v) => v.image).filter(Boolean);
+  const sizesSet = new Set<string>();
+  variants.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
+
+  return { colors, colorNames, colorImages, sizes: [...sizesSet], variants };
+}
+
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -77,7 +146,7 @@ export default {
 
       const body = await req.json().catch(() => ({}));
 
-      // ─── Mode "list-products" : retourne la liste simplifiée des produits Printful ───
+      // ─── Mode "list-products" ──────────────────────────────────────
       if (body.action === "list-products") {
         const { data: settings, error: settingsError } = await supabaseAdmin
           .from("pod_settings")
@@ -116,7 +185,7 @@ export default {
         });
       }
 
-      // ─── Mode "get-product" : récupérer les détails d'un produit Printful ───
+      // ─── Mode "get-product" ────────────────────────────────────────
       if (body.action === "get-product" && body.productId) {
         const { data: settings, error: settingsError } = await supabaseAdmin
           .from("pod_settings")
@@ -133,7 +202,6 @@ export default {
           );
         }
 
-        // Récupérer le produit depuis Printful
         const pfRes = await fetch(
           `https://api.printful.com/store/products/${body.productId}`,
           { headers: { Authorization: `Bearer ${settings.api_key}` } },
@@ -154,13 +222,11 @@ export default {
         const detail = pfData.result;
         const syncProduct = detail.sync_product;
         const syncVariants = detail.sync_variants ?? [];
-
         const mainVariant = syncVariants[0];
 
         let catalogVariants: any[] = [];
         let catalogProductName = "";
         let catalogProductImage = "";
-
         const catalogProductId =
           mainVariant?.product?.product_id || mainVariant?.product_id;
 
@@ -194,73 +260,12 @@ export default {
               }
             }
           } catch {
-            // Silently fallback to sync variants only
+            // fallback to sync variants only
           }
         }
 
-        const allColorsMap = new Map<
-          string,
-          { code: string; name: string; image: string }
-        >();
-        const allSizesSet = new Set<string>();
-
-        for (const v of catalogVariants.length > 0
-          ? catalogVariants
-          : syncVariants) {
-          const hex =
-            v.color_code2 ||
-            (v.color_code && /^#/.test(v.color_code) ? v.color_code : null) ||
-            COLOR_NAME_TO_HEX[
-              (v.color || "").toLowerCase().replace(/\s+/g, "_")
-            ] ||
-            COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
-            "";
-          const code = hex || v.color_code || v.color || "";
-          const name = v.color || "";
-          const dedupKey = hex || code;
-          if (dedupKey && !allColorsMap.has(dedupKey)) {
-            allColorsMap.set(dedupKey, {
-              code: hex || code,
-              name,
-              image: v.image || (v as any).product_image || "",
-            });
-          }
-          if (v.size) allSizesSet.add(v.size);
-        }
-
-        const uniqueColors = [...allColorsMap.values()];
-        const uniqueColorCodes = uniqueColors.map((c: any) => c.code);
-        const uniqueColorNames = uniqueColors.map((c: any) => c.name);
-        const uniqueColorImages = uniqueColors
-          .map((c: any) => c.image)
-          .filter((img: string) => img && img.trim().length > 0);
-        const uniqueSizes = [...allSizesSet];
-
-        const variants = uniqueColors.map((c: any) => {
-          const sizesWithPrices: Record<string, { price: number }> = {};
-          for (const v of catalogVariants) {
-            const vHex =
-              v.color_code2 ||
-              (v.color_code && /^#/.test(v.color_code) ? v.color_code : null) ||
-              COLOR_NAME_TO_HEX[
-                (v.color || "").toLowerCase().replace(/\s+/g, "_")
-              ] ||
-              COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
-              "";
-            const vCode = vHex || v.color_code || v.color || "";
-            if ((vHex && vHex === c.code) || vCode === c.code) {
-              if (v.size && v.price) {
-                sizesWithPrices[v.size] = { price: parseFloat(v.price) };
-              }
-            }
-          }
-          return {
-            color: c.code,
-            color_name: c.name,
-            image: c.image,
-            sizes: sizesWithPrices,
-          };
-        });
+        const { colors, colorNames, colorImages, sizes, variants } =
+          buildVariantMatrix(syncVariants, catalogVariants);
 
         const productData = {
           id: syncProduct?.id || detail.id,
@@ -272,10 +277,10 @@ export default {
             mainVariant?.files?.[0]?.preview_url ||
             "",
           currency: mainVariant?.currency || "USD",
-          colors: uniqueColorCodes,
-          color_names: uniqueColorNames,
-          color_images: uniqueColorImages,
-          sizes: uniqueSizes,
+          colors,
+          color_names: colorNames,
+          color_images: colorImages,
+          sizes,
           retail_price: mainVariant?.retail_price || null,
           original_price: mainVariant?.retail_price
             ? Math.round(parseFloat(mainVariant.retail_price) * 1.3 * 100) / 100
@@ -304,7 +309,7 @@ export default {
         });
       }
 
-      // ─── Mode "get-catalog-product" : récupérer le prix catalogue d'un variant ───
+      // ─── Mode "get-catalog-product" ─────────────────────────────────
       if (body.action === "get-catalog-product") {
         const { productId, variantId } = body;
         if (!productId || !variantId) {
@@ -330,7 +335,7 @@ export default {
             throw new Error("Variants introuvables");
           const target = variants.find((v: any) => v.id == variantId);
           if (!target) throw new Error("Variant non trouvé");
-          const price = target.price; // string or number
+          const price = target.price;
           return new Response(JSON.stringify({ price }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -342,9 +347,9 @@ export default {
         }
       }
 
-      // ─── Mode "get-shipping-estimate" : estimation des frais de port Printful ───
+      // ─── Mode "get-shipping-estimate" ───────────────────────────────
       if (body.action === "get-shipping-estimate") {
-        const { variantId } = body; // correspond au catalogue variant ID
+        const { variantId } = body;
         if (!variantId) {
           return new Response(JSON.stringify({ error: "variantId requis" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -352,7 +357,6 @@ export default {
           });
         }
 
-        // Récupérer les paramètres Printful ET le pays de la boutique
         const { data: podSettings, error: podError } = await supabaseAdmin
           .from("pod_settings")
           .select("*")
@@ -376,7 +380,6 @@ export default {
 
         const country = storeSettings?.country || "BR";
 
-        // Appeler l'API Printful Shipping Rates
         const shippingRes = await fetch(
           "https://api.printful.com/shipping/rates",
           {
@@ -390,15 +393,10 @@ export default {
                 address1: "",
                 city: "",
                 country_code: country,
-                state_code: country === "US" ? "CA" : undefined, // requis pour les US
+                state_code: country === "US" ? "CA" : undefined,
                 zip: "",
               },
-              items: [
-                {
-                  variant_id: Number(variantId),
-                  quantity: 1,
-                },
-              ],
+              items: [{ variant_id: Number(variantId), quantity: 1 }],
             }),
           },
         );
@@ -423,7 +421,6 @@ export default {
           });
         }
 
-        // Extraire le min et le max
         const costs = rates.map((r: any) => parseFloat(r.rate));
         const minCost = Math.min(...costs);
         const maxCost = Math.max(...costs);
@@ -437,7 +434,7 @@ export default {
         );
       }
 
-      // ─── Mode par défaut : synchronisation complète du catalogue ─────────
+      // ─── Mode par défaut : synchronisation complète ────────────────
       const { data: settings, error: settingsError } = await supabaseAdmin
         .from("pod_settings")
         .select("*")
@@ -453,14 +450,12 @@ export default {
         );
       }
 
-      // 1. Récupérer la liste des produits
       const listRes = await fetch("https://api.printful.com/store/products", {
         headers: { Authorization: `Bearer ${settings.api_key}` },
       });
 
       if (!listRes.ok) {
         const errText = await listRes.text();
-        // Si 401, la clé est invalide → on marque comme déconnecté
         if (listRes.status === 401) {
           await supabaseAdmin
             .from("pod_settings")
@@ -476,23 +471,11 @@ export default {
         );
       }
 
-      if (!listRes.ok) {
-        const errText = await listRes.text();
-        return new Response(
-          JSON.stringify({ error: `Erreur Printful: ${errText}` }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 502,
-          },
-        );
-      }
-
       const listData = await listRes.json();
       const printfulProducts = listData.result ?? [];
       let syncedCount = 0;
       const errors: string[] = [];
 
-      // 2. Pour chaque produit Printful, récupérer les détails et synchroniser
       for (const pfProduct of printfulProducts) {
         try {
           const detailRes = await fetch(
@@ -521,18 +504,9 @@ export default {
             ? parseFloat(mainVariant.retail_price)
             : null;
 
-          let colors: string[] = [];
-          let colorNames: string[] = [];
-          let colorImages: string[] = [];
-          let sizes: string[] = [];
-          let catalogGallery: string[] = [];
-          let sizeSurcharge: Record<string, number> = {};
-          let catalogVariantPrices: { size: string; price: number }[] = [];
-          let variants: any[] = [];
-
           const catalogProductId =
             mainVariant?.product?.product_id || mainVariant?.product_id;
-
+          let catalogVariants: any[] = [];
           if (catalogProductId) {
             try {
               const catalogRes = await fetch(
@@ -542,146 +516,36 @@ export default {
                 const catalogData = await catalogRes.json();
                 const catalogResult =
                   catalogData?.result?.product || catalogData?.result;
-                if (catalogResult) {
-                  const catalogVariants = catalogResult.variants || [];
-                  const colorMap = new Map<
-                    string,
-                    { code: string; name: string; image: string }
-                  >();
-                  for (const v of catalogVariants) {
-                    const hex =
-                      v.color_code2 ||
-                      (v.color_code && /^#/.test(v.color_code)
-                        ? v.color_code
-                        : null) ||
-                      COLOR_NAME_TO_HEX[
-                        (v.color || "").toLowerCase().replace(/\s+/g, "_")
-                      ] ||
-                      COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
-                      "";
-                    const code = hex || (v.color_code || v.color || "").trim();
-                    const name = (v.color || "").trim();
-                    const img = (v.image || "").trim();
-                    const dedupKey = hex || code;
-                    if (dedupKey && !colorMap.has(dedupKey)) {
-                      colorMap.set(dedupKey, {
-                        code: hex || code,
-                        name,
-                        image: img,
-                      });
-                    }
-                    if (v.size) sizes.push(v.size);
-                  }
-                  sizes = [...new Set(sizes)];
-                  colors = [...colorMap.values()].map((c) => c.code);
-                  colorNames = [...colorMap.values()].map((c) => c.name);
-                  colorImages = [...colorMap.values()]
-                    .map((c) => c.image)
-                    .filter((img: string) => img && img.trim().length > 0);
-                  catalogGallery = [
-                    ...new Set(
-                      catalogVariants
-                        .map((v: any) => v.image as string)
-                        .filter((img: string) => img && img.trim().length > 0),
-                    ),
-                  ].slice(0, 12);
-
-                  // Compute size surcharge from variant price differences
-                  catalogVariantPrices = catalogVariants
-                    .map((v: any) => ({
-                      size: v.size,
-                      price: parseFloat(v.price) || 0,
-                    }))
-                    .filter(
-                      (p: { size: string; price: number }) =>
-                        p.size && p.price > 0,
-                    );
-                  const minPrice =
-                    catalogVariantPrices.length > 0
-                      ? Math.min(...catalogVariantPrices.map((p) => p.price))
-                      : 0;
-                  if (minPrice > 0) {
-                    for (const vp of catalogVariantPrices) {
-                      if (vp.price > minPrice) {
-                        const surcharge =
-                          Math.round((vp.price - minPrice) * 100) / 100;
-                        if (
-                          !sizeSurcharge[vp.size] ||
-                          surcharge < sizeSurcharge[vp.size]
-                        ) {
-                          sizeSurcharge[vp.size] = surcharge;
-                        }
-                      }
-                    }
-                  }
-
-                  if (catalogGallery.length === 0 && catalogResult.image) {
-                    catalogGallery = [catalogResult.image];
-                  }
-
-                  variants = [...colorMap.entries()].map(([key, c]) => {
-                    const sizesWithPrices: Record<string, { price: number }> =
-                      {};
-                    for (const v of catalogVariants) {
-                      const vHex =
-                        v.color_code2 ||
-                        (v.color_code && /^#/.test(v.color_code)
-                          ? v.color_code
-                          : null) ||
-                        COLOR_NAME_TO_HEX[
-                          (v.color || "").toLowerCase().replace(/\s+/g, "_")
-                        ] ||
-                        COLOR_NAME_TO_HEX[(v.color || "").toLowerCase()] ||
-                        "";
-                      const vCode = vHex || v.color_code || v.color || "";
-                      if ((vHex && vHex === c.code) || vCode === c.code) {
-                        if (v.size && v.price) {
-                          sizesWithPrices[v.size] = {
-                            price: parseFloat(v.price),
-                          };
-                        }
-                      }
-                    }
-                    return {
-                      color: c.code,
-                      color_name: c.name,
-                      image: c.image,
-                      sizes: sizesWithPrices,
-                    };
-                  });
-                }
+                catalogVariants = catalogResult?.variants || [];
               }
             } catch {
-              // fallback to sync_variants
+              // fallback
             }
           }
 
-          if (colors.length === 0) {
-            for (const v of syncVariants) {
-              const productName = v.product?.name || v.name || "";
-              const raw = (productName || "").trim();
-              const colorFromName = raw.split("/").pop()?.trim() || raw;
-              const hex =
-                (/^#/.test(raw) ? raw : null) ||
-                COLOR_NAME_TO_HEX[raw.toLowerCase().replace(/\s+/g, "_")] ||
-                COLOR_NAME_TO_HEX[raw.toLowerCase()] ||
-                COLOR_NAME_TO_HEX[
-                  colorFromName.toLowerCase().replace(/\s+/g, "_")
-                ] ||
-                COLOR_NAME_TO_HEX[colorFromName.toLowerCase()] ||
-                raw;
-              const name = colorFromName || raw;
-              if (hex && !colors.includes(hex)) colors.push(hex);
-              if (name && !colorNames.includes(name)) colorNames.push(name);
-              const sizeMatch = v.name?.match(
-                /\b(S|M|L|XL|2XL|3XL|4XL|5XL|XS)\b/i,
-              );
-              const size =
-                v.size || (sizeMatch ? sizeMatch[1].toUpperCase() : null);
-              if (size && !sizes.includes(size)) sizes.push(size);
+          const { colors, colorNames, colorImages, sizes, variants } =
+            buildVariantMatrix(syncVariants, catalogVariants);
+
+          const sizeSurcharge: Record<string, number> = {};
+          const allPrices = variants.flatMap((v) =>
+            Object.entries(v.sizes).map(
+              ([size, s]) => [size, s.price] as [string, number],
+            ),
+          );
+          if (allPrices.length > 0) {
+            const minPrice = Math.min(...allPrices.map(([, p]) => p));
+            for (const [size, p] of allPrices) {
+              const surcharge = Math.round((p - minPrice) * 100) / 100;
+              if (
+                surcharge > 0 &&
+                (!sizeSurcharge[size] || surcharge < sizeSurcharge[size])
+              ) {
+                sizeSurcharge[size] = surcharge;
+              }
             }
           }
 
+          const catalogGallery = [...new Set(colorImages)].slice(0, 12);
           const gallery =
             catalogGallery.length > 0
               ? catalogGallery
@@ -712,7 +576,6 @@ export default {
             // column may not exist yet
           }
 
-          // Vérifier si le produit existe déjà dans InstaWear
           const { data: existing } = await supabaseAdmin
             .from("products")
             .select("id")
@@ -772,7 +635,6 @@ export default {
         }
       }
 
-      // 3. Mettre à jour les stats
       const now = new Date().toISOString();
       const syncStatus = errors.length > 0 ? "partial" : "synced";
       await supabaseAdmin
@@ -785,7 +647,6 @@ export default {
         })
         .eq("id", settings.id);
 
-      // 4. Log
       await supabaseAdmin.from("sync_logs").insert({
         id: `log-${Date.now()}`,
         sync_date: now,
