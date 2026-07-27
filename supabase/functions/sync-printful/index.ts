@@ -70,13 +70,13 @@ function resolveHexColor(
   rawCode?: string,
   rawCode2?: string,
 ): string {
-  if (rawCode2 && /^#/.test(rawCode2)) return rawCode2;
-  if (rawCode && /^#/.test(rawCode)) return rawCode;
+  if (rawCode2 && /^#/.test(rawCode2)) return rawCode2.toLowerCase();
+  if (rawCode && /^#/.test(rawCode)) return rawCode.toLowerCase();
   const key = (rawColor || "").toLowerCase().replace(/\s+/g, "_");
   return (
     COLOR_NAME_TO_HEX[key] ||
     COLOR_NAME_TO_HEX[(rawColor || "").toLowerCase()] ||
-    rawCode ||
+    rawCode?.toLowerCase() ||
     rawColor ||
     "#CCCCCC"
   );

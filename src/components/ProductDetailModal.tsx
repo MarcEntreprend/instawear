@@ -69,13 +69,13 @@ export default function ProductDetailModal({
     (url) => url && url.trim().length > 0,
   );
 
-  const hasColorImage = activeVariant
-    ? activeVariant.image && activeVariant.image.trim().length > 0
-    : cleanColorImages[colorIdx];
-
   const allImages = [product.image, ...(product.gallery || [])].filter(
     (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
   );
+
+  const hasColorImage = activeVariant
+    ? activeVariant.image && activeVariant.image.trim().length > 0
+    : cleanColorImages[colorIdx];
 
   const displayImage = hasColorImage
     ? activeVariant
@@ -95,6 +95,11 @@ export default function ProductDetailModal({
         }),
       )
     : product.sizeSurcharge;
+
+  // Images de chaque variant : gallerie visuelle pour switcher de couleur
+  const variantImages = hasVariants
+    ? product.variants!.filter((v) => v.image && v.image.trim().length > 0)
+    : [];
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -128,7 +133,26 @@ export default function ProductDetailModal({
                 className="w-full h-full object-cover"
               />
             </div>
-            {!hasColorImage && allImages.length > 1 && (
+            {variantImages.length > 1 ? (
+              <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
+                {variantImages.map((v) => {
+                  const isActive = v.color === pickedColor;
+                  return (
+                    <div
+                      key={v.color}
+                      onClick={() => setPickedColor(v.color)}
+                      className={`aspect-square rounded-lg overflow-hidden border cursor-pointer transition-all ${isActive ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200"}`}
+                    >
+                      <img
+                        src={v.image}
+                        alt={v.color_name || v.color}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : allImages.length > 1 ? (
               <div className="grid grid-cols-4 gap-2.5 mt-3 select-none">
                 {allImages.map((img, idx) => (
                   <div
@@ -144,7 +168,7 @@ export default function ProductDetailModal({
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
             <div className="mt-4 p-3 bg-gray-50/40 border border-gray-200 rounded-xl flex items-center gap-2.5 text-xs text-gray-500">
               <ShieldCheck className="w-4 h-4 text-(--color-accent)" />
               <p>Toxic-free guarantee — OEKO-TEX® certified print</p>
