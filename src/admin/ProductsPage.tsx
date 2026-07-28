@@ -15,6 +15,7 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { useProducts, useReferenceLists } from "./adminHooks";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
@@ -24,6 +25,7 @@ import ProductFormPanel from "./ProductFormPanel";
 import PrintfulProductForm from "./PrintfulProductForm";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { useHighlightListener } from "./useAdminHighlight";
+import { podApi } from "../api/supabaseApi";
 
 const BADGE_STYLE: Record<string, React.CSSProperties> = {
   bestseller: { background: "#fde68a", color: "#92400e" },
@@ -112,6 +114,10 @@ export default function ProductsPage() {
 
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
+  );
+
+  const [generatingMockups, setGeneratingMockups] = useState<Set<string>>(
+    new Set(),
   );
 
   useHighlightListener(
@@ -386,6 +392,26 @@ export default function ProductsPage() {
   const handleDeleteSingle = async (id: string) => {
     if (!window.confirm("Supprimer définitivement ce produit ?")) return;
     await deleteProduct(id);
+  };
+
+  const handleGenerateMockups = async (productId: string) => {
+    if (generatingMockups.has(productId)) return;
+    setGeneratingMockups((prev) => new Set(prev).add(productId));
+    try {
+      const result = await podApi.generateMockups(productId);
+      alert(
+        `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
+      );
+      await refetch();
+    } catch (err: any) {
+      alert(`Erreur mockups : ${err.message}`);
+    } finally {
+      setGeneratingMockups((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
   };
 
   // -- Bloc conditionnel pour le formulaire Printful -----------------------
@@ -1231,6 +1257,26 @@ export default function ProductsPage() {
                           <Eye size={14} strokeWidth={2} />
                         )}
                       </button>
+                      {p.externalProductId && (
+                        <button
+                          title={
+                            generatingMockups.has(p.id)
+                              ? "Génération en cours…"
+                              : "Générer mockups"
+                          }
+                          style={{
+                            ...iconBtn,
+                            opacity: generatingMockups.has(p.id) ? 0.5 : 1,
+                            cursor: generatingMockups.has(p.id)
+                              ? "wait"
+                              : "pointer",
+                          }}
+                          disabled={generatingMockups.has(p.id)}
+                          onClick={() => handleGenerateMockups(p.id)}
+                        >
+                          <Sparkles size={14} strokeWidth={2} />
+                        </button>
+                      )}
                       <button
                         title="Supprimer"
                         style={{ ...iconBtn, color: "#ef4444" }}

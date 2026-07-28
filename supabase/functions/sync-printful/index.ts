@@ -142,6 +142,66 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   return { colors, colorNames, colorImages, sizes: [...sizesSet], variants };
 }
 
+// ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
+function buildVariantIdToColorMap(syncVariants: any[], catalogVariants: any[]) {
+  const map = new Map<number, string>();
+
+  for (const v of syncVariants || []) {
+    const catalogVariantId = v.variant_id || v.product?.variant_id;
+    if (!catalogVariantId) continue;
+    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    if (!map.has(catalogVariantId)) map.set(catalogVariantId, hex);
+  }
+
+  for (const cv of catalogVariants || []) {
+    const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
+    if (cv.id && !map.has(cv.id)) map.set(cv.id, hex);
+  }
+
+  return map;
+}
+
+// ─── Polls mockup generation task until complete or timeout ─────────────
+async function pollMockupTask(
+  apiKey: string,
+  storeId: string | undefined,
+  taskKey: string,
+  maxAttempts = 20,
+  intervalMs = 3000,
+) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+    };
+    if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+    const res = await fetch(
+      `https://api.printful.com/mockup-generator/task?task_key=${taskKey}`,
+      { headers },
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Poll mockup task failed (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const result = data?.result;
+    if (!result) continue;
+
+    if (result.status === "completed") return result;
+    if (result.status === "failed") {
+      throw new Error(
+        `Mockup generation failed: ${result.error || "Unknown error"}`,
+      );
+    }
+  }
+  throw new Error(
+    `Mockup generation timed out after ${(maxAttempts * intervalMs) / 1000}s`,
+  );
+}
+
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -438,6 +498,465 @@ export default {
 
         return new Response(
           JSON.stringify({ min: minCost, max: maxCost, currency }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // ─── Mode "generate-mockups" ────────────────────────────────────
+      if (body.action === "generate-mockups" && body.productId) {
+        const { data: prodSettings, error: podErr } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+        if (podErr || !prodSettings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        const apiKey = prodSettings.api_key;
+        const storeId = prodSettings.store_id;
+
+        // 1. Look up product in DB
+        const { data: dbProduct, error: dbErr } = await supabaseAdmin
+          .from("products")
+          .select("*")
+          .eq("id", body.productId)
+          .single();
+
+        if (dbErr || !dbProduct) {
+          return new Response(
+            JSON.stringify({ error: "Produit introuvable." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 404,
+            },
+          );
+        }
+
+        if (!dbProduct.external_product_id) {
+          return new Response(
+            JSON.stringify({
+              error: "Ce produit n'est pas importé de Printful.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        // 2. Fetch Printful store product details (sync variants)
+        const storeRes = await fetch(
+          `https://api.printful.com/store/products/${dbProduct.external_product_id}`,
+          { headers: { Authorization: `Bearer ${apiKey}` } },
+        );
+        if (!storeRes.ok) {
+          const errText = await storeRes.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful Store: ${errText}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        const storeData = await storeRes.json();
+        const detail = storeData.result;
+        const syncVariants: any[] = detail.sync_variants ?? [];
+        const mainVariant = syncVariants[0];
+
+        if (!mainVariant) {
+          return new Response(
+            JSON.stringify({ error: "Aucun variant Printful trouvé." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 404,
+            },
+          );
+        }
+
+        // 3. Get catalog product ID
+        const catalogProductId =
+          mainVariant?.product?.product_id || mainVariant?.product_id;
+        if (!catalogProductId) {
+          return new Response(
+            JSON.stringify({
+              error: "Impossible de déterminer le produit catalogue.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        // 4. Fetch catalog variants for color mapping
+        let catalogVariants: any[] = [];
+        try {
+          const catalogRes = await fetch(
+            `https://api.printful.com/products/${catalogProductId}`,
+          );
+          if (catalogRes.ok) {
+            const catalogData = await catalogRes.json();
+            const catalogResult =
+              catalogData?.result?.product || catalogData?.result;
+            catalogVariants = catalogResult?.variants || [];
+          }
+        } catch {
+          // fallback — will use sync variants only
+        }
+
+        // 5. Build catalog_variant_id → hex_color map
+        const variantIdToColor = buildVariantIdToColorMap(
+          syncVariants,
+          catalogVariants,
+        );
+
+        // 6. Collect ONE catalog variant ID per color + the print file URL
+        const seenColors = new Set<string>();
+        const uniqueVariantIds: number[] = [];
+        let printFileUrl = "";
+
+        for (const v of syncVariants) {
+          const catalogVid = v.variant_id || v.product?.variant_id;
+          if (!catalogVid) continue;
+          const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+          if (!seenColors.has(hex)) {
+            seenColors.add(hex);
+            uniqueVariantIds.push(catalogVid);
+          }
+          if (!printFileUrl) {
+            printFileUrl =
+              v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+          }
+        }
+
+        if (uniqueVariantIds.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "Aucun variant catalogue trouvé." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        if (!printFileUrl) {
+          return new Response(
+            JSON.stringify({
+              error: "Aucun fichier d'impression (print file) trouvé.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        // 7. Fetch printfiles to get print area dimensions (required for position)
+        let printAreaWidth = 1800;
+        let printAreaHeight = 2400;
+
+        try {
+          const pfHeaders: Record<string, string> = {
+            Authorization: `Bearer ${apiKey}`,
+          };
+          if (storeId) pfHeaders["X-PF-Store-Id"] = storeId;
+
+          const pfRes = await fetch(
+            `https://api.printful.com/mockup-generator/printfiles/${catalogProductId}`,
+            { headers: pfHeaders },
+          );
+          if (pfRes.ok) {
+            const pfData = await pfRes.json();
+            const printfiles = pfData?.result?.printfiles ?? [];
+            if (printfiles.length > 0) {
+              // Each printfile represents one placement (e.g., "front").
+              // Use the first one's dimensions for the position area.
+              const frontPf = printfiles[0];
+              if (frontPf.width) printAreaWidth = frontPf.width;
+              if (frontPf.height) printAreaHeight = frontPf.height;
+            }
+          }
+        } catch {
+          // fallback: use default DTG dimensions (12"×16" @ 150 DPI)
+        }
+
+        // 8. Create mockup generation task
+        const createHeaders: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        };
+        if (storeId) createHeaders["X-PF-Store-Id"] = storeId;
+
+        const createBody: Record<string, any> = {
+          variant_ids: uniqueVariantIds,
+          format: "jpg",
+          product_options: { lifelike: true },
+          files: [
+            {
+              placement: "front",
+              image_url: printFileUrl,
+              position: {
+                area_width: printAreaWidth,
+                area_height: printAreaHeight,
+                width: printAreaWidth,
+                height: printAreaHeight,
+                top: 0,
+                left: 0,
+              },
+            },
+          ],
+        };
+
+        let createRes: Response;
+        try {
+          createRes = await fetch(
+            `https://api.printful.com/mockup-generator/create-task/${catalogProductId}`,
+            {
+              method: "POST",
+              headers: createHeaders,
+              body: JSON.stringify(createBody),
+            },
+          );
+        } catch (createErr: any) {
+          return new Response(
+            JSON.stringify({
+              error: `Échec création tâche mockup: ${createErr.message}`,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        if (!createRes.ok) {
+          const errText = await createRes.text();
+          return new Response(
+            JSON.stringify({
+              error: `Échec création tâche mockup (${createRes.status}): ${errText}`,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        const createData = await createRes.json();
+        const taskKey = createData?.result?.task_key;
+        if (!taskKey) {
+          return new Response(
+            JSON.stringify({
+              error: "Pas de task_key reçue de Printful.",
+              raw: createData,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        // 8. Poll for completion (up to ~60s)
+        let taskResult: any;
+        try {
+          taskResult = await pollMockupTask(apiKey, storeId, taskKey);
+        } catch (pollErr: any) {
+          return new Response(
+            JSON.stringify({ error: pollErr.message, taskKey }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        const mockups: any[] = taskResult?.mockups ?? [];
+        if (mockups.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "Aucun mockup généré.", taskKey }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        // 9. Map mockups to colors and download + upload to Storage
+        const colorToMockupUrl = new Map<string, string>();
+        for (const m of mockups) {
+          const variantIds: number[] = m.variant_ids ?? [];
+          const mockupUrl: string = m.mockup_url || "";
+          if (!mockupUrl) continue;
+          const placement: string = m.placement || "front";
+
+          for (const vid of variantIds) {
+            const hex = variantIdToColor.get(vid);
+            if (hex && !colorToMockupUrl.has(hex)) {
+              colorToMockupUrl.set(hex, mockupUrl);
+            }
+          }
+        }
+
+        if (colorToMockupUrl.size === 0) {
+          return new Response(
+            JSON.stringify({
+              error: "Impossible d'associer les mockups aux couleurs.",
+              taskKey,
+              mockupCount: mockups.length,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        // 10. Ensure storage bucket exists
+        try {
+          await supabaseAdmin.storage.createBucket("product-mockups", {
+            public: true,
+          });
+        } catch {
+          // bucket likely already exists
+        }
+
+        // 11. Download each mockup, upload to Storage, update product
+        const storageUrls: Record<string, string> = {}; // hex → storage_url
+        const mockupInserts: any[] = [];
+
+        for (const [hex, mockupUrl] of colorToMockupUrl) {
+          try {
+            const imgRes = await fetch(mockupUrl);
+            if (!imgRes.ok) {
+              console.error(
+                `Failed to download mockup for ${hex}: ${imgRes.status}`,
+              );
+              continue;
+            }
+            const imgBuffer = await imgRes.arrayBuffer();
+            const safeHex = hex.replace("#", "");
+            const storagePath = `${body.productId}/${safeHex}.jpg`;
+
+            const { error: uploadErr } = await supabaseAdmin.storage
+              .from("product-mockups")
+              .upload(storagePath, imgBuffer, {
+                contentType: "image/jpeg",
+                upsert: true,
+              });
+
+            if (uploadErr) {
+              console.error(
+                `Failed to upload mockup for ${hex}: ${uploadErr.message}`,
+              );
+              continue;
+            }
+
+            const { data: publicUrlData } = supabaseAdmin.storage
+              .from("product-mockups")
+              .getPublicUrl(storagePath);
+
+            const storageUrl = publicUrlData?.publicUrl || "";
+            if (storageUrl) {
+              storageUrls[hex] = storageUrl;
+              mockupInserts.push({
+                product_id: body.productId,
+                color: hex,
+                catalog_variant_ids: uniqueVariantIds.filter(
+                  (vid) => variantIdToColor.get(vid) === hex,
+                ),
+                mockup_url: mockupUrl,
+                storage_url: storageUrl,
+                placement: "front",
+              });
+            }
+          } catch (downloadErr: any) {
+            console.error(
+              `Error processing mockup for ${hex}: ${downloadErr.message}`,
+            );
+          }
+        }
+
+        if (Object.keys(storageUrls).length === 0) {
+          return new Response(
+            JSON.stringify({
+              error: "Échec du téléchargement et stockage des mockups.",
+              taskKey,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        // 12. Update product.variants with new images
+        const existingVariants: any[] = dbProduct.variants ?? [];
+        const newGallery: string[] = [];
+        const newColorImages: string[] = [];
+
+        const updatedVariants = existingVariants.map((v: any) => {
+          const hex = v.color;
+          const storageUrl = storageUrls[hex];
+          if (storageUrl) {
+            newColorImages.push(storageUrl);
+            newGallery.push(storageUrl);
+            return { ...v, image: storageUrl };
+          }
+          // Keep existing image if no new mockup for this color
+          if (v.image) newGallery.push(v.image);
+          return v;
+        });
+
+        const updatedGallery = [...new Set(newGallery)].slice(0, 20);
+
+        const updatePayload: Record<string, any> = {
+          variants: updatedVariants,
+          gallery:
+            updatedGallery.length > 0 ? updatedGallery : dbProduct.gallery,
+        };
+        if (newColorImages.length > 0) {
+          updatePayload.color_images = newColorImages;
+        }
+
+        try {
+          await supabaseAdmin
+            .from("products")
+            .update(updatePayload)
+            .eq("id", body.productId);
+        } catch (updateErr: any) {
+          console.error(`Failed to update product: ${updateErr.message}`);
+        }
+
+        // 13. Insert into product_mockups table
+        if (mockupInserts.length > 0) {
+          try {
+            await supabaseAdmin.from("product_mockups").insert(mockupInserts);
+          } catch (insertErr: any) {
+            console.error(
+              `Failed to insert mockup records: ${insertErr.message}`,
+            );
+          }
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            taskKey,
+            mockupsGenerated: Object.keys(storageUrls).length,
+            colors: Object.keys(storageUrls),
+            storageUrls,
+          }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },

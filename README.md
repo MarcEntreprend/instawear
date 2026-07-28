@@ -296,6 +296,7 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
 - [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
 - [ ] dans setting, comparer 5 produits synchronisés versus le nombre de produits nouveaux (4)
+- [ ] Size guide : still the same for shirt, but for cap, and etc ?
 
 #### Footer
 

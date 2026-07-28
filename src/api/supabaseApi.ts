@@ -1166,6 +1166,41 @@ export const podApi = {
     }
     return res.json();
   },
+
+  /**
+   * Lance la génération de mockups produit+design via l'Edge Function.
+   * L'Edge Function crée la tâche Printful, poll jusqu'à complétion,
+   * télécharge les images mockup et les upload sur Supabase Storage,
+   * puis met à jour variants[].image, color_images[] et gallery dans la DB.
+   *
+   * @param productId - L'ID interne du produit dans notre base.
+   * @returns { success, taskKey, mockupsGenerated, colors, storageUrls }
+   */
+  async generateMockups(productId: string): Promise<{
+    success: boolean;
+    taskKey: string;
+    mockupsGenerated: number;
+    colors: string[];
+    storageUrls: Record<string, string>;
+  }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        action: "generate-mockups",
+        productId,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur génération mockups");
+    }
+    return res.json();
+  },
 };
 
 export const storeSettingsApi = {
