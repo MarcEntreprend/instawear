@@ -62,6 +62,16 @@ const COLOR_NAME_TO_HEX: Record<string, string> = {
   "sport gray": "#808080",
   "dark grey": "#a9a9a9",
   "dark gray": "#a9a9a9",
+  // ── Printful-specific color names (sync variants often have null color_code) ──
+  "washed black": "#1a1a1a",
+  "light washed denim": "#7b8fa1",
+  "vintage white": "#f5f0e8",
+  spruce: "#2e4a1a",
+  stone: "#8b8682",
+  "green camo": "#4a5d23",
+  "dark heather grey": "#3e3e3e",
+  "heather midnight navy": "#1a2035",
+  "heather olive": "#4a5032",
 };
 
 // ─── Résout un hex de couleur à partir des champs Printful natifs ──────────
@@ -89,8 +99,30 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     { name: string; sizes: Map<string, number>; image: string }
   >();
 
+  // Build catalog_variant_id → hex map from catalog API (always has color codes)
+  const catalogIdToHex = new Map<number, string>();
+  for (const cv of catalogVariants || []) {
+    const cvId = cv.id;
+    if (!cvId) continue;
+    const cvHex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
+    if (cvHex.startsWith("#")) {
+      catalogIdToHex.set(cvId, cvHex);
+    }
+  }
+
   for (const v of syncVariants || []) {
-    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    let hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+
+    // If Printful didn't provide hex codes on the sync variant (common for
+    // colors like "Washed Black", "Vintage White", etc.), resolve via the
+    // catalog variant ID (syncVariant.product.variant_id → catalogVariant.id).
+    if (!hex.startsWith("#")) {
+      const catalogVid = v.variant_id || v.product?.variant_id;
+      if (catalogVid && catalogIdToHex.has(catalogVid)) {
+        hex = catalogIdToHex.get(catalogVid)!;
+      }
+    }
+
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
       byColor.set(hex, { name, sizes: new Map(), image: "" });
@@ -99,7 +131,6 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       entry.sizes.set(v.size, parseFloat(v.retail_price));
     }
     // Priorité 1 : image du produit catalogue (vrai t-shirt, varie par couleur)
-    // v.product.image = image catalogue du variant (ex: t-shirt blanc, t-shirt noir)
     if (!entry.image && v.product?.image) {
       entry.image = v.product.image;
     }
@@ -116,7 +147,13 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
 
   // Priorité 3 (fallback) : print file preview (design à imprimer)
   for (const v of syncVariants || []) {
-    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    let hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    if (!hex.startsWith("#")) {
+      const catalogVid = v.variant_id || v.product?.variant_id;
+      if (catalogVid && catalogIdToHex.has(catalogVid)) {
+        hex = catalogIdToHex.get(catalogVid)!;
+      }
+    }
     const entry = byColor.get(hex);
     if (entry && !entry.image) {
       entry.image =
@@ -146,16 +183,21 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
 function buildVariantIdToColorMap(syncVariants: any[], catalogVariants: any[]) {
   const map = new Map<number, string>();
 
+  // First pass: catalog variants (always have reliable color codes)
+  for (const cv of catalogVariants || []) {
+    if (!cv.id) continue;
+    const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
+    if (map.has(cv.id)) continue; // already set
+    map.set(cv.id, hex.startsWith("#") ? hex : hex);
+  }
+
+  // Second pass: sync variants (fill gaps where catalog variant was missing)
   for (const v of syncVariants || []) {
     const catalogVariantId = v.variant_id || v.product?.variant_id;
     if (!catalogVariantId) continue;
+    if (map.has(catalogVariantId)) continue; // catalog already set, prefer it
     const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
-    if (!map.has(catalogVariantId)) map.set(catalogVariantId, hex);
-  }
-
-  for (const cv of catalogVariants || []) {
-    const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
-    if (cv.id && !map.has(cv.id)) map.set(cv.id, hex);
+    if (hex.startsWith("#")) map.set(catalogVariantId, hex);
   }
 
   return map;
@@ -930,6 +972,7 @@ export default {
         });
 
         const updatedGallery = [...new Set(newGallery)].slice(0, 20);
+        const firstMockupUrl = Object.values(storageUrls)[0] || "";
 
         const updatePayload: Record<string, any> = {
           variants: updatedVariants,
@@ -938,6 +981,10 @@ export default {
         };
         if (newColorImages.length > 0) {
           updatePayload.color_images = newColorImages;
+        }
+        // Also update the main product image so store cards show mockup
+        if (firstMockupUrl) {
+          updatePayload.image = firstMockupUrl;
         }
 
         try {
