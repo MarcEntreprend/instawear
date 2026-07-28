@@ -70,6 +70,8 @@ function resolveHexColor(
   rawCode?: string,
   rawCode2?: string,
 ): string {
+  // Normalise hex en lowercase : le Store API retourne "#ffffff",
+  // le Catalog API retourne "#FFFFFF" → le matching Map échouait
   if (rawCode2 && /^#/.test(rawCode2)) return rawCode2.toLowerCase();
   if (rawCode && /^#/.test(rawCode)) return rawCode.toLowerCase();
   const key = (rawColor || "").toLowerCase().replace(/\s+/g, "_");
