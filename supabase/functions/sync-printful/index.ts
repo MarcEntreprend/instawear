@@ -661,9 +661,10 @@ export default {
           );
         }
 
-        // 7. Fetch printfiles to get print area dimensions (required for position)
+        // 7. Fetch printfiles to get print area dimensions + available placements
         let printAreaWidth = 1800;
         let printAreaHeight = 2400;
+        let placement = "front"; // fallback for legacy DTG products
 
         try {
           const pfHeaders: Record<string, string> = {
@@ -677,17 +678,27 @@ export default {
           );
           if (pfRes.ok) {
             const pfData = await pfRes.json();
-            const printfiles = pfData?.result?.printfiles ?? [];
+            const result = pfData?.result || {};
+
+            // Determine the correct placement from available_placements
+            const availablePlacements: Record<string, string> =
+              result.available_placements || {};
+            const placementKeys = Object.keys(availablePlacements);
+            if (placementKeys.length > 0) {
+              placement = placementKeys[0]; // e.g. "front", "default", "embroidery_front"
+            }
+
+            const printfiles: any[] = result.printfiles ?? [];
             if (printfiles.length > 0) {
-              // Each printfile represents one placement (e.g., "front").
-              // Use the first one's dimensions for the position area.
-              const frontPf = printfiles[0];
-              if (frontPf.width) printAreaWidth = frontPf.width;
-              if (frontPf.height) printAreaHeight = frontPf.height;
+              const firstPf = printfiles[0];
+              if (firstPf.width) printAreaWidth = firstPf.width;
+              if (firstPf.height) printAreaHeight = firstPf.height;
+              // If the printfile itself declares a placement, prefer it
+              if (firstPf.placement) placement = firstPf.placement;
             }
           }
         } catch {
-          // fallback: use default DTG dimensions (12"×16" @ 150 DPI)
+          // fallback: use "front" with default DTG dimensions (12"×16" @ 150 DPI)
         }
 
         // 8. Create mockup generation task
@@ -703,7 +714,7 @@ export default {
           product_options: { lifelike: true },
           files: [
             {
-              placement: "front",
+              placement,
               image_url: printFileUrl,
               position: {
                 area_width: printAreaWidth,
