@@ -12,56 +12,56 @@ const corsHeaders = {
 
 // ─── Fallback color name → hex (Printful n'a pas toujours un color_code2) ──
 const COLOR_NAME_TO_HEX: Record<string, string> = {
-  black: "#1A1A1A",
-  white: "#FFFFFF",
-  red: "#CC0000",
+  black: "#1a1a1a",
+  white: "#ffffff",
+  red: "#cc0000",
   navy: "#000080",
-  "dark heather": "#3E3E3E",
-  heather: "#C0C0C0",
-  "light blue": "#ADD8E6",
-  royal: "#4169E1",
+  "dark heather": "#3e3e3e",
+  heather: "#c0c0c0",
+  "light blue": "#add8e6",
+  royal: "#4169e1",
   "sport grey": "#808080",
-  sand: "#C2B280",
-  "light pink": "#FFB6C1",
-  ash: "#B2BEB5",
-  charcoal: "#36454F",
-  forest: "#228B22",
+  sand: "#c2b280",
+  "light pink": "#ffb6c1",
+  ash: "#b2beb5",
+  charcoal: "#36454f",
+  forest: "#228b22",
   purple: "#800080",
-  gold: "#FFD700",
-  orange: "#FFA500",
-  yellow: "#FFFF00",
+  gold: "#ffd700",
+  orange: "#ffa500",
+  yellow: "#ffff00",
   green: "#008000",
-  blue: "#0000FF",
-  pink: "#FFC0CB",
+  blue: "#0000ff",
+  pink: "#ffc0cb",
   grey: "#808080",
   gray: "#808080",
-  brown: "#A52A2A",
-  beige: "#F5F5DC",
-  silver: "#C0C0C0",
+  brown: "#a52a2a",
+  beige: "#f5f5dc",
+  silver: "#c0c0c0",
   maroon: "#800000",
   olive: "#808000",
   teal: "#008080",
-  aqua: "#00FFFF",
-  coral: "#FF7F50",
-  mint: "#98FF98",
-  lavender: "#E6E6FA",
-  khaki: "#C3B091",
-  mustard: "#FFDB58",
+  aqua: "#00ffff",
+  coral: "#ff7f50",
+  mint: "#98ff98",
+  lavender: "#e6e6fa",
+  khaki: "#c3b091",
+  mustard: "#ffdb58",
   burgundy: "#800020",
-  blush: "#DE5D83",
-  "baby blue": "#89CFF0",
-  lime: "#00FF00",
-  cream: "#FFFDD0",
-  tan: "#D2B48C",
-  chocolate: "#7B3F00",
-  indigo: "#4B0082",
-  violet: "#8F00FF",
-  crimson: "#DC143C",
-  "dark chocolate": "#4A3728",
-  "heather grey": "#9B9B9B",
+  blush: "#de5d83",
+  "baby blue": "#89cff0",
+  lime: "#00ff00",
+  cream: "#fffdd0",
+  tan: "#d2b48c",
+  chocolate: "#7b3f00",
+  indigo: "#4b0082",
+  violet: "#8f00ff",
+  crimson: "#dc143c",
+  "dark chocolate": "#4a3728",
+  "heather grey": "#9b9b9b",
   "sport gray": "#808080",
-  "dark grey": "#A9A9A9",
-  "dark gray": "#A9A9A9",
+  "dark grey": "#a9a9a9",
+  "dark gray": "#a9a9a9",
 };
 
 // ─── Résout un hex de couleur à partir des champs Printful natifs ──────────
@@ -70,18 +70,16 @@ function resolveHexColor(
   rawCode?: string,
   rawCode2?: string,
 ): string {
-  // Normalise hex en lowercase : le Store API retourne "#ffffff",
-  // le Catalog API retourne "#FFFFFF" → le matching Map échouait
+  // Normalise TOUS les hex en lowercase : Store API → "#ffffff",
+  // Catalog API → "#FFFFFF", COLOR_NAME_TO_HEX → "#FFFFFF"
+  // Sans normalisation le matching Map échoue
   if (rawCode2 && /^#/.test(rawCode2)) return rawCode2.toLowerCase();
   if (rawCode && /^#/.test(rawCode)) return rawCode.toLowerCase();
   const key = (rawColor || "").toLowerCase().replace(/\s+/g, "_");
-  return (
-    COLOR_NAME_TO_HEX[key] ||
-    COLOR_NAME_TO_HEX[(rawColor || "").toLowerCase()] ||
-    rawCode?.toLowerCase() ||
-    rawColor ||
-    "#CCCCCC"
-  );
+  const fromMap =
+    COLOR_NAME_TO_HEX[key] || COLOR_NAME_TO_HEX[(rawColor || "").toLowerCase()];
+  if (fromMap) return fromMap.toLowerCase();
+  return rawCode?.toLowerCase() || rawColor || "#cccccc";
 }
 
 // ─── Source de vérité unique couleur × taille × prix ───────────────────────
@@ -100,19 +98,29 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     if (v.size && v.retail_price != null) {
       entry.sizes.set(v.size, parseFloat(v.retail_price));
     }
-    if (!entry.image) {
-      entry.image =
-        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+    // Priorité 1 : image du produit catalogue (vrai t-shirt, varie par couleur)
+    // v.product.image = image catalogue du variant (ex: t-shirt blanc, t-shirt noir)
+    if (!entry.image && v.product?.image) {
+      entry.image = v.product.image;
     }
   }
 
-  // Priorité aux images du catalogue (plus représentatives du produit)
+  // Priorité 2 : images du catalogue (écrase si plus spécifique)
   for (const cv of catalogVariants || []) {
     const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
     const entry = byColor.get(hex);
     if (entry) {
-      // L'image catalogue écrase toujours la preview si elle existe
       if (cv.image) entry.image = cv.image;
+    }
+  }
+
+  // Priorité 3 (fallback) : print file preview (design à imprimer)
+  for (const v of syncVariants || []) {
+    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    const entry = byColor.get(hex);
+    if (entry && !entry.image) {
+      entry.image =
+        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
     }
   }
 
@@ -502,9 +510,6 @@ export default {
             syncProduct?.thumbnail_url ||
             mainVariant?.files?.[0]?.thumbnail_url ||
             "";
-          const price = mainVariant?.retail_price
-            ? parseFloat(mainVariant.retail_price)
-            : null;
 
           const catalogProductId =
             mainVariant?.product?.product_id || mainVariant?.product_id;
@@ -554,6 +559,10 @@ export default {
               : (
                   mainVariant?.files?.map((f: any) => f.thumbnail_url) || []
                 ).filter((u: string) => u && u.trim().length > 0);
+
+          const price = mainVariant?.retail_price
+            ? parseFloat(mainVariant.retail_price)
+            : null;
 
           const productPayload: Record<string, any> = {
             title: syncProduct?.name || pfProduct.name || "Sans titre",
