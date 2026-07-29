@@ -4,10 +4,17 @@ import { Copy, Check } from "lucide-react";
 
 interface CopyIDProps {
   id: string;
-  size?: number;
+  /** Taille du conteneur carré (22px par défaut) */
+  containerSize?: number;
+  /** Taille de l'icône à l'intérieur (16px par défaut) */
+  iconSize?: number;
 }
 
-export default function CopyID({ id, size = 14 }: CopyIDProps) {
+export default function CopyID({
+  id,
+  containerSize = 22,
+  iconSize = 16,
+}: CopyIDProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -21,21 +28,46 @@ export default function CopyID({ id, size = 14 }: CopyIDProps) {
   return (
     <span
       onClick={handleCopy}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        verticalAlign: "middle",
-        cursor: "pointer",
-        marginLeft: 6,
-        color: copied ? "var(--color-success)" : "var(--color-ink4)",
-        flexShrink: 0,
-        lineHeight: 1,
-      }}
+      className="inline-flex items-center justify-center"
       title={`Copier ${id}`}
       role="button"
       tabIndex={0}
+      style={{
+        width: containerSize,
+        height: containerSize,
+        flexShrink: 0,
+        cursor: "pointer",
+        verticalAlign: "middle",
+        marginLeft: 4,
+      }}
     >
-      {copied ? <Check size={size} /> : <Copy size={size} />}
+      <span
+        className="flex items-center justify-center transition-opacity duration-200"
+        style={{
+          width: containerSize,
+          height: containerSize,
+          opacity: 1,
+        }}
+      >
+        {copied ? (
+          <Check
+            size={iconSize}
+            style={{
+              color: "var(--color-success)",
+              margin: "auto",
+            }}
+          />
+        ) : (
+          <Copy
+            size={iconSize}
+            className="m-auto"
+            style={{
+              color: "var(--color-ink4)",
+              margin: "auto",
+            }}
+          />
+        )}
+      </span>
     </span>
   );
 }
