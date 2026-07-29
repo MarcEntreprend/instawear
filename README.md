@@ -292,6 +292,7 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Icône animée** — badge dans le menu latéral admin pendant une action
 - [x] Popups ne cachent plus les boutons d'achat/paiement
 - [ ] **Copie order ID en un clic** — icône + animation check
+- [ ] **Mobile friendly** - Spécialement every user page
 
 ### 📦 Produits
 
