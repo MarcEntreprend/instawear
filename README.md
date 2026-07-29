@@ -228,108 +228,136 @@ The test: Every changed line should trace directly to my request.
 ## 4. Goal-Driven Execution
 ```
 
-## 📊 Checklist mise à jour
-
-### 🐛 Bugs
-
-#### Panier
-
-- [*] **Double ajout au panier** : parfois 2 items ajoutés au lieu d'1 lors du clic sur "Ajouter au panier" ou "Acheter maintenant". Vérifier.
-- [x] **Toast caché derrière la modale** : quand on ajoute au panier depuis la modale produit, le toast s'affiche derrière
-- [*] **Persistance panier après refresh** : le panier ne doit être vidé qu'après un checkout réussi, pas avant
-- [x] **Validation formulaire checkout** : quand un champ obligatoire manque, scroller vers ce champ et le mettre en surbrillance
-- [x] **Effacer message d'erreur** : quand l'utilisateur commence à remplir un champ, effacer le message d'erreur associé
-- [x] **"This order does not belong to you"** : le message apparaît quand l'email du client connecté ne correspond pas à celui de la commande. Vérifier dans `App.tsx` (retour Stripe) et `CheckoutFlow.tsx` si le flux invité (utilisateur non connecté) est bien géré sans bloquer la commande.
-- [x] **Écart prix checkout (14 $) vs Stripe (22 $)** : le total transmis à Stripe (`unitAmount: Math.round(item.product.price * 100)`) n'inclut pas les frais de port. Vérifier comment le `total` (avec shipping) est transmis à l'Edge Function `stripe-checkout`.
-
-#### Header
-
-- [x] **Logo / nom InstaWear** : le clic doit rafraîchir la page (pas seulement rester sur place)
-- [x] **Barre de recherche** : le clic sur un résultat doit rediriger vers le produit
-
-#### Order Page
-
-- [x] **Bouton "Envoyer à Printful"** : ajouter une animation de chargement (spinner) pendant l'envoi
-- [x] **Changement de statut "En production"** : doit avoir la même action que le bouton "Envoyer à Printful" du modal
-- [ ] **Statut non synchronisé** : gérer le cas où la commande n'est pas envoyée à Printful mais le site affiche "envoyé"
-
-#### Notifications
-
-- [x] **Actions groupées** : quand on sélectionne des éléments mixtes (lus + non lus), les boutons "Marquer lu" et "Marquer non lu" doivent être actifs
-- [x] **Badge dans l'onglet navigateur** : afficher le nombre de notifications non lues, OU le nombre d'item dans cart (comme WhatsApp)
-
-#### Sidebar (panier)
-
-- [x] **Fermeture au clic extérieur** : fermer le drawer quand on clique en dehors
-
-#### Offline / Erreurs
-
-- [x] **Fallback réseau** : message générique "Oups ! Une erreur inattendue…" quand il n'y a pas d'internet
-- [x] **Fallback images** : image par défaut quand le chargement échoue
-- [x] **Placeholder barre de recherche** : texte générique quand aucun produit n'est chargé
-
-#### Stripe Checkout
-
-- [x] **Animation de chargement** : spinner ou loader quand la redirection Stripe prend du temps
-- [x] **Simuler email** : qd purchase confirmé par stripe
+# 📊 Checklist InstaWear
 
 ---
 
-### ✨ Améliorations
+## 🐛 Bugs
 
-#### UX / UI
+### Panier
 
-- [ ] **Animations réactives** : standardiser les effets hover/click sur tous les boutons (pills, liens, CTA)
-- [ ] **Icône animée** : point/badge animé dans le menu latéral admin quand une action est en cours
-- [x] **Popups cachent boutons** : les popups peuvent cacher les boutons d'achats / paiements
+- [*] **Double ajout** — parfois 2 items au lieu d'1 au clic sur "Ajouter au panier" ou "Acheter maintenant"
+- [*] **Persistance après refresh** — le panier ne doit être vidé qu'après un checkout réussi
+- [x] Toast caché derrière la modale
+- [x] Validation formulaire : scroll vers le champ manquant + surbrillance
+- [x] Effacement du message d'erreur quand l'utilisateur remplit le champ
+- [x] Message "This order does not belong to you" pour les invités
+- [x] Écart de prix entre checkout et Stripe (frais de port manquants)
 
-#### Email
+### Header
 
-- [x] **Remplacer Telegram par email** : envoyer la confirmation de commande par email (pas seulement Telegram)
-- [x] qd le user ne trouve pas la page recherchée -> 404
-- [x] bouton desinscription dans profil
+- [x] Logo / nom InstaWear rafraîchit la page
+- [x] Barre de recherche redirige vers le produit
 
-#### Produits
+### Order Page (admin)
 
-- [ ] **Product colors** : make sure they show up and are selectionable for specific purchase.
-- [ ] **Size** : make sure they show up and are selectionable for specific purchase.
-- [ ] **Standardiser disponibilité produit** : créer un hook/helper réutilisable `useProductAvailability` au lieu de dupliquer la logique dans chaque fichier
-- [ ] **Visibilité admin** : la logique actif/inactif fonctionne dans Promotions, Deals et le frontstore, mais pas dans les autres pages admin
-- [ ] dans setting, comparer 5 produits synchronisés versus le nombre de produits nouveaux (4)
-- [ ] Size guide : still the same for shirt, but for cap, and etc ?
+- [x] Bouton "Envoyer à Printful" avec animation spinner
+- [x] Statut "En production" = même action que "Envoyer à Printful"
+- [ ] **Statut non synchronisé** — commande pas envoyée à Printful mais site affiche "envoyé"
 
-#### Footer
+### Notifications (admin)
 
-- [ ] **Newsletter** : repenser l'intérêt pour le client (offres, bonus, exclusivités)
-- [ ] **Liens** : vérifier et compléter les liens (Mentions légales, CGU, etc.)
+- [x] Actions groupées actives sur sélections mixtes (lus + non lus)
+- [x] Badge dans l'onglet navigateur (nombre d'items dans le panier)
 
-#### Interface utilisateur
+### Sidebar panier
 
-- [x] **Espace client** : permettre aux utilisateurs de voir leurs commandes, suivis, etc.
-- [ ] **Saved Address** : Saved `Addresses` :
-  - Make them editable.
-  - Still KEEP last one based on last transaction
-  - but also a prefered one
-- Voir `#### Email / post domain`
-- [ ] Order confirmation emails
-- [ ] Shipping update emails
-- [ ] Promotions & deals
+- [x] Fermeture au clic extérieur
 
-#### Email / post domain
+### Offline / Erreurs
 
-- [ ] **Resend : aligner les URLs** : les URLs dans les emails doivent correspondre au domaine d'envoi (`instawear.vercel.app`)
-- [ ] **Resend : héberger les images** : les images doivent être sur le même domaine (pas `files.cdn.printful.com`)
-- [ ] **Resend : infos business** : mettre à jour l'adresse postale (Doral, FL) dans le pied de page email
+- [x] Fallback réseau (message "Oups !")
+- [x] Fallback images
+- [x] Placeholder barre de recherche générique
+
+### Stripe Checkout
+
+- [x] Animation de chargement (spinner "Redirection vers Stripe…")
+- [x] Simulation email à la confirmation
+
+---
+
+## ✨ Améliorations
+
+### 🔐 Sécurité (⚠️ avant production)
+
+- [ ] **RLS (Row Level Security)** sur les tables Supabase
+- [ ] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
+- [ ] **Protection injections** — URL, console, fuite de clés
+- [ ] Autres ?
+
+### 🧩 UX / UI
+
+- [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
+- [ ] **Icône animée** — badge dans le menu latéral admin pendant une action
+- [x] Popups ne cachent plus les boutons d'achat/paiement
+- [ ] **Copie order ID en un clic** — icône + animation check
+
+### 📦 Produits
+
+- [x] Couleurs affichées et sélectionnables
+- [x] Tailles affichées et sélectionnables
+- [ ] **Image du variant sélectionné** dans le panier, favoris, checkout
+- [ ] **Image placeholder du shipping fee** dans Stripe — améliorer le visuel
+- [ ] **Standardiser `useProductAvailability`** — hook réutilisable
+- [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
+- [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
+- [ ] **Guide des tailles** — adapter par type de produit (shirt, casquette…)
+
+### 🚚 Livraison
+
+- [ ] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
+
+### 📧 Emails transactionnels
+
+- [x] Commande confirmée (Order confirmed)
+  - [ ] Ajouter les frais de transport dans le récap
+- [x] Paiement confirmé (Paid)
+- [ ] Paiement en attente (Pending)
+- [x] En production (In Production)
+- [x] Expédiée (Shipped)
+- [ ] Livrée (Delivered)
+- [ ] Annulée (Cancelled)
+- [x] Promotions & deals
+
+### 📮 Emails / Resend (post-domain)
+
+- [ ] **Aligner les URLs** — utiliser le domaine d'envoi (`instawear.vercel.app`)
+- [ ] **Héberger les images** — ne pas utiliser `files.cdn.printful.com`
+- [ ] **Infos business** — adresse postale Doral, FL dans le pied de page
+
+### 👤 Espace client
+
+- [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
+- [ ] **Adresses sauvegardées** :
+  - [ ] Éditables
+  - [ ] Conserver la dernière utilisée
+  - [ ] Définir une adresse préférée
+- [x] Page 404 personnalisée
+- [x] Bouton désinscription dans le profil
+
+### 🦶 Footer
+
+- [ ] **Newsletter** — repenser l'intérêt client (offres, bonus, exclusivités)
+- [ ] **Liens** — compléter (Mentions légales, CGU, politique de retour…)
+
+---
+
+### 📊 Compteurs
+
+| Catégorie              | Restant      |
+| ---------------------- | ------------ |
+| Bugs                   | 3            |
+| Sécurité               | 4            |
+| UX/UI                  | 3            |
+| Produits               | 6            |
+| Livraison              | 1            |
+| Emails transactionnels | 5            |
+| Emails / Resend        | 3            |
+| Espace client          | 1 (adresses) |
+| Footer                 | 2            |
+| **Total**              | **28**       |
 
 ## Codes morts - rechercher et vérifier
 
 - `src\components\DealsSection.tsx` -> _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
--
-
-### 📊 Résumé
-
-| Catégorie     | Restant   |
-| ------------- | --------- |
-| Bugs          | 3 (`[ ]`) |
-| Améliorations | 9 (`[ ]`) |
-| **Total**     | **12**    |
