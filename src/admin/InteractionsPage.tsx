@@ -22,6 +22,7 @@ import {
   Send,
 } from "lucide-react";
 import { interactionApi } from "../api/supabaseApi";
+import CopyID from "../components/CopyID";
 import { useHighlightListener } from "./useAdminHighlight";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -82,6 +83,45 @@ const TYPE_META: Record<
   feedback: { label: "Feedback", icon: <ThumbsUp size={14} /> },
   retention: { label: "Fidélisation", icon: <User size={14} /> },
 };
+
+// Regex pour détecter un ID de commande (ORD-année-suite)
+const ORDER_ID_REGEX = /\b(ord-\d{4}-\d{4,5})\b/gi;
+
+/**
+ * Transforme un texte en ReactNode en remplaçant les IDs de commande
+ * par leur version majuscule + bouton CopyID.
+ */
+function formatMessageText(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  // Réinitialiser le regex (car il a le flag global)
+  const regex = new RegExp(ORDER_ID_REGEX.source, "gi");
+
+  while ((match = regex.exec(text)) !== null) {
+    // Texte avant le match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // ID de commande formaté
+    const orderId = match[0].toUpperCase();
+    parts.push(
+      <span key={match.index} style={{ whiteSpace: "nowrap" }}>
+        {orderId}
+        <CopyID id={orderId} size={12} />
+      </span>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Texte restant après le dernier match
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
 
 function StatusBadge({ status }: { status: InteractionStatus }) {
   const s = STATUS_META[status];
@@ -662,6 +702,7 @@ function TicketDetail({
           {ticket.metadata.orderId && (
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <ShoppingBag size={12} /> Commande : {ticket.metadata.orderId}
+              <CopyID id={ticket.metadata.orderId} />
             </span>
           )}
           {ticket.metadata.productTitle && (
@@ -769,7 +810,7 @@ function TicketDetail({
               >
                 {msg.from === "admin" ? "Vous" : ticket.customerName}
               </p>
-              <p>{msg.text}</p>
+              <p>{formatMessageText(msg.text)}</p>
             </div>
             <span
               style={{ fontSize: 10, color: "var(--color-ink4)", marginTop: 4 }}
