@@ -245,12 +245,20 @@ export function useOrders() {
       setSaving(true);
       try {
         await orderApi.updateStatus(id, status);
+        // Send appropriate email
+        const order = (data ?? []).find((o) => o.id === id);
+        if (order && order.clientEmail) {
+          const { sendDeliveredEmail, sendCancelledEmail } =
+            await import("../utils/emailTemplates");
+          if (status === "delivered") sendDeliveredEmail(order);
+          else if (status === "cancelled") sendCancelledEmail(order);
+        }
         refetch();
       } finally {
         setSaving(false);
       }
     },
-    [refetch],
+    [refetch, data],
   );
 
   const exportCsv = useCallback(async () => {

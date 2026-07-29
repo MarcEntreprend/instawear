@@ -178,6 +178,7 @@ function sendOrderEmail(
   stateCode: string,
   cart: CartItem[],
   total: number,
+  shippingCost: number,
   currencySymbol: string,
 ) {
   const itemsHtml = cart
@@ -187,7 +188,7 @@ function sendOrderEmail(
       <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
         <table><tr>
           <td style="width: 60px; vertical-align: top;">
-            <img src="${item.product.image || PLACEHOLDER_IMG}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
+            <img src="${item.product.image && !item.product.image.includes("cdn.printful.com") ? item.product.image : window.location.origin + "/Instawear-missing-item.svg"}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
           </td>
           <td style="vertical-align: top; padding-left: 12px;">
             <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product.title}</p>
@@ -213,8 +214,24 @@ function sendOrderEmail(
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">${itemsHtml}
-<tr><td style="padding-top:16px;text-align:right;font-size:16px;font-weight:700;">Order total: ${total.toFixed(2)} ${currencySymbol}</td></tr></table>
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+  ${itemsHtml}
+  <tr>
+    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
+      Subtotal: ${(total - shippingCost).toFixed(2)} ${currencySymbol}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
+      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currencySymbol}`}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
+      Order total: ${total.toFixed(2)} ${currencySymbol}
+    </td>
+  </tr>
+</table>
 <a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
 <p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
@@ -1330,6 +1347,24 @@ function StripeCardForm({
           currencySymbol,
         );
 
+        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
+          sendPendingEmail({
+            id: orderId,
+            clientEmail: contactEmail,
+            clientName: contactName,
+            items: cart.map((item) => ({
+              productTitle: item.product.title,
+              productImage: getVariantImage(item.product, item.selectedColor),
+              selectedColor: item.selectedColor,
+              selectedSize: item.selectedSize,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
+            totalAmount: total,
+            shippingCost,
+          });
+        });
+
         // Email confirmation via Resend
         sendOrderEmail(
           orderId,
@@ -1343,6 +1378,7 @@ function StripeCardForm({
           stateCode,
           cart,
           total,
+          shippingCost,
           currencySymbol,
         );
 
@@ -2282,6 +2318,25 @@ export default function CheckoutFlow({
           currencySymbol,
         );
 
+        // Email pending
+        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
+          sendPendingEmail({
+            id: newOrderId,
+            clientEmail: email,
+            clientName: name,
+            items: cart.map((item) => ({
+              productTitle: item.product.title,
+              productImage: getVariantImage(item.product, item.selectedColor),
+              selectedColor: item.selectedColor,
+              selectedSize: item.selectedSize,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
+            totalAmount: total,
+            shippingCost,
+          });
+        });
+
         // Email confirmation via Resend
         sendOrderEmail(
           newOrderId,
@@ -2295,6 +2350,7 @@ export default function CheckoutFlow({
           stateCode,
           cart,
           total,
+          shippingCost,
           currencySymbol,
         );
       })();
