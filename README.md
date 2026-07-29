@@ -304,6 +304,7 @@ The test: Every changed line should trace directly to my request.
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
 - [ ] **Guide des tailles** — adapter par type de produit (shirt, casquette…)
+- [ ] **Standard info - missing product** - qd effacé, plus disponible, etc
 
 ### 🚚 Livraison
 
