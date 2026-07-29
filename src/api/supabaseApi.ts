@@ -642,6 +642,55 @@ export const customerApi = {
     if (error) throw error;
   },
 
+  // ── Sauvegarde intelligente pour le checkout ──────────────────
+  async saveAddressIfNew(
+    customerId: string,
+    address: {
+      full_name: string;
+      phone: string;
+      address: string;
+      city: string;
+      zip: string;
+      country: string;
+      state_code?: string;
+      tax_number?: string;
+    },
+  ): Promise<string | null> {
+    // Vérifier si une adresse identique existe déjà
+    const { data: existing } = await supabase
+      .from("customer_addresses")
+      .select("id")
+      .eq("customer_id", customerId)
+      .eq("full_name", address.full_name)
+      .eq("address", address.address)
+      .eq("city", address.city)
+      .eq("zip", address.zip)
+      .eq("country", address.country)
+      .maybeSingle();
+
+    if (existing) return existing.id;
+
+    // Ajouter la nouvelle adresse (limite 3 déjà gérée dans addAddress)
+    const { data: created, error } = await supabase
+      .from("customer_addresses")
+      .insert({
+        customer_id: customerId,
+        full_name: address.full_name,
+        phone: address.phone,
+        address: address.address,
+        city: address.city,
+        zip: address.zip,
+        country: address.country,
+        state_code: address.state_code || null,
+        tax_number: address.tax_number || null,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return created.id;
+  },
+
   async setDefaultAddress(
     customerId: string,
     addressId: string,

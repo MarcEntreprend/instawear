@@ -1,8 +1,4 @@
 // src/components/AccountPage.tsx
-//
-// Redesign UX — visuel uniquement, zéro modification de logique métier.
-// Layout: sidebar identité (desktop) + bottom-nav (mobile), contenu scrollable.
-// Dark mode: 100% automatique via les variables CSS du design system.
 
 import React, {
   useState,
@@ -50,7 +46,9 @@ import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
 import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { formatCPFCNPJ } from "../utils/format";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 
 // ─── Props ────────────────────────────────────────────────────────────
@@ -2671,6 +2669,8 @@ function ProfileTab({
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
   const [newAddress, setNewAddress] = useState({
     full_name: "",
     address: "",
@@ -2678,6 +2678,8 @@ function ProfileTab({
     zip: "",
     country: "US",
     phone: "",
+    state_code: "",
+    tax_number: "",
   });
   const [savingAddress, setSavingAddress] = useState(false);
 
@@ -2694,7 +2696,13 @@ function ProfileTab({
     setLoadingAddresses(true);
     customerApi
       .getAddresses(customerId)
-      .then(setAddresses)
+      .then((addrs) => {
+        // Placer l'adresse par défaut en tête au chargement initial
+        const sorted = [...addrs].sort((a, b) =>
+          a.is_default ? -1 : b.is_default ? 1 : 0,
+        );
+        setAddresses(sorted);
+      })
       .finally(() => setLoadingAddresses(false));
   }, [customerId]);
 
@@ -2727,6 +2735,8 @@ function ProfileTab({
         zip: "",
         country: "US",
         phone: "",
+        state_code: "",
+        tax_number: "",
       });
     } catch (e: any) {
       alert(e.message);
@@ -2738,6 +2748,25 @@ function ProfileTab({
   const handleDeleteAddress = async (id: string) => {
     await customerApi.deleteAddress(id);
     setAddresses((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleStartEdit = (addr: any) => {
+    setEditingAddressId(addr.id);
+    setEditForm({ ...addr });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAddressId(null);
+    setEditForm({});
+  };
+
+  const handleSaveEdit = async () => {
+    if (!customerId || !editingAddressId) return;
+    await customerApi.updateAddress(editingAddressId, editForm);
+    const updated = await customerApi.getAddresses(customerId);
+    setAddresses(updated);
+    setEditingAddressId(null);
+    setEditForm({});
   };
 
   const handleSetDefault = async (id: string) => {
@@ -3000,11 +3029,41 @@ function ProfileTab({
                   color: "var(--color-ink)",
                 }}
               >
-                <option value="US">United States</option>
-                <option value="CA">Canada</option>
-                <option value="GB">United Kingdom</option>
-                <option value="FR">France</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </option>
+                ))}
               </select>
+              <input
+                placeholder="State (optional)"
+                value={newAddress.state_code}
+                onChange={(e) =>
+                  setNewAddress({ ...newAddress, state_code: e.target.value })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              <input
+                placeholder="Tax number (optional)"
+                value={newAddress.tax_number}
+                onChange={(e) =>
+                  setNewAddress({
+                    ...newAddress,
+                    tax_number: formatCPFCNPJ(e.target.value),
+                  })
+                }
+                className="rounded-lg border px-2 py-1 text-sm"
+                style={{
+                  borderColor: "var(--color-border)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
             </div>
             <div className="flex gap-2 justify-end">
               <button
@@ -3058,39 +3117,205 @@ function ProfileTab({
                   onChange={() => handleSetDefault(addr.id)}
                   style={{ accentColor: "var(--color-accent)", marginTop: 3 }}
                 />
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-[13px] font-semibold"
-                    style={{ color: "var(--color-ink)" }}
-                  >
-                    {addr.full_name}
-                  </p>
-                  <p
-                    className="text-[12px] leading-relaxed"
-                    style={{ color: "var(--color-ink3)" }}
-                  >
-                    {addr.address}
-                    <br />
-                    {addr.city}, {addr.zip}
-                    <br />
-                    {addr.country}
-                  </p>
-                  {addr.phone && (
-                    <p
-                      className="text-[11px] mt-0.5"
-                      style={{ color: "var(--color-ink4)" }}
+
+                {editingAddressId === addr.id ? (
+                  /* ── Mode édition ──────────────────────── */
+                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+                    <input
+                      value={editForm.full_name || ""}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          full_name: e.target.value,
+                        })
+                      }
+                      placeholder="Full name"
+                      className="rounded-lg border px-2 py-1 text-sm col-span-2"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <input
+                      value={editForm.phone || ""}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, phone: e.target.value })
+                      }
+                      placeholder="Phone"
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <input
+                      value={editForm.address || ""}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, address: e.target.value })
+                      }
+                      placeholder="Address"
+                      className="rounded-lg border px-2 py-1 text-sm col-span-2"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <input
+                      value={editForm.city || ""}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, city: e.target.value })
+                      }
+                      placeholder="City"
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <input
+                      value={editForm.zip || ""}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, zip: e.target.value })
+                      }
+                      placeholder="ZIP"
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <select
+                      value={editForm.country || "US"}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, country: e.target.value })
+                      }
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
                     >
-                      {addr.phone}
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={editForm.state_code || ""}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          state_code: e.target.value,
+                        })
+                      }
+                      placeholder="State"
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <input
+                      value={editForm.tax_number || ""}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          tax_number: formatCPFCNPJ(e.target.value),
+                        })
+                      }
+                      placeholder="Tax number"
+                      className="rounded-lg border px-2 py-1 text-sm"
+                      style={{
+                        borderColor: "var(--color-border)",
+                        background: "var(--color-surface)",
+                        color: "var(--color-ink)",
+                      }}
+                    />
+                    <div className="col-span-2 flex gap-2 justify-end mt-1">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="text-xs font-semibold text-(--color-ink4)"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        className="text-xs font-bold bg-(--color-accent) text-white px-3 py-1 rounded-lg"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Mode affichage ──────────────────────── */
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p
+                        className="text-[13px] font-semibold"
+                        style={{ color: "var(--color-ink)" }}
+                      >
+                        {addr.full_name}
+                      </p>
+                      {addr.is_default && (
+                        <span
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          style={{
+                            background: "var(--color-accent)",
+                            color: "white",
+                          }}
+                        >
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className="text-[12px] leading-relaxed"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
+                      {addr.address}
+                      <br />
+                      {addr.city}, {addr.zip}
+                      <br />
+                      {addr.country}
                     </p>
+                    {addr.phone && (
+                      <p
+                        className="text-[11px] mt-0.5"
+                        style={{ color: "var(--color-ink4)" }}
+                      >
+                        {addr.phone}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Boutons d'action */}
+                <div className="flex flex-col gap-1">
+                  {editingAddressId !== addr.id && (
+                    <button
+                      onClick={() => handleStartEdit(addr)}
+                      className="text-(--color-ink4) hover:text-(--color-ink2) p-1"
+                      title="Edit address"
+                    >
+                      <Edit3 size={13} strokeWidth={1.75} />
+                    </button>
                   )}
+                  <button
+                    onClick={() => handleDeleteAddress(addr.id)}
+                    className="text-rose-400 hover:text-rose-600 p-1"
+                    title="Delete address"
+                  >
+                    <Trash2 size={14} strokeWidth={2} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteAddress(addr.id)}
-                  className="text-rose-400 hover:text-rose-600 p-1"
-                  title="Delete address"
-                >
-                  <Trash2 size={14} strokeWidth={2} />
-                </button>
               </div>
             ))}
           </div>

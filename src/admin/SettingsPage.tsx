@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { usePod, useStoreSettings, useReferenceLists } from "./adminHooks";
 import { StoreSettings, SyncLog } from "./adminTypes";
+import { COUNTRIES } from "../data/countries";
 import { apiConnectionsApi, referenceListApi } from "../api/supabaseApi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -566,14 +567,11 @@ export default function SettingsPage() {
                     cursor: "pointer",
                   }}
                 >
-                  <option value="US">États-Unis (USD)</option>
-                  <option value="BR">Brésil (BRL)</option>
-                  <option value="CA">Canada (CAD)</option>
-                  <option value="GB">Royaume-Uni (GBP)</option>
-                  <option value="CH">Suisse (CHF)</option>
-                  <option value="FR">France (EUR)</option>
-                  <option value="JP">Japon (JPY)</option>
-                  <option value="BE">Belgique (EUR)</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag} {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

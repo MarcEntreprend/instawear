@@ -35,7 +35,10 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
 import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
+import { customerApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import { formatCPFCNPJ } from "../utils/format";
+import { COUNTRIES } from "../data/countries";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -78,21 +81,6 @@ const STATE_REQUIRED_COUNTRIES = ["US", "CA", "BR", "AU"];
 function formatCardNumber(value: string): string {
   const cleaned = value.replace(/\D/g, "").slice(0, 16);
   return cleaned.replace(/(\d{4})(?=\d)/g, "$1 ");
-}
-
-function formatCPFCNPJ(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 14);
-  if (digits.length <= 11) {
-    return digits
-      .replace(/^(\d{3})(\d)/, "$1.$2")
-      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-      .replace(/\.(\d{3})(\d)/, ".$1-$2");
-  }
-  return digits
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
 function formatExpiry(value: string): string {
@@ -683,6 +671,9 @@ interface ContactStepProps {
   setEmail: (v: string) => void;
   reception: "retrait" | "livraison";
   setReception: (v: "retrait" | "livraison") => void;
+  savedAddresses: any[];
+  selectedAddressId: string;
+  setSelectedAddressId: (v: string) => void;
   address: string;
   setAddress: (v: string) => void;
   city: string;
@@ -712,6 +703,9 @@ function ContactStep({
   setEmail,
   reception,
   setReception,
+  savedAddresses,
+  selectedAddressId,
+  setSelectedAddressId,
   address,
   setAddress,
   city,
@@ -820,6 +814,42 @@ function ContactStep({
           </div>
         </button>
       </div>
+
+      {/* Saved addresses */}
+      {savedAddresses.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+            Saved Address
+          </label>
+          <select
+            value={selectedAddressId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedAddressId(id);
+              const addr = savedAddresses.find((a) => a.id === id);
+              if (addr) {
+                setName(addr.full_name || "");
+                setPhone(addr.phone || "");
+                setAddress(addr.address || "");
+                setCity(addr.city || "");
+                setZip(addr.zip || "");
+                setCountry(addr.country || "US");
+                setStateCode(addr.state_code || "");
+                setTaxNumber(addr.tax_number || "");
+              }
+            }}
+            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
+            style={{ border: "1.5px solid var(--color-border2)" }}
+          >
+            <option value="">— Choose an address —</option>
+            {savedAddresses.map((addr) => (
+              <option key={addr.id} value={addr.id}>
+                {addr.full_name}, {addr.address}, {addr.city}, {addr.zip}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TextField
@@ -947,14 +977,11 @@ function ContactStep({
               className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
               style={{ border: "1.5px solid var(--color-border2)" }}
             >
-              <option value="US">United States</option>
-              <option value="CA">Canada</option>
-              <option value="GB">United Kingdom</option>
-              <option value="FR">France</option>
-              <option value="CH">Switzerland</option>
-              <option value="BE">Belgium</option>
-              <option value="BR">Brazil</option>
-              <option value="JP">Japan</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1207,6 +1234,53 @@ function StripeCardForm({
     }
 
     if (paymentIntent && paymentIntent.status === "succeeded") {
+      // Sauvegarder l'adresse de livraison pour le client
+      let clientId: string | null = null;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.email) {
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("email", user.email)
+            .single();
+          if (existingCustomer) {
+            clientId = existingCustomer.id;
+          } else {
+            const { data: newCustomer } = await supabase
+              .from("customers")
+              .insert({
+                email: user.email,
+                name: contactName,
+              })
+              .select("id")
+              .single();
+            clientId = newCustomer?.id ?? null;
+          }
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+      if (clientId) {
+        customerApi
+          .saveAddressIfNew(clientId, {
+            full_name: contactName,
+            phone: contactPhone,
+            address,
+            city,
+            zip,
+            country,
+            state_code: stateCode,
+            tax_number: taxNumber,
+          })
+          .then((addressId) => {
+            if (addressId) customerApi.setDefaultAddress(clientId, addressId);
+          })
+          .catch(console.warn);
+      }
+
       // 3. Save order in Supabase
       try {
         await orderApi.create({
@@ -1821,6 +1895,28 @@ export default function CheckoutFlow({
 
   const [currencyCode, setCurrencyCode] = useState("usd");
 
+  // ── Adresses sauvegardées du client ──────────────────────────
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.email) return;
+      supabase
+        .from("customers")
+        .select("id")
+        .eq("email", user.email)
+        .single()
+        .then(({ data: customers }) => {
+          if (customers) {
+            customerApi.getAddresses(customers.id).then((addrs) => {
+              setSavedAddresses(addrs);
+            });
+          }
+        });
+    });
+  }, []);
+
   // Load default country + shipping thresholds from store_settings + location
   useEffect(() => {
     storeSettingsApi
@@ -1998,6 +2094,25 @@ export default function CheckoutFlow({
         })),
       } as any);
 
+      // Sauvegarder l'adresse de livraison pour le client
+      if (clientId) {
+        customerApi
+          .saveAddressIfNew(clientId, {
+            full_name: name,
+            phone,
+            address,
+            city,
+            zip,
+            country,
+            state_code: stateCode,
+            tax_number: taxNumber,
+          })
+          .then((addressId) => {
+            if (addressId) customerApi.setDefaultAddress(clientId, addressId);
+          })
+          .catch(console.warn);
+      }
+
       // Redirect to Stripe Checkout
       const stripeRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
@@ -2126,6 +2241,25 @@ export default function CheckoutFlow({
             unitPrice: item.unitPrice,
           })),
         } as any);
+
+        // Sauvegarder l'adresse de livraison pour le client
+        if (clientId) {
+          customerApi
+            .saveAddressIfNew(clientId, {
+              full_name: name,
+              phone,
+              address,
+              city,
+              zip,
+              country,
+              state_code: stateCode,
+              tax_number: taxNumber,
+            })
+            .then((addressId) => {
+              if (addressId) customerApi.setDefaultAddress(clientId, addressId);
+            })
+            .catch(console.warn);
+        }
 
         // Send to Printful (async)
         podApi
@@ -2275,6 +2409,9 @@ export default function CheckoutFlow({
                   setEmail={setEmail}
                   reception={reception}
                   setReception={setReception}
+                  savedAddresses={savedAddresses}
+                  selectedAddressId={selectedAddressId}
+                  setSelectedAddressId={setSelectedAddressId}
                   address={address}
                   setAddress={setAddress}
                   city={city}
