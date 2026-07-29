@@ -31,6 +31,7 @@ import AdminUsersPage from "./AdminUsersPage";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useDashboard } from "./adminHooks";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import CopyID from "../components/CopyID";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { orderApi, dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
@@ -652,6 +653,7 @@ function DashboardHome({
                       }}
                     >
                       {order.id}
+                      <CopyID id={order.id} />
                     </button>
                     {/* <p style={{ fontSize: 11, color: "var(--color-ink3)" }}>
                       {order.clientName ??
@@ -851,6 +853,7 @@ function DashboardHome({
                     }}
                   >
                     {order.id}
+                    <CopyID id={order.id} />
                   </button>
                   <p
                     style={{

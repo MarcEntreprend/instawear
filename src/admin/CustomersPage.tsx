@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCustomers } from "./adminHooks";
 import { useHighlightListener } from "./useAdminHighlight";
+import CopyID from "../components/CopyID";
 import { useCustomerDetail } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -911,6 +912,7 @@ function OrdersList({
                 >
                   {/* {order.id.slice(0, 8)}… */}
                   {order.id}
+                  <CopyID id={order.id} />
                 </button>
               </td>
               <td

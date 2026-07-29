@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
+import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -1105,6 +1106,7 @@ function OrdersTab({
                       style={{ color: "var(--color-ink)" }}
                     >
                       {order.id}
+                      <CopyID id={order.id} />
                     </p>
                     {isActive && (
                       <span
@@ -1320,6 +1322,7 @@ function OrderDetail({
               style={{ color: "var(--color-ink)", fontFamily: "monospace" }}
             >
               {order.id}
+              <CopyID id={order.id} />
             </p>
           </div>
           <p className="text-[12px]" style={{ color: "var(--color-ink4)" }}>
@@ -1750,6 +1753,41 @@ function CartTab({
   );
 }
 
+// Regex pour détecter un ID de commande (ORD-année-suite)
+const ORDER_ID_REGEX = /\b(ord-\d{4}-\d{4,5})\b/gi;
+
+/**
+ * Transforme un texte en ReactNode en remplaçant les IDs de commande
+ * par leur version majuscule + bouton CopyID.
+ */
+function formatMessageText(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  const regex = new RegExp(ORDER_ID_REGEX.source, "gi");
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const orderId = match[0].toUpperCase();
+    parts.push(
+      <span key={match.index} style={{ whiteSpace: "nowrap" }}>
+        {orderId}
+        <CopyID id={orderId} size={11} />
+      </span>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
 // ─── NotificationsTab ─────────────────────────────────────────────────
 function NotificationsTab({
   notifications,
@@ -1791,13 +1829,13 @@ function NotificationsTab({
                 className="text-[13px] font-semibold"
                 style={{ color: "var(--color-ink)" }}
               >
-                {notif.title}
+                {formatMessageText(notif.title)}
               </p>
               <p
                 className="text-[12px] mt-1"
                 style={{ color: "var(--color-ink3)" }}
               >
-                {notif.message}
+                {formatMessageText(notif.message)}
               </p>
               <p
                 className="text-[10px] mt-2"
@@ -2124,7 +2162,7 @@ function SupportTab({
                   >
                     {msg.from_field === "customer" ? "You" : "Support"}
                   </p>
-                  <p>{msg.text}</p>
+                  <p>{formatMessageText(msg.text)}</p>
                 </div>
                 <span
                   className="text-[10px] mt-1"

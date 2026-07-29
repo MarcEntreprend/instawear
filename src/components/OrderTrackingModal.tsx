@@ -11,6 +11,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import CopyID from "./CopyID";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
 
@@ -230,6 +231,7 @@ export default function OrderTrackingModal({
                   }}
                 >
                   {order.id}
+                  <CopyID id={order.id} />
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>

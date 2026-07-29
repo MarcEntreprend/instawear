@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
 import { useHighlightListener } from "./useAdminHighlight";
+import CopyID from "../components/CopyID";
 import { productApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
@@ -601,6 +602,7 @@ export default function OrdersPage() {
                   }}
                 >
                   {order.id}
+                  <CopyID id={order.id} />
                 </td>
                 <td style={{ padding: "10px 14px" }}>
                   {order.clientId && order.clientId !== "guest" ? (
@@ -811,6 +813,7 @@ export default function OrdersPage() {
                 }}
               >
                 Commande {selectedOrder.id}
+                <CopyID id={selectedOrder.id} size={16} />
               </h3>
               <button
                 onClick={() => setSelectedOrder(null)}

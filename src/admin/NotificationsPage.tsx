@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import type { AdminSection } from "./AdminSidebar";
+import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
 
 // ─── Types ──────────────────────────────────────
@@ -1908,7 +1909,12 @@ function NotificationCard({
             <span>· {notification.metadata.source}</span>
           )}
           {notification.metadata?.orderId && (
-            <span>· {notification.metadata.orderId}</span>
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
+            >
+              · {notification.metadata.orderId}
+              <CopyID id={notification.metadata.orderId} size={10} />
+            </span>
           )}
           {notification.metadata?.amount && (
             <span style={{ fontWeight: 600, color: "var(--color-ink3)" }}>
