@@ -248,10 +248,13 @@ export function useOrders() {
         // Send appropriate email
         const order = (data ?? []).find((o) => o.id === id);
         if (order && order.clientEmail) {
-          const { sendDeliveredEmail, sendCancelledEmail } =
-            await import("../utils/emailTemplates");
-          if (status === "delivered") sendDeliveredEmail(order);
-          else if (status === "cancelled") sendCancelledEmail(order);
+          import("../utils/emailTemplates").then(
+            ({ sendDeliveredEmail, sendCancelledEmail, sendShippedEmail }) => {
+              if (status === "delivered") sendDeliveredEmail(order);
+              else if (status === "cancelled") sendCancelledEmail(order);
+              else if (status === "shipped") sendShippedEmail(order);
+            },
+          );
         }
         refetch();
       } finally {

@@ -78,6 +78,34 @@ ${buildFooter(clientEmail)}
   }).catch(console.error);
 }
 
+export function sendShippedEmail(order: any) {
+  const { id, clientEmail, clientName } = order;
+  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
+<div style="background:#dbeafe;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#1e40af;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#1e40af;margin:4px 0 0;font-size:14px;">Your order is on its way!</p>
+</div>
+<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+<h2 style="margin:0 0 8px;font-size:18px;">Shipped 🚚</h2>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${clientName}</strong>,<br><br>Your order <strong>${id}</strong> has been shipped and is on its way to you.</p>
+<a href="${BASE_URL}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+${buildFooter(clientEmail)}
+</div></body></html>`;
+
+  fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
+      to: clientEmail,
+      subject: `Your order ${id} is on its way!`,
+      html,
+    }),
+  }).catch(console.error);
+}
+
 export function sendDeliveredEmail(order: any) {
   const { id, clientEmail, clientName } = order;
   const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
