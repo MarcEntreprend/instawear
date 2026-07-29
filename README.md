@@ -300,12 +300,12 @@ The test: Every changed line should trace directly to my request.
 - [x] Couleurs affichées et sélectionnables
 - [x] Tailles affichées et sélectionnables
 - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
-- [ ] **Image placeholder du shipping fee** dans Stripe — améliorer le visuel
+- [x] **Image placeholder du shipping fee** dans Stripe — améliorer le visuel
 - [ ] qd, dans `src\admin\OrdersPage.tsx`, on clique sur le produit d'un order, le variant de cet order doit s ouvrir auto dans le modal (idem pr coté user, qd ça s applique)
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
-- [ ] **Guide des tailles** — adapter par type de produit (shirt, casquette…)
+- [x] **Guide des tailles** — adapter par type de produit (shirt, casquette…)
 - [ ] **Standard info - missing product** - qd effacé, plus disponible, etc
 
 ### 🚚 Livraison
