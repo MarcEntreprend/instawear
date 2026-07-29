@@ -1189,6 +1189,30 @@ export const podApi = {
   },
 
   /**
+   * Récupère les guides de tailles Printful pour un produit catalogue.
+   * @param catalogProductId - L'ID du produit catalogue Printful (ex: 561).
+   */
+  async getProductSizes(catalogProductId: string): Promise<any> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        action: "get-product-sizes",
+        productId: catalogProductId,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erreur récupération size guide");
+    }
+    return res.json();
+  },
+
+  /**
    * Obtient une estimation des frais de port Printful pour un variant donné
    * en fonction du pays configuré dans store_settings.
    * @param catalogVariantId - L'ID du variant catalogue Printful (ex: 12829).

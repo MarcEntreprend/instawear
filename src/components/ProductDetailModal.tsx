@@ -18,6 +18,130 @@ interface ProductDetailModalProps {
   getDeliverEstimateString: (days: number) => string;
 }
 
+// ─── Affichage dynamique du guide des tailles Printful ──────────────
+function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
+  const tables = sizeGuide.size_tables || [];
+  const availableSizes: string[] = sizeGuide.available_sizes || [];
+
+  // Prendre la première table de type "measure_yourself" ou "product_measure"
+  const mainTable =
+    tables.find((t: any) => t.type === "measure_yourself") ||
+    tables.find((t: any) => t.type === "product_measure") ||
+    tables[0];
+
+  if (!mainTable)
+    return <p className="italic text-gray-400">No size data available.</p>;
+
+  const measurements = mainTable.measurements || [];
+  const unit = mainTable.unit || "inches";
+
+  return (
+    <div>
+      {/* Description + image */}
+      {mainTable.description && (
+        <div
+          className="mb-2 text-[10px] leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: mainTable.description }}
+        />
+      )}
+      {mainTable.image_url && (
+        <img
+          src={mainTable.image_url}
+          alt="Size guide"
+          className="w-full max-w-50 mb-2 rounded-lg border"
+        />
+      )}
+
+      {/* Tableau des mesures */}
+      <table className="w-full text-left mt-1 text-[10px]">
+        <thead>
+          <tr className="border-b">
+            <th className="py-1 font-semibold">Size</th>
+            {measurements.map((m: any) => (
+              <th key={m.type_label} className="py-1 font-semibold">
+                {m.type_label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {availableSizes.map((size: string) => (
+            <tr key={size} className="border-b">
+              <td className="py-0.5 font-medium">{size}</td>
+              {measurements.map((m: any) => {
+                const val = m.values?.find((v: any) => v.size === size);
+                if (!val)
+                  return (
+                    <td key={m.type_label} className="py-0.5">
+                      —
+                    </td>
+                  );
+                const display =
+                  val.min_value && val.max_value
+                    ? `${val.min_value}-${val.max_value}`
+                    : val.value || "—";
+                return (
+                  <td key={m.type_label} className="py-0.5">
+                    {display} {unit !== "none" ? unit : ""}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Tables supplémentaires (international, etc.) */}
+      {tables
+        .filter((t: any) => t !== mainTable)
+        .map((table: any) => (
+          <details key={table.type} className="mt-3">
+            <summary className="text-[10px] font-semibold cursor-pointer capitalize">
+              {table.type.replace("_", " ")} sizes
+            </summary>
+            <table className="w-full text-left mt-1 text-[10px]">
+              <thead>
+                <tr className="border-b">
+                  <th className="py-1 font-semibold">Size</th>
+                  {(table.measurements || []).map((m: any) => (
+                    <th key={m.type_label} className="py-1 font-semibold">
+                      {m.type_label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {availableSizes.map((size: string) => (
+                  <tr key={size} className="border-b">
+                    <td className="py-0.5 font-medium">{size}</td>
+                    {(table.measurements || []).map((m: any) => {
+                      const val = m.values?.find((v: any) => v.size === size);
+                      if (!val)
+                        return (
+                          <td key={m.type_label} className="py-0.5">
+                            —
+                          </td>
+                        );
+                      const display =
+                        val.min_value && val.max_value
+                          ? `${val.min_value}-${val.max_value}`
+                          : val.value || "—";
+                      return (
+                        <td key={m.type_label} className="py-0.5">
+                          {display}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        ))}
+    </div>
+  );
+}
+
 export default function ProductDetailModal({
   product,
   currencySymbol,
@@ -277,49 +401,64 @@ export default function ProductDetailModal({
                     className="text-[10px] text-(--color-accent) hover:underline flex items-center gap-1"
                   >
                     <Info className="w-3 h-3" /> Size guide
+                    {(!product.sizeGuide ||
+                      (!product.sizeGuide.size_tables &&
+                        !product.sizeGuide.measurements)) && (
+                      <span className="text-[8px] text-(--color-ink4) ml-0.5">
+                        (Approx.)
+                      </span>
+                    )}
                   </button>
                 </div>
                 {sizeGuideOpen && (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-[10px] text-gray-500 mb-3">
-                    <p className="font-bold text-gray-900">
-                      Unisex fit measurements (cm) :
-                    </p>
-                    <table className="w-full text-left mt-1">
-                      <thead>
-                        <tr>
-                          <th>Size</th>
-                          <th>Chest</th>
-                          <th>Length</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {["S", "M", "L", "XL"].map((s) => (
-                          <tr key={s}>
-                            <td>{s}</td>
-                            <td>
-                              {s === "S"
-                                ? 48
-                                : s === "M"
-                                  ? 51
-                                  : s === "L"
-                                    ? 54
-                                    : 57}{" "}
-                              cm
-                            </td>
-                            <td>
-                              {s === "S"
-                                ? 69
-                                : s === "M"
-                                  ? 72
-                                  : s === "L"
-                                    ? 74
-                                    : 76}{" "}
-                              cm
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-[10px] text-gray-500 mb-3 max-h-60 overflow-y-auto">
+                    {product.sizeGuide &&
+                    (product.sizeGuide.size_tables ||
+                      product.sizeGuide.measurements) ? (
+                      <SizeGuideDisplay sizeGuide={product.sizeGuide} />
+                    ) : (
+                      <>
+                        <p className="font-bold text-gray-900">
+                          Unisex fit measurements (cm) :
+                        </p>
+                        <table className="w-full text-left mt-1">
+                          <thead>
+                            <tr>
+                              <th>Size</th>
+                              <th>Chest</th>
+                              <th>Length</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {["S", "M", "L", "XL"].map((s) => (
+                              <tr key={s}>
+                                <td>{s}</td>
+                                <td>
+                                  {s === "S"
+                                    ? 48
+                                    : s === "M"
+                                      ? 51
+                                      : s === "L"
+                                        ? 54
+                                        : 57}{" "}
+                                  cm
+                                </td>
+                                <td>
+                                  {s === "S"
+                                    ? 69
+                                    : s === "M"
+                                      ? 72
+                                      : s === "L"
+                                        ? 74
+                                        : 76}{" "}
+                                  cm
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">

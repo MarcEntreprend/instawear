@@ -308,6 +308,13 @@ export default function PrintfulProductForm({
     setImporting(true);
     try {
       const pfData = await podApi.getProductDetails(selectedProductId);
+      // Récupérer et sauvegarder le guide des tailles Printful
+      let sizeGuideData: any = undefined;
+      try {
+        sizeGuideData = await podApi.getProductSizes(selectedProductId);
+      } catch (e) {
+        console.warn("Impossible de récupérer le size guide Printful", e);
+      }
       const title = pfData.name || "";
       const mainImage = mainImageUrl || pfData.thumbnail_url || "";
 
@@ -382,7 +389,7 @@ export default function PrintfulProductForm({
         sizes: sizes.filter((s) => s && s.trim().length > 0),
         variants: computedVariants.length > 0 ? computedVariants : undefined,
         sizeSurcharge: {},
-        sizeGuide: undefined,
+        sizeGuide: sizeGuideData || undefined,
         category: category as AdminProduct["category"],
         eventType: eventType as AdminProduct["eventType"],
         style: style as AdminProduct["style"],

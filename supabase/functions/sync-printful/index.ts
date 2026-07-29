@@ -297,6 +297,35 @@ export default {
         });
       }
 
+      // ─── Mode "get-product-sizes" ─────────────────────────────────
+      if (body.action === "get-product-sizes" && body.productId) {
+        try {
+          const res = await fetch(
+            `https://api.printful.com/products/${body.productId}/sizes`,
+          );
+          if (!res.ok) {
+            return new Response(
+              JSON.stringify({
+                error: `Printful sizes API error ${res.status}`,
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 502,
+              },
+            );
+          }
+          const data = await res.json();
+          return new Response(JSON.stringify(data.result ?? {}), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (err: any) {
+          return new Response(JSON.stringify({ error: err.message }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          });
+        }
+      }
+
       // ─── Mode "get-product" ────────────────────────────────────────
       if (body.action === "get-product" && body.productId) {
         const { data: settings, error: settingsError } = await supabaseAdmin
@@ -1107,6 +1136,22 @@ export default {
             }
           }
 
+          // Récupérer le size guide Printful pour ce produit catalogue
+          let sizeGuideData: any = undefined;
+          if (catalogProductId) {
+            try {
+              const sizesRes = await fetch(
+                `https://api.printful.com/products/${catalogProductId}/sizes`,
+              );
+              if (sizesRes.ok) {
+                const sizesData = await sizesRes.json();
+                sizeGuideData = sizesData.result || undefined;
+              }
+            } catch {
+              // fallback
+            }
+          }
+
           const { colors, colorNames, colorImages, sizes, variants } =
             buildVariantMatrix(syncVariants, catalogVariants);
 
@@ -1152,6 +1197,7 @@ export default {
             sizes,
             size_surcharge:
               Object.keys(sizeSurcharge).length > 0 ? sizeSurcharge : null,
+            size_guide: sizeGuideData || null,
             variants: variants.length > 0 ? variants : null,
             last_external_sync: new Date().toISOString(),
             external_variant_id: mainVariant?.id?.toString() || null,

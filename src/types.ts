@@ -38,6 +38,7 @@ export interface Product {
   // Example: { "XXL": 2.00 }
   sizeSurcharge?: Record<string, number>;
   // Active deal promotion. Overrides price when active and dealEndsAt is in the future.
+  sizeGuide?: any; // Printful size guide (JSONB)
   dealActive?: boolean;
   // ISO datetime when the deal expires. Required if dealActive is true.
   dealEndsAt?: string;
