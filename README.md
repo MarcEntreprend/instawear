@@ -333,10 +333,10 @@ The test: Every changed line should trace directly to my request.
 ### 👤 Espace client
 
 - [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
-- [ ] **Adresses sauvegardées** :
-  - [ ] Éditables
+- [x] **Adresses sauvegardées** :
+  - [x] Éditables
   - [ ] Conserver la dernière utilisée
-  - [ ] Définir une adresse préférée
+  - [x] Définir une adresse préférée
 - [x] Page 404 personnalisée
 - [x] Bouton désinscription dans le profil
 
