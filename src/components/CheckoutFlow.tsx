@@ -2137,7 +2137,7 @@ export default function CheckoutFlow({
                 ? [
                     {
                       name: "Shipping",
-                      image: window.location.origin + "/package-icon.svg",
+                      image: window.location.origin + "/truck-icon.svg",
                       unitAmount: Math.round(shippingCost * 100),
                       quantity: 1,
                       currency: currencyCode,
