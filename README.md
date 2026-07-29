@@ -289,17 +289,20 @@ The test: Every changed line should trace directly to my request.
 ### 🧩 UX / UI
 
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
-- [ ] **Icône animée** — badge dans le menu latéral admin pendant une action
+- [ ] **Icône animée** —
+  - [ ] badge dans le menu latéral admin pendant une action
+  - [ ] icone heart des product card (and product info modal)
 - [x] Popups ne cachent plus les boutons d'achat/paiement
-- [ ] **Copie order ID en un clic** — icône + animation check
+- [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** - Spécialement every user page
 
 ### 📦 Produits
 
 - [x] Couleurs affichées et sélectionnables
 - [x] Tailles affichées et sélectionnables
-- [ ] **Image du variant sélectionné** dans le panier, favoris, checkout
+- [x] **Image du variant sélectionné** dans le panier, favoris, checkout
 - [ ] **Image placeholder du shipping fee** dans Stripe — améliorer le visuel
+- [ ] qd, dans `src\admin\OrdersPage.tsx`, on clique sur le produit d'un order, le variant de cet order doit s ouvrir auto dans le modal (idem pr coté user, qd ça s applique)
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings

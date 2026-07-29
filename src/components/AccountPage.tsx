@@ -169,6 +169,19 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+//  Resolves the best image for a specific product color
+function getVariantImage(product: any, selectedColor: string): string {
+  if (product?.variants?.length) {
+    const v = product.variants.find((v: any) => v.color === selectedColor);
+    if (v?.image) return v.image;
+  }
+  if (product?.colorImages?.length && product?.colors) {
+    const idx = product.colors.indexOf(selectedColor);
+    if (idx >= 0 && product.colorImages[idx]) return product.colorImages[idx];
+  }
+  return product?.image || PLACEHOLDER_IMG;
+}
+
 // ─── Main component ───────────────────────────────────────────────────
 export default function AccountPage({
   allCustomers,
@@ -1644,7 +1657,7 @@ function CartTab({
             style={{ border: "1px solid var(--color-border)" }}
           >
             <img
-              src={item.product?.image || PLACEHOLDER_IMG}
+              src={getVariantImage(item.product, item.selectedColor)}
               alt={item.product?.title || "product"}
               className="h-full w-full object-cover"
             />

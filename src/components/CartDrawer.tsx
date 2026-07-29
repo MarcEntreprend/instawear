@@ -31,6 +31,22 @@ export default function CartDrawer({
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
   const currencySymbol = useCurrencySymbol();
 
+  // Resolves the best image for a specific product color
+  function getVariantImage(
+    product: CartItem["product"],
+    selectedColor: string,
+  ): string {
+    if (product.variants?.length) {
+      const variant = product.variants.find((v) => v.color === selectedColor);
+      if (variant?.image) return variant.image;
+    }
+    if (product.colorImages?.length && product.colors) {
+      const idx = product.colors.indexOf(selectedColor);
+      if (idx >= 0 && product.colorImages[idx]) return product.colorImages[idx];
+    }
+    return product.image || PLACEHOLDER_IMG;
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -177,7 +193,7 @@ export default function CartDrawer({
                     style={{ background: "var(--color-surface2)" }}
                   >
                     <img
-                      src={item.product.image || PLACEHOLDER_IMG}
+                      src={getVariantImage(item.product, item.selectedColor)}
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src =
                           PLACEHOLDER_IMG;

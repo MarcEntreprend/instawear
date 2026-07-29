@@ -251,6 +251,22 @@ function sendOrderEmail(
   }).catch(console.error);
 }
 
+// Resolves the best image for a specific product color
+function getVariantImage(
+  product: CartItem["product"],
+  selectedColor: string,
+): string {
+  if (product.variants?.length) {
+    const variant = product.variants.find((v) => v.color === selectedColor);
+    if (variant?.image) return variant.image;
+  }
+  if (product.colorImages?.length && product.colors) {
+    const idx = product.colors.indexOf(selectedColor);
+    if (idx >= 0 && product.colorImages[idx]) return product.colorImages[idx];
+  }
+  return product.image || PLACEHOLDER_IMG;
+}
+
 function generateOrderId(): string {
   const year = new Date().getFullYear();
   const seq = Math.floor(Math.random() * 9000) + 1000;
@@ -447,7 +463,7 @@ function OrderSummaryPanel({
                     style={{ background: "var(--color-surface2)" }}
                   >
                     <img
-                      src={item.product.image || PLACEHOLDER_IMG}
+                      src={getVariantImage(item.product, item.selectedColor)}
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />
@@ -567,7 +583,7 @@ function CartReviewStep({
               style={{ background: "var(--color-surface2)" }}
             >
               <img
-                src={item.product.image || PLACEHOLDER_IMG}
+                src={getVariantImage(item.product, item.selectedColor)}
                 alt={item.product.title}
                 className="w-full h-full object-cover"
               />
@@ -1218,7 +1234,7 @@ function StripeCardForm({
             orderId,
             productId: item.product.id,
             productTitle: item.product.title,
-            productImage: item.product.image || PLACEHOLDER_IMG,
+            productImage: getVariantImage(item.product, item.selectedColor),
             selectedColor: item.selectedColor || "#000000",
             selectedSize: item.selectedSize || "M",
             quantity: item.quantity,
@@ -1974,7 +1990,7 @@ export default function CheckoutFlow({
           orderId: newOrderId,
           productId: item.product.id,
           productTitle: item.product.title,
-          productImage: item.product.image || PLACEHOLDER_IMG,
+          productImage: getVariantImage(item.product, item.selectedColor),
           selectedColor: item.selectedColor || "#000000",
           selectedSize: item.selectedSize || "M",
           quantity: item.quantity,
@@ -1996,7 +2012,7 @@ export default function CheckoutFlow({
             lineItems: [
               ...cart.map((item) => ({
                 name: item.product.title,
-                image: item.product.image || PLACEHOLDER_IMG,
+                image: getVariantImage(item.product, item.selectedColor),
                 unitAmount: Math.round(item.product.price * 100),
                 quantity: item.quantity,
                 currency: currencyCode, // devise dynamique
@@ -2103,7 +2119,7 @@ export default function CheckoutFlow({
             orderId: newOrderId,
             productId: item.product.id,
             productTitle: item.product.title,
-            productImage: item.product.image || PLACEHOLDER_IMG,
+            productImage: getVariantImage(item.product, item.selectedColor),
             selectedColor: item.selectedColor || "#000000",
             selectedSize: item.selectedSize || "M",
             quantity: item.quantity,
