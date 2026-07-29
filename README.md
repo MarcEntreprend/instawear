@@ -22,14 +22,14 @@ npx vite --force
 
 npx supabase functions deploy sync-printful --no-verify-jwt
 
-# IPv4 Address
+## IPv4 Address
 
 `192.168.15.2 `
 
 Local: http://localhost:5173/
 ➜ Network: http://192.168.15.2:5173/
 
-# Structure arborescente
+## Structure arborescente
 
 ```
 instawear/
@@ -172,69 +172,13 @@ instawear/
 └── vite.config.ts
 ```
 
-# Fixes & Improvements
-
-pour ces bugs, il faut d abord verifier si vraiment le ou les problemes cités existent, ensuite les resoudres.
-
-## ton Role, @Deepseek :
-
-```
-->>>> tu es un senior dans les top 0,1% expert dans le domaine et tu sais la bonne approche infaillible. Tu peux me demander de te montrer des fichiers, me poser questions pour clarifier tt ce que tu veux jusqua ce que tu sois au moins 95% confiant de tes réponses. si t es pas au moins 95% confiant, demande moi ce dont tu as besoin
-Simple, efficace, sans dettes techniques
-
-# AGENT.md
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to my request.
-
-## 4. Goal-Driven Execution
-```
-
-# 📊 Checklist InstaWear
+## 📊 Checklist InstaWear — Mise à jour
 
 ---
 
-## 🐛 Bugs
+### 🐛 Bugs
 
-### Panier
+#### Panier
 
 - [*] **Double ajout** — parfois 2 items au lieu d'1 au clic sur "Ajouter au panier" ou "Acheter maintenant"
 - [*] **Persistance après refresh** — le panier ne doit être vidé qu'après un checkout réussi
@@ -244,78 +188,78 @@ The test: Every changed line should trace directly to my request.
 - [x] Message "This order does not belong to you" pour les invités
 - [x] Écart de prix entre checkout et Stripe (frais de port manquants)
 
-### Header
+#### Header
 
 - [x] Logo / nom InstaWear rafraîchit la page
 - [x] Barre de recherche redirige vers le produit
 
-### Order Page (admin)
+#### Order Page (admin)
 
 - [x] Bouton "Envoyer à Printful" avec animation spinner
 - [x] Statut "En production" = même action que "Envoyer à Printful"
 - [ ] **Statut non synchronisé** — commande pas envoyée à Printful mais site affiche "envoyé"
 
-### Notifications (admin)
+#### Notifications (admin)
 
 - [x] Actions groupées actives sur sélections mixtes (lus + non lus)
 - [x] Badge dans l'onglet navigateur (nombre d'items dans le panier)
 
-### Sidebar panier
+#### Sidebar panier
 
 - [x] Fermeture au clic extérieur
 
-### Offline / Erreurs
+#### Offline / Erreurs
 
 - [x] Fallback réseau (message "Oups !")
 - [x] Fallback images
 - [x] Placeholder barre de recherche générique
 
-### Stripe Checkout
+#### Stripe Checkout
 
 - [x] Animation de chargement (spinner "Redirection vers Stripe…")
 - [x] Simulation email à la confirmation
 
 ---
 
-## ✨ Améliorations
+### ✨ Améliorations
 
-### 🔐 Sécurité (⚠️ avant production)
+#### 🔐 Sécurité (⚠️ avant production)
 
 - [ ] **RLS (Row Level Security)** sur les tables Supabase
 - [ ] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
 - [ ] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
-### 🧩 UX / UI
+#### 🧩 UX / UI
 
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
-- [ ] **Badge de commandes non consultées dans le menu latéral admin** — Afficher un indicateur (badge chiffré) à côté de l'icône "Orders" dans la sidebar admin lorsqu'il y a des commandes dont le statut a changé sans que l'admin ait encore cliqué sur le bouton "Voir le détail" (icône Eye). Cela inclut les nouvelles commandes (pending, in_production) et les changements de statut provenant du futur webhook Printful. S'inspirer du système de notifications (dots, compteurs) pour l'apparence.
-  - [ ] icone heart des product card (and product info modal)
+- [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin (nouvelles commandes + changements de statut Printful)
+  - [ ] Icône cœur des cartes produit (et modale info produit)
 - [x] Popups ne cachent plus les boutons d'achat/paiement
 - [x] **Copie order ID en un clic** — icône + animation check
-- [ ] **Mobile friendly** - Spécialement every user page
+- [ ] **Mobile friendly** — toutes les pages utilisateur
 
-### 📦 Produits
+#### 📦 Produits
 
 - [x] Couleurs affichées et sélectionnables
 - [x] Tailles affichées et sélectionnables
 - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
-- [x] **Image placeholder du shipping fee** dans Stripe — améliorer le visuel
-- [ ] qd, dans `src\admin\OrdersPage.tsx`, on clique sur le produit d'un order, le variant de cet order doit s ouvrir auto dans le modal (idem pr coté user, qd ça s applique)
+- [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
+- [ ] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
-- [x] **Guide des tailles** — adapter par type de produit (shirt, casquette…)
-- [ ] **Standard info - missing product** - qd effacé, plus disponible, etc
+- [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
+- [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
 
-### 🚚 Livraison
+#### 🚚 Livraison
 
 - [ ] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
 
-### 📧 Emails transactionnels
+#### 📧 Emails transactionnels
 
 - [x] Commande confirmée (Order confirmed)
-  - [ ] Ajouter les frais de transport dans le récap
+  - [ ] Ajouter les frais de transport dans le récap email
 - [x] Paiement confirmé (Paid)
 - [ ] Paiement en attente (Pending)
 - [x] En production (In Production)
@@ -324,44 +268,40 @@ The test: Every changed line should trace directly to my request.
 - [ ] Annulée (Cancelled)
 - [x] Promotions & deals
 
-### 📮 Emails / Resend (post-domain)
+#### 📮 Emails / Resend (post-domain)
 
 - [ ] **Aligner les URLs** — utiliser le domaine d'envoi (`instawear.vercel.app`)
 - [ ] **Héberger les images** — ne pas utiliser `files.cdn.printful.com`
-- [ ] **Infos business** — adresse postale Doral, FL dans le pied de page
+- [ ] **Infos business** — adresse postale Doral, FL dans le pied de page email
 
-### 👤 Espace client
+#### 👤 Espace client
 
 - [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
-- [x] **Adresses sauvegardées** :
-  - [x] Éditables
-  - [x] Conserver la dernière utilisée s'il y a espace vide
-  - [x] Définir une adresse préférée
+- [x] **Adresses sauvegardées** (éditable, dernière utilisée conservée, préférée)
 - [x] Page 404 personnalisée
 - [x] Bouton désinscription dans le profil
 
-### 🦶 Footer
+#### 🦶 Footer
 
 - [ ] **Newsletter** — repenser l'intérêt client (offres, bonus, exclusivités)
 - [ ] **Liens** — compléter (Mentions légales, CGU, politique de retour…)
+
+#### Codes morts - rechercher et vérifier
+
+- [ ] `src\components\DealsSection.tsx` -> _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
 
 ---
 
 ### 📊 Compteurs
 
-| Catégorie              | Restant      |
-| ---------------------- | ------------ |
-| Bugs                   | 3            |
-| Sécurité               | 4            |
-| UX/UI                  | 3            |
-| Produits               | 6            |
-| Livraison              | 1            |
-| Emails transactionnels | 5            |
-| Emails / Resend        | 3            |
-| Espace client          | 1 (adresses) |
-| Footer                 | 2            |
-| **Total**              | **28**       |
-
-## Codes morts - rechercher et vérifier
-
-- `src\components\DealsSection.tsx` -> _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
+| Catégorie              | Restant |
+| ---------------------- | ------- |
+| Bugs                   | 3       |
+| Sécurité               | 4       |
+| UX/UI                  | 4       |
+| Produits               | 5       |
+| Livraison              | 1       |
+| Emails transactionnels | 4       |
+| Emails / Resend        | 3       |
+| Footer                 | 2       |
+| **Total**              | **26**  |
