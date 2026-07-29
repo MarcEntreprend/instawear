@@ -289,8 +289,7 @@ The test: Every changed line should trace directly to my request.
 ### 🧩 UX / UI
 
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
-- [ ] **Icône animée** —
-  - [ ] badge dans le menu latéral admin pendant une action
+- [ ] **Badge de commandes non consultées dans le menu latéral admin** — Afficher un indicateur (badge chiffré) à côté de l'icône "Orders" dans la sidebar admin lorsqu'il y a des commandes dont le statut a changé sans que l'admin ait encore cliqué sur le bouton "Voir le détail" (icône Eye). Cela inclut les nouvelles commandes (pending, in_production) et les changements de statut provenant du futur webhook Printful. S'inspirer du système de notifications (dots, compteurs) pour l'apparence.
   - [ ] icone heart des product card (and product info modal)
 - [x] Popups ne cachent plus les boutons d'achat/paiement
 - [x] **Copie order ID en un clic** — icône + animation check
