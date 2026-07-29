@@ -1186,6 +1186,99 @@ export const podApi = {
     return res.json();
   },
 
+  // ─── Webhook Printful ─────────────────────────────────────────────────
+
+  /**
+   * Configure le webhook Printful pour le store.
+   * @param apiKey - Clé API Printful
+   * @param storeId - ID du store Printful
+   * @param webhookUrl - URL de réception des webhooks (notre Edge Function)
+   * @param types - Liste des événements à activer
+   */
+  async setupWebhook(
+    apiKey: string,
+    storeId: string,
+    webhookUrl: string,
+    types: string[],
+  ): Promise<void> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    // Si un store ID est fourni, on l'ajoute
+    if (storeId) {
+      headers["X-PF-Store-Id"] = storeId;
+    }
+
+    const res = await fetch("https://api.printful.com/webhooks", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        url: webhookUrl,
+        types,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Erreur configuration webhook: ${err}`);
+    }
+  },
+
+  /**
+   * Récupère la configuration actuelle du webhook Printful.
+   */
+  async getWebhookConfig(
+    apiKey: string,
+    storeId?: string,
+  ): Promise<{
+    url: string;
+    types: string[];
+  }> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+    const res = await fetch("https://api.printful.com/webhooks", {
+      method: "GET",
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Erreur récupération webhook: ${err}`);
+    }
+
+    const data = await res.json();
+    return {
+      url: data.result?.url || "",
+      types: data.result?.types || [],
+    };
+  },
+
+  /**
+   * Désactive le webhook Printful.
+   */
+  async disableWebhook(apiKey: string, storeId?: string): Promise<void> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+    const res = await fetch("https://api.printful.com/webhooks", {
+      method: "DELETE",
+      headers,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Erreur suppression webhook: ${err}`);
+    }
+  },
+
   /**
    * Lance la génération de mockups produit+design via l'Edge Function.
    * L'Edge Function crée la tâche Printful, poll jusqu'à complétion,

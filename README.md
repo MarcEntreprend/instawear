@@ -250,6 +250,9 @@ instawear/
 - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
 - [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
 - [ ] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
+- [ ] checking variant missmatch :
+  - [ ] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
+  - [ ] on printful, the wrong variant is passed / or not passed at all
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
@@ -259,6 +262,25 @@ instawear/
 #### 🚚 Livraison
 
 - [ ] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
+- [ ] **Webhook & mail**
+  - [ ] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
+  - [ ] faut verifier que le user reçoive les notifications qu'il faut aussi
+  - [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
+  - en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
+    - [x] package_shipped : "Your order has been shipped! 📦"
+    - [x] order_failed : "Issue with your order ⚠️"
+    - [x] order_canceled : "❌ Your order has been cancelled"
+
+- webhook optionnels :
+  - [ ] order_put_hold 🟡 Optionnel : alerte admin "commande en pause"
+  - [ ] order_remove_hold 🟡 Optionnel : alerte "reprise"
+  - [ ] order_refunded 🟡 Optionnel : log admin
+  - [ ] package_returned 🟡 Optionnel : statut → returned
+  - [ ] product_synced ⚪ Pas nécessaire (déjà géré par sync)
+  - [ ] product_updated ⚪ Pas nécessaire
+  - [ ] product_deleted ⚪ Pas nécessaire
+  - [ ] stock_updated ⚪ Pas nécessaire pour l'instant
+  - [ ] order_put_hold_approval ⚪ Pas nécessaire
 
 #### 📧 Emails transactionnels
 
@@ -271,6 +293,7 @@ instawear/
 - [x] Livrée (Delivered)
 - [x] Annulée (Cancelled)
 - [x] Promotions & deals
+- [ ] order_failed vs order_canceled : quel cas n est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
 
 #### 📮 Emails / Resend (post-domain)
 
@@ -298,14 +321,13 @@ instawear/
 
 ### 📊 Compteurs
 
-| Catégorie              | Restant |
-| ---------------------- | ------- |
-| Bugs                   | 3       |
-| Sécurité               | 4       |
-| UX/UI                  | 4       |
-| Produits               | 5       |
-| Livraison              | 1       |
-| Emails transactionnels | 4       |
-| Emails / Resend        | 3       |
-| Footer                 | 2       |
-| **Total**              | **26**  |
+| Catégorie       | Restant |
+| --------------- | ------- |
+| Bugs            | 3       |
+| Sécurité        | 4       |
+| UX/UI           | 3       |
+| Produits        | 5       |
+| Livraison       | 1       |
+| Emails / Resend | 3       |
+| Footer          | 2       |
+| **Total**       | **21**  |
