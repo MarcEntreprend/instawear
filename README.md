@@ -18,6 +18,10 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
 npx vite --force
 -> Ça redémarre Vite en ignorant le cache !
 
+Remove-Item -Recurse -Force node_modules/.vite -ErrorAction SilentlyContinue
+
+Supprime le cache de Vite (node_modules/.vite). Vite stocke les fichiers précompilés ici. Les supprimer force Vite à tout recompiler proprement au prochain npm run dev. Résout les erreurs 500 sur des fichiers CSS/JS qui persistent après correction.
+
 3.  Déployer l'Edge Function
 
 npx supabase functions deploy sync-printful --no-verify-jwt
