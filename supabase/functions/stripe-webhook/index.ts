@@ -109,6 +109,12 @@ function sendEmailServer(
     )
     .join("");
 
+  const subtotal = items.reduce(
+    (sum: number, item: any) => sum + item.unit_price * item.quantity,
+    0,
+  );
+  const shippingCost = order.shipping_cost || 0;
+
   const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
 <div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
 <h1 style="color:#fff;margin:0;font-size:22px;">InstaWear</h1>
@@ -117,8 +123,24 @@ function sendEmailServer(
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">${itemsHtml}
-<tr><td style="padding-top:16px;text-align:right;font-size:16px;font-weight:700;">Order total: ${total.toFixed(2)} ${currency}</td></tr></table>
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+  ${itemsHtml}
+  <tr>
+    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
+      Subtotal: ${subtotal.toFixed(2)} ${currency}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
+      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currency}`}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
+      Order total: ${total.toFixed(2)} ${currency}
+    </td>
+  </tr>
+</table>
 <a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
 <p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>

@@ -265,11 +265,11 @@ instawear/
 - [x] Commande confirmée (Order confirmed)
   - [ ] Ajouter les frais de transport dans le récap email
 - [x] Paiement confirmé (Paid)
-- [ ] Paiement en attente (Pending)
+- [x] Paiement en attente (Pending)
 - [x] En production (In Production)
 - [x] Expédiée (Shipped)
-- [ ] Livrée (Delivered)
-- [ ] Annulée (Cancelled)
+- [x] Livrée (Delivered)
+- [x] Annulée (Cancelled)
 - [x] Promotions & deals
 
 #### 📮 Emails / Resend (post-domain)
