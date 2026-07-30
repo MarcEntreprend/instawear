@@ -30,7 +30,6 @@ export default {
         Deno.env.get("SERVICE_ROLE_KEY")!,
       );
 
-      // Récupérer la commande par external_order_id (Printful order ID)
       const printfulOrderId = eventData.order?.id?.toString();
       if (!printfulOrderId) {
         return new Response(JSON.stringify({ error: "Missing order id" }), {
@@ -39,9 +38,10 @@ export default {
         });
       }
 
+      // Récupérer la commande
       const { data: order, error: orderError } = await supabaseAdmin
         .from("orders")
-        .select("id, client_email, status, notes")
+        .select("id, client_id, client_email, status, notes")
         .eq("external_order_id", printfulOrderId)
         .maybeSingle();
 
@@ -77,30 +77,70 @@ export default {
           newStatus = "failed";
           emailType = "failed";
           break;
-        case "order_updated": {
-          // On peut éventuellement gérer "delivered" ici si Printful l'envoie
-          // Pour l'instant, on ne change pas le statut automatiquement
+        case "order_updated":
           break;
-        }
         default:
-          console.log(`Unhandled event type: ${eventType}`);
           return new Response(JSON.stringify({ received: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
       }
 
       // Mise à jour de la commande
-      if (newStatus !== order.status) {
+      if (newStatus !== order.status || trackingNumber) {
         await supabaseAdmin
           .from("orders")
           .update({ status: newStatus, notes })
           .eq("id", order.id);
-      } else if (trackingNumber) {
-        // Même si le statut ne change pas, on peut mettre à jour le tracking
-        await supabaseAdmin.from("orders").update({ notes }).eq("id", order.id);
       }
 
-      // Envoyer l'email si nécessaire
+      // ── Notification admin ──────────────────────────────────────
+      const statusLabels = {
+        shipped: "Expédiée",
+        cancelled: "Annulée",
+        failed: "Échouée",
+      };
+      if (newStatus !== order.status && statusLabels[newStatus]) {
+        await supabaseAdmin.from("notifications").insert({
+          title: `Statut commande mis à jour`,
+          description: `Commande ${order.id} → "${statusLabels[newStatus]}"`,
+          category: "orders",
+          priority: newStatus === "cancelled" ? "high" : "low",
+          status: "unread",
+          timestamp: new Date().toISOString(),
+          metadata: {
+            orderId: order.id,
+            linkTo: "/admin/orders",
+            source: "Printful",
+          },
+          action_label: "Voir la commande",
+        });
+      }
+
+      // ── Notification client ─────────────────────────────────────
+      try {
+        let customerId = order.client_id;
+        if (order.client_email) {
+          const { data: customer } = await supabaseAdmin
+            .from("customers")
+            .select("id")
+            .eq("email", order.client_email)
+            .maybeSingle();
+          if (customer) customerId = customer.id;
+        }
+        if (customerId) {
+          await supabaseAdmin.from("customer_notifications").insert({
+            customer_id: customerId,
+            title: `Order ${order.id}`,
+            message: `Your order status has been updated to: ${newStatus.replace("_", " ")}.`,
+            type: "order_status",
+            metadata: { orderId: order.id, status: newStatus },
+          });
+        }
+      } catch (e) {
+        console.warn("Échec insertion notification client", e);
+      }
+
+      // ── Envoi email ─────────────────────────────────────────────
       if (emailType && order.client_email) {
         const emailHtml = buildEmailHtml(emailType, order.id, trackingNumber);
         await fetch(`${Deno.env.get("PROJECT_URL")}/functions/v1/send-email`, {
@@ -130,6 +170,7 @@ export default {
   },
 };
 
+// ─── Helpers email (inchangés) ──────────────────────────────────────────
 function getEmailSubject(type: string): string {
   switch (type) {
     case "shipped":

@@ -261,10 +261,10 @@ instawear/
 
 #### 🚚 Livraison
 
-- [ ] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
-- [ ] **Webhook & mail**
-  - [ ] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
-  - [ ] faut verifier que le user reçoive les notifications qu'il faut aussi
+- [x] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
+- [x] **Webhook & mail**
+  - [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
+  - [x] faut verifier que le user reçoive les notifications qu'il faut aussi
   - [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
   - en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
     - [x] package_shipped : "Your order has been shipped! 📦"
