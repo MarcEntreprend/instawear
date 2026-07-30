@@ -227,6 +227,14 @@ instawear/
 
 ### ✨ Améliorations
 
+#### Prévoire erreur address
+
+- [ ] **Anticiper les mauvaises infos lors du checkout, et meme depuis accountpage** : car les mauvaises addressses par exemples passent payment (ne devraient pas) mais bloquent à la production (par ex si le zip code n est pas bon, printful ne prend pas la production). ce qui va me forcer un refund.
+
+```
+Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
+```
+
 #### 🔐 Sécurité (⚠️ avant production)
 
 - [ ] **RLS (Row Level Security)** sur les tables Supabase
@@ -242,6 +250,9 @@ instawear/
 - [x] Popups ne cachent plus les boutons d'achat/paiement
 - [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** — toutes les pages utilisateur
+- dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
+  - _Voir détails rapide_ : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
+  - _Voir dans commande_ : naviguer vers la page order, avec useAdminHighlight
 
 #### 📦 Produits
 

@@ -75,26 +75,52 @@ export default {
       // 3. Construire le payload Printful
       const printfulItems: any[] = [];
       for (const item of orderItems) {
-        // Récupérer l'external_variant_id depuis le produit lié
         const { data: product } = await supabaseAdmin
           .from("products")
-          .select("external_product_id, external_variant_id, title")
+          .select(
+            "external_product_id, title, variants, colors, sizes, external_variant_id",
+          )
           .eq("id", item.product_id)
           .single();
 
-        const externalVariantId = product?.external_variant_id;
+        if (!product) {
+          console.warn(`Produit introuvable: ${item.product_id}`);
+          continue;
+        }
+
+        // Trouver le variant qui correspond à la couleur et à la taille sélectionnées
+        let externalVariantId: number | null = null;
+
+        // D'abord chercher dans le tableau variants
+        if (product.variants && Array.isArray(product.variants)) {
+          const matchingVariant = product.variants.find(
+            (v: any) =>
+              v.color === item.selected_color &&
+              v.sizes &&
+              v.sizes[item.selected_size] !== undefined,
+          );
+          if (matchingVariant?.external_variant_id) {
+            externalVariantId = Number(matchingVariant.external_variant_id);
+          }
+        }
+
+        // Fallback : utiliser le champ external_variant_id racine
+        if (!externalVariantId && product.external_variant_id) {
+          externalVariantId = Number(product.external_variant_id);
+        }
+
         if (!externalVariantId) {
           console.warn(
-            `Produit sans external_variant_id: ${item.product_id} (${product?.title || "?"})`,
+            `Aucun external_variant_id trouvé pour ${item.product_id} (couleur: ${item.selected_color}, taille: ${item.selected_size})`,
           );
           continue;
         }
 
         printfulItems.push({
-          sync_variant_id: Number(externalVariantId), // <-- clé corrigée, conversion en nombre
+          sync_variant_id: externalVariantId,
           quantity: item.quantity,
           retail_price: item.unit_price.toFixed(2),
-          name: item.product_title || product?.title || undefined,
+          name: item.product_title || product.title || undefined,
         });
       }
 

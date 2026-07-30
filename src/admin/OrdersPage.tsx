@@ -113,6 +113,9 @@ export default function OrdersPage() {
   // states pour le chargement et la fonction de récupération
   const [loadingQuickView, setLoadingQuickView] = useState(false);
 
+  const [quickViewColor, setQuickViewColor] = useState<string | null>(null);
+  const [quickViewSize, setQuickViewSize] = useState<string | null>(null);
+
   useHighlightListener(
     "instawear:highlight-orders",
     setHighlightedOrderId,
@@ -120,12 +123,18 @@ export default function OrdersPage() {
     'tr[data-order-id="{}"]',
   );
 
-  const handleQuickView = async (productId: string) => {
+  const handleQuickView = async (
+    productId: string,
+    selectedColor?: string,
+    selectedSize?: string,
+  ) => {
     setLoadingQuickView(true);
     try {
       const product = await productApi.get(productId);
       if (product) {
         setQuickViewProduct(product);
+        setQuickViewColor(selectedColor || null);
+        setQuickViewSize(selectedSize || null);
       }
     } catch (err) {
       console.error(err);
@@ -1116,7 +1125,13 @@ export default function OrdersPage() {
                           }}
                         >
                           <button
-                            onClick={() => handleQuickView(item.productId)}
+                            onClick={() =>
+                              handleQuickView(
+                                item.productId,
+                                item.selectedColor,
+                                item.selectedSize,
+                              )
+                            }
                             style={{
                               width: 32,
                               height: 32,
@@ -1141,7 +1156,13 @@ export default function OrdersPage() {
                             />
                           </button>
                           <button
-                            onClick={() => handleQuickView(item.productId)}
+                            onClick={() =>
+                              handleQuickView(
+                                item.productId,
+                                item.selectedColor,
+                                item.selectedSize,
+                              )
+                            }
                             style={{
                               fontWeight: 500,
                               color: "var(--color-ink)",
@@ -1248,7 +1269,13 @@ export default function OrdersPage() {
       {quickViewProduct && (
         <ProductQuickViewModal
           product={quickViewProduct}
-          onClose={() => setQuickViewProduct(null)}
+          onClose={() => {
+            setQuickViewProduct(null);
+            setQuickViewColor(null);
+            setQuickViewSize(null);
+          }}
+          initialColor={quickViewColor || undefined}
+          initialSize={quickViewSize || undefined}
         />
       )}
     </div>

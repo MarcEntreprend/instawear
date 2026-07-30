@@ -9,11 +9,15 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 interface ProductQuickViewModalProps {
   product: AdminProduct | null;
   onClose: () => void;
+  initialColor?: string;
+  initialSize?: string;
 }
 
 export default function ProductQuickViewModal({
   product,
   onClose,
+  initialColor,
+  initialSize,
 }: ProductQuickViewModalProps) {
   if (!product) return null;
 
@@ -24,13 +28,21 @@ export default function ProductQuickViewModal({
   const dispColors = hasVariants
     ? product.variants!.map((v) => v.color)
     : product.colors;
+
+  // Initialiser la couleur si fournie
+  const initialColorIdx = React.useMemo(() => {
+    if (!product || !initialColor) return null;
+    const idx = dispColors.indexOf(initialColor);
+    return idx >= 0 ? idx : null;
+  }, [product, initialColor, dispColors]);
+
+  const [pickedColorIdx, setPickedColorIdx] = React.useState<number | null>(
+    initialColorIdx ?? (dispColors.length > 0 ? 0 : null),
+  );
+
   const dispColorNames = hasVariants
     ? product.variants!.map((v) => v.color_name)
     : product.colorNames;
-
-  const [pickedColorIdx, setPickedColorIdx] = React.useState<number | null>(
-    dispColors.length > 0 ? 0 : null,
-  );
 
   const currencySymbol = useCurrencySymbol();
 

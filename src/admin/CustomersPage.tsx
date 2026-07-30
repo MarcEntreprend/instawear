@@ -449,6 +449,9 @@ function CustomerDetailPanel({
   const [interactions, setInteractions] = useState<any[]>([]);
   const [interactionsLoading, setInteractionsLoading] = useState(false);
 
+  const [quickViewColor, setQuickViewColor] = useState<string | null>(null);
+  const [quickViewSize, setQuickViewSize] = useState<string | null>(null);
+
   useEffect(() => {
     if (activeTab === "interactions" && customerId) {
       setInteractionsLoading(true);
@@ -620,7 +623,14 @@ function CustomerDetailPanel({
         <OrdersList orders={orders} onNavigate={onNavigate} />
       )}
       {activeTab === "cart" && (
-        <CartList items={cart} onQuickView={onQuickView} />
+        <CartList
+          items={cart}
+          onQuickView={(product, color, size) => {
+            setQuickViewProduct?.(product);
+            setQuickViewColor(color || null);
+            setQuickViewSize(size || null);
+          }}
+        />
       )}
       {activeTab === "favorites" && (
         <FavouritesList items={favourites} onQuickView={onQuickView} />
@@ -635,7 +645,13 @@ function CustomerDetailPanel({
       {quickViewProduct && (
         <ProductQuickViewModal
           product={quickViewProduct}
-          onClose={() => setQuickViewProduct?.(null)}
+          onClose={() => {
+            setQuickViewProduct?.(null);
+            setQuickViewColor(null);
+            setQuickViewSize(null);
+          }}
+          initialColor={quickViewColor || undefined}
+          initialSize={quickViewSize || undefined}
         />
       )}
     </div>
@@ -736,7 +752,7 @@ function CartList({
   onQuickView,
 }: {
   items: AdminCartItem[];
-  onQuickView?: (product: AdminProduct) => void;
+  onQuickView?: (product: AdminProduct, color?: string, size?: string) => void;
 }) {
   const currencySymbol = useCurrencySymbol();
 
@@ -771,7 +787,11 @@ function CartList({
                   <button
                     onClick={() =>
                       item.product &&
-                      onQuickView?.(item.product as AdminProduct)
+                      onQuickView?.(
+                        item.product as AdminProduct,
+                        item.selectedColor,
+                        item.selectedSize,
+                      )
                     }
                     style={{
                       ...miniImgStyle,
@@ -789,7 +809,11 @@ function CartList({
                   <button
                     onClick={() =>
                       item.product &&
-                      onQuickView?.(item.product as AdminProduct)
+                      onQuickView?.(
+                        item.product as AdminProduct,
+                        item.selectedColor,
+                        item.selectedSize,
+                      )
                     }
                     style={{
                       fontWeight: 600,

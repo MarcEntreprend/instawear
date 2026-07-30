@@ -7,6 +7,8 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 
 interface ProductDetailModalProps {
   product: Product;
+  initialColor?: string;
+  initialSize?: string;
   currencySymbol: string;
   favorites: string[];
   onClose: () => void;
@@ -153,22 +155,27 @@ export default function ProductDetailModal({
   dealExpired = false,
   dealFadingOut = false,
   getDeliverEstimateString,
+  initialColor,
+  initialSize,
 }: ProductDetailModalProps) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+
   const [pickedColor, setPickedColor] = useState<string>(
-    product.variants?.length
-      ? product.variants[0].color
-      : product.colors[0] || "",
+    initialColor ||
+      (product.variants?.length
+        ? product.variants[0].color
+        : product.colors[0] || ""),
   );
   const [pickedSize, setPickedSize] = useState<string>(
-    product.variants?.length
-      ? Object.keys(product.variants[0].sizes).includes("M")
-        ? "M"
-        : Object.keys(product.variants[0].sizes)[0] || "M"
-      : product.sizes.includes("M")
-        ? "M"
-        : product.sizes[0] || "M",
+    initialSize ||
+      (product.variants?.length
+        ? Object.keys(product.variants[0].sizes).includes("M")
+          ? "M"
+          : Object.keys(product.variants[0].sizes)[0] || "M"
+        : product.sizes.includes("M")
+          ? "M"
+          : product.sizes[0] || "M"),
   );
 
   const hasVariants = product.variants && product.variants.length > 0;
