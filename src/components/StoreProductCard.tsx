@@ -42,7 +42,7 @@ export default function StoreProductCard({
   return (
     <div
       key={product.id}
-      className="bg-white/60 border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5 transition-all text-left flex flex-col justify-between h-full relative"
+      className="bg-white/60 border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5 transition-all text-left flex flex-col justify-between h-full relative group"
       id={`product-card-${product.id}`}
     >
       {/* Badges */}
@@ -70,7 +70,7 @@ export default function StoreProductCard({
       {/* Image */}
       <div
         onClick={() => onSelectProduct(product)}
-        className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer"
+        className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer group"
       >
         <img
           src={product.image || PLACEHOLDER_IMG}
@@ -78,14 +78,8 @@ export default function StoreProductCard({
             (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG;
           }}
           alt={product.title}
-          className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
         />
-        <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-          <span className="bg-white/95 dark:bg-gray-900/90 dark:text-gray-100 text-gray-900 font-bold text-xs px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-xl flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-(--color-accent)" />
-            Quick view
-          </span>
-        </div>
         {/* Color dots */}
         <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
           {variantColors.length <= 3 ? (
@@ -217,14 +211,14 @@ export default function StoreProductCard({
         {product.isActive ? (
           <button
             onClick={(e) => {
+              e.stopPropagation();
               const btn = e.currentTarget;
               btn.classList.add("active");
               setTimeout(() => btn.classList.remove("active"), 500);
               onAddToCart(product, product.colors?.[0] || "#000000", "M");
             }}
-            className="confetti-button w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 focus:ring-2 focus:ring-cyan-400/40"
+            className="w-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5"
             id={`btn-add-cart-list-${product.id}`}
-            // data-confetti-text="Added!"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
             Add to cart
