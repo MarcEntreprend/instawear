@@ -40,6 +40,7 @@ import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import { COUNTRIES } from "../data/countries";
 import { loadStripe } from "@stripe/stripe-js";
+import { validateUSZip } from "../utils/zipValidation";
 import {
   Elements,
   CardNumberElement,
@@ -697,6 +698,10 @@ interface ContactStepProps {
   setCity: (v: string) => void;
   zip: string;
   setZip: (v: string) => void;
+  zipWarning: string | null;
+  setZipWarning: (v: string | null) => void;
+  zipValidatedRef: React.MutableRefObject<string | null>;
+  onJumpToShipping?: () => void;
   country: string;
   setCountry: (v: string) => void;
   stateCode: string;
@@ -729,6 +734,10 @@ function ContactStep({
   setCity,
   zip,
   setZip,
+  zipWarning,
+  setZipWarning,
+  zipValidatedRef,
+  onJumpToShipping,
   country,
   setCountry,
   stateCode,
@@ -970,7 +979,55 @@ function ContactStep({
               id="zip"
               required
               value={zip}
-              onChange={(e) => setZip(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setZip(val);
+                if (errors.zip) {
+                  const next = { ...errors };
+                  delete next.zip;
+                  setErrors(next);
+                }
+                setZipWarning(null);
+                // Déclenche la validation si 5 chiffres saisis
+                if (
+                  country === "US" &&
+                  val.trim().length >= 5 &&
+                  /^\d{5}(-\d{4})?$/.test(val.trim())
+                ) {
+                  const trimmed = val.trim().slice(0, 5);
+                  if (zipValidatedRef.current !== trimmed) {
+                    zipValidatedRef.current = trimmed;
+                    validateUSZip(trimmed, stateCode.trim()).then(
+                      ({ valid, suggestedState, message }) => {
+                        if (!valid || message) {
+                          setZipWarning(message || null);
+                        }
+                      },
+                    );
+                  }
+                }
+              }}
+              onBlur={() => {
+                // Validation au blur si pas encore faite
+                if (
+                  country === "US" &&
+                  zip.trim().length >= 5 &&
+                  /^\d{5}(-\d{4})?$/.test(zip.trim()) &&
+                  !zipWarning
+                ) {
+                  const trimmed = zip.trim().slice(0, 5);
+                  if (zipValidatedRef.current !== trimmed) {
+                    zipValidatedRef.current = trimmed;
+                    validateUSZip(trimmed, stateCode.trim()).then(
+                      ({ valid, suggestedState, message }) => {
+                        if (!valid || message) {
+                          setZipWarning(message || null);
+                        }
+                      },
+                    );
+                  }
+                }
+              }}
               placeholder="10001"
               autoComplete="postal-code"
               error={errors.zip}
@@ -1080,6 +1137,37 @@ function ContactStep({
         >
           Continue to Payment <ArrowRight size={15} strokeWidth={2.5} />
         </button>
+        {zipWarning && (
+          <div
+            className="flex flex-wrap items-start gap-2 p-3 rounded-xl text-xs font-medium animate-fade-up w-full"
+            style={{
+              background: "#fef9c3",
+              color: "#92400e",
+              border: "1px solid #facc15",
+            }}
+          >
+            <AlertCircle
+              size={13}
+              strokeWidth={2}
+              className="shrink-0 mt-0.5"
+            />
+            <span className="flex-1">{zipWarning}</span>
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("zip");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el.focus();
+                }
+              }}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-opacity shrink-0"
+              style={{ background: "var(--color-accent)" }}
+            >
+              Fix it
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1115,6 +1203,9 @@ interface PaymentStepProps {
   address: string;
   city: string;
   zip: string;
+  zipWarning?: string | null;
+  setZipWarning?: (v: string | null) => void;
+  onJumpToShipping?: () => void;
   country: string;
   stateCode: string;
   taxNumber: string;
@@ -1531,6 +1622,9 @@ function PaymentStep({
   address,
   city,
   zip,
+  zipWarning,
+  setZipWarning,
+  onJumpToShipping,
   country,
   stateCode,
   taxNumber,
@@ -1555,6 +1649,44 @@ function PaymentStep({
           <p className="text-sm text-(--color-ink3) mt-1">
             Choose your payment method.
           </p>
+          {zipWarning && (
+            <div
+              className="flex flex-wrap items-start gap-2 p-3 rounded-xl text-xs font-medium animate-fade-up w-full"
+              style={{
+                background: "#fef9c3",
+                color: "#92400e",
+                border: "1px solid #facc15",
+              }}
+            >
+              <AlertCircle
+                size={13}
+                strokeWidth={2}
+                className="shrink-0 mt-0.5"
+              />
+              <span className="flex-1">{zipWarning}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setZipWarning?.(null);
+                  onJumpToShipping?.();
+                  setTimeout(() => {
+                    const el = document.getElementById("zip");
+                    if (el) {
+                      el.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      el.focus();
+                    }
+                  }, 300);
+                }}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-opacity shrink-0"
+                style={{ background: "var(--color-accent)" }}
+              >
+                Fix it
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -1909,6 +2041,8 @@ export default function CheckoutFlow({
   const [stateCode, setStateCode] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [message, setMessage] = useState("");
+  const [zipWarning, setZipWarning] = useState<string | null>(null);
+  const zipValidatedRef = useRef<string | null>(null);
 
   // Payment
   const [cardNumber, setCardNumber] = useState("");
@@ -2006,8 +2140,13 @@ export default function CheckoutFlow({
       if (!zip.trim()) e.zip = "ZIP code is required.";
       if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
         e.stateCode = "This field is required.";
-      if (country === "US" && !/^\d{5}(-\d{4})?$/.test(zip.trim()))
+      if (
+        country === "US" &&
+        zip.trim() &&
+        !/^\d{5}(-\d{4})?$/.test(zip.trim())
+      ) {
         e.zip = "US ZIP code must be 5 digits (e.g. 10001).";
+      }
       if (country === "BR" && !taxNumber.trim())
         e.taxNumber = "CPF/CNPJ is required.";
     }
@@ -2474,6 +2613,10 @@ export default function CheckoutFlow({
                   setCity={setCity}
                   zip={zip}
                   setZip={setZip}
+                  zipWarning={zipWarning}
+                  setZipWarning={setZipWarning}
+                  zipValidatedRef={zipValidatedRef}
+                  onJumpToShipping={() => setStep(2)}
                   country={country}
                   setCountry={setCountry}
                   stateCode={stateCode}
@@ -2518,6 +2661,9 @@ export default function CheckoutFlow({
                   address={address}
                   city={city}
                   zip={zip}
+                  zipWarning={zipWarning}
+                  setZipWarning={setZipWarning}
+                  onJumpToShipping={() => setStep(2)}
                   country={country}
                   stateCode={stateCode}
                   taxNumber={taxNumber}

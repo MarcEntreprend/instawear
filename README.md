@@ -72,6 +72,12 @@ instawear/
 │   └── unsubscribe.html
 ├── src/
 │   ├── admin/
+│   │   ├── emailMarketing/
+│   │   │   ├── constants.tsx
+│   │   │   ├── emailTemplates.tsx
+│   │   │   ├── helpers.ts
+│   │   │   ├── useToast.ts
+│   │   │   └── VariablesModal.tsx
 │   │   ├── AdminDashboardNew.tsx
 │   │   ├── adminHooks.ts
 │   │   ├── AdminSidebar.tsx
@@ -93,8 +99,7 @@ instawear/
 │   │   ├── ReportInfoModal.tsx
 │   │   ├── ReportsPage.tsx
 │   │   ├── SettingsPage.tsx
-│   │   ├── useAdminHighlight.ts
-│   │   └── emailMarketing/
+│   │   └── useAdminHighlight.ts
 │   ├── api/
 │   │   ├── storageApi.ts
 │   │   └── supabaseApi.ts
@@ -105,6 +110,7 @@ instawear/
 │   │   ├── CartDrawer.tsx
 │   │   ├── CatalogSection.tsx
 │   │   ├── CheckoutFlow.tsx
+│   │   ├── CopyID.tsx
 │   │   ├── DealsSection.tsx
 │   │   ├── FaqSection.tsx
 │   │   ├── Footer.tsx
@@ -123,6 +129,7 @@ instawear/
 │   ├── constants/
 │   │   └── assets.ts
 │   ├── data/
+│   │   ├── countries.ts
 │   │   ├── faq.ts
 │   │   └── shippingRates.ts
 │   ├── hooks/
@@ -132,6 +139,9 @@ instawear/
 │   │   └── useTabBadge.ts
 │   ├── lib/
 │   │   └── supabaseClient.ts
+│   ├── utils/
+│   │   ├── emailTemplates.ts
+│   │   └── format.ts
 │   ├── App.tsx
 │   ├── index.css
 │   ├── main.tsx
@@ -139,31 +149,24 @@ instawear/
 │   └── vite-env.d.ts
 ├── supabase/
 │   ├── .temp/
-│   │   ├── cli-latest
-│   │   ├── gotrue-version
-│   │   ├── linked-project.json
-│   │   ├── pooler-url
-│   │   ├── postgres-version
-│   │   ├── project-ref
-│   │   ├── rest-version
-│   │   ├── storage-migration
-│   │   └── storage-version
-│   ├── config.toml
-│   └── functions/
-│       ├── create-printful-order/
-│       │   └── index.ts
-│       ├── reset-password/
-│       │   └── index.ts
-│       ├── send-email/
-│       │   └── index.ts
-│       ├── stripe-checkout/
-│       │   └── index.ts
-│       ├── stripe-webhook/
-│       │   └── index.ts
-│       └── sync-printful/
-│           ├── .npmrc
-│           ├── deno.json
-│           └── index.ts
+│   ├── functions/
+│   │   ├── create-printful-order/
+│   │   │   └── index.ts
+│   │   ├── printful-webhook/
+│   │   │   └── index.ts
+│   │   ├── reset-password/
+│   │   │   └── index.ts
+│   │   ├── send-email/
+│   │   │   └── index.ts
+│   │   ├── stripe-checkout/
+│   │   │   └── index.ts
+│   │   ├── stripe-webhook/
+│   │   │   └── index.ts
+│   │   └── sync-printful/
+│   │       ├── .npmrc
+│   │       ├── deno.json
+│   │       └── index.ts
+│   └── config.toml
 ├── .env
 ├── .env.example
 ├── .env.local
@@ -235,11 +238,11 @@ instawear/
 
 #### Prévoire erreur address
 
-- [ ] **Anticiper les mauvaises infos lors du checkout, et meme depuis accountpage** : car les mauvaises addressses par exemples passent payment (ne devraient pas) mais bloquent à la production (par ex si le zip code n est pas bon, printful ne prend pas la production). ce qui va me forcer un refund.
+- [x] **Anticiper les mauvaises infos lors du checkout, et meme depuis accountpage** : car les mauvaises addressses par exemples passent payment (ne devraient pas) mais bloquent à la production (par ex si le zip code n est pas bon, printful ne prend pas la production). ce qui va me forcer un refund.
 
-```
-Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
-```
+  ```
+  Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
+  ```
 
 #### 🔐 Sécurité (⚠️ avant production)
 
@@ -336,15 +339,15 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 ---
 
-### 📊 Compteurs
+## 📊 Compteurs de ce qui reste
 
-| Catégorie       | Restant |
-| --------------- | ------- |
-| Bugs            | 3       |
-| Sécurité        | 4       |
-| UX/UI           | 3       |
-| Produits        | 5       |
-| Livraison       | 1       |
-| Emails / Resend | 3       |
-| Footer          | 2       |
-| **Total**       | **21**  |
+| Catégorie              | Restant | Détail                                                                       |
+| ---------------------- | ------- | ---------------------------------------------------------------------------- |
+| Bugs                   | 3       | Double ajout, persistance panier, validation adresse                         |
+| Sécurité               | 3       | RLS, accès, injections                                                       |
+| UX/UI                  | 4       | Animations, badge admin, mobile friendly, icône cœur                         |
+| Produits               | 4       | Standardiser dispo, visibilité admin, comparatif sync, info produit manquant |
+| Emails transactionnels | 1       | `order_failed` vs `order_canceled`                                           |
+| Emails / Resend        | 3       | URLs, images, infos business                                                 |
+| Footer                 | 2       | Newsletter, liens                                                            |
+| **Total**              | **20**  |                                                                              |
