@@ -39,6 +39,28 @@ export default function StoreProductCard({
     ? product.variants.map((v) => v.color_name)
     : product.colorNames;
 
+  // Fonction pour tronquer le titre à 2 lignes
+  const truncateTitle = (title: string, maxLines: number = 2): string => {
+    // Estimation approximative : ~20 caractères par ligne pour une police normale
+    // Ajustez selon vos besoins
+    const charsPerLine = 20;
+    const maxChars = maxLines * charsPerLine;
+
+    if (title.length <= maxChars) {
+      return title;
+    }
+
+    // Trouver le dernier espace avant la limite pour couper proprement
+    let truncated = title.slice(0, maxChars);
+    const lastSpace = truncated.lastIndexOf(" ");
+
+    if (lastSpace > 0) {
+      truncated = truncated.slice(0, lastSpace);
+    }
+
+    return truncated + "...";
+  };
+
   return (
     <div
       key={product.id}
@@ -144,9 +166,20 @@ export default function StoreProductCard({
         <div>
           <h4
             onClick={() => onSelectProduct(product)}
-            className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight hover:text-(--color-accent) cursor-pointer line-clamp-2 min-h-8 md:min-h-10"
+            className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight transition-colors duration-200 group-hover:text-(--color-accent) cursor-pointer"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              minHeight: "2rem",
+              maxHeight: "2.5rem",
+              wordBreak: "break-word",
+            }}
+            title={product.title} // Affiche le titre complet au survol
           >
-            {product.title}
+            {truncateTitle(product.title)}
           </h4>
 
           <div className="flex items-center gap-1.5 mt-2 text-xs">
