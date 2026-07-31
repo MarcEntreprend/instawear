@@ -96,10 +96,14 @@ function resolveHexColor(
 function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const byColor = new Map<
     string,
-    { name: string; sizes: Map<string, number>; image: string }
+    {
+      name: string;
+      sizes: Map<string, number>;
+      image: string;
+      id: number | null;
+    }
   >();
 
-  // Build catalog_variant_id → hex map from catalog API (always has color codes)
   const catalogIdToHex = new Map<number, string>();
   for (const cv of catalogVariants || []) {
     const cvId = cv.id;
@@ -113,9 +117,6 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   for (const v of syncVariants || []) {
     let hex = resolveHexColor(v.color, v.color_code, v.color_code2);
 
-    // If Printful didn't provide hex codes on the sync variant (common for
-    // colors like "Washed Black", "Vintage White", etc.), resolve via the
-    // catalog variant ID (syncVariant.product.variant_id → catalogVariant.id).
     if (!hex.startsWith("#")) {
       const catalogVid = v.variant_id || v.product?.variant_id;
       if (catalogVid && catalogIdToHex.has(catalogVid)) {
@@ -125,18 +126,22 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
 
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
-      byColor.set(hex, { name, sizes: new Map(), image: "" });
+      byColor.set(hex, { name, sizes: new Map(), image: "", id: null });
     const entry = byColor.get(hex)!;
+
+    // Stocker l'ID du variant Printful (le premier trouvé fait foi)
+    if (!entry.id && v.id) {
+      entry.id = v.id;
+    }
+
     if (v.size && v.retail_price != null) {
       entry.sizes.set(v.size, parseFloat(v.retail_price));
     }
-    // Priorité 1 : image du produit catalogue (vrai t-shirt, varie par couleur)
     if (!entry.image && v.product?.image) {
       entry.image = v.product.image;
     }
   }
 
-  // Priorité 2 : images du catalogue (écrase si plus spécifique)
   for (const cv of catalogVariants || []) {
     const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
     const entry = byColor.get(hex);
@@ -145,7 +150,6 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
   }
 
-  // Priorité 3 (fallback) : print file preview (design à imprimer)
   for (const v of syncVariants || []) {
     let hex = resolveHexColor(v.color, v.color_code, v.color_code2);
     if (!hex.startsWith("#")) {
@@ -165,6 +169,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     color: hex,
     color_name: entry.name,
     image: entry.image,
+    external_variant_id: entry.id ? String(entry.id) : undefined,
     sizes: Object.fromEntries(
       [...entry.sizes.entries()].map(([size, price]) => [size, { price }]),
     ),
@@ -486,6 +491,84 @@ export default {
             status: 502,
           });
         }
+      }
+
+      // ─── Mode "setup-webhook" ─────────────────────────────────────────
+      if (body.action === "setup-webhook") {
+        const { apiKey, storeId, webhookUrl, types } = body;
+        if (!apiKey || !webhookUrl || !types) {
+          return new Response(
+            JSON.stringify({ error: "apiKey, webhookUrl, types requis" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        };
+        if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+        const res = await fetch("https://api.printful.com/webhooks", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ url: webhookUrl, types }),
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful: ${err}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ─── Mode "disable-webhook" ───────────────────────────────────────
+      if (body.action === "disable-webhook") {
+        const { apiKey, storeId } = body;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "apiKey requis" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        };
+        if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+        const res = await fetch("https://api.printful.com/webhooks", {
+          method: "DELETE",
+          headers,
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful: ${err}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       // ─── Mode "get-shipping-estimate" ───────────────────────────────

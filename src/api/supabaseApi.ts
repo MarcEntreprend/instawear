@@ -468,6 +468,7 @@ export const customerApi = {
       selectedColor: string;
       selectedSize: string;
       quantity: number;
+      unitPrice?: number;
     },
   ): Promise<void> {
     const { error } = await supabase.from("cart_items").upsert(
@@ -477,6 +478,7 @@ export const customerApi = {
         selected_color: item.selectedColor,
         selected_size: item.selectedSize,
         quantity: item.quantity,
+        unit_price: item.unitPrice ?? 0,
       },
       { onConflict: "client_id, product_id, selected_color, selected_size" },
     );
@@ -486,7 +488,7 @@ export const customerApi = {
     const { data, error } = await supabase
       .from("cart_items")
       .select(
-        "id, client_id, product_id, selected_color, selected_size, quantity, added_at",
+        "id, client_id, product_id, selected_color, selected_size, quantity, unit_price, added_at",
       )
       .eq("client_id", clientId);
     if (error) throw error;
@@ -508,16 +510,18 @@ export const customerApi = {
       selectedColor: item.selected_color,
       selectedSize: item.selected_size,
       quantity: item.quantity,
+      unitPrice: item.unit_price ?? item.product?.price ?? 0,
       addedAt: item.added_at,
       product: productMap.get(item.product_id),
     }));
   },
-  async getOrders(clientId: string): Promise<Order[]> {
-    // Utiliser orderApi pour obtenir les commandes d'un client
+  async getOrders(clientIdOrEmail: string): Promise<Order[]> {
+    // Si le paramètre contient "@", chercher par email ; sinon par client_id
+    const isEmail = clientIdOrEmail.includes("@");
     const { data: orders, error } = await supabase
       .from("orders")
       .select("*")
-      .eq("client_id", clientId);
+      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail);
     if (error) throw error;
     const ordersMapped = (orders ?? []).map(mapOrder);
     for (const order of ordersMapped) {
@@ -1201,27 +1205,27 @@ export const podApi = {
     webhookUrl: string,
     types: string[],
   ): Promise<void> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    };
-    // Si un store ID est fourni, on l'ajoute
-    if (storeId) {
-      headers["X-PF-Store-Id"] = storeId;
-    }
-
-    const res = await fetch("https://api.printful.com/webhooks", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        url: webhookUrl,
-        types,
-      }),
-    });
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          action: "setup-webhook",
+          apiKey,
+          storeId,
+          webhookUrl,
+          types,
+        }),
+      },
+    );
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Erreur configuration webhook: ${err}`);
+      const err = await res.json();
+      throw new Error(err.error || "Erreur configuration webhook");
     }
   },
 
@@ -1262,20 +1266,25 @@ export const podApi = {
    * Désactive le webhook Printful.
    */
   async disableWebhook(apiKey: string, storeId?: string): Promise<void> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    };
-    if (storeId) headers["X-PF-Store-Id"] = storeId;
-
-    const res = await fetch("https://api.printful.com/webhooks", {
-      method: "DELETE",
-      headers,
-    });
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          action: "disable-webhook",
+          apiKey,
+          storeId,
+        }),
+      },
+    );
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Erreur suppression webhook: ${err}`);
+      const err = await res.json();
+      throw new Error(err.error || "Erreur suppression webhook");
     }
   },
 

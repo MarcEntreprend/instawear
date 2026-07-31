@@ -62,6 +62,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"store" | "admin">("store");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  const [selectedProductInitialColor, setSelectedProductInitialColor] =
+    useState<string | null>(null);
+  const [selectedProductInitialSize, setSelectedProductInitialSize] = useState<
+    string | null
+  >(null);
+
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -176,6 +182,7 @@ export default function App() {
           selectedColor: item.selectedColor,
           selectedSize: item.selectedSize,
           quantity: item.quantity,
+          unitPrice: item.unitPrice,
         });
       }
     };
@@ -869,7 +876,13 @@ export default function App() {
           product={selectedProduct}
           currencySymbol={currencySymbol}
           favorites={favorites}
-          onClose={() => setSelectedProduct(null)}
+          onClose={() => {
+            setSelectedProduct(null);
+            setSelectedProductInitialColor(null);
+            setSelectedProductInitialSize(null);
+          }}
+          initialColor={selectedProductInitialColor || undefined}
+          initialSize={selectedProductInitialSize || undefined}
           onToggleFavorite={toggleFavorite}
           onAddToCart={(p, c, s) => {
             addToCart(p, c, s);
@@ -960,9 +973,13 @@ export default function App() {
         <AccountPage
           allCustomers={allCustomers}
           onClose={() => setShowAccountPage(false)}
-          onViewProduct={(productId) => {
+          onViewProduct={(productId, initialColor, initialSize) => {
             const product = products.find((p) => p.id === productId);
-            if (product) setSelectedProduct(product);
+            if (product) {
+              setSelectedProductInitialColor(initialColor || null);
+              setSelectedProductInitialSize(initialSize || null);
+              setSelectedProduct(product);
+            }
           }}
         />
       )}
@@ -1008,9 +1025,11 @@ export default function App() {
       {trackingOpen && (
         <OrderTrackingModal
           onClose={() => setTrackingOpen(false)}
-          onSelectProduct={(productId) => {
+          onSelectProduct={(productId, initialColor, initialSize) => {
             const product = products.find((p) => p.id === productId);
             if (product) {
+              setSelectedProductInitialColor(initialColor || null);
+              setSelectedProductInitialSize(initialSize || null);
               setSelectedProduct(product);
             }
           }}

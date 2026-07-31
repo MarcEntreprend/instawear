@@ -55,7 +55,11 @@ import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 interface AccountPageProps {
   allCustomers: { id: string; email: string }[];
   onClose: () => void;
-  onViewProduct?: (productId: string) => void;
+  onViewProduct?: (
+    productId: string,
+    initialColor?: string,
+    initialSize?: string,
+  ) => void;
 }
 
 // ─── Local types ─────────────────────────────────────────────────────
@@ -361,16 +365,27 @@ export default function AccountPage({
   };
 
   const fetchOrders = useCallback(async () => {
-    if (!customerId) return;
+    if (!customerId && !customerEmail) return;
     setLoadingOrders(true);
     try {
-      setOrders(await customerApi.getOrders(customerId));
+      if (customerEmail) {
+        const ordersByEmail = await customerApi.getOrders(customerEmail);
+        if (ordersByEmail.length > 0) {
+          setOrders(ordersByEmail);
+          return;
+        }
+      }
+      if (customerId) {
+        setOrders(await customerApi.getOrders(customerId));
+      } else {
+        setOrders([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoadingOrders(false);
     }
-  }, [customerId]);
+  }, [customerId, customerEmail]);
 
   const fetchFavorites = useCallback(async () => {
     if (!customerId) return;
@@ -855,7 +870,11 @@ function OrdersTab({
   orders: Order[];
   loading: boolean;
   currencySymbol: string;
-  onViewProduct?: (productId: string) => void;
+  onViewProduct?: (
+    productId: string,
+    initialColor?: string,
+    initialSize?: string,
+  ) => void;
   onRefresh?: () => Promise<void>;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -1154,7 +1173,13 @@ function OrdersTab({
                       key={i}
                       onClick={(e) => {
                         e.stopPropagation();
-                        item.productId && onViewProduct?.(item.productId);
+                        if (item.productId && onViewProduct) {
+                          onViewProduct(
+                            item.productId,
+                            item.selectedColor,
+                            item.selectedSize,
+                          );
+                        }
                       }}
                       className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
                       role="button"
@@ -1206,7 +1231,11 @@ function OrderDetail({
   order: Order;
   currencySymbol: string;
   onBack: () => void;
-  onViewProduct?: (productId: string) => void;
+  onViewProduct?: (
+    productId: string,
+    initialColor?: string,
+    initialSize?: string,
+  ) => void;
 }) {
   const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
 
@@ -1349,9 +1378,15 @@ function OrderDetail({
           {order.items?.map((item) => (
             <div key={item.id} className="flex items-center gap-3">
               <button
-                onClick={() =>
-                  item.productId && onViewProduct?.(item.productId)
-                }
+                onClick={() => {
+                  if (item.productId && onViewProduct) {
+                    onViewProduct(
+                      item.productId,
+                      item.selectedColor,
+                      item.selectedSize,
+                    );
+                  }
+                }}
                 className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
                 style={{ border: "1px solid var(--color-border)" }}
               >
@@ -1363,9 +1398,15 @@ function OrderDetail({
               </button>
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() =>
-                    item.productId && onViewProduct?.(item.productId)
-                  }
+                  onClick={() => {
+                    if (item.productId && onViewProduct) {
+                      onViewProduct(
+                        item.productId,
+                        item.selectedColor,
+                        item.selectedSize,
+                      );
+                    }
+                  }}
                   className="truncate text-[13px] font-semibold text-left bg-transparent border-none p-0 cursor-pointer hover:underline"
                   style={{ color: "var(--color-ink)" }}
                 >
@@ -1596,7 +1637,11 @@ function CartTab({
   currencySymbol: string;
   onRemove: (itemId: string) => void;
   onClear: () => void;
-  onViewProduct?: (productId: string) => void;
+  onViewProduct?: (
+    productId: string,
+    initialColor?: string,
+    initialSize?: string,
+  ) => void;
   onUpdateQty: (itemId: string, delta: number) => void;
 }) {
   if (loading) return <SkeletonList />;
@@ -1610,7 +1655,8 @@ function CartTab({
     );
 
   const total = items.reduce(
-    (sum, item) => sum + (item.product?.price ?? 0) * item.quantity,
+    (sum, item) =>
+      sum + (item.unitPrice ?? item.product?.price ?? 0) * item.quantity,
     0,
   );
 
@@ -1650,7 +1696,15 @@ function CartTab({
           }}
         >
           <button
-            onClick={() => onViewProduct?.(item.productId)}
+            onClick={() => {
+              if (onViewProduct) {
+                onViewProduct(
+                  item.productId,
+                  item.selectedColor,
+                  item.selectedSize,
+                );
+              }
+            }}
             className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
             style={{ border: "1px solid var(--color-border)" }}
           >
@@ -1662,7 +1716,15 @@ function CartTab({
           </button>
           <div className="flex-1 min-w-0">
             <button
-              onClick={() => onViewProduct?.(item.productId)}
+              onClick={() => {
+                if (onViewProduct) {
+                  onViewProduct(
+                    item.productId,
+                    item.selectedColor,
+                    item.selectedSize,
+                  );
+                }
+              }}
               className="truncate text-[13px] font-semibold text-left bg-transparent border-none p-0 cursor-pointer hover:underline"
               style={{ color: "var(--color-ink)" }}
             >
@@ -1688,7 +1750,9 @@ function CartTab({
                 style={{ color: "var(--color-ink)" }}
               >
                 {currencySymbol}
-                {((item.product?.price ?? 0) * item.quantity).toFixed(2)}
+                {(
+                  (item.unitPrice ?? item.product?.price ?? 0) * item.quantity
+                ).toFixed(2)}
               </span>
               <div className="flex items-center gap-1">
                 <button

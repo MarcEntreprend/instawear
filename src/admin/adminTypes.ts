@@ -97,6 +97,7 @@ export interface AdminCartItem {
   selectedColor: string;
   selectedSize: string;
   quantity: number;
+  unitPrice?: number; // Prix unitaire au moment de l'ajout (inclut les surcharges taille/variant)
   addedAt: string;
   product?: Partial<AdminProduct>;
 }

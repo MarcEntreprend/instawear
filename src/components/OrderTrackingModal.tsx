@@ -39,7 +39,11 @@ interface TrackedOrder {
 
 interface OrderTrackingModalProps {
   onClose: () => void;
-  onSelectProduct?: (productId: string) => void;
+  onSelectProduct?: (
+    productId: string,
+    initialColor?: string,
+    initialSize?: string,
+  ) => void;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -323,7 +327,13 @@ export default function OrderTrackingModal({
               {order.items.map((item, i) => (
                 <button
                   key={i}
-                  onClick={() => onSelectProduct?.(item.productId)}
+                  onClick={() =>
+                    onSelectProduct?.(
+                      item.productId,
+                      item.selectedColor,
+                      item.selectedSize,
+                    )
+                  }
                   style={{
                     display: "flex",
                     justifyContent: "space-between",

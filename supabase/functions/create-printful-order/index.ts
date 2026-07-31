@@ -91,27 +91,29 @@ export default {
         // Trouver le variant qui correspond à la couleur et à la taille sélectionnées
         let externalVariantId: number | null = null;
 
-        // D'abord chercher dans le tableau variants
+        // D'abord chercher dans le tableau variantsf
         if (product.variants && Array.isArray(product.variants)) {
           const matchingVariant = product.variants.find(
             (v: any) =>
-              v.color === item.selected_color &&
+              v.color?.toLowerCase() === item.selected_color?.toLowerCase() &&
               v.sizes &&
               v.sizes[item.selected_size] !== undefined,
           );
-          if (matchingVariant?.external_variant_id) {
-            externalVariantId = Number(matchingVariant.external_variant_id);
+          if (matchingVariant) {
+            if (matchingVariant.external_variant_id) {
+              externalVariantId = Number(matchingVariant.external_variant_id);
+            } else if (matchingVariant.sync_variant_id) {
+              externalVariantId = Number(matchingVariant.sync_variant_id);
+            } else if (matchingVariant.variant_id) {
+              externalVariantId = Number(matchingVariant.variant_id);
+            }
           }
-        }
-
-        // Fallback : utiliser le champ external_variant_id racine
-        if (!externalVariantId && product.external_variant_id) {
-          externalVariantId = Number(product.external_variant_id);
         }
 
         if (!externalVariantId) {
           console.warn(
-            `Aucun external_variant_id trouvé pour ${item.product_id} (couleur: ${item.selected_color}, taille: ${item.selected_size})`,
+            `Aucun ID variant Printful trouvé pour ${item.product_id} (couleur: ${item.selected_color}, taille: ${item.selected_size}). ` +
+              `Variant matché: ${JSON.stringify(matchingVariant)}`,
           );
           continue;
         }

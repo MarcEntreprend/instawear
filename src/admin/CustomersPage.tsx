@@ -747,6 +747,19 @@ function FavouritesList({
   );
 }
 
+// Resolves the best image for a specific product color
+function getVariantImage(product: any, selectedColor: string): string {
+  if (product?.variants?.length) {
+    const v = product.variants.find((v: any) => v.color === selectedColor);
+    if (v?.image) return v.image;
+  }
+  if (product?.colorImages?.length && product?.colors) {
+    const idx = product.colors.indexOf(selectedColor);
+    if (idx >= 0 && product.colorImages[idx]) return product.colorImages[idx];
+  }
+  return product?.image || PLACEHOLDER_IMG;
+}
+
 function CartList({
   items,
   onQuickView,
@@ -759,7 +772,7 @@ function CartList({
   if (items.length === 0)
     return <EmptyState icon={<ShoppingBag size={28} />} text="Panier vide." />;
   const total = items.reduce(
-    (sum, i) => sum + (i.product?.price ?? 0) * i.quantity,
+    (sum, i) => sum + (i.unitPrice ?? i.product?.price ?? 0) * i.quantity,
     0,
   );
   return (
@@ -801,7 +814,7 @@ function CartList({
                     }}
                   >
                     <img
-                      src={item.product?.image || PLACEHOLDER_IMG}
+                      src={getVariantImage(item.product, item.selectedColor)}
                       alt=""
                       style={imgStyle}
                     />
@@ -860,7 +873,9 @@ function CartList({
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {((item.product?.price ?? 0) * item.quantity).toFixed(2)}{" "}
+                {(
+                  (item.unitPrice ?? item.product?.price ?? 0) * item.quantity
+                ).toFixed(2)}{" "}
                 {currencySymbol}
               </td>
             </tr>

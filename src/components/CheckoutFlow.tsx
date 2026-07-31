@@ -188,7 +188,7 @@ function sendOrderEmail(
       <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
         <table><tr>
           <td style="width: 60px; vertical-align: top;">
-            <img src="${item.product.image && !item.product.image.includes("cdn.printful.com") ? item.product.image : window.location.origin + "/Instawear-missing-item.svg"}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
+            <img src="${getVariantImage(item.product, item.selectedColor) || PLACEHOLDER_IMG}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
           </td>
           <td style="vertical-align: top; padding-left: 12px;">
             <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product.title}</p>

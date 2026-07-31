@@ -25,6 +25,12 @@ Supprime le cache de Vite (node_modules/.vite). Vite stocke les fichiers précom
 3.  Déployer l'Edge Function
 
 npx supabase functions deploy sync-printful --no-verify-jwt
+npx supabase functions deploy create-printful-order --no-verify-jwt
+npx supabase functions deploy printful-webhook --no-verify-jwt
+npx supabase functions deploy send-email --no-verify-jwt
+npx supabase functions deploy stripe-checkout --no-verify-jwt
+npx supabase functions deploy stripe-webhook --no-verify-jwt
+npx supabase functions deploy reset-password --no-verify-jwt
 
 ## IPv4 Address
 
@@ -201,7 +207,7 @@ instawear/
 
 - [x] Bouton "Envoyer à Printful" avec animation spinner
 - [x] Statut "En production" = même action que "Envoyer à Printful"
-- [ ] **Statut non synchronisé** — commande pas envoyée à Printful mais site affiche "envoyé"
+- [x] **Statut non synchronisé** — commande pas envoyée à Printful mais site affiche "envoyé"
 
 #### Notifications (admin)
 
@@ -260,10 +266,10 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] Tailles affichées et sélectionnables
 - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
 - [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
-- [ ] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
-- [ ] checking variant missmatch :
-  - [ ] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
-  - [ ] on printful, the wrong variant is passed / or not passed at all
+- [x] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
+- [x] checking variant missmatch :
+  - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
+  - [x] on printful, the wrong variant is passed / or not passed at all
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
@@ -296,7 +302,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 #### 📧 Emails transactionnels
 
 - [x] Commande confirmée (Order confirmed)
-  - [ ] Ajouter les frais de transport dans le récap email
+  - [x] Ajouter les frais de transport dans le récap email
 - [x] Paiement confirmé (Paid)
 - [x] Paiement en attente (Pending)
 - [x] En production (In Production)
