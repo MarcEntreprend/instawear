@@ -534,6 +534,48 @@ export default {
         });
       }
 
+      // ─── Mode "get-webhook-config" ────────────────────────────────────
+      if (body.action === "get-webhook-config") {
+        const { apiKey, storeId } = body;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "apiKey requis" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        };
+        if (storeId) headers["X-PF-Store-Id"] = storeId;
+
+        const res = await fetch("https://api.printful.com/webhooks", {
+          method: "GET",
+          headers,
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful: ${err}` }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 502,
+            },
+          );
+        }
+
+        const data = await res.json();
+        return new Response(
+          JSON.stringify({
+            url: data.result?.url || "",
+            types: data.result?.types || [],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       // ─── Mode "disable-webhook" ───────────────────────────────────────
       if (body.action === "disable-webhook") {
         const { apiKey, storeId } = body;

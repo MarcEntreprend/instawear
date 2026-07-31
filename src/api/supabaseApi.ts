@@ -1270,26 +1270,31 @@ export const podApi = {
     url: string;
     types: string[];
   }> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    };
-    if (storeId) headers["X-PF-Store-Id"] = storeId;
-
-    const res = await fetch("https://api.printful.com/webhooks", {
-      method: "GET",
-      headers,
-    });
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          action: "get-webhook-config",
+          apiKey,
+          storeId,
+        }),
+      },
+    );
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Erreur récupération webhook: ${err}`);
+      const err = await res.json();
+      throw new Error(err.error || "Erreur récupération webhook");
     }
 
     const data = await res.json();
     return {
-      url: data.result?.url || "",
-      types: data.result?.types || [],
+      url: data.url || "",
+      types: data.types || [],
     };
   },
 

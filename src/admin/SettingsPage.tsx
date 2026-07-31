@@ -129,6 +129,18 @@ export default function SettingsPage() {
 
   const [webhookTypes, setWebhookTypes] = useState<string[]>([]);
 
+  // Charger la configuration webhook Printful au montage
+  useEffect(() => {
+    if (podSettings?.apiKey) {
+      podApi
+        .getWebhookConfig(podSettings.apiKey, podSettings.storeId)
+        .then((config) => {
+          setWebhookTypes(config.types || []);
+        })
+        .catch(() => {});
+    }
+  }, [podSettings?.apiKey, podSettings?.storeId]);
+
   //Charger les connexions depuis Supabase au montage
   useEffect(() => {
     apiConnectionsApi
@@ -343,6 +355,7 @@ export default function SettingsPage() {
   const [showRefLists, setShowRefLists] = useState(false); // true or false : open or closed by default
   const [showStoreSettings, setShowStoreSettings] = useState(false); // true or false : open or closed by default
   const [visibleLogsCount, setVisibleLogsCount] = useState(10);
+  const [showWebhookSettings, setShowWebhookSettings] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════════
   // Rendu (possible après tous les hooks)
@@ -1371,7 +1384,9 @@ export default function SettingsPage() {
         <div
           style={{
             padding: "16px 22px",
-            borderBottom: "1px solid var(--color-border)",
+            borderBottom: showWebhookSettings
+              ? "1px solid var(--color-border)"
+              : "none",
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -1383,188 +1398,236 @@ export default function SettingsPage() {
             style={{ color: "var(--color-accent)" }}
           />
           <h3
+            onClick={() => setShowWebhookSettings((prev) => !prev)}
             style={{
               fontWeight: 700,
               fontSize: 15,
               color: "var(--color-ink)",
               letterSpacing: "-0.02em",
+              cursor: "pointer",
+              userSelect: "none",
             }}
           >
             Webhooks Printful
           </h3>
-          <span
+          <button
+            onClick={() => setShowWebhookSettings((prev) => !prev)}
             style={{
               marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "var(--color-surface2)",
+              color: "var(--color-ink3)",
+              padding: "4px 10px",
+              borderRadius: 999,
               fontSize: 12,
-              color: "var(--color-ink4)",
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              transition: "transform 0.2s",
+              transform: showWebhookSettings
+                ? "rotate(180deg)"
+                : "rotate(0deg)",
+            }}
+            title={
+              showWebhookSettings
+                ? "Masquer les webhooks"
+                : "Afficher les webhooks"
+            }
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+        {showWebhookSettings && (
+          <div
+            style={{
+              padding: "20px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 18,
             }}
           >
-            Automatisation des statuts de commande
-          </span>
-        </div>
-        <div
-          style={{
-            padding: "20px 22px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-          }}
-        >
-          <div>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--color-ink2)",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              URL du webhook
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-webhook`}
-              className="input-base"
-              style={{ width: "100%", cursor: "copy" }}
-              onClick={(e) => {
-                (e.target as HTMLInputElement).select();
-                navigator.clipboard.writeText(
-                  (e.target as HTMLInputElement).value,
-                );
-              }}
-              title="Cliquez pour copier"
-            />
-            <p
-              style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}
-            >
-              Collez cette URL dans Printful ou utilisez le bouton ci-dessous.
-            </p>
-          </div>
+            <div>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--color-ink2)",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                URL du webhook
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-webhook`}
+                className="input-base"
+                style={{ width: "100%", cursor: "copy" }}
+                onClick={(e) => {
+                  (e.target as HTMLInputElement).select();
+                  navigator.clipboard.writeText(
+                    (e.target as HTMLInputElement).value,
+                  );
+                }}
+                title="Cliquez pour copier"
+              />
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-ink4)",
+                  marginTop: 4,
+                }}
+              >
+                Collez cette URL dans Printful ou utilisez le bouton ci-dessous.
+              </p>
+            </div>
 
-          <div>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--color-ink2)",
-                display: "block",
-                marginBottom: 8,
-              }}
-            >
-              Événements à activer
-            </label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {[
-                { key: "package_shipped", label: "Commande expédiée" },
-                { key: "order_canceled", label: "Commande annulée" },
-                { key: "order_failed", label: "Commande échouée" },
-                { key: "order_updated", label: "Mise à jour commande" },
-              ].map((event) => (
-                <label
-                  key={event.key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 13,
-                    color: "var(--color-ink2)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={webhookTypes.includes(event.key)}
-                    onChange={() => {
-                      setWebhookTypes((prev) =>
-                        prev.includes(event.key)
-                          ? prev.filter((t) => t !== event.key)
-                          : [...prev, event.key],
-                      );
+            <div>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--color-ink2)",
+                  display: "block",
+                  marginBottom: 8,
+                }}
+              >
+                Événements à activer
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {[
+                  { key: "package_shipped", label: "Commande expédiée" },
+                  { key: "order_canceled", label: "Commande annulée" },
+                  { key: "order_failed", label: "Commande échouée" },
+                  { key: "order_updated", label: "Mise à jour commande" },
+                ].map((event) => (
+                  <label
+                    key={event.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 13,
+                      color: "var(--color-ink2)",
+                      cursor: "pointer",
                     }}
-                    style={{ accentColor: "var(--color-accent)" }}
-                  />
-                  {event.label}
-                </label>
-              ))}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={webhookTypes.includes(event.key)}
+                      onChange={() => {
+                        setWebhookTypes((prev) =>
+                          prev.includes(event.key)
+                            ? prev.filter((t) => t !== event.key)
+                            : [...prev, event.key],
+                        );
+                      }}
+                      style={{ accentColor: "var(--color-accent)" }}
+                    />
+                    {event.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!podForm.apiKey) {
+                    alert(
+                      "Veuillez d'abord enregistrer votre clé API Printful.",
+                    );
+                    return;
+                  }
+                  try {
+                    await podApi.disableWebhook(
+                      podForm.apiKey,
+                      podForm.storeId,
+                    );
+                    alert("Webhook désactivé avec succès.");
+                    setWebhookTypes([]);
+                  } catch (e: any) {
+                    alert(e.message);
+                  }
+                }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  border: "1.5px solid var(--color-border2)",
+                  background: "var(--color-surface)",
+                  color: "var(--color-ink2)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Désactiver le webhook
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!podForm.apiKey) {
+                    alert(
+                      "Veuillez d'abord enregistrer votre clé API Printful.",
+                    );
+                    return;
+                  }
+                  if (webhookTypes.length === 0) {
+                    alert("Sélectionnez au moins un événement.");
+                    return;
+                  }
+                  try {
+                    await podApi.setupWebhook(
+                      podForm.apiKey,
+                      podForm.storeId,
+                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-webhook`,
+                      webhookTypes,
+                    );
+                    alert("Webhook configuré avec succès !");
+                  } catch (e: any) {
+                    alert(e.message);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 22px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "var(--color-accent)",
+                  color: "white",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  cursor: "pointer",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                <Save size={15} strokeWidth={2} />
+                Enregistrer dans Printful
+              </button>
             </div>
           </div>
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!podForm.apiKey) {
-                  alert("Veuillez d'abord enregistrer votre clé API Printful.");
-                  return;
-                }
-                try {
-                  await podApi.disableWebhook(podForm.apiKey, podForm.storeId);
-                  alert("Webhook désactivé avec succès.");
-                  setWebhookTypes([]);
-                } catch (e: any) {
-                  alert(e.message);
-                }
-              }}
-              style={{
-                padding: "10px 18px",
-                borderRadius: 12,
-                border: "1.5px solid var(--color-border2)",
-                background: "var(--color-surface)",
-                color: "var(--color-ink2)",
-                fontFamily: "var(--font-body)",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              Désactiver le webhook
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!podForm.apiKey) {
-                  alert("Veuillez d'abord enregistrer votre clé API Printful.");
-                  return;
-                }
-                if (webhookTypes.length === 0) {
-                  alert("Sélectionnez au moins un événement.");
-                  return;
-                }
-                try {
-                  await podApi.setupWebhook(
-                    podForm.apiKey,
-                    podForm.storeId,
-                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-webhook`,
-                    webhookTypes,
-                  );
-                  alert("Webhook configuré avec succès !");
-                } catch (e: any) {
-                  alert(e.message);
-                }
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 22px",
-                borderRadius: 12,
-                border: "none",
-                background: "var(--color-accent)",
-                color: "white",
-                fontFamily: "var(--font-body)",
-                fontWeight: 700,
-                fontSize: 13.5,
-                cursor: "pointer",
-                boxShadow: "var(--shadow-accent)",
-              }}
-            >
-              <Save size={15} strokeWidth={2} />
-              Enregistrer dans Printful
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ─── Section 3 : Journal de synchronisation ───────────────────────── */}
