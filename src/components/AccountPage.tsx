@@ -246,19 +246,26 @@ export default function AccountPage({
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!customerId) return;
-    setLoadingNotifs(true);
-    try {
-      const data = await customerApi.getNotifications(customerId);
-      setCustomerNotifications(data);
-      setUnreadNotifsCount(data.filter((n: any) => !n.is_read).length);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingNotifs(false);
-    }
-  }, [customerId]);
+  const fetchNotifications = useCallback(
+    async (page = 0, append = false) => {
+      if (!customerId) return;
+      setLoadingNotifs(true);
+      try {
+        const data = await customerApi.getNotifications(customerId, page, 10);
+        if (append) {
+          setCustomerNotifications((prev) => [...prev, ...data]);
+        } else {
+          setCustomerNotifications(data);
+        }
+        setUnreadNotifsCount(data.filter((n: any) => !n.is_read).length);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingNotifs(false);
+      }
+    },
+    [customerId],
+  );
 
   const handleMarkNotifRead = async (notifId: string) => {
     await customerApi.markNotificationRead(notifId);
@@ -364,28 +371,48 @@ export default function AccountPage({
     }
   };
 
-  const fetchOrders = useCallback(async () => {
-    if (!customerId && !customerEmail) return;
-    setLoadingOrders(true);
-    try {
-      if (customerEmail) {
-        const ordersByEmail = await customerApi.getOrders(customerEmail);
-        if (ordersByEmail.length > 0) {
-          setOrders(ordersByEmail);
-          return;
+  const fetchOrders = useCallback(
+    async (page = 0, append = false, search?: string) => {
+      if (!customerId && !customerEmail) return;
+      setLoadingOrders(true);
+      try {
+        const identifier = customerEmail || customerId || "";
+        const newOrders = await customerApi.getOrders(
+          identifier,
+          page,
+          10,
+          search,
+        );
+        if (append) {
+          setOrders((prev) => [...prev, ...newOrders]);
+        } else {
+          setOrders(newOrders);
         }
+        // Si on reçoit moins de 10 résultats, il n'y a plus de données
+        setHasMoreOrders(newOrders.length === 10);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingOrders(false);
       }
-      if (customerId) {
-        setOrders(await customerApi.getOrders(customerId));
-      } else {
-        setOrders([]);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingOrders(false);
-    }
-  }, [customerId, customerEmail]);
+    },
+    [customerId, customerEmail],
+  );
+
+  const [hasMoreOrders, setHasMoreOrders] = useState(true);
+  const [ordersPage, setOrdersPage] = useState(0);
+
+  const [searchOrders, setSearchOrders] = useState("");
+  const [searchResults, setSearchResults] = useState<Order[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0); // total réel depuis la DB
+
+  const handleLoadMoreOrders = useCallback(() => {
+    if (loadingOrders || !hasMoreOrders) return;
+    const nextPage = ordersPage + 1;
+    setOrdersPage(nextPage);
+    fetchOrders(nextPage, true);
+  }, [loadingOrders, hasMoreOrders, ordersPage, fetchOrders]);
 
   const fetchFavorites = useCallback(async () => {
     if (!customerId) return;
@@ -414,12 +441,20 @@ export default function AccountPage({
   // Load all data on mount (for sidebar badges)
   useEffect(() => {
     if (!customerId) return;
-    fetchOrders();
+    fetchOrders(0, false);
     fetchFavorites();
     fetchCart();
-    fetchNotifications();
+    fetchNotifications(0, false);
     fetchInteractions();
-  }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Charger le nombre total réel d'orders
+    const identifier = customerEmail || customerId || "";
+    if (identifier) {
+      customerApi
+        .getOrderCount(identifier)
+        .then(setTotalOrdersCount)
+        .catch(() => {});
+    }
+  }, [customerId]);
 
   // Auto-refresh sidebar data every 30s (orders list excluded, too heavy)
   useEffect(() => {
@@ -427,17 +462,15 @@ export default function AccountPage({
     const interval = setInterval(() => {
       fetchFavorites();
       fetchCart();
-      fetchNotifications();
+      // Seul le compteur de notifications non lues est rafraîchi, pas toute la liste
+      customerApi
+        .getUnreadNotificationCount(customerId)
+        .then(setUnreadNotifsCount)
+        .catch(() => {});
       fetchInteractions();
     }, 30000);
     return () => clearInterval(interval);
-  }, [
-    customerId,
-    fetchFavorites,
-    fetchCart,
-    fetchNotifications,
-    fetchInteractions,
-  ]);
+  }, [customerId, fetchFavorites, fetchCart, fetchInteractions]);
 
   // ── Stats (computed) ──────────────────────────────────────────────
   const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
@@ -608,7 +641,7 @@ export default function AccountPage({
                   className="text-[18px] font-black tabular-nums"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {orders.length}
+                  {totalOrdersCount}
                 </p>
               </div>
               <div>
@@ -764,6 +797,10 @@ export default function AccountPage({
                 currencySymbol={currencySymbol}
                 onViewProduct={onViewProduct}
                 onRefresh={fetchOrders}
+                onLoadMore={handleLoadMoreOrders}
+                hasMore={hasMoreOrders}
+                customerEmail={customerEmail}
+                customerId={customerId}
               />
             )}
             {tab === "favorites" && (
@@ -871,6 +908,10 @@ function OrdersTab({
   currencySymbol,
   onViewProduct,
   onRefresh,
+  onLoadMore,
+  hasMore,
+  customerEmail,
+  customerId,
 }: {
   orders: Order[];
   loading: boolean;
@@ -880,19 +921,74 @@ function OrdersTab({
     initialColor?: string,
     initialSize?: string,
   ) => void;
-  onRefresh?: () => Promise<void>;
+  onRefresh?: (page: number, append: boolean) => Promise<void>;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  customerEmail?: string;
+  customerId?: string | null;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Filtrage + tri
+  const [serverSearch, setServerSearch] = useState("");
+  const [serverResults, setServerResults] = useState<Order[]>([]);
+  const [serverSearchLoading, setServerSearchLoading] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchDebouncing, setSearchDebouncing] = useState(false);
+
+  // Recherche serveur avec debounce (350ms)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!search.trim()) {
+      setServerSearch("");
+      setServerResults([]);
+      setSearchDebouncing(false);
+      return;
+    }
+    const identifier = customerEmail || customerId || "";
+    if (!identifier) return;
+
+    setSearchDebouncing(true);
+    debounceRef.current = setTimeout(async () => {
+      setServerSearchLoading(true);
+      setSearchDebouncing(false);
+      try {
+        const results = await customerApi.getOrders(identifier, 0, 50, search);
+        setServerResults(results);
+        setServerSearch(search);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setServerSearchLoading(false);
+      }
+    }, 350);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, customerEmail, customerId]);
+
+  // IntersectionObserver pour scroll infini
+  useEffect(() => {
+    if (!loaderRef.current || !hasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && onLoadMore) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loading, onLoadMore]);
+
+  // Filtrage + tri (côté client uniquement sur les données déjà chargées)
   const filtered = useMemo(() => {
     let list = [...orders];
-
-    // Recherche textuelle
     if (search.trim()) {
       const s = search.toLowerCase();
       list = list.filter(
@@ -902,39 +998,37 @@ function OrdersTab({
           (o.clientEmail || "").toLowerCase().includes(s),
       );
     }
-
-    // Filtre par statut
     if (filterStatus !== "all") {
       list = list.filter((o) => o.status === filterStatus);
     }
-
-    // Tri par date
     list.sort((a, b) => {
       const da = new Date(a.createdAt).getTime();
       const db = new Date(b.createdAt).getTime();
       return sortOrder === "newest" ? db - da : da - db;
     });
-
     return list;
   }, [orders, search, filterStatus, sortOrder]);
 
-  // Rafraîchir la liste quand on revient de la vue détail
-  // on met à jour uniquement la commande modifiée dans la liste locale
+  // Appliquer les filtres locaux (status, sort) aux résultats de recherche serveur
+  const filteredServerResults = useMemo(() => {
+    let list = [...serverResults];
+    if (filterStatus !== "all") {
+      list = list.filter((o) => o.status === filterStatus);
+    }
+    list.sort((a, b) => {
+      const da = new Date(a.createdAt).getTime();
+      const db = new Date(b.createdAt).getTime();
+      return sortOrder === "newest" ? db - da : da - db;
+    });
+    return list;
+  }, [serverResults, filterStatus, sortOrder]);
+
   const handleBack = useCallback(async () => {
     setSelectedOrder(null);
-    if (onRefresh) await onRefresh();
+    if (onRefresh) await onRefresh(0, false);
   }, [onRefresh]);
 
-  // Effet pour rafraîchir les données quand on quitte la vue détail
-  useEffect(() => {
-    // Si on n'a plus de commande sélectionnée (on est revenu à la liste)
-    // et qu'on avait une commande sélectionnée avant, on rafraîchit
-    if (!selectedOrder) {
-      // Le parent rafraîchira via onRefresh si fourni
-    }
-  }, [selectedOrder]);
-
-  if (loading) return <SkeletonList />;
+  if (loading && orders.length === 0) return <SkeletonList />;
   if (loadingDetail)
     return (
       <div className="flex justify-center py-12">
@@ -968,7 +1062,6 @@ function OrdersTab({
     <div className="flex flex-col gap-3">
       {/* Barre de recherche + filtres */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
         <div
           className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
           style={{
@@ -983,7 +1076,7 @@ function OrdersTab({
           />
           <input
             type="text"
-            placeholder="Search by order ID or customer name…"
+            placeholder="Search by order ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-[13px]"
@@ -1002,8 +1095,6 @@ function OrdersTab({
             </button>
           )}
         </div>
-
-        {/* Filtre statut */}
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
@@ -1022,8 +1113,6 @@ function OrdersTab({
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
         </select>
-
-        {/* Tri */}
         <button
           onClick={() =>
             setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
@@ -1038,8 +1127,6 @@ function OrdersTab({
           <Clock size={13} strokeWidth={1.75} />
           {sortOrder === "newest" ? "Newest" : "Oldest"}
         </button>
-
-        {/* Reset */}
         {(search || filterStatus !== "all") && (
           <button
             onClick={() => {
@@ -1058,167 +1145,332 @@ function OrdersTab({
         )}
       </div>
 
-      {/* Résultat */}
-      {filtered.length === 0 ? (
+      {serverSearch || searchDebouncing ? (
+        serverSearchLoading ? (
+          <SkeletonList />
+        ) : serverResults.length === 0 ? (
+          <EmptyState
+            icon={<Search size={28} strokeWidth={1.5} />}
+            title="No orders match"
+            sub="Try adjusting your search or filters."
+          />
+        ) : (
+          filteredServerResults.map((order) => {
+            const isActive =
+              order.status !== "delivered" && order.status !== "cancelled";
+            return (
+              <button
+                key={order.id}
+                onClick={async () => {
+                  setLoadingDetail(true);
+                  try {
+                    const { data: refreshed, error } = await supabase
+                      .from("orders")
+                      .select("*, order_items(*)")
+                      .eq("id", order.id)
+                      .single();
+                    if (!error && refreshed) {
+                      const items = (refreshed.order_items || []).map(
+                        (item: any) => ({
+                          id: item.id,
+                          orderId: item.order_id,
+                          productId: item.product_id,
+                          productTitle: item.product_title,
+                          productImage: item.product_image,
+                          selectedColor: item.selected_color,
+                          selectedSize: item.selected_size,
+                          quantity: item.quantity,
+                          unitPrice: item.unit_price,
+                        }),
+                      );
+                      setSelectedOrder({
+                        id: refreshed.id,
+                        clientId: refreshed.client_id,
+                        clientName: refreshed.client_name,
+                        clientEmail: refreshed.client_email,
+                        createdAt: refreshed.created_at,
+                        status: refreshed.status,
+                        totalAmount: refreshed.total_amount,
+                        shippingCost: refreshed.shipping_cost,
+                        shippingAddress: {
+                          fullName: refreshed.shipping_address_full_name,
+                          address: refreshed.shipping_address_address,
+                          city: refreshed.shipping_address_city,
+                          zip: refreshed.shipping_address_zip,
+                          country: refreshed.shipping_address_country,
+                          phone: refreshed.shipping_address_phone,
+                        },
+                        externalOrderId: refreshed.external_order_id,
+                        notes: refreshed.notes,
+                        items,
+                      } as Order);
+                    } else {
+                      setSelectedOrder(order);
+                    }
+                  } catch {
+                    setSelectedOrder(order);
+                  } finally {
+                    setLoadingDetail(false);
+                  }
+                }}
+                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+                style={{
+                  background: "var(--color-surface)",
+                  borderColor: "var(--color-border)",
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p
+                        className="truncate text-[13px] font-bold"
+                        style={{ color: "var(--color-ink)" }}
+                      >
+                        {order.id}
+                        <CopyID id={order.id} />
+                      </p>
+                      {isActive && (
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: "var(--color-accent)" }}
+                        />
+                      )}
+                    </div>
+                    <p
+                      className="text-[12px]"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
+                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span
+                      className="text-[15px] font-black tabular-nums"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {currencySymbol}
+                      {order.totalAmount.toFixed(2)}
+                    </span>
+                    <StatusPill status={order.status} />
+                  </div>
+                </div>
+                {order.items && order.items.length > 0 && (
+                  <div className="mt-3 flex items-center gap-1.5">
+                    {order.items.slice(0, 4).map((item, i) => (
+                      <span
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (item.productId && onViewProduct) {
+                            onViewProduct(
+                              item.productId,
+                              item.selectedColor,
+                              item.selectedSize,
+                            );
+                          }
+                        }}
+                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
+                        style={{ border: "1px solid var(--color-border)" }}
+                      >
+                        <img
+                          src={item.productImage || PLACEHOLDER_IMG}
+                          alt={item.productTitle || "item"}
+                          className="h-full w-full object-cover"
+                        />
+                      </span>
+                    ))}
+                    {order.items.length > 4 && (
+                      <div
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
+                        style={{
+                          background: "var(--color-surface2)",
+                          color: "var(--color-ink3)",
+                          border: "1px solid var(--color-border)",
+                        }}
+                      >
+                        +{order.items.length - 4}
+                      </div>
+                    )}
+                    <ChevronRight
+                      size={16}
+                      strokeWidth={1.75}
+                      className="ml-auto"
+                      style={{ color: "var(--color-ink4)" }}
+                    />
+                  </div>
+                )}
+              </button>
+            );
+          })
+        )
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Search size={28} strokeWidth={1.5} />}
           title="No orders match"
           sub="Try adjusting your search or filters."
         />
       ) : (
-        filtered.map((order) => {
-          const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
-          const isActive =
-            order.status !== "delivered" && order.status !== "cancelled";
-          return (
-            <button
-              key={order.id}
-              onClick={async () => {
-                setLoadingDetail(true);
-                try {
-                  const { data: refreshed, error } = await supabase
-                    .from("orders")
-                    .select("*, order_items(*)")
-                    .eq("id", order.id)
-                    .single();
-                  if (!error && refreshed) {
-                    const items = (refreshed.order_items || []).map(
-                      (item: any) => ({
-                        id: item.id,
-                        orderId: item.order_id,
-                        productId: item.product_id,
-                        productTitle: item.product_title,
-                        productImage: item.product_image,
-                        selectedColor: item.selected_color,
-                        selectedSize: item.selected_size,
-                        quantity: item.quantity,
-                        unitPrice: item.unit_price,
-                      }),
-                    );
-                    setSelectedOrder({
-                      id: refreshed.id,
-                      clientId: refreshed.client_id,
-                      clientName: refreshed.client_name,
-                      clientEmail: refreshed.client_email,
-                      createdAt: refreshed.created_at,
-                      status: refreshed.status,
-                      totalAmount: refreshed.total_amount,
-                      shippingCost: refreshed.shipping_cost,
-                      shippingAddress: {
-                        fullName: refreshed.shipping_address_full_name,
-                        address: refreshed.shipping_address_address,
-                        city: refreshed.shipping_address_city,
-                        zip: refreshed.shipping_address_zip,
-                        country: refreshed.shipping_address_country,
-                        phone: refreshed.shipping_address_phone,
-                      },
-                      externalOrderId: refreshed.external_order_id,
-                      notes: refreshed.notes,
-                      items,
-                    } as Order);
-                  } else {
+        <>
+          {filtered.map((order) => {
+            const isActive =
+              order.status !== "delivered" && order.status !== "cancelled";
+            return (
+              <button
+                key={order.id}
+                onClick={async () => {
+                  setLoadingDetail(true);
+                  try {
+                    const { data: refreshed, error } = await supabase
+                      .from("orders")
+                      .select("*, order_items(*)")
+                      .eq("id", order.id)
+                      .single();
+                    if (!error && refreshed) {
+                      const items = (refreshed.order_items || []).map(
+                        (item: any) => ({
+                          id: item.id,
+                          orderId: item.order_id,
+                          productId: item.product_id,
+                          productTitle: item.product_title,
+                          productImage: item.product_image,
+                          selectedColor: item.selected_color,
+                          selectedSize: item.selected_size,
+                          quantity: item.quantity,
+                          unitPrice: item.unit_price,
+                        }),
+                      );
+                      setSelectedOrder({
+                        id: refreshed.id,
+                        clientId: refreshed.client_id,
+                        clientName: refreshed.client_name,
+                        clientEmail: refreshed.client_email,
+                        createdAt: refreshed.created_at,
+                        status: refreshed.status,
+                        totalAmount: refreshed.total_amount,
+                        shippingCost: refreshed.shipping_cost,
+                        shippingAddress: {
+                          fullName: refreshed.shipping_address_full_name,
+                          address: refreshed.shipping_address_address,
+                          city: refreshed.shipping_address_city,
+                          zip: refreshed.shipping_address_zip,
+                          country: refreshed.shipping_address_country,
+                          phone: refreshed.shipping_address_phone,
+                        },
+                        externalOrderId: refreshed.external_order_id,
+                        notes: refreshed.notes,
+                        items,
+                      } as Order);
+                    } else {
+                      setSelectedOrder(order);
+                    }
+                  } catch {
                     setSelectedOrder(order);
+                  } finally {
+                    setLoadingDetail(false);
                   }
-                } catch {
-                  setSelectedOrder(order);
-                } finally {
-                  setLoadingDetail(false);
-                }
-              }}
-              className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
-              style={{
-                background: "var(--color-surface)",
-                borderColor: "var(--color-border)",
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                }}
+                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+                style={{
+                  background: "var(--color-surface)",
+                  borderColor: "var(--color-border)",
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p
+                        className="truncate text-[13px] font-bold"
+                        style={{ color: "var(--color-ink)" }}
+                      >
+                        {order.id}
+                        <CopyID id={order.id} />
+                      </p>
+                      {isActive && (
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: "var(--color-accent)" }}
+                        />
+                      )}
+                    </div>
                     <p
-                      className="truncate text-[13px] font-bold"
+                      className="text-[12px]"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
+                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span
+                      className="text-[15px] font-black tabular-nums"
                       style={{ color: "var(--color-ink)" }}
                     >
-                      {order.id}
-                      <CopyID id={order.id} />
-                    </p>
-                    {isActive && (
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: "var(--color-accent)" }}
-                      />
-                    )}
-                  </div>
-                  <p
-                    className="text-[12px]"
-                    style={{ color: "var(--color-ink4)" }}
-                  >
-                    {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                    item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span
-                    className="text-[15px] font-black tabular-nums"
-                    style={{ color: "var(--color-ink)" }}
-                  >
-                    {currencySymbol}
-                    {order.totalAmount.toFixed(2)}
-                  </span>
-                  <StatusPill status={order.status} />
-                </div>
-              </div>
-
-              {/* Item thumbnails */}
-              {order.items && order.items.length > 0 && (
-                <div className="mt-3 flex items-center gap-1.5">
-                  {order.items.slice(0, 4).map((item, i) => (
-                    <span
-                      key={i}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (item.productId && onViewProduct) {
-                          onViewProduct(
-                            item.productId,
-                            item.selectedColor,
-                            item.selectedSize,
-                          );
-                        }
-                      }}
-                      className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
-                      role="button"
-                      tabIndex={0}
-                      style={{ border: "1px solid var(--color-border)" }}
-                    >
-                      <img
-                        src={item.productImage || PLACEHOLDER_IMG}
-                        alt={item.productTitle || "item"}
-                        className="h-full w-full object-cover"
-                      />
+                      {currencySymbol}
+                      {order.totalAmount.toFixed(2)}
                     </span>
-                  ))}
-                  {order.items.length > 4 && (
-                    <div
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                      style={{
-                        background: "var(--color-surface2)",
-                        color: "var(--color-ink3)",
-                        border: "1px solid var(--color-border)",
-                      }}
-                    >
-                      +{order.items.length - 4}
-                    </div>
-                  )}
-                  <ChevronRight
-                    size={16}
-                    strokeWidth={1.75}
-                    className="ml-auto"
-                    style={{ color: "var(--color-ink4)" }}
-                  />
+                    <StatusPill status={order.status} />
+                  </div>
                 </div>
-              )}
-            </button>
-          );
-        })
+                {order.items && order.items.length > 0 && (
+                  <div className="mt-3 flex items-center gap-1.5">
+                    {order.items.slice(0, 4).map((item, i) => (
+                      <span
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (item.productId && onViewProduct) {
+                            onViewProduct(
+                              item.productId,
+                              item.selectedColor,
+                              item.selectedSize,
+                            );
+                          }
+                        }}
+                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
+                        style={{ border: "1px solid var(--color-border)" }}
+                      >
+                        <img
+                          src={item.productImage || PLACEHOLDER_IMG}
+                          alt={item.productTitle || "item"}
+                          className="h-full w-full object-cover"
+                        />
+                      </span>
+                    ))}
+                    {order.items.length > 4 && (
+                      <div
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
+                        style={{
+                          background: "var(--color-surface2)",
+                          color: "var(--color-ink3)",
+                          border: "1px solid var(--color-border)",
+                        }}
+                      >
+                        +{order.items.length - 4}
+                      </div>
+                    )}
+                    <ChevronRight
+                      size={16}
+                      strokeWidth={1.75}
+                      className="ml-auto"
+                      style={{ color: "var(--color-ink4)" }}
+                    />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </>
+      )}
+      {/* Loader pour scroll infini */}
+      {hasMore && (
+        <div ref={loaderRef} className="flex justify-center py-4">
+          <Loader2
+            size={20}
+            className="animate-spin"
+            style={{ color: "var(--color-ink4)" }}
+          />
+        </div>
       )}
     </div>
   );

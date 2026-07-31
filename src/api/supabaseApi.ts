@@ -515,13 +515,25 @@ export const customerApi = {
       product: productMap.get(item.product_id),
     }));
   },
-  async getOrders(clientIdOrEmail: string): Promise<Order[]> {
-    // Si le paramètre contient "@", chercher par email ; sinon par client_id
+  async getOrders(
+    clientIdOrEmail: string,
+    page = 0,
+    perPage = 10,
+    search?: string,
+  ): Promise<Order[]> {
     const isEmail = clientIdOrEmail.includes("@");
-    const { data: orders, error } = await supabase
+    const from = page * perPage;
+    const to = from + perPage - 1;
+    let query = supabase
       .from("orders")
       .select("*")
-      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail);
+      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (search?.trim()) {
+      query = query.ilike("id", `%${search.trim()}%`);
+    }
+    const { data: orders, error } = await query;
     if (error) throw error;
     const ordersMapped = (orders ?? []).map(mapOrder);
     for (const order of ordersMapped) {
@@ -544,14 +556,31 @@ export const customerApi = {
     return ordersMapped;
   },
 
+  // ──  ───────────────────────────────────────────────
+  async getOrderCount(clientIdOrEmail: string): Promise<number> {
+    const isEmail = clientIdOrEmail.includes("@");
+    const { count, error } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail);
+    if (error) throw error;
+    return count ?? 0;
+  },
+
   // ── Notifications ───────────────────────────────────────────────
-  async getNotifications(clientId: string, limit = 50): Promise<any[]> {
+  async getNotifications(
+    clientId: string,
+    page = 0,
+    perPage = 10,
+  ): Promise<any[]> {
+    const from = page * perPage;
+    const to = from + perPage - 1;
     const { data, error } = await supabase
       .from("customer_notifications")
       .select("*")
       .eq("customer_id", clientId)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .range(from, to);
     if (error) throw error;
     return data ?? [];
   },
