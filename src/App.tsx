@@ -889,7 +889,7 @@ export default function App() {
           }}
           onBuyNow={(p, c, s) => {
             addToCart(p, c, s);
-            setCartOpen(true);
+            setCheckoutOpen(true);
             setSelectedProduct(null);
           }}
           dealExpired={dealExpired}

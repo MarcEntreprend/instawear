@@ -335,7 +335,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 #### 👤 Espace client
 
-- [ ] Bouton 'Buy Now' doit diriger directement vers step un, avec tout le panier
+- [x] Bouton 'Buy Now' doit diriger directement vers step un, avec tout le panier
 - [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
 - [x] **Adresses sauvegardées** (éditable, dernière utilisée conservée, préférée)
 - [x] Page 404 personnalisée
