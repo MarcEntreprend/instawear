@@ -15,14 +15,20 @@ Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festival
 
 `npx vite --host`
 
-npx vite --force
+`npx vite --force`
 -> Ça redémarre Vite en ignorant le cache !
+
+```
 
 Remove-Item -Recurse -Force node_modules/.vite -ErrorAction SilentlyContinue
 
+```
+
 Supprime le cache de Vite (node_modules/.vite). Vite stocke les fichiers précompilés ici. Les supprimer force Vite à tout recompiler proprement au prochain npm run dev. Résout les erreurs 500 sur des fichiers CSS/JS qui persistent après correction.
 
-3.  Déployer l'Edge Function
+3. Déployer l'Edge Function
+
+```
 
 npx supabase functions deploy sync-printful --no-verify-jwt
 npx supabase functions deploy create-printful-order --no-verify-jwt
@@ -32,9 +38,11 @@ npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy reset-password --no-verify-jwt
 
+```
+
 ## IPv4 Address
 
-`192.168.15.2 `
+`192.168.15.2`
 
 Local: http://localhost:5173/
 ➜ Network: http://192.168.15.2:5173/
@@ -42,131 +50,132 @@ Local: http://localhost:5173/
 ## Structure arborescente
 
 ```
+
 instawear/
 ├── .vscode/
-│   └── settings.json
+│ └── settings.json
 ├── assets/
-│   └── .aistudio/
-│       └── .gitignore
+│ └── .aistudio/
+│ └── .gitignore
 ├── data/
-│   ├── assets.json
-│   ├── products.json
-│   └── settings.json
+│ ├── assets.json
+│ ├── products.json
+│ └── settings.json
 ├── dist/
 ├── node_modules/
 ├── public/
-│   ├── flags/
-│   │   ├── be.svg
-│   │   ├── br.svg
-│   │   ├── ca.svg
-│   │   ├── ch.svg
-│   │   ├── fr.svg
-│   │   ├── gb.svg
-│   │   ├── jp.svg
-│   │   └── us.svg
-│   ├── globe-off.svg
-│   ├── InstaWear-logo-settings.png
-│   ├── InstaWear-logo-wh-middle-no-BG.png
-│   ├── InstaWear-logo.png
-│   ├── Instawear-missing-item.svg
-│   └── unsubscribe.html
+│ ├── flags/
+│ │ ├── be.svg
+│ │ ├── br.svg
+│ │ ├── ca.svg
+│ │ ├── ch.svg
+│ │ ├── fr.svg
+│ │ ├── gb.svg
+│ │ ├── jp.svg
+│ │ └── us.svg
+│ ├── globe-off.svg
+│ ├── InstaWear-logo-settings.png
+│ ├── InstaWear-logo-wh-middle-no-BG.png
+│ ├── InstaWear-logo.png
+│ ├── Instawear-missing-item.svg
+│ └── unsubscribe.html
 ├── src/
-│   ├── admin/
-│   │   ├── emailMarketing/
-│   │   │   ├── constants.tsx
-│   │   │   ├── emailTemplates.tsx
-│   │   │   ├── helpers.ts
-│   │   │   ├── useToast.ts
-│   │   │   └── VariablesModal.tsx
-│   │   ├── AdminDashboardNew.tsx
-│   │   ├── adminHooks.ts
-│   │   ├── AdminSidebar.tsx
-│   │   ├── adminStyles.ts
-│   │   ├── adminTypes.ts
-│   │   ├── AdminUsersPage.tsx
-│   │   ├── CustomersPage.tsx
-│   │   ├── EmailMarketingPage.tsx
-│   │   ├── HelpPage.tsx
-│   │   ├── IntegrationsPage.tsx
-│   │   ├── InteractionsPage.tsx
-│   │   ├── NotificationsPage.tsx
-│   │   ├── OrdersPage.tsx
-│   │   ├── PrintfulProductForm.tsx
-│   │   ├── ProductFormPanel.tsx
-│   │   ├── ProductQuickViewModal.tsx
-│   │   ├── ProductsPage.tsx
-│   │   ├── PromotionsPage.tsx
-│   │   ├── ReportInfoModal.tsx
-│   │   ├── ReportsPage.tsx
-│   │   ├── SettingsPage.tsx
-│   │   └── useAdminHighlight.ts
-│   ├── api/
-│   │   ├── storageApi.ts
-│   │   └── supabaseApi.ts
-│   ├── components/
-│   │   ├── AboutSection.tsx
-│   │   ├── AccountPage.tsx
-│   │   ├── AuthModal.tsx
-│   │   ├── CartDrawer.tsx
-│   │   ├── CatalogSection.tsx
-│   │   ├── CheckoutFlow.tsx
-│   │   ├── CopyID.tsx
-│   │   ├── DealsSection.tsx
-│   │   ├── FaqSection.tsx
-│   │   ├── Footer.tsx
-│   │   ├── Header.tsx
-│   │   ├── HeroCarousel.tsx
-│   │   ├── NotFound.tsx
-│   │   ├── OrderModal.tsx
-│   │   ├── OrderTrackingModal.tsx
-│   │   ├── ProductDetailModal.tsx
-│   │   ├── ProductModal.tsx
-│   │   ├── ProfileModal.tsx
-│   │   ├── ReassuranceBar.tsx
-│   │   ├── StoreProductCard.tsx
-│   │   ├── TagInput.tsx
-│   │   └── ToastContainer.tsx
-│   ├── constants/
-│   │   └── assets.ts
-│   ├── data/
-│   │   ├── countries.ts
-│   │   ├── faq.ts
-│   │   └── shippingRates.ts
-│   ├── hooks/
-│   │   ├── useCurrencySymbol.ts
-│   │   ├── useLocalStorage.ts
-│   │   ├── useShippingSettings.ts
-│   │   └── useTabBadge.ts
-│   ├── lib/
-│   │   └── supabaseClient.ts
-│   ├── utils/
-│   │   ├── emailTemplates.ts
-│   │   └── format.ts
-│   ├── App.tsx
-│   ├── index.css
-│   ├── main.tsx
-│   ├── types.ts
-│   └── vite-env.d.ts
+│ ├── admin/
+│ │ ├── emailMarketing/
+│ │ │ ├── constants.tsx
+│ │ │ ├── emailTemplates.tsx
+│ │ │ ├── helpers.ts
+│ │ │ ├── useToast.ts
+│ │ │ └── VariablesModal.tsx
+│ │ ├── AdminDashboardNew.tsx
+│ │ ├── adminHooks.ts
+│ │ ├── AdminSidebar.tsx
+│ │ ├── adminStyles.ts
+│ │ ├── adminTypes.ts
+│ │ ├── AdminUsersPage.tsx
+│ │ ├── CustomersPage.tsx
+│ │ ├── EmailMarketingPage.tsx
+│ │ ├── HelpPage.tsx
+│ │ ├── IntegrationsPage.tsx
+│ │ ├── InteractionsPage.tsx
+│ │ ├── NotificationsPage.tsx
+│ │ ├── OrdersPage.tsx
+│ │ ├── PrintfulProductForm.tsx
+│ │ ├── ProductFormPanel.tsx
+│ │ ├── ProductQuickViewModal.tsx
+│ │ ├── ProductsPage.tsx
+│ │ ├── PromotionsPage.tsx
+│ │ ├── ReportInfoModal.tsx
+│ │ ├── ReportsPage.tsx
+│ │ ├── SettingsPage.tsx
+│ │ └── useAdminHighlight.ts
+│ ├── api/
+│ │ ├── storageApi.ts
+│ │ └── supabaseApi.ts
+│ ├── components/
+│ │ ├── AboutSection.tsx
+│ │ ├── AccountPage.tsx
+│ │ ├── AuthModal.tsx
+│ │ ├── CartDrawer.tsx
+│ │ ├── CatalogSection.tsx
+│ │ ├── CheckoutFlow.tsx
+│ │ ├── CopyID.tsx
+│ │ ├── DealsSection.tsx
+│ │ ├── FaqSection.tsx
+│ │ ├── Footer.tsx
+│ │ ├── Header.tsx
+│ │ ├── HeroCarousel.tsx
+│ │ ├── NotFound.tsx
+│ │ ├── OrderModal.tsx
+│ │ ├── OrderTrackingModal.tsx
+│ │ ├── ProductDetailModal.tsx
+│ │ ├── ProductModal.tsx
+│ │ ├── ProfileModal.tsx
+│ │ ├── ReassuranceBar.tsx
+│ │ ├── StoreProductCard.tsx
+│ │ ├── TagInput.tsx
+│ │ └── ToastContainer.tsx
+│ ├── constants/
+│ │ └── assets.ts
+│ ├── data/
+│ │ ├── countries.ts
+│ │ ├── faq.ts
+│ │ └── shippingRates.ts
+│ ├── hooks/
+│ │ ├── useCurrencySymbol.ts
+│ │ ├── useLocalStorage.ts
+│ │ ├── useShippingSettings.ts
+│ │ └── useTabBadge.ts
+│ ├── lib/
+│ │ └── supabaseClient.ts
+│ ├── utils/
+│ │ ├── emailTemplates.ts
+│ │ └── format.ts
+│ ├── App.tsx
+│ ├── index.css
+│ ├── main.tsx
+│ ├── types.ts
+│ └── vite-env.d.ts
 ├── supabase/
-│   ├── .temp/
-│   ├── functions/
-│   │   ├── create-printful-order/
-│   │   │   └── index.ts
-│   │   ├── printful-webhook/
-│   │   │   └── index.ts
-│   │   ├── reset-password/
-│   │   │   └── index.ts
-│   │   ├── send-email/
-│   │   │   └── index.ts
-│   │   ├── stripe-checkout/
-│   │   │   └── index.ts
-│   │   ├── stripe-webhook/
-│   │   │   └── index.ts
-│   │   └── sync-printful/
-│   │       ├── .npmrc
-│   │       ├── deno.json
-│   │       └── index.ts
-│   └── config.toml
+│ ├── .temp/
+│ ├── functions/
+│ │ ├── create-printful-order/
+│ │ │ └── index.ts
+│ │ ├── printful-webhook/
+│ │ │ └── index.ts
+│ │ ├── reset-password/
+│ │ │ └── index.ts
+│ │ ├── send-email/
+│ │ │ └── index.ts
+│ │ ├── stripe-checkout/
+│ │ │ └── index.ts
+│ │ ├── stripe-webhook/
+│ │ │ └── index.ts
+│ │ └── sync-printful/
+│ │ ├── .npmrc
+│ │ ├── deno.json
+│ │ └── index.ts
+│ └── config.toml
 ├── .env
 ├── .env.example
 ├── .env.local
@@ -183,6 +192,7 @@ instawear/
 ├── tsconfig.json
 ├── vercel.json
 └── vite.config.ts
+
 ```
 
 ## 📊 Checklist InstaWear — Mise à jour
@@ -240,9 +250,11 @@ instawear/
 
 - [x] **Anticiper les mauvaises infos lors du checkout, et meme depuis accountpage** : car les mauvaises addressses par exemples passent payment (ne devraient pas) mais bloquent à la production (par ex si le zip code n est pas bon, printful ne prend pas la production). ce qui va me forcer un refund.
 
-  ```
-  Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
-  ```
+```
+
+Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
+
+```
 
 #### 🔐 Sécurité (⚠️ avant production)
 
@@ -255,13 +267,13 @@ instawear/
 
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
 - [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin (nouvelles commandes + changements de statut Printful)
-  - [ ] Icône cœur des cartes produit (et modale info produit)
+- [ ] Icône cœur des cartes produit (et modale info produit)
 - [x] Popups ne cachent plus les boutons d'achat/paiement
 - [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** — toutes les pages utilisateur
 - dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
-  - _Voir détails rapide_ : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
-  - _Voir dans commande_ : naviguer vers la page order, avec useAdminHighlight
+- _Voir détails rapide_ : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
+- _Voir dans commande_ : naviguer vers la page order, avec useAdminHighlight
 
 #### 📦 Produits
 
@@ -271,8 +283,8 @@ instawear/
 - [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
 - [x] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
 - [x] checking variant missmatch :
-  - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
-  - [x] on printful, the wrong variant is passed / or not passed at all
+- [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
+- [x] on printful, the wrong variant is passed / or not passed at all
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
 - [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
@@ -283,29 +295,29 @@ instawear/
 
 - [x] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
 - [x] **Webhook & mail**
-  - [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
-  - [x] faut verifier que le user reçoive les notifications qu'il faut aussi
-  - [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
-  - en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
-    - [x] package_shipped : "Your order has been shipped! 📦"
-    - [x] order_failed : "Issue with your order ⚠️"
-    - [x] order_canceled : "❌ Your order has been cancelled"
+- [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
+- [x] faut verifier que le user reçoive les notifications qu'il faut aussi
+- [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
+- en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
+  - [x] package_shipped : "Your order has been shipped! 📦"
+  - [x] order_failed : "Issue with your order ⚠️"
+  - [x] order_canceled : "❌ Your order has been cancelled"
 
 - webhook optionnels :
-  - [ ] order_put_hold 🟡 Optionnel : alerte admin "commande en pause"
-  - [ ] order_remove_hold 🟡 Optionnel : alerte "reprise"
-  - [ ] order_refunded 🟡 Optionnel : log admin
-  - [ ] package_returned 🟡 Optionnel : statut → returned
-  - [ ] product_synced ⚪ Pas nécessaire (déjà géré par sync)
-  - [ ] product_updated ⚪ Pas nécessaire
-  - [ ] product_deleted ⚪ Pas nécessaire
-  - [ ] stock_updated ⚪ Pas nécessaire pour l'instant
-  - [ ] order_put_hold_approval ⚪ Pas nécessaire
+- [ ] order_put_hold 🟡 Optionnel : alerte admin "commande en pause"
+- [ ] order_remove_hold 🟡 Optionnel : alerte "reprise"
+- [ ] order_refunded 🟡 Optionnel : log admin
+- [ ] package_returned 🟡 Optionnel : statut → returned
+- [ ] product_synced ⚪ Pas nécessaire (déjà géré par sync)
+- [ ] product_updated ⚪ Pas nécessaire
+- [ ] product_deleted ⚪ Pas nécessaire
+- [ ] stock_updated ⚪ Pas nécessaire pour l'instant
+- [ ] order_put_hold_approval ⚪ Pas nécessaire
 
 #### 📧 Emails transactionnels
 
 - [x] Commande confirmée (Order confirmed)
-  - [x] Ajouter les frais de transport dans le récap email
+- [x] Ajouter les frais de transport dans le récap email
 - [x] Paiement confirmé (Paid)
 - [x] Paiement en attente (Pending)
 - [x] En production (In Production)
@@ -323,6 +335,7 @@ instawear/
 
 #### 👤 Espace client
 
+- [ ] Bouton 'Buy Now' doit diriger directement vers step un, avec tout le panier
 - [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
 - [x] **Adresses sauvegardées** (éditable, dernière utilisée conservée, préférée)
 - [x] Page 404 personnalisée
