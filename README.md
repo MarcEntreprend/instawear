@@ -272,7 +272,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** — toutes les pages utilisateur
 - dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
-- _Voir détails rapide_ : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
+- [ ] **Voir détails rapide** : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
 - _Voir dans commande_ : naviguer vers la page order, avec useAdminHighlight
 
 #### 📦 Produits

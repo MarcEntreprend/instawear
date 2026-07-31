@@ -13,6 +13,7 @@ import {
   Moon,
 } from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
+import { CART_PLUS_ICON } from "../constants/assets";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -747,7 +748,12 @@ export default function Header({
               }}
               aria-label={`Cart — ${totalQty} item(s)`}
             >
-              <ShoppingCart size={17} strokeWidth={2} />
+              <img
+                src={CART_PLUS_ICON}
+                alt="Cart"
+                className="w-4 h-4"
+                style={{ filter: "brightness(0) invert(1)" }}
+              />
               <span className="hidden sm:inline">Cart</span>
               {totalQty > 0 && (
                 <span
@@ -757,7 +763,8 @@ export default function Header({
                     height: 20,
                     padding: "0 5px",
                     fontSize: "11px",
-                    background: "rgba(0,0,0,0.2)",
+                    background: "rgba(0,0,0,0.35)",
+                    color: "#ffffff",
                   }}
                 >
                   {totalQty}

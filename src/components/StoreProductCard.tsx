@@ -3,7 +3,7 @@
 import { Heart, Star, Clock, Eye, Plus, CheckCircle } from "lucide-react";
 import type { Product } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { PLACEHOLDER_IMG } from "../constants/assets";
+import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 
 interface StoreProductCardProps {
   product: Product;
@@ -140,7 +140,7 @@ export default function StoreProductCard({
       </div>
 
       {/* Content */}
-      <div className="px-3 pt-2 pb-3 flex-1 flex flex-col justify-between">
+      <div className="px-3 pt-1 pb-3 flex-1 flex flex-col justify-between">
         <div>
           <h4
             onClick={() => onSelectProduct(product)}
@@ -160,23 +160,36 @@ export default function StoreProductCard({
               ({product.ratings.count})
             </span>
             <span className="text-[10px] text-gray-600">|</span>
-            <span className="text-[10px] text-(--color-accent) font-sans tracking-wide">
+            <span className="text-[10px] text-(--color-accent) font-sans tracking-wide flex-1">
               {product.boughtLastMonth}+ bought
             </span>
-          </div>
 
-          {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
-            <div
-              className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
-            >
-              <span className="font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-rose-400 shrink-0" /> Offer ends
-              </span>
-              <span className="font-mono font-bold text-rose-600">
-                {countdownStr}
-              </span>
-            </div>
-          )}
+            {/* Bouton Add to cart au survol */}
+            {product.isActive && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart(product, product.colors?.[0] || "#000000", "M");
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white shrink-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out max-w-9 group-hover:max-w-48"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                <img
+                  src={CART_PLUS_ICON}
+                  alt="Add to cart"
+                  className="w-4 h-4 shrink-0"
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out whitespace-nowrap">
+                  Add to cart
+                </span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-baseline gap-2 mt-2 mb-0.5">
             <span className="text-lg font-black text-gray-900 font-sans">
@@ -191,6 +204,19 @@ export default function StoreProductCard({
               </span>
             )}
           </div>
+
+          {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
+            <div
+              className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
+            >
+              <span className="font-bold flex items-center gap-1">
+                <Clock className="w-3 h-3 text-rose-400 shrink-0" /> Offer ends
+              </span>
+              <span className="font-mono font-bold text-rose-600">
+                {countdownStr}
+              </span>
+            </div>
+          )}
 
           {showDeliveryInfo && getDeliverEstimateString && (
             <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
@@ -208,22 +234,7 @@ export default function StoreProductCard({
           )}
         </div>
 
-        {product.isActive ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const btn = e.currentTarget;
-              btn.classList.add("active");
-              setTimeout(() => btn.classList.remove("active"), 500);
-              onAddToCart(product, product.colors?.[0] || "#000000", "M");
-            }}
-            className="w-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-linear-to-r from-(--color-accent) to-(--color-accent2) hover:from-cyan-300 hover:to-indigo-400 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5"
-            id={`btn-add-cart-list-${product.id}`}
-          >
-            <Plus className="w-3.5 h-3.5 text-white" />
-            Add to cart
-          </button>
-        ) : (
+        {!product.isActive && (
           <div className="text-center mt-1">
             <p className="text-[10px] text-rose-500 font-medium mb-1">
               This item is currently unavailable.
