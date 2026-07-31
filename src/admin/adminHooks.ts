@@ -249,10 +249,16 @@ export function useOrders() {
         const order = (data ?? []).find((o) => o.id === id);
         if (order && order.clientEmail) {
           import("../utils/emailTemplates").then(
-            ({ sendDeliveredEmail, sendCancelledEmail, sendShippedEmail }) => {
+            ({
+              sendDeliveredEmail,
+              sendCancelledEmail,
+              sendShippedEmail,
+              sendInProductionEmail,
+            }) => {
               if (status === "delivered") sendDeliveredEmail(order);
               else if (status === "cancelled") sendCancelledEmail(order);
               else if (status === "shipped") sendShippedEmail(order);
+              else if (status === "in_production") sendInProductionEmail(order);
             },
           );
         }
