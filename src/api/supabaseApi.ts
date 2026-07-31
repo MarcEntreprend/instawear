@@ -828,7 +828,7 @@ export const orderApi = {
       }
     }
 
-    // Créer une notification
+    // Créer une notification admin
     try {
       await notificationApi.create({
         title: `Nouvelle commande ${order.id}`,
@@ -848,6 +848,37 @@ export const orderApi = {
     } catch (e) {
       console.warn("Échec création notification commande", e);
     }
+
+    // Créer une notification client pour la commande en attente
+    if (order.clientEmail) {
+      try {
+        // Déterminer le customer_id à utiliser
+        let customerId = order.clientId;
+        if (customerId && order.clientEmail) {
+          const { data: customer } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("email", order.clientEmail)
+            .maybeSingle();
+          if (customer) {
+            customerId = customer.id;
+          }
+        }
+        if (customerId) {
+          await supabase.from("customer_notifications").insert({
+            customer_id: customerId,
+            title: `New order ${order.id}`,
+            message: `Your order has been received and is pending payment confirmation.`,
+            type: "order_status",
+            metadata: { orderId: order.id, status: "pending" },
+          });
+        }
+      } catch (e) {
+        console.warn("Échec insertion notification client pending", e);
+      }
+    }
+
+    return order;
 
     return order;
   },

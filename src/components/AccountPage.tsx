@@ -421,18 +421,23 @@ export default function AccountPage({
     fetchInteractions();
   }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-refresh sidebar data every 30s
+  // Auto-refresh sidebar data every 30s (orders list excluded, too heavy)
   useEffect(() => {
     if (!customerId) return;
     const interval = setInterval(() => {
-      fetchOrders();
       fetchFavorites();
       fetchCart();
       fetchNotifications();
       fetchInteractions();
     }, 30000);
     return () => clearInterval(interval);
-  }, [customerId, fetchOrders, fetchFavorites, fetchCart, fetchInteractions]);
+  }, [
+    customerId,
+    fetchFavorites,
+    fetchCart,
+    fetchNotifications,
+    fetchInteractions,
+  ]);
 
   // ── Stats (computed) ──────────────────────────────────────────────
   const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
@@ -914,12 +919,10 @@ function OrdersTab({
   }, [orders, search, filterStatus, sortOrder]);
 
   // Rafraîchir la liste quand on revient de la vue détail
+  // on met à jour uniquement la commande modifiée dans la liste locale
   const handleBack = useCallback(async () => {
     setSelectedOrder(null);
-    // Rafraîchir les données pour refléter les changements de statut
-    if (onRefresh) {
-      await onRefresh();
-    }
+    if (onRefresh) await onRefresh();
   }, [onRefresh]);
 
   // Effet pour rafraîchir les données quand on quitte la vue détail
@@ -1230,7 +1233,7 @@ function OrderDetail({
 }: {
   order: Order;
   currencySymbol: string;
-  onBack: () => void;
+  onBack: (updatedOrder?: Order) => void;
   onViewProduct?: (
     productId: string,
     initialColor?: string,
@@ -1242,7 +1245,7 @@ function OrderDetail({
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
       <button
-        onClick={onBack}
+        onClick={() => onBack(order)}
         className="flex items-center gap-1.5 text-[13px] font-semibold self-start"
         style={{ color: "var(--color-ink3)" }}
       >
