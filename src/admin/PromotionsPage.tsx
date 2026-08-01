@@ -80,6 +80,14 @@ export default function PromotionsPage() {
     try {
       if (editingId) {
         await heroPromotionsApi.update(editingId, form);
+        // Synchroniser les champs deal sur le produit
+        const dealActive = (form as any).dealActive ?? false;
+        await syncProductDeal(
+          form.productId!,
+          dealActive,
+          (form as any).dealPrice,
+          (form as any).dealEndsAt,
+        );
         // Notification
         import("../api/supabaseApi").then(({ notificationApi }) => {
           notificationApi
@@ -112,6 +120,13 @@ export default function PromotionsPage() {
             })
             .catch(() => {});
         });
+        // Activer dealActive sur le produit
+        await syncProductDeal(
+          created.productId,
+          true,
+          (form as any).dealPrice,
+          (form as any).dealEndsAt,
+        );
       }
       await refresh();
       resetForm();
@@ -124,6 +139,12 @@ export default function PromotionsPage() {
     const promo = promotions.find((p) => p.id === id);
     if (window.confirm("Supprimer cette promotion du carrousel ?")) {
       await heroPromotionsApi.delete(id);
+
+      // Désactiver dealActive si aucune autre promo n'utilise ce produit
+      if (!hasOtherActivePromo(promo!.productId, id)) {
+        await syncProductDeal(promo!.productId, false);
+      }
+
       // Notification
       import("../api/supabaseApi").then(({ notificationApi }) => {
         notificationApi
@@ -180,6 +201,35 @@ export default function PromotionsPage() {
   };
 
   const getProductById = (id: string) => allProducts.find((p) => p.id === id);
+
+  // Synchronise dealActive sur le produit
+  const syncProductDeal = async (
+    productId: string,
+    active: boolean,
+    dealPrice?: number,
+    dealEndsAt?: string,
+  ) => {
+    try {
+      await productApi.update(productId, {
+        dealActive: active,
+        isLimitedTime: active || undefined,
+        dealPrice: active ? dealPrice : undefined,
+        dealEndsAt: active ? dealEndsAt : undefined,
+      } as any);
+      const prods = await productApi.list();
+      setAllProducts(prods);
+    } catch (e) {
+      console.error("Erreur synchro deal produit", e);
+    }
+  };
+
+  // Vérifie si un produit est encore utilisé par une autre promo active
+  const hasOtherActivePromo = (productId: string, excludeId?: string) => {
+    return promotions.some(
+      (p) =>
+        p.productId === productId && p.isActive !== false && p.id !== excludeId,
+    );
+  };
 
   if (loading) {
     return (
@@ -421,6 +471,86 @@ export default function PromotionsPage() {
                 />
               </div>
             </div>
+
+            {/* ── Options Deal ── */}
+            <div
+              style={{
+                borderTop: "1px solid var(--color-border)",
+                paddingTop: 14,
+                marginTop: 4,
+              }}
+            >
+              <label style={{ ...labelStyle, marginBottom: 10 }}>
+                🏷️ Options du deal
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: 14,
+                }}
+              >
+                <div>
+                  <label style={labelStyle}>Deal actif</label>
+                  <select
+                    value={(form as any).dealActive ? "yes" : "no"}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        dealActive: e.target.value === "yes",
+                      } as any)
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="no">Non</option>
+                    <option value="yes">Oui</option>
+                  </select>
+                </div>
+                {(form as any).dealActive && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Prix deal ($)</label>
+                      <input
+                        type="number"
+                        value={(form as any).dealPrice || ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            dealPrice: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          } as any)
+                        }
+                        style={inputStyle}
+                        step="0.01"
+                        min={0}
+                        placeholder="Optionnel"
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Fin du deal</label>
+                      <input
+                        type="datetime-local"
+                        value={
+                          (form as any).dealEndsAt
+                            ? (form as any).dealEndsAt.slice(0, 16)
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            dealEndsAt: e.target.value
+                              ? new Date(e.target.value).toISOString()
+                              : undefined,
+                          } as any)
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
             <div
               style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
             >
@@ -586,6 +716,14 @@ export default function PromotionsPage() {
                           await heroPromotionsApi.update(promo.id, {
                             isActive: newActive,
                           } as any);
+                          // Synchroniser dealActive
+                          if (newActive) {
+                            await syncProductDeal(promo.productId, true);
+                          } else if (
+                            !hasOtherActivePromo(promo.productId, promo.id)
+                          ) {
+                            await syncProductDeal(promo.productId, false);
+                          }
                           await refresh();
                         }}
                         title={

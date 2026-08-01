@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
 import AccountPage from "./components/AccountPage";
@@ -335,36 +335,49 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Test countdown — 10 seconds
-  const [countdownString, setCountdownString] = useState("00:00:10");
-  const [timeLeft, setTimeLeft] = useState(10);
+  // Compte à rebours basé sur le deal le plus proche
+  const dealEndTime = useMemo(() => {
+    const activeDeals = products.filter((p) => p.dealActive && p.dealEndsAt);
+    if (activeDeals.length === 0) return null;
+    // Prend la date la plus proche
+    const timestamps = activeDeals.map((p) =>
+      new Date(p.dealEndsAt!).getTime(),
+    );
+    return Math.min(...timestamps);
+  }, [products]);
 
-  // useEffect du compte à rebours
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [countdownString, setCountdownString] = useState("");
+
   useEffect(() => {
-    if (timeLeft <= 0) {
-      if (!dealFadingOut && !dealExpired) {
-        setDealFadingOut(true);
-        setTimeout(() => {
-          setDealExpired(true);
-          setDealFadingOut(false);
-        }, 900);
-      }
+    if (!dealEndTime) {
+      setTimeLeft(null);
+      setCountdownString("");
+      setDealExpired(false);
+      setDealFadingOut(false);
       return;
     }
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timeLeft, dealFadingOut, dealExpired]);
 
-  useEffect(() => {
-    const h = Math.floor(timeLeft / 3600);
-    const m = Math.floor((timeLeft % 3600) / 60);
-    const s = timeLeft % 60;
-    setCountdownString(
-      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
-    );
-  }, [timeLeft]);
+    const tick = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((dealEndTime - now) / 1000));
+      setTimeLeft(remaining);
+      const h = Math.floor(remaining / 3600);
+      const m = Math.floor((remaining % 3600) / 60);
+      const s = remaining % 60;
+      setCountdownString(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
+      );
+      if (remaining <= 0) {
+        setDealExpired(true);
+        setDealFadingOut(false);
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [dealEndTime]);
 
   const showToast = (
     text: string,
@@ -408,9 +421,10 @@ export default function App() {
       ) ||
       product.style.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesCategory = selectedCategory
-      ? product.category === selectedCategory
-      : true;
+    const matchesCategory =
+      selectedCategory && selectedCategory !== "deals"
+        ? product.category === selectedCategory
+        : true;
     const matchesEventType = selectedEventType
       ? product.eventType === selectedEventType
       : true;
@@ -418,8 +432,15 @@ export default function App() {
     const matchesFavorites = showFavoritesOnly
       ? favorites.includes(product.id)
       : true;
+
+    const matchesDeals =
+      selectedCategory === "deals" ? product.dealActive === true : true;
     return (
-      matchesSearch && matchesCategory && matchesEventType && matchesFavorites
+      matchesSearch &&
+      matchesCategory &&
+      matchesEventType &&
+      matchesFavorites &&
+      matchesDeals
     );
   });
 

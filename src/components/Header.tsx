@@ -79,8 +79,8 @@ const CATEGORY_PILLS = [
         <span className="inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 animate-ping" />
       </>
     ),
-    eventType: "discount",
-    category: null,
+    eventType: null,
+    category: "deals",
   },
   { label: "🏆 Sports", eventType: "sport", category: null },
   { label: "🎉 Festivals", eventType: "culture", category: null },

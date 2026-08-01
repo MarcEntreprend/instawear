@@ -273,8 +273,8 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** — toutes les pages utilisateur
 - dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
-- [ ] **Voir détails rapide** : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
-- _Voir dans commande_ : naviguer vers la page order, avec useAdminHighlight
+  - [ ] **Voir détails rapide** : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
+  - [ ] **Voir dans commande** : naviguer vers la page order, avec useAdminHighlight
 
 #### 📦 Produits
 
@@ -287,8 +287,8 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
 - [x] on printful, the wrong variant is passed / or not passed at all
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
-- [ ] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
-- [ ] **Visibilité admin** — logique actif/inactif absente de certaines pages
+- [WIP] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
+- [ ] **Visibilité de produits / via admin** — logique actif/inactif absente de certaines pages
 - [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
 - [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible

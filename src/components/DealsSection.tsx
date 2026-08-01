@@ -22,7 +22,18 @@ export default function DealsSection({
   onSelectProduct,
 }: DealsSectionProps) {
   const dealProducts = products.filter((p: any) => p.dealActive && p.isActive);
-  if ((dealExpired && !dealFadingOut) || dealProducts.length === 0) return null;
+  if (dealExpired && !dealFadingOut) return null; // ne plus masquer si aucun deal
+  if (dealProducts.length === 0) {
+    return (
+      <section className="section-container w-full px-4">
+        <div className="bg-white/40 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
+          <p className="text-sm text-gray-500">
+            No active deals right now. Check back soon!
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

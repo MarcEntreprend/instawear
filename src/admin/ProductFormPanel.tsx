@@ -42,9 +42,6 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   tags: [],
   isBestSeller: false,
   isLimitedTime: false,
-  dealActive: false,
-  dealEndsAt: undefined,
-  dealPrice: undefined,
   affiliateMode: false,
   affiliateUrl: undefined,
   externalProductId: undefined,
@@ -314,9 +311,6 @@ export default function ProductFormPanel({
         tags: product.tags,
         isBestSeller: product.isBestSeller || false,
         isLimitedTime: product.isLimitedTime || false,
-        dealActive: product.dealActive || false,
-        dealEndsAt: product.dealEndsAt,
-        dealPrice: product.dealPrice,
         affiliateMode: product.affiliateMode || false,
         affiliateUrl: product.affiliateUrl,
         externalProductId: product.externalProductId,
@@ -754,7 +748,7 @@ export default function ProductFormPanel({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
+            gridTemplateColumns: "1fr 1fr",
             gap: 16,
           }}
         >
@@ -796,58 +790,6 @@ export default function ProductFormPanel({
               </span>
             </div>
           </div>
-          <div>
-            <label style={labelStyle}>Deal actif</label>
-            <select
-              value={form.dealActive ? "yes" : "no"}
-              onChange={(e) => update("dealActive", e.target.value === "yes")}
-              style={inputStyle}
-            >
-              <option value="no">Non</option>
-              <option value="yes">Oui</option>
-            </select>
-          </div>
-          {form.dealActive && (
-            <>
-              <div>
-                <label style={labelStyle}>Prix deal ($)</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="number"
-                    value={form.dealPrice || ""}
-                    onChange={(e) =>
-                      update(
-                        "dealPrice",
-                        e.target.value ? Number(e.target.value) : undefined,
-                      )
-                    }
-                    style={{ ...inputStyle, flex: 1 }}
-                    step="0.01"
-                    min={0}
-                  />
-                  <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
-                    $
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label style={labelStyle}>Fin du deal</label>
-                <input
-                  type="datetime-local"
-                  value={form.dealEndsAt ? form.dealEndsAt.slice(0, 16) : ""}
-                  onChange={(e) =>
-                    update(
-                      "dealEndsAt",
-                      e.target.value
-                        ? new Date(e.target.value).toISOString()
-                        : undefined,
-                    )
-                  }
-                  style={inputStyle}
-                />
-              </div>
-            </>
-          )}
         </div>
 
         {/* Colors & Tags with TagInput */}
