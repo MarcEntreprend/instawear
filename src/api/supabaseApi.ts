@@ -109,7 +109,7 @@ const mapProduct = (row: any): AdminProduct => ({
     score: row.ratings_score ?? 0,
     count: row.ratings_count ?? 0,
   },
-  boughtLastMonth: row.bought_last_month,
+  boughtLastMonth: row.bought_last_month ?? 0,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -156,10 +156,37 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
 // ─── API ──────────────────────────────────────────────────────────────────
 export const productApi = {
   async list(): Promise<AdminProduct[]> {
-    const { data, error } = await supabase.from("products").select("*");
+    // 1. Charger les produits
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(mapProduct);
+    const productList = products ?? [];
+    if (productList.length === 0) return [];
+
+    // 2. Charger les stats de vente pour tous les produits en une requête
+    const productIds = productList.map((p: any) => p.id);
+    const { data: stats, error: statsError } = await supabase
+      .from("product_sales_stats")
+      .select("product_id, total_bought, bought_last_month")
+      .in("product_id", productIds);
+    if (statsError) throw statsError;
+
+    // 3. Indexer les stats par product_id
+    const statsMap = new Map((stats ?? []).map((s: any) => [s.product_id, s]));
+
+    // 4. Fusionner
+    return productList.map((row: any) => {
+      const s = statsMap.get(row.id);
+      return mapProduct({
+        ...row,
+        total_bought: s?.total_bought ?? 0,
+        bought_last_month: s?.bought_last_month ?? 0,
+      });
+    });
   },
+
   async get(id: string): Promise<AdminProduct | null> {
     const { data, error } = await supabase
       .from("products")
@@ -906,8 +933,6 @@ export const orderApi = {
         console.warn("Échec insertion notification client pending", e);
       }
     }
-
-    return order;
 
     return order;
   },
