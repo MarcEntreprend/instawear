@@ -11,6 +11,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import type { Product } from "../types";
+import ImageZoom from "./ImageZoom";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 
 interface ProductDetailModalProps {
@@ -207,8 +208,8 @@ export default function ProductDetailModal({
     : [];
 
   return (
-    <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
+    <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-400 max-h-[95vh] overflow-y-auto shadow-2xl relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900 w-9 h-9 rounded-full flex items-center justify-center transition-all z-10"
@@ -217,12 +218,12 @@ export default function ProductDetailModal({
         </button>
 
         {/* ── 3-COLUMN LAYOUT ────────────────────────────────────── */}
-        <div className="flex flex-col lg:flex-row gap-6 p-6 md:p-8">
+        <div className="flex flex-col lg:flex-row gap-8 p-8 md:p-10">
           {/* ── COLONNE GAUCHE : Images ──────────────────────────── */}
-          <div className="lg:w-[50%] flex flex-col sm:flex-row gap-4">
+          <div className="lg:w-[45%] flex flex-col sm:flex-row gap-6">
             {/* Miniatures verticales (desktop) ou horizontales (mobile) */}
             {variantImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-1 sm:w-16 shrink-0">
+              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
                 {variantImages.map((v) => (
                   <button
                     key={v.color}
@@ -242,7 +243,7 @@ export default function ProductDetailModal({
                 ))}
               </div>
             ) : allImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-1 sm:w-16 shrink-0">
+              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
                 {allImages.map((img, idx) => (
                   <button
                     key={idx}
@@ -263,25 +264,22 @@ export default function ProductDetailModal({
               </div>
             ) : null}
 
-            {/* Image principale */}
-            <div className="flex-1 aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 relative order-1 sm:order-2">
-              {product.isBestSeller && (
-                <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10">
-                  BEST SELLER
-                </span>
-              )}
-              {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
-                <span
-                  className={`absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10 ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
-                >
-                  LIMITED time
-                </span>
-              )}
-              <img
-                src={displayImage}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
+            {/* Image principale avec zoom */}
+            <div className="w-full aspect-3/4">
+              <ImageZoom src={displayImage} alt={product.title}>
+                {product.isBestSeller && (
+                  <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10">
+                    BEST SELLER
+                  </span>
+                )}
+                {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
+                  <span
+                    className={`absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10 ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
+                  >
+                    LIMITED time
+                  </span>
+                )}
+              </ImageZoom>
             </div>
           </div>
 
