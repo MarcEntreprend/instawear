@@ -22,6 +22,10 @@ export const NO_INTERNET = "/globe-off.svg";
 
 export const CART_PLUS_ICON = "/cart-plus.svg";
 
+export const CART_CHECK_ICON = "/cart-check.svg";
+
+export const CART_X_ICON = "/cart-x.svg";
+
 export const FLAG_URL: Record<string, string> = {
   US: "/flags/us.svg",
   CA: "/flags/ca.svg",

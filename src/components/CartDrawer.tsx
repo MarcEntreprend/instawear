@@ -4,7 +4,11 @@ import React from "react";
 import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
-import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import {
+  PLACEHOLDER_IMG,
+  CART_X_ICON,
+  CART_CHECK_ICON,
+} from "../constants/assets";
 import { CartItem } from "../types";
 
 interface CartDrawerProps {
@@ -71,7 +75,18 @@ export default function CartDrawer({
           style={{ borderBottom: "1px solid var(--color-border)" }}
         >
           <div className="flex items-center gap-2">
-            <ShoppingBag size={19} style={{ color: "var(--color-accent)" }} />
+            <img
+              src={cartCount > 0 ? CART_CHECK_ICON : CART_X_ICON}
+              alt="Cart"
+              className="w-5 h-5"
+              style={{
+                color: "var(--color-accent)",
+                filter:
+                  document.documentElement.getAttribute("data-theme") === "dark"
+                    ? "invert(1)"
+                    : "none",
+              }}
+            />
             <span
               className="font-black text-base"
               style={{
@@ -83,7 +98,7 @@ export default function CartDrawer({
             </span>
             {cartCount > 0 && (
               <span
-                className="badge text-gray-900"
+                className="badge text-white"
                 style={{ background: "var(--color-accent)" }}
               >
                 {cartCount}
@@ -111,7 +126,19 @@ export default function CartDrawer({
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{ background: "var(--color-surface2)" }}
             >
-              <ShoppingBag size={28} style={{ color: "var(--color-ink4)" }} />
+              <img
+                src={CART_X_ICON}
+                alt="Empty Cart"
+                className="w-7 h-7"
+                style={{
+                  opacity: 0.5,
+                  filter:
+                    document.documentElement.getAttribute("data-theme") ===
+                    "dark"
+                      ? "invert(1)"
+                      : "none",
+                }}
+              />
             </div>
             <div>
               <p
@@ -129,7 +156,7 @@ export default function CartDrawer({
             </div>
             <button
               onClick={onClose}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-gray-900"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
               style={{
                 background: "var(--color-accent)",
                 fontFamily: "var(--font-sans)",

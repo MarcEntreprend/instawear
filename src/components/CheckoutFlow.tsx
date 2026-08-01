@@ -36,7 +36,7 @@ import { useShippingSettings } from "../hooks/useShippingSettings";
 import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
-import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import { PLACEHOLDER_IMG, LOGO_URL, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import { COUNTRIES } from "../data/countries";
 import { loadStripe } from "@stripe/stripe-js";
@@ -1963,10 +1963,11 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
       style={{ background: "var(--color-bg)" }}
     >
       <div className="text-center max-w-xs">
-        <ShoppingBag
-          size={40}
-          strokeWidth={1.75}
-          className="mx-auto mb-3 text-(--color-ink4)"
+        <img
+          src={CART_X_ICON}
+          alt="Cart"
+          className="w-10 h-10 mx-auto mb-3"
+          style={{ opacity: 0.5 }}
         />
         <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
         <p className="text-xs text-(--color-ink3) mb-5">

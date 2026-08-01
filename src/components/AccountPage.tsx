@@ -47,7 +47,7 @@ import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { COUNTRIES } from "../data/countries";
-import { PLACEHOLDER_IMG } from "../constants/assets";
+import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 
@@ -1903,7 +1903,14 @@ function CartTab({
   if (items.length === 0)
     return (
       <EmptyState
-        icon={<ShoppingBag size={28} strokeWidth={1.5} />}
+        icon={
+          <img
+            src={CART_X_ICON}
+            alt="Cart"
+            className="w-7 h-7"
+            style={{ opacity: 0.5 }}
+          />
+        }
         title="Your cart is empty"
         sub="Items added to your cart will appear here."
       />
