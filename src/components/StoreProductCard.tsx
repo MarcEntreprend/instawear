@@ -212,7 +212,7 @@ export default function StoreProductCard({
                   e.stopPropagation();
                   onAddToCart(product, product.colors?.[0] || "#000000", "M");
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white shrink-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out max-w-9 group-hover:max-w-48"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white shrink-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out max-w-9 group-hover:max-w-48 ml-auto"
                 style={{
                   background:
                     "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
