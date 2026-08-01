@@ -305,7 +305,7 @@ export default function ProductDetailModal({
                 </span>
               </div>
               <span className="text-gray-500">
-                ({product.ratings.count} verified reviews)
+                ({product.boughtLastMonth}+ bought)
               </span>
             </div>
 
