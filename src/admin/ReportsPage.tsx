@@ -5,7 +5,6 @@ import {
   Users,
   DollarSign,
   Eye,
-  ShoppingBag,
   Wifi,
   WifiOff,
   FileText,
@@ -29,6 +28,7 @@ import type { Order, AdminProduct, Customer } from "./adminTypes";
 import ReportInfoModal from "./ReportInfoModal";
 import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import CartIcon from "../components/CartIcon";
 
 // Palette de couleurs qui cyclera sur les catégories dynamiques
 const CATEGORY_COLOR_PALETTE = [
@@ -1125,7 +1125,7 @@ export default function ReportsPage() {
           isActive={activeInfo === "revenue"}
         />
         <StatCard
-          icon={<ShoppingBag size={20} strokeWidth={2} />}
+          icon={<CartIcon size={20} strokeWidth={2} />}
           label={`Commandes (${periodLabel})`}
           value={currentOrderCount.toString()}
           delta={ordersDelta}

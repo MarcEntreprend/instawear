@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
-  ShoppingBag,
   Package,
   Users,
   Tag,
@@ -25,6 +24,7 @@ import {
   LOGO_URL,
   LOGO_SETTINGS_URL,
 } from "../constants/assets";
+import CartIcon from "../components/CartIcon";
 
 export type AdminSection =
   | "dashboard"
@@ -49,7 +49,7 @@ interface NavItem {
 
 const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { id: "orders", label: "Commandes", icon: ShoppingBag },
+  { id: "orders", label: "Commandes", icon: CartIcon },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "products", label: "Produits", icon: Package },
   { id: "customers", label: "Clients", icon: Users },

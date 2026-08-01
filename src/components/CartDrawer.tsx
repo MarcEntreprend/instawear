@@ -1,7 +1,7 @@
 // src/components/CartDrawer.tsx
 
 import React from "react";
-import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from "lucide-react";
+import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
 import {

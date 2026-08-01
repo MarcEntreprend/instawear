@@ -11,7 +11,6 @@ import {
   FileText,
   Eye,
   Calendar,
-  ShoppingBag,
   ArrowUpDown,
   RefreshCw,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import { productApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import CartIcon from "../components/CartIcon";
 
 // ─── Status labels & colors ────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -265,10 +265,7 @@ export default function OrdersPage() {
       <div
         style={{ textAlign: "center", padding: 40, color: "var(--color-ink3)" }}
       >
-        <ShoppingBag
-          size={32}
-          style={{ margin: "0 auto 12px", opacity: 0.5 }}
-        />
+        <CartIcon size={32} style={{ margin: "0 auto 12px", opacity: 0.5 }} />
         <p>Impossible de charger les commandes.</p>
         <p style={{ fontSize: 12, marginTop: 4 }}>{error}</p>
       </div>

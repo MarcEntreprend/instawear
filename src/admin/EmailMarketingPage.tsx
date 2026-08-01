@@ -55,7 +55,6 @@ import {
   ArrowRight,
   CheckCheck,
   Bell,
-  ShoppingBag,
   UserPlus,
   Package,
   Percent,
@@ -73,6 +72,7 @@ import {
   emailQualityScore,
 } from "./emailMarketing/helpers";
 import { STATUS_META } from "./emailMarketing/constants";
+import CartIcon from "../components/CartIcon";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1928,7 +1928,7 @@ function SegmentsSection({
       label: "Acheteurs récents (30 jours)",
       description:
         "Clients ayant passé une commande dans les 30 derniers jours",
-      icon: <ShoppingBag size={18} strokeWidth={1.75} />,
+      icon: <CartIcon size={18} strokeWidth={1.75} />,
       color: "var(--notif-cat-orders)",
       bg: "var(--notif-cat-orders-bg)",
       query: async () => {

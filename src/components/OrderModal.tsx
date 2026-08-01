@@ -7,7 +7,6 @@ import {
   Send,
   Mail,
   Check,
-  ShoppingBag,
   Calendar,
   MapPin,
   User,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { CartItem, OrderForm } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import CartIcon from "./CartIcon";
 
 interface OrderModalProps {
   cart: CartItem[];
@@ -161,7 +161,7 @@ export default function OrderModal({
           style={{ borderColor: "var(--color-border)" }}
         >
           <div className="flex items-center gap-2">
-            <ShoppingBag size={18} style={{ color: "var(--color-accent)" }} />
+            <CartIcon size={18} style={{ color: "var(--color-accent)" }} />
             <h2
               className="font-black text-lg"
               style={{
@@ -169,7 +169,7 @@ export default function OrderModal({
                 fontFamily: "var(--font-sans)",
               }}
             >
-              Complete Your Order
+              Please complete Your Order
             </h2>
           </div>
           <button

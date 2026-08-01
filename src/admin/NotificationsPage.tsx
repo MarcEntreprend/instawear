@@ -14,7 +14,6 @@ import {
   XCircle,
   AlertTriangle,
   ExternalLink,
-  ShoppingBag,
   Package,
   Users,
   Wifi,
@@ -49,6 +48,7 @@ import { notificationApi } from "../api/supabaseApi";
 import type { AdminSection } from "./AdminSidebar";
 import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
+import CartIcon from "../components/CartIcon";
 
 // ─── Types ──────────────────────────────────────
 
@@ -162,7 +162,7 @@ const CATEGORY_COLORS: Record<
 };
 
 const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
-  orders: <ShoppingBag size={13} strokeWidth={1.75} />,
+  orders: <CartIcon size={13} />,
   products: <Package size={13} strokeWidth={1.75} />,
   customers: <Users size={13} strokeWidth={1.75} />,
   interactions: <MessageSquare size={13} strokeWidth={1.75} />,
@@ -214,7 +214,7 @@ function getNotificationIcon(
 
   // Sinon, icône par défaut de la catégorie
   const icons: Record<NotificationCategory, React.ReactNode> = {
-    orders: <ShoppingBag size={17} strokeWidth={1.75} />,
+    orders: <CartIcon size={17} strokeWidth={1.75} />,
     products: <Package size={17} strokeWidth={1.75} />,
     customers: <Users size={17} strokeWidth={1.75} />,
     interactions: <MessageSquare size={17} strokeWidth={1.75} />,

@@ -20,6 +20,8 @@ export const PLACEHOLDER_IMG = "/Instawear-missing-item.svg";
 // Icon for no internet
 export const NO_INTERNET = "/globe-off.svg";
 
+export const CART_NEUTRAL = "/cart.svg";
+
 export const CART_PLUS_ICON = "/cart-plus.svg";
 
 export const CART_CHECK_ICON = "/cart-check.svg";

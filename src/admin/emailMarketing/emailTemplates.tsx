@@ -5,12 +5,12 @@ import React from "react";
 import {
   Percent,
   Package,
-  ShoppingBag,
   Bell,
   UserPlus,
   TrendingUp,
   Star,
 } from "lucide-react";
+import CartIcon from "@/src/components/CartIcon";
 
 export interface AutomationFlow {
   id: string;
@@ -77,7 +77,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "cart_recovery",
     label: "Relance panier",
-    icon: <ShoppingBag size={16} strokeWidth={1.75} />,
+    icon: <CartIcon size={16} strokeWidth={1.75} />,
     subject: "🛒 Vous avez oublié quelque chose…",
     html: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
   <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 8px">{{brand}}</h1>
@@ -122,7 +122,7 @@ export const AUTOMATION_CONFIGS: Record<
   },
   abandoned_cart: {
     label: "Relance panier abandonné",
-    icon: <ShoppingBag size={16} strokeWidth={1.75} />,
+    icon: <CartIcon size={16} strokeWidth={1.75} />,
     color: "var(--notif-cat-orders)",
     bg: "var(--notif-cat-orders-bg)",
     description: "Envoyé X heures après abandon du panier",

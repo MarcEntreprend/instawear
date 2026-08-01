@@ -28,7 +28,7 @@ import {
   Loader2,
   Copy,
   Trash2,
-  ShoppingBag,
+  CarrotIcon,
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -49,6 +49,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import CartIcon from "./CartIcon";
 
 // ─── Props ──────────────────────────────────────────────────────────────
 
@@ -439,7 +440,7 @@ function OrderSummaryPanel({
             className="lg:hidden w-full flex items-center justify-between mb-1"
           >
             <span className="font-black text-sm text-(--color-ink) flex items-center gap-2">
-              <ShoppingBag
+              <CartIcon
                 size={16}
                 strokeWidth={2}
                 className="text-(--color-accent)"
@@ -453,7 +454,7 @@ function OrderSummaryPanel({
 
           <div className={collapsed ? "hidden lg:block" : "block"}>
             <h3 className="font-black text-sm text-(--color-ink) mb-4 hidden lg:flex items-center gap-2">
-              <ShoppingBag
+              <CarrotIcon
                 size={16}
                 strokeWidth={2}
                 className="text-(--color-accent)"

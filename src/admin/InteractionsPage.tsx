@@ -16,7 +16,6 @@ import {
   Eye,
   Clock,
   User,
-  ShoppingBag,
   Package,
   ArrowLeft,
   Send,
@@ -24,6 +23,7 @@ import {
 import { interactionApi } from "../api/supabaseApi";
 import CopyID from "../components/CopyID";
 import { useHighlightListener } from "./useAdminHighlight";
+import CartIcon from "../components/CartIcon";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -701,7 +701,7 @@ function TicketDetail({
         >
           {ticket.metadata.orderId && (
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ShoppingBag size={12} /> Commande : {ticket.metadata.orderId}
+              <CartIcon size={12} /> Commande : {ticket.metadata.orderId}
               <CopyID id={ticket.metadata.orderId} />
             </span>
           )}

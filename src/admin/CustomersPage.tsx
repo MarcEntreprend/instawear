@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Users,
   Heart,
-  ShoppingBag,
   Package,
   Mail,
   Calendar,
@@ -53,6 +52,7 @@ import {
   AdminProduct,
 } from "./adminTypes";
 import { customerApi, interactionApi } from "../api/supabaseApi";
+import CartIcon from "../components/CartIcon";
 
 // ─── Status badge ─────────────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -503,7 +503,7 @@ function CustomerDetailPanel({
     {
       key: "cart" as const,
       label: "Panier",
-      icon: <ShoppingBag size={14} />,
+      icon: <CartIcon size={14} />,
       count: cart.length,
     },
     {
@@ -770,7 +770,7 @@ function CartList({
   const currencySymbol = useCurrencySymbol();
 
   if (items.length === 0)
-    return <EmptyState icon={<ShoppingBag size={28} />} text="Panier vide." />;
+    return <EmptyState icon={<CartIcon size={28} />} text="Panier vide." />;
   const total = items.reduce(
     (sum, i) => sum + (i.unitPrice ?? i.product?.price ?? 0) * i.quantity,
     0,

@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Package,
   Users,
-  ShoppingBag,
   Wifi,
   WifiOff,
   TrendingUp,
@@ -32,6 +31,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useDashboard } from "./adminHooks";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import CopyID from "../components/CopyID";
+import CartIcon from "../components/CartIcon";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { orderApi, dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
@@ -732,7 +732,7 @@ function DashboardHome({
           sub="comptes enregistrés"
         />
         <StatCard
-          icon={<ShoppingBag size={20} strokeWidth={2} />}
+          icon={<CartIcon size={20} strokeWidth={2} />}
           label="Commandes aujourd'hui"
           value={stats.ordersToday}
           sub="nouvelles commandes"

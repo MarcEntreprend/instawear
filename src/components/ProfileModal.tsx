@@ -1,7 +1,7 @@
 // src/components/ProfileModal.tsx — User profile modal (frontend)
 
 import React, { useEffect, useState } from "react";
-import { X, User, Package, Heart, ShoppingBag } from "lucide-react";
+import { X, User, Package, Heart } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
 

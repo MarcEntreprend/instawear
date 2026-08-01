@@ -29,7 +29,6 @@ import {
   XCircle,
   Trash2,
   Star,
-  ShoppingBag,
   Home,
   Edit3,
   Copy,
@@ -50,6 +49,7 @@ import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
+import CartIcon from "./CartIcon";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
@@ -506,7 +506,7 @@ export default function AccountPage({
     {
       key: "cart",
       label: "Cart",
-      icon: <ShoppingBag size={18} strokeWidth={1.75} />,
+      icon: <CartIcon size={18} strokeWidth={1.75} />,
       badge: cart.length || undefined,
     },
     {
@@ -1052,7 +1052,7 @@ function OrdersTab({
   if (orders.length === 0)
     return (
       <EmptyState
-        icon={<ShoppingBag size={28} strokeWidth={1.5} />}
+        icon={<CartIcon size={28} strokeWidth={1.5} />}
         title="No orders yet"
         sub="Your order history will appear here after your first purchase."
       />
