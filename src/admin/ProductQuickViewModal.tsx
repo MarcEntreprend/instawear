@@ -317,7 +317,7 @@ export default function ProductQuickViewModal({
               <span style={{ fontWeight: 600 }}>
                 {product.ratings.score.toFixed(1)}
               </span>
-              <span>({product.ratings.count} avis)</span>
+              <span>({product.boughtLastMonth ?? 0}+ achetés)</span>
             </div>
             <div
               style={{
