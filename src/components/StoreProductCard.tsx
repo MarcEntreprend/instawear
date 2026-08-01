@@ -183,19 +183,27 @@ export default function StoreProductCard({
           </h4>
 
           <div className="flex items-center gap-1.5 mt-2 text-xs">
-            <div className="flex items-center text-amber-400 text-[11px]">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
-              <span className="font-bold ml-0.5 mt-0.5">
-                {product.ratings.score.toFixed(1)}
+            {product.showRatings && (
+              <>
+                <div className="flex items-center text-amber-400 text-[11px]">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                  <span className="font-bold ml-0.5 mt-0.5">
+                    {product.ratings.score.toFixed(1)}
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-500">
+                  ({product.ratings.count})
+                </span>
+                {product.showBought && (
+                  <span className="text-[10px] text-gray-600">|</span>
+                )}
+              </>
+            )}
+            {product.showBought && (
+              <span className="text-[10px] text-(--color-accent) font-sans tracking-wide flex-1">
+                {product.boughtLastMonth}+ bought
               </span>
-            </div>
-            <span className="text-[10px] text-gray-500">
-              ({product.ratings.count})
-            </span>
-            <span className="text-[10px] text-gray-600">|</span>
-            <span className="text-[10px] text-(--color-accent) font-sans tracking-wide flex-1">
-              {product.boughtLastMonth}+ bought
-            </span>
+            )}
 
             {/* Bouton Add to cart au survol */}
             {product.isActive && (

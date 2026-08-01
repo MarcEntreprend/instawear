@@ -50,6 +50,8 @@ export interface AdminProduct {
   printfulCurrency?: string | null;
   shippingEstimate?: number | null; // frais de port estimés pour ce produit
   ratings: { score: number; count: number };
+  showRatings?: boolean;
+  showBought?: boolean;
   boughtLastMonth: number;
   createdAt: string;
   updatedAt: string;

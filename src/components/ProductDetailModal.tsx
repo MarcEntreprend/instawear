@@ -292,22 +292,28 @@ export default function ProductDetailModal({
               {product.title}
             </h3>
 
-            <div className="flex items-center gap-2 mt-3 text-xs">
-              <div className="flex items-center text-amber-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-3.5 h-3.5 ${i < Math.floor(product.ratings.score) ? "fill-amber-400 text-amber-400" : "text-gray-600"}`}
-                  />
-                ))}
-                <span className="font-extrabold ml-1 pt-0.5">
-                  {product.ratings.score.toFixed(1)}/5.0
-                </span>
+            {(product.showRatings || product.showBought) && (
+              <div className="flex items-center gap-2 mt-3 text-xs">
+                {product.showRatings && (
+                  <div className="flex items-center text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3.5 h-3.5 ${i < Math.floor(product.ratings.score) ? "fill-amber-400 text-amber-400" : "text-gray-600"}`}
+                      />
+                    ))}
+                    <span className="font-extrabold ml-1 pt-0.5">
+                      {product.ratings.score.toFixed(1)}/5.0
+                    </span>
+                  </div>
+                )}
+                {product.showBought && (
+                  <span className="text-gray-500">
+                    ({product.boughtLastMonth}+ bought)
+                  </span>
+                )}
               </div>
-              <span className="text-gray-500">
-                ({product.boughtLastMonth}+ bought)
-              </span>
-            </div>
+            )}
 
             {/* Colors */}
             <div className="mt-4">

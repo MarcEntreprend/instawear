@@ -63,6 +63,8 @@ interface ProductRow {
   ratings_score?: number | null;
   ratings_count?: number | null;
   bought_last_month?: number | null;
+  show_ratings?: boolean | null;
+  show_bought?: boolean | null;
 }
 
 // ─── Helpers de mapping ──────────────────────────────────────────────────
@@ -110,6 +112,8 @@ const mapProduct = (row: any): AdminProduct => ({
     count: row.ratings_count ?? 0,
   },
   boughtLastMonth: row.bought_last_month ?? 0,
+  showRatings: row.show_ratings ?? false,
+  showBought: row.show_bought ?? false,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -243,6 +247,8 @@ export const productApi = {
       ratings_score: product.ratings?.score ?? 5,
       ratings_count: product.ratings?.count ?? 0,
       bought_last_month: product.boughtLastMonth ?? 0,
+      show_ratings: product.showRatings ?? false,
+      show_bought: product.showBought ?? false,
     };
     const { data, error } = await supabase
       .from("products")
@@ -322,6 +328,8 @@ export const productApi = {
       ratings_score: updates.ratings?.score,
       ratings_count: updates.ratings?.count,
       bought_last_month: updates.boughtLastMonth,
+      show_ratings: updates.showRatings,
+      show_bought: updates.showBought,
     };
     const { data, error } = await supabase
       .from("products")

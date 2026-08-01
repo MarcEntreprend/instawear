@@ -304,21 +304,29 @@ export default function ProductQuickViewModal({
                 {product.title}
               </h3>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 12,
-                color: "var(--color-ink3)",
-              }}
-            >
-              <Star size={12} fill="#f59e0b" stroke="#f59e0b" />
-              <span style={{ fontWeight: 600 }}>
-                {product.ratings.score.toFixed(1)}
-              </span>
-              <span>({product.boughtLastMonth ?? 0}+ achetés)</span>
-            </div>
+            {(product.showRatings || product.showBought) && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 12,
+                  color: "var(--color-ink3)",
+                }}
+              >
+                {product.showRatings && (
+                  <>
+                    <Star size={12} fill="#f59e0b" stroke="#f59e0b" />
+                    <span style={{ fontWeight: 600 }}>
+                      {product.ratings.score.toFixed(1)}
+                    </span>
+                  </>
+                )}
+                {product.showBought && (
+                  <span>({product.boughtLastMonth ?? 0}+ achetés)</span>
+                )}
+              </div>
+            )}
             <div
               style={{
                 display: "flex",

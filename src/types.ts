@@ -46,6 +46,8 @@ export interface Product {
   dealPrice?: number;
   ratings: { score: number; count: number };
   boughtLastMonth: number;
+  showRatings?: boolean;
+  showBought?: boolean;
   isBestSeller?: boolean;
   isLimitedTime?: boolean;
   material?: string;

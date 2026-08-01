@@ -52,6 +52,8 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   lastExternalSync: undefined,
   ratings: { score: 5, count: 0 },
   boughtLastMonth: 0,
+  showRatings: false,
+  showBought: false,
 };
 
 // ─── GalleryInput component (inline in the same file) ────────────────────
@@ -322,6 +324,8 @@ export default function ProductFormPanel({
         lastExternalSync: product.lastExternalSync,
         ratings: product.ratings || { score: 5, count: 0 },
         boughtLastMonth: product.boughtLastMonth || 0,
+        showRatings: product.showRatings ?? false,
+        showBought: product.showBought ?? false,
       });
     } else {
       setForm(EMPTY_FORM);
@@ -524,6 +528,8 @@ export default function ProductFormPanel({
       variants: form.variants || undefined,
       ratings: form.ratings || { score: 5, count: 0 },
       boughtLastMonth: form.boughtLastMonth || 0,
+      showRatings: form.showRatings ?? false,
+      showBought: form.showBought ?? false,
     });
 
     import("../api/supabaseApi").then(({ notificationApi }) => {
@@ -1204,8 +1210,8 @@ export default function ProductFormPanel({
           </div>
         </div>
 
-        {/* Badges */}
-        <div style={{ display: "flex", gap: 24 }}>
+        {/* Badges & affichage */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
           <label
             style={{
               ...labelStyle,
@@ -1235,6 +1241,36 @@ export default function ProductFormPanel({
               onChange={(e) => update("isLimitedTime", e.target.checked)}
             />
             Offre limitée
+          </label>
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.showRatings ?? false}
+              onChange={(e) => update("showRatings", e.target.checked)}
+            />
+            Afficher les évaluations
+          </label>
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.showBought ?? false}
+              onChange={(e) => update("showBought", e.target.checked)}
+            />
+            Afficher le nombre d'achats
           </label>
         </div>
 
