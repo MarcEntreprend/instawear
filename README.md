@@ -125,6 +125,7 @@ instawear/
 │ │ ├── Footer.tsx
 │ │ ├── Header.tsx
 │ │ ├── HeroCarousel.tsx
+│ │ ├── ImageZoom.tsx
 │ │ ├── NotFound.tsx
 │ │ ├── OrderModal.tsx
 │ │ ├── OrderTrackingModal.tsx

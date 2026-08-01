@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fiche Produit AliExpress</title>
+    <style>
+      /* Reset & Base */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial,
+          sans-serif;
+        background: #f5f5f5;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+      }
+
+      /* Conteneur principal (3 colonnes) */
+      .pdp-container {
+        background: #fff;
+        width: 1440px;
+        max-width: 100%;
+        padding: 25px;
+        display: flex;
+        gap: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      }
+
+      /* --- COLONNE GAUCHE (Images) --- */
+      .left-col {
+        width: 35%;
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+      }
+      .thumbnail-vertical-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 60px;
+      }
+      .thumb-item {
+        width: 56px;
+        height: 56px;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        cursor: pointer;
+        overflow: hidden;
+        background: #fff;
+      }
+      .thumb-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .thumb-item.active {
+        border-color: #ff4747;
+      }
+      .thumb-item.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+        position: relative;
+      }
+      .thumb-item.disabled::after {
+        content: "✕";
+        color: #ff4747;
+        font-weight: bold;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: white;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+        text-align: center;
+        line-height: 14px;
+        font-size: 10px;
+      }
+      .main-image-wrapper {
+        flex: 1;
+        background: #fafafa;
+        border-radius: 4px;
+        position: relative;
+      }
+      .main-image-wrapper img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 4px;
+      }
+
+      /* --- COLONNE CENTRALE (Infos) --- */
+      .center-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .product-title {
+        font-size: 22px;
+        font-weight: 500;
+        line-height: 1.4;
+        color: #191919;
+      }
+      .rating-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        font-size: 14px;
+      }
+      .stars {
+        color: #ffcb12;
+        letter-spacing: 2px;
+      }
+      .stars-empty {
+        color: #ccc;
+        letter-spacing: 2px;
+      }
+      .rating-score {
+        font-weight: bold;
+        color: #191919;
+      }
+      .divider {
+        height: 1px;
+        background: #e5e5e5;
+        margin: 8px 0;
+      }
+
+      /* SKU (Couleur / Taille) */
+      .sku-row {
+        margin: 4px 0;
+      }
+      .sku-label {
+        font-weight: bold;
+        font-size: 14px;
+        color: #191919;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .sku-label span {
+        font-weight: normal;
+        color: #666;
+      }
+      .size-chart-link {
+        float: right;
+        color: #2bc005;
+        cursor: pointer;
+        font-weight: normal;
+      }
+      .options-container {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .option-btn {
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        min-width: 50px;
+        height: 40px;
+        padding: 0 10px;
+        font-size: 14px;
+        color: #191919;
+        transition: all 0.2s;
+      }
+      .option-btn.img-opt {
+        width: 50px;
+        padding: 2px;
+      }
+      .option-btn.img-opt img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 2px;
+      }
+      .option-btn.selected {
+        border-color: #ff4747;
+        color: #ff4747;
+      }
+      .option-btn.disabled {
+        color: #ccc;
+        border-color: #e5e5e5;
+        text-decoration: line-through;
+        cursor: not-allowed;
+        background: #fafafa;
+      }
+
+      /* Mensurations */
+      .size-info-box {
+        display: flex;
+        gap: 20px;
+        background: #f5f6f7;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-top: 5px;
+        font-size: 13px;
+      }
+      .size-info-item {
+        display: flex;
+        flex-direction: column;
+      }
+      .size-info-item span:first-child {
+        color: #999;
+        margin-bottom: 2px;
+      }
+      .size-info-item span:last-child {
+        color: #191919;
+        font-weight: 500;
+      }
+
+      /* Avis Clients */
+      .reviews-section {
+        margin-top: 20px;
+      }
+      .review-header {
+        font-size: 20px;
+        font-weight: 500;
+        margin-bottom: 15px;
+      }
+      .review-summary {
+        display: flex;
+        gap: 30px;
+        align-items: flex-start;
+      }
+      .review-score-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .review-score-big {
+        font-size: 42px;
+        font-weight: bold;
+        color: #191919;
+      }
+      .review-sub {
+        font-size: 12px;
+        color: #999;
+        margin-top: 5px;
+      }
+      .review-chart {
+        flex: 1;
+      }
+      .chart-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      .chart-bar-bg {
+        flex: 1;
+        height: 5px;
+        background: #f0f0f0;
+        border-radius: 4px;
+      }
+      .chart-bar-fill {
+        height: 100%;
+        background: #191919;
+        border-radius: 4px;
+      }
+      .chart-count {
+        width: 30px;
+        text-align: right;
+        color: #999;
+      }
+      .review-tabs {
+        display: flex;
+        gap: 12px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+      }
+      .tab-btn {
+        padding: 6px 16px;
+        border: 1px solid #e5e5e5;
+        border-radius: 16px;
+        background: #fff;
+        color: #666;
+        cursor: pointer;
+        font-size: 13px;
+        transition: 0.2s;
+      }
+      .tab-btn.active {
+        border-color: #ff4747;
+        color: #ff4747;
+        background: #fffbfb;
+      }
+      .tab-btn:hover {
+        border-color: #ff4747;
+      }
+
+      /* --- COLONNE DROITE (Action) --- */
+      .right-col {
+        width: 310px;
+        padding-left: 15px;
+        border-left: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      .seller-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        color: #666;
+      }
+      .seller-name {
+        font-weight: bold;
+        color: #191919;
+      }
+      .seller-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        cursor: pointer;
+      }
+
+      .commitment-box {
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .commitment-header-tag {
+        background: #d8f6e4;
+        color: #2bc005;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 2px;
+        display: inline-block;
+        width: fit-content;
+        margin-bottom: 2px;
+      }
+      .commitment-item {
+        display: flex;
+        gap: 10px;
+        font-size: 13px;
+        color: #666;
+      }
+      .commitment-item strong {
+        color: #191919;
+      }
+      .commitment-item .green-tick {
+        color: #2bc005;
+      }
+
+      .btn-add-picks {
+        width: 100%;
+        padding: 14px;
+        background: #d90000;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: 0.2s;
+      }
+      .btn-add-picks:hover {
+        background: #b30000;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pdp-container">
+      <!-- 1. COLONNE GAUCHE -->
+      <div class="left-col">
+        <!-- Miniatures verticales (Variantes de couleurs) -->
+        <div class="thumbnail-vertical-wrapper" id="thumbnailWrapper">
+          <!-- Les données sont injectées en JS pour la démo -->
+        </div>
+        <!-- Image Principale -->
+        <div class="main-image-wrapper">
+          <img id="mainImage" src="" alt="Main Product Image" />
+        </div>
+      </div>
+
+      <!-- 2. COLONNE CENTRALE -->
+      <div class="center-col">
+        <h1 class="product-title">
+          New Men's T-shirt Classic Short Sleeved Polo Shirt Summer Top Casual
+          T-shirt Button Lapel Super Large S-3XL Casual Polo Shirt
+        </h1>
+
+        <div class="rating-bar">
+          <span class="stars">★★★★★</span>
+          <span class="rating-score">4.0</span>
+          <span>1549 Reviews</span>
+          <span>|</span>
+          <span>5,000+ sold</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- SKU Couleur -->
+        <div class="sku-row">
+          <span class="sku-label"
+            >Color:&nbsp;<span id="selectedColorLabel"
+              >DPL01-DJS8-white</span
+            ></span
+          >
+          <div class="options-container" id="colorOptions">
+            <!-- Généré par JS -->
+          </div>
+        </div>
+
+        <!-- SKU Taille -->
+        <div class="sku-row">
+          <span class="sku-label"
+            >Size:&nbsp;<span id="selectedSizeLabel">L</span
+            ><span class="size-chart-link">Size Chart</span></span
+          >
+          <div class="options-container" id="sizeOptions">
+            <!-- Généré par JS -->
+          </div>
+        </div>
+
+        <!-- Tableau des mesures -->
+        <div class="size-info-box" id="sizeInfoBox">
+          <!-- Généré par JS -->
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Avis Clients -->
+        <div class="reviews-section">
+          <h2 class="review-header">Customer Reviews (1549)</h2>
+          <div class="review-summary">
+            <div class="review-score-box">
+              <span class="review-score-big">4.0</span>
+              <div class="stars" style="font-size: 18px">★★★★☆</div>
+              <span class="review-sub">All from verified purchases</span>
+            </div>
+            <div class="review-chart">
+              <div class="chart-row">
+                <span>5 stars</span>
+                <div class="chart-bar-bg">
+                  <div class="chart-bar-fill" style="width: 58%"></div>
+                </div>
+                <span class="chart-count">901</span>
+              </div>
+              <div class="chart-row">
+                <span>4 stars</span>
+                <div class="chart-bar-bg">
+                  <div class="chart-bar-fill" style="width: 14%"></div>
+                </div>
+                <span class="chart-count">217</span>
+              </div>
+              <div class="chart-row">
+                <span>3 stars</span>
+                <div class="chart-bar-bg">
+                  <div class="chart-bar-fill" style="width: 10%"></div>
+                </div>
+                <span class="chart-count">152</span>
+              </div>
+              <div class="chart-row">
+                <span>2 stars</span>
+                <div class="chart-bar-bg">
+                  <div class="chart-bar-fill" style="width: 6%"></div>
+                </div>
+                <span class="chart-count">96</span>
+              </div>
+              <div class="chart-row">
+                <span>1 stars</span>
+                <div class="chart-bar-bg">
+                  <div class="chart-bar-fill" style="width: 12%"></div>
+                </div>
+                <span class="chart-count">183</span>
+              </div>
+            </div>
+          </div>
+          <div class="review-tabs">
+            <div class="tab-btn active">All (1537)</div>
+            <div class="tab-btn">Pic review (103)</div>
+            <div class="tab-btn">Additional review (64)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. COLONNE DROITE -->
+      <div class="right-col">
+        <div class="seller-info">
+          <span class="seller-name">Shop1103851505 Store (Trader)</span>
+          <div class="seller-actions">
+            <span>ℹ️ Seller info</span>
+            <span>✉️ Message</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="commitment-box">
+          <div class="commitment-header-tag">Choice AliExpress commitment</div>
+
+          <div class="commitment-item">
+            <div>
+              <div><strong>Free shipping</strong></div>
+              <div>
+                Delivery: <strong>Aug 08 - 12</strong> (86.4% ≤ 11 days)
+              </div>
+              <div>Courier company: SpeedX, USPS, etc.</div>
+            </div>
+          </div>
+
+          <div class="commitment-item">
+            <div>
+              <div><strong>Fast delivery</strong></div>
+              <div class="green-tick">✓ $1.00 coupon code if delayed</div>
+              <div class="green-tick">✓ Refund if package lost</div>
+              <div class="green-tick">✓ Refund if items damaged</div>
+              <div class="green-tick">✓ Refund if no delivery in 30 days</div>
+            </div>
+          </div>
+
+          <div class="commitment-item">
+            <div>
+              <div><strong>Free returns within 15 days</strong></div>
+            </div>
+          </div>
+
+          <div class="commitment-item">
+            <div>
+              <div>
+                <strong>Security & Privacy</strong>
+                <span style="color: #999">secure personal details</span>
+              </div>
+              <div class="green-tick">✓ Safe payments...</div>
+              <div class="green-tick">✓ Secure personal details...</div>
+            </div>
+          </div>
+
+          <div class="commitment-item">
+            <div>
+              <div><strong>Shop sustainably</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-add-picks">Add to my picks</button>
+      </div>
+    </div>
+
+    <script>
+      // --- Données Mock pour la démo ---
+      // Maps pour gérer la disponibilité des tailles selon la couleur
+      const inventory = {
+        white: {
+          S: true,
+          M: false,
+          L: true,
+          XL: false,
+          XXL: false,
+          XXXL: false,
+        },
+        yellow: {
+          S: true,
+          M: true,
+          L: false,
+          XL: true,
+          XXL: false,
+          XXXL: false,
+        },
+        blue: {
+          S: false,
+          M: true,
+          L: true,
+          XL: false,
+          XXL: false,
+          XXXL: false,
+        },
+        grey: { S: false, M: false, L: false, XL: true, XXL: true, XXXL: true },
+      };
+
+      // Données des mensurations pour chaque taille
+      const sizeDimensions = {
+        S: {
+          Bust: '40.00"',
+          Shoulder: '17.50"',
+          Length: '26.00"',
+          Sleeve: '8.00"',
+        },
+        M: {
+          Bust: '42.00"',
+          Shoulder: '18.00"',
+          Length: '27.00"',
+          Sleeve: '8.50"',
+        },
+        L: {
+          Bust: '44.49"',
+          Shoulder: '18.82"',
+          Length: '28.74"',
+          Sleeve: '9.25"',
+        },
+        XL: {
+          Bust: '46.50"',
+          Shoulder: '19.50"',
+          Length: '29.50"',
+          Sleeve: '10.00"',
+        },
+        XXL: {
+          Bust: '48.50"',
+          Shoulder: '20.00"',
+          Length: '30.50"',
+          Sleeve: '10.50"',
+        },
+        XXXL: {
+          Bust: '50.50"',
+          Shoulder: '20.50"',
+          Length: '31.50"',
+          Sleeve: '11.00"',
+        },
+      };
+
+      // Liste des couleurs avec leurs images associées
+      const colors = [
+        {
+          id: "yellow",
+          label: "DPL01-DJS8-yellow",
+          img: "https://ae-pic-a1.aliexpress-media.com/kf/Sa4bd8b0ddafa4d259e24af75640636c7Z.jpg_220x220q75.jpg_.avif",
+        },
+        {
+          id: "blue",
+          label: "DPL01-DJS8-blue",
+          img: "https://ae-pic-a1.aliexpress-media.com/kf/Se9b5494167eb4407a14a3b22af8bbf60j.jpg_220x220q75.jpg_.avif",
+        },
+        {
+          id: "grey",
+          label: "DPL01-DJS8-grey",
+          img: "https://ae-pic-a1.aliexpress-media.com/kf/S69193268aba6493ebee6d176f18b9d352.jpg_220x220q75.jpg_.avif",
+        },
+        {
+          id: "white",
+          label: "DPL01-DJS8-white",
+          img: "https://ae-pic-a1.aliexpress-media.com/kf/S4e5deba1629c47f5a9b65f13efe3a72dM.jpg_220x220q75.jpg_.avif",
+        },
+      ];
+
+      // Taille actuellement sélectionnée (par défaut L) et couleur (white)
+      let currentSize = "L";
+      let currentColor = "white";
+
+      // --- Initialisation des DOM ---
+      const mainImage = document.getElementById("mainImage");
+      const selectedColorLabel = document.getElementById("selectedColorLabel");
+      const selectedSizeLabel = document.getElementById("selectedSizeLabel");
+      const colorOptionsContainer = document.getElementById("colorOptions");
+      const sizeOptionsContainer = document.getElementById("sizeOptions");
+      const sizeInfoBox = document.getElementById("sizeInfoBox");
+      const thumbnailWrapper = document.getElementById("thumbnailWrapper");
+
+      // Fonction pour mettre à jour le DOM des tailles en fonction de l'inventaire de la couleur
+      function renderSizeOptions() {
+        sizeOptionsContainer.innerHTML = "";
+        const sizes = ["S", "M", "L", "XL", "XXL", "XXXL"];
+        sizes.forEach((size) => {
+          const btn = document.createElement("div");
+          btn.className = "option-btn";
+          btn.innerText = size;
+          btn.dataset.size = size;
+
+          // Vérifier si disponible dans la couleur actuelle
+          if (!inventory[currentColor][size]) {
+            btn.classList.add("disabled");
+          }
+          if (size === currentSize && inventory[currentColor][size]) {
+            btn.classList.add("selected");
+          }
+
+          btn.addEventListener("click", function (e) {
+            if (this.classList.contains("disabled")) return;
+            // Supprimer sélection des autres tailles
+            document
+              .querySelectorAll("#sizeOptions .option-btn")
+              .forEach((el) => el.classList.remove("selected"));
+            this.classList.add("selected");
+            currentSize = this.dataset.size;
+            selectedSizeLabel.innerText = currentSize;
+
+            // Mettre à jour le tableau des mensurations
+            updateSizeDimensions(currentSize);
+          });
+          sizeOptionsContainer.appendChild(btn);
+        });
+      }
+
+      // Fonction pour mettre à jour le tableau des mensurations
+      function updateSizeDimensions(size) {
+        const dims = sizeDimensions[size];
+        if (!dims) return;
+        sizeInfoBox.innerHTML = `
+            <div class="size-info-item"><span>Bust:</span><span>${dims.Bust}</span></div>
+            <div class="size-info-item"><span>Shoulder:</span><span>${dims.Shoulder}</span></div>
+            <div class="size-info-item"><span>Length:</span><span>${dims.Length}</span></div>
+            <div class="size-info-item"><span>Sleeve Length:</span><span>${dims.Sleeve}</span></div>
+        `;
+      }
+
+      // Fonction pour mettre à jour le DOM des couleurs (et miniatures verticales)
+      function renderColors() {
+        colorOptionsContainer.innerHTML = "";
+        thumbnailWrapper.innerHTML = "";
+
+        colors.forEach((color, index) => {
+          // Boutons pour la ligne du milieu
+          const btn = document.createElement("div");
+          btn.className = "option-btn img-opt";
+          btn.innerHTML = `<img src="${color.img}" alt="${color.id}">`;
+          btn.dataset.colorId = color.id;
+          btn.dataset.label = color.label;
+          btn.dataset.img = color.img;
+
+          if (color.id === currentColor) {
+            btn.classList.add("selected");
+          }
+
+          btn.addEventListener("click", function (e) {
+            const colorId = this.dataset.colorId;
+            const colorLabel = this.dataset.label;
+            const imgSrc = this.dataset.img;
+
+            // 1. Changer l'image principale
+            mainImage.src = imgSrc;
+            selectedColorLabel.innerText = colorLabel;
+            currentColor = colorId;
+
+            // 2. Mise à jour de l'état visuel des couleurs (ligne centrale et miniatures verticales)
+            document
+              .querySelectorAll(".option-btn.img-opt")
+              .forEach((el) => el.classList.remove("selected"));
+            document
+              .querySelectorAll(".thumb-item")
+              .forEach((el) => el.classList.remove("active"));
+            this.classList.add("selected");
+            document
+              .querySelector(`.thumb-item[data-color-id="${colorId}"]`)
+              .classList.add("active");
+
+            // 3. Vérifier la disponibilité des tailles pour cette nouvelle couleur
+            // Si la taille actuelle n'est plus disponible, on réinitialise
+            if (!inventory[colorId][currentSize]) {
+              // Trouver la première taille disponible dans cette couleur
+              const available = Object.keys(inventory[colorId]).find(
+                (s) => inventory[colorId][s] === true,
+              );
+              if (available) {
+                currentSize = available;
+                selectedSizeLabel.innerText = currentSize;
+                updateSizeDimensions(currentSize);
+              }
+            }
+            // 4. Re-rendre les options de taille avec le bon stock
+            renderSizeOptions();
+          });
+          colorOptionsContainer.appendChild(btn);
+
+          // Miniatures verticales à gauche
+          const thumb = document.createElement("div");
+          thumb.className = "thumb-item";
+          if (color.id === currentColor) thumb.classList.add("active");
+          // Simuler un stock épuisé pour le gris (point rouge dans l'image)
+          if (color.id === "grey") thumb.classList.add("disabled");
+          thumb.dataset.colorId = color.id;
+          thumb.innerHTML = `<img src="${color.img}" alt="${color.id}">`;
+          // Cloner l'événement click pour les miniatures verticales
+          thumb.addEventListener("click", function (e) {
+            // Simuler le clic sur le bouton correspondant de la ligne du milieu
+            const targetBtn = document.querySelector(
+              `.option-btn.img-opt[data-color-id="${this.dataset.colorId}"]`,
+            );
+            if (targetBtn) targetBtn.click();
+          });
+          thumbnailWrapper.appendChild(thumb);
+        });
+      }
+
+      // --- Exécution initiale ---
+      mainImage.src = colors.find((c) => c.id === currentColor).img;
+      renderColors();
+      renderSizeOptions();
+      updateSizeDimensions(currentSize);
+    </script>
+  </body>
+</html>
