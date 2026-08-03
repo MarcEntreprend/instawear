@@ -26,7 +26,6 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   colorImages: undefined,
   mockupPreset: "",
   price: 24.99,
-  originalPrice: undefined,
   inStock: true,
   stockQuantity: 100,
   colors: ["#000000", "#FFFFFF"],
@@ -292,7 +291,6 @@ export default function ProductFormPanel({
           product.gallery && product.gallery.length > 0 ? product.gallery : [],
         mockupPreset: product.mockupPreset || "",
         price: product.price,
-        originalPrice: product.originalPrice,
         inStock: product.inStock,
         stockQuantity: product.stockQuantity ?? 0,
         colors: product.colors.filter((c) => c && c.trim().length > 0),
@@ -763,27 +761,6 @@ export default function ProductFormPanel({
                 step="0.01"
                 min={0}
                 required
-              />
-              <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
-                $
-              </span>
-            </div>
-          </div>
-          <div>
-            <label style={labelStyle}>Prix barré ($)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="number"
-                value={form.originalPrice || ""}
-                onChange={(e) =>
-                  update(
-                    "originalPrice",
-                    e.target.value ? Number(e.target.value) : undefined,
-                  )
-                }
-                style={{ ...inputStyle, flex: 1 }}
-                step="0.01"
-                min={0}
               />
               <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
                 $

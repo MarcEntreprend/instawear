@@ -1016,11 +1016,10 @@ export default function ProductsPage() {
           </thead>
           <tbody>
             {orderedProducts.map((p) => {
+              // Affiche la réduction seulement si un deal est actif avec un prix promo
               const discount =
-                p.originalPrice && p.originalPrice > p.price
-                  ? Math.round(
-                      ((p.originalPrice - p.price) / p.originalPrice) * 100,
-                    )
+                p.dealActive && p.dealPrice && p.dealPrice < p.price
+                  ? Math.round(((p.price - p.dealPrice) / p.price) * 100)
                   : null;
               const idxInManual = manualOrder.indexOf(p.id);
               const isFirst = idxInManual === 0;

@@ -450,11 +450,28 @@ export default function App() {
   const addToCart = (product: Product, color: string, size: string) => {
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
-    let unitPrice = product.price + (product.sizeSurcharge?.[targetSize] ?? 0);
+    const basePrice =
+      product.dealActive && !dealExpired && product.dealPrice
+        ? product.dealPrice
+        : product.price;
+    let unitPrice = basePrice + (product.sizeSurcharge?.[targetSize] ?? 0);
+
     if (product.variants?.length) {
       const variant = product.variants.find((v) => v.color === targetColor);
       if (variant?.sizes?.[targetSize]?.price != null) {
-        unitPrice = variant.sizes[targetSize].price;
+        const variantPrice = variant.sizes[targetSize].price;
+        // Appliquer le même ratio de réduction
+        if (
+          product.dealActive &&
+          !dealExpired &&
+          product.dealPrice &&
+          product.price > 0
+        ) {
+          const discountRatio = product.dealPrice / product.price;
+          unitPrice = variantPrice * discountRatio;
+        } else {
+          unitPrice = variantPrice;
+        }
       }
     }
 

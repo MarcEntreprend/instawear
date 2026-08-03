@@ -2305,7 +2305,7 @@ export default function CheckoutFlow({
               ...cart.map((item) => ({
                 name: item.product.title,
                 image: getVariantImage(item.product, item.selectedColor),
-                unitAmount: Math.round(item.product.price * 100),
+                unitAmount: Math.round(item.unitPrice * 100),
                 quantity: item.quantity,
                 currency: currencyCode, // devise dynamique
               })),

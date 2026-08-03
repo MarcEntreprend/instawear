@@ -287,9 +287,9 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
 - [x] on printful, the wrong variant is passed / or not passed at all
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
-- [...] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
+- [x] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
 - [ ] **Visibilité de produits / via admin** — logique actif/inactif absente de certaines pages
-- [ ] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
+- [x] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
 - [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
 - [ ] **Comments and review ?** also showing in the user's dashboard.

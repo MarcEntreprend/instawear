@@ -518,7 +518,24 @@ export default function PromotionsPage() {
                 {(form as any).dealActive && (
                   <>
                     <div>
-                      <label style={labelStyle}>Prix deal ($)</label>
+                      <label style={labelStyle}>
+                        Prix normal (qui sera barré)
+                      </label>
+                      <input
+                        type="text"
+                        value={`${(getProductById(form.productId!) as any)?.price?.toFixed(2) ?? "—"} $`}
+                        readOnly
+                        style={{
+                          ...inputStyle,
+                          opacity: 0.7,
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>
+                        Prix Promo (doit être inférieur au prix normal) ($)
+                      </label>
                       <input
                         type="number"
                         value={(form as any).dealPrice || ""}
