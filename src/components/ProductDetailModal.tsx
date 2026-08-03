@@ -445,21 +445,39 @@ export default function ProductDetailModal({
             <div className="bezel-outer">
               <div className="bezel-inner p-5 flex flex-col gap-4">
                 {/* Prix */}
-                <div>
-                  <span className="text-2xl font-black text-(--color-ink)">
-                    {displayPrice.toFixed(2)} {currencySymbol}
-                  </span>
-                  {product.originalPrice && (
-                    <span className="text-sm text-(--color-ink4) line-through ml-2">
-                      {product.originalPrice.toFixed(2)} {currencySymbol}
+                {product.dealActive && !dealExpired && product.dealPrice ? (
+                  <div>
+                    <span className="text-2xl font-black text-rose-500">
+                      {product.dealPrice.toFixed(2)} {currencySymbol}
                     </span>
-                  )}
-                  {product.dealActive && !dealExpired && !dealFadingOut && (
-                    <p className="text-xs text-(--color-accent) font-semibold mt-1">
-                      Limited deal
+                    <span className="text-sm text-(--color-ink4) line-through ml-2">
+                      {product.price.toFixed(2)} {currencySymbol}
+                    </span>
+                    <p className="text-xs text-rose-500 font-semibold mt-1">
+                      -
+                      {Math.round(
+                        (1 - product.dealPrice / product.price) * 100,
+                      )}
+                      % Limited deal
                     </p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-2xl font-black text-(--color-ink)">
+                      {displayPrice.toFixed(2)} {currencySymbol}
+                    </span>
+                    {product.originalPrice && (
+                      <span className="text-sm text-(--color-ink4) line-through ml-2">
+                        {product.originalPrice.toFixed(2)} {currencySymbol}
+                      </span>
+                    )}
+                    {product.dealActive && !dealExpired && !dealFadingOut && (
+                      <p className="text-xs text-(--color-accent) font-semibold mt-1">
+                        Limited deal
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Résumé sélection */}
                 <div className="text-xs text-(--color-ink3)">

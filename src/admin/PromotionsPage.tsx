@@ -177,7 +177,13 @@ export default function PromotionsPage() {
   };
 
   const handleEdit = (promo: HeroPromotion) => {
-    setForm(promo);
+    const product = getProductById(promo.productId);
+    setForm({
+      ...promo,
+      dealActive: product?.dealActive ?? false,
+      dealPrice: product?.dealPrice,
+      dealEndsAt: product?.dealEndsAt,
+    } as any);
     setEditingId(promo.id);
     setShowForm(true);
   };
@@ -216,6 +222,9 @@ export default function PromotionsPage() {
         dealPrice: active ? dealPrice : undefined,
         dealEndsAt: active ? dealEndsAt : undefined,
       } as any);
+
+      window.dispatchEvent(new Event("storefront:invalidate"));
+
       const prods = await productApi.list();
       setAllProducts(prods);
     } catch (e) {

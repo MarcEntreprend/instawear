@@ -233,16 +233,32 @@ export default function StoreProductCard({
           </div>
 
           <div className="flex items-baseline gap-2 mt-2 mb-0.5">
-            <span className="text-lg font-black text-gray-900 font-sans">
-              {product.price.toFixed(2)}{" "}
-              <span className="text-[11px] font-medium text-gray-500">
-                {currencySymbol}
-              </span>
-            </span>
-            {product.originalPrice && (
-              <span className="text-xs text-gray-500 line-through">
-                {product.originalPrice.toFixed(2)} {currencySymbol}
-              </span>
+            {product.dealActive && !dealExpired && product.dealPrice ? (
+              <>
+                <span className="text-lg font-black text-rose-500 font-sans">
+                  {product.dealPrice.toFixed(2)}{" "}
+                  <span className="text-[11px] font-medium text-rose-400">
+                    {currencySymbol}
+                  </span>
+                </span>
+                <span className="text-xs text-gray-500 line-through">
+                  {product.price.toFixed(2)} {currencySymbol}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-lg font-black text-gray-900 font-sans">
+                  {product.price.toFixed(2)}{" "}
+                  <span className="text-[11px] font-medium text-gray-500">
+                    {currencySymbol}
+                  </span>
+                </span>
+                {product.originalPrice && (
+                  <span className="text-xs text-gray-500 line-through">
+                    {product.originalPrice.toFixed(2)} {currencySymbol}
+                  </span>
+                )}
+              </>
             )}
           </div>
 

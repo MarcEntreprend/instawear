@@ -353,8 +353,7 @@ export default function App() {
     if (!dealEndTime) {
       setTimeLeft(null);
       setCountdownString("");
-      setDealExpired(false);
-      setDealFadingOut(false);
+      // Ne pas réinitialiser dealExpired si déjà true (évite le flash)
       return;
     }
 
@@ -368,9 +367,12 @@ export default function App() {
       setCountdownString(
         `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
       );
-      if (remaining <= 0) {
-        setDealExpired(true);
-        setDealFadingOut(false);
+      if (remaining <= 0 && !dealExpired) {
+        setDealFadingOut(true);
+        setTimeout(() => {
+          setDealExpired(true);
+          setDealFadingOut(false);
+        }, 900);
       }
     };
 
