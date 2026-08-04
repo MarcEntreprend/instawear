@@ -1050,7 +1050,7 @@ export const podApi = {
     }
     return {
       id: data.id,
-      apiKey: data.api_key,
+      apiKey: "", // la clé API Printful n'est plus exposée au client (secret Edge Function)
       storeId: data.store_id,
       storeName: data.store_name,
       isConnected: data.is_connected,
@@ -1060,11 +1060,11 @@ export const podApi = {
     };
   },
   async saveSettings(partial: Partial<PodSettings>): Promise<PodSettings> {
+    // La clé API Printful n'est plus persistée en base (secret Edge Function PRINTFUL_API_KEY).
     const { data, error } = await supabase
       .from("pod_settings")
       .upsert({
         id: "pod-main",
-        api_key: partial.apiKey ?? "",
         store_id: partial.storeId,
         store_name: partial.storeName ?? "InstaWear Boutique",
         is_connected: partial.isConnected ?? false,
@@ -1519,15 +1519,19 @@ export const dashboardApi = {
 
 export const adminUserApi = {
   async list(): Promise<AdminUser[]> {
-    const { data, error } = await supabase.from("admin_users").select("*");
-    if (error) throw error;
-    return (data ?? []).map((u: any) => ({
-      id: u.id,
-      email: u.email,
-      role: u.role,
-      createdAt: u.created_at,
-      lastLoginDate: u.last_login_date,
-    }));
+    try {
+      const { data, error } = await supabase.from("admin_users").select("*");
+      if (error) return [];
+      return (data ?? []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        createdAt: u.created_at,
+        lastLoginDate: u.last_login_date,
+      }));
+    } catch {
+      return [];
+    }
   },
   async create(
     admin: Omit<AdminUser, "id" | "createdAt"> & { passwordHash?: string },
@@ -2079,21 +2083,21 @@ export const newsletterApi = {
   async subscribe(
     email: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Vérifier si déjà inscrit
-    const { data: existing } = await supabase
-      .from("newsletter_subscribers")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    // Vérifier si déjà inscrit (RPC SECURITY DEFINER, table non accessible en REST)
+    const { data: already, error: statusError } = await supabase.rpc(
+      "get_newsletter_status",
+      { p_email: email },
+    );
+    if (statusError) throw statusError;
 
-    if (existing) {
+    if (already) {
       return { success: false, message: "You're already subscribed!" };
     }
 
-    const { error } = await supabase
-      .from("newsletter_subscribers")
-      .insert({ email });
-
+    const { error } = await supabase.rpc("set_newsletter_subscription", {
+      p_email: email,
+      p_subscribed: true,
+    });
     if (error) throw error;
 
     // Envoyer un email de bienvenue personnalisé via le template automation
@@ -2145,16 +2149,18 @@ export const newsletterApi = {
   },
   // ── Vérifier si un email est déjà abonné ──────────────────────────
   async isSubscribed(email: string): Promise<boolean> {
-    const { data } = await supabase
-      .from("newsletter_subscribers")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    const { data } = await supabase.rpc("get_newsletter_status", {
+      p_email: email,
+    });
     return !!data;
   },
 
   // ── Désabonner un email ──────────────────────────────────────────
   async unsubscribe(email: string): Promise<void> {
-    await supabase.from("newsletter_subscribers").delete().eq("email", email);
+    const { error } = await supabase.rpc("set_newsletter_subscription", {
+      p_email: email,
+      p_subscribed: false,
+    });
+    if (error) throw error;
   },
 };

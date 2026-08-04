@@ -38,6 +38,7 @@ npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy reset-password --no-verify-jwt
 
+
 ```
 
 ## IPv4 Address
@@ -46,6 +47,10 @@ npx supabase functions deploy reset-password --no-verify-jwt
 
 Local: http://localhost:5173/
 ➜ Network: http://192.168.15.2:5173/
+
+## tester si TypeScript compile sans erreur
+
+npx tsc --noEmit
 
 ## Structure arborescente
 
@@ -259,9 +264,9 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 #### 🔐 Sécurité (⚠️ avant production)
 
-- [ ] **RLS (Row Level Security)** sur les tables Supabase
-- [ ] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
-- [ ] **Protection injections** — URL, console, fuite de clés
+- [WIP] **RLS (Row Level Security)** sur les tables Supabase
+- [WIP] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
+- [WIP] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
 #### 🧩 UX / UI

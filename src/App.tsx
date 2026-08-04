@@ -43,6 +43,9 @@ export default function App() {
 
   // Auth, Admin & Profile States
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<
+    "login" | "signup" | "resetPassword"
+  >("login");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUser, setIsUser] = useState(false);
   const [userName, setUserName] = useState("");
@@ -107,7 +110,7 @@ export default function App() {
   const [cartLoaded, setCartLoaded] = useState(false);
 
   // Local caches to avoid 406 errors on admin_users and customers
-  const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  // const [adminEmails, setAdminEmails] = useState<string[]>([]);f
   const [allCustomers, setAllCustomers] = useState<
     { id: string; email: string }[]
   >([]);
@@ -211,6 +214,17 @@ export default function App() {
     }
   }, [activeTab, isAdmin]);
 
+  // Ouvre la modale en mode reset si on arrive depuis un lien de réinitialisation
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get("resetPassword") ===
+      "true"
+    ) {
+      setAuthInitialMode("resetPassword");
+      setShowAuthModal(true);
+    }
+  }, []);
+
   // Favorites
   const [favorites, setFavorites] = useState<string[]>([]);
   // Charger les favoris de l'utilisateur connecté
@@ -236,16 +250,12 @@ export default function App() {
   let toastIdCounter = useRef(0);
   const isInitialMount = useRef(true);
 
-  // Load admin + customer list once to avoid 406 errors
+  //
   useEffect(() => {
     const loadCaches = async () => {
       try {
-        const { adminUserApi, customerApi } = await import("./api/supabaseApi");
-        const [admins, customers] = await Promise.all([
-          adminUserApi.list(),
-          customerApi.list(),
-        ]);
-        setAdminEmails(admins.map((u) => u.email));
+        const { customerApi } = await import("./api/supabaseApi");
+        const customers = await customerApi.list();
         setAllCustomers(customers.map((c) => ({ id: c.id, email: c.email })));
         setCacheReady(true);
       } catch (e) {
@@ -254,6 +264,15 @@ export default function App() {
     };
     loadCaches();
   }, []);
+
+  const checkAdminEmail = async (_email: string) => {
+    try {
+      const { data } = await supabase.rpc("is_admin");
+      return !!data;
+    } catch {
+      return false;
+    }
+  };
 
   // Promotions
   useEffect(() => {
@@ -277,10 +296,11 @@ export default function App() {
 
   // Listen to Supabase session changes (authentication)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.email) {
-        // Vérifier localement si l'utilisateur est admin (évite erreur 406)
-        const isAdminUser = adminEmails.includes(session.user.email);
+        // Vérifier localement puis côté serveur si l'utilisateur est admin
+        const isAdminUser = await checkAdminEmail(session.user.email);
+        console.log("🔍 checkAdminEmail returned:", isAdminUser);
         if (isAdminUser) {
           setIsAdmin(true);
           setIsUser(false);
@@ -302,15 +322,16 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user?.email) {
-          // Vérifier localement si l'utilisateur est admin (évite erreur 406)
-          const isAdminUser = adminEmails.includes(session.user.email);
-          if (isAdminUser) {
-            setIsAdmin(true);
-            setIsUser(false);
-          } else {
-            setIsUser(true);
-            setIsAdmin(false);
-          }
+          // Vérifier localement puis côté serveur si l'utilisateur est admin
+          checkAdminEmail(session.user.email).then((isAdminUser) => {
+            if (isAdminUser) {
+              setIsAdmin(true);
+              setIsUser(false);
+            } else {
+              setIsUser(true);
+              setIsAdmin(false);
+            }
+          });
         } else {
           setIsAdmin(false);
           setIsUser(false);
@@ -968,6 +989,7 @@ export default function App() {
 
       {showAuthModal && (
         <AuthModal
+          initialMode={authInitialMode}
           onClose={() => setShowAuthModal(false)}
           onLoginSuccess={(isAdminLogin, name) => {
             if (isAdminLogin) {

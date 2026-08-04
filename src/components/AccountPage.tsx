@@ -2090,8 +2090,9 @@ function CartTab({
   );
 }
 
-// Regex pour détecter un ID de commande (ORD-année-suite)
-const ORDER_ID_REGEX = /\b(ord-\d{4}-\d{4,5})\b/gi;
+// Regex pour détecter un ID de commande (ORD-année-suite ou ORD-UUID)
+const ORDER_ID_REGEX =
+  /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
 
 /**
  * Transforme un texte en ReactNode en remplaçant les IDs de commande

@@ -275,9 +275,8 @@ function getVariantImage(
 }
 
 function generateOrderId(): string {
-  const year = new Date().getFullYear();
-  const seq = Math.floor(Math.random() * 9000) + 1000;
-  return `ORD-${year}-${seq}`;
+  // ID de commande imprévisible (UUID) — préfixe ORD- pour le tracking
+  return `ORD-${crypto.randomUUID()}`;
 }
 
 // ─── Reusable form field ────────────────────────────────────────────────
@@ -1305,9 +1304,14 @@ function StripeCardForm({
         },
         body: JSON.stringify({
           action: "payment-intent",
-          amount: total,
           currency: currencyCode,
           orderId,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            selectedColor: item.selectedColor,
+            selectedSize: item.selectedSize,
+          })),
         }),
       },
     );

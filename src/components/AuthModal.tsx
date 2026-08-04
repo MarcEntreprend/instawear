@@ -13,17 +13,17 @@ interface AuthModalProps {
 }
 
 type Mode = "login" | "signup" | "resetPassword";
-type ResetStep = "email" | "code" | "newPassword";
+type ResetStep = "email" | "sent" | "newPassword";
 
-const CODE_EXPIRY_SEC = 60;
-const MASTER_CODE = "000000"; // Universal test code (development phase)
+const RESEND_COOLDOWN_SEC = 30;
 
 export default function AuthModal({
   onClose,
   onLoginSuccess,
   onSignUpSuccess,
-}: AuthModalProps) {
-  const [mode, setMode] = useState<Mode>("login");
+  initialMode = "login",
+}: AuthModalProps & { initialMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -39,7 +39,7 @@ export default function AuthModal({
   const [timer, setTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
 
-  // Countdown timer
+  // Countdown timer (pour le renvoi de l'email de reset)
   useEffect(() => {
     if (timer <= 0) {
       setCanResend(true);
@@ -49,6 +49,37 @@ export default function AuthModal({
     const id = setInterval(() => setTimer((t) => t - 1), 1000);
     return () => clearInterval(id);
   }, [timer]);
+
+  // Écoute l'événement de récupération de mot de passe (lien envoyé par email)
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setMode("resetPassword");
+          setResetStep("newPassword");
+          if (session?.user?.email) setResetEmail(session.user.email);
+        }
+      },
+    );
+
+    // Si on arrive depuis un lien de reset (?resetPassword=true), une session
+    // de récupération peut déjà être établie → aller directement à l'étape finale.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resetPassword") === "true") {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session?.user) {
+          setMode("resetPassword");
+          setResetStep("newPassword");
+          setResetEmail(data.session.user.email || resetEmail);
+        }
+      });
+    }
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset all fields when switching modes
   useEffect(() => {
@@ -66,41 +97,36 @@ export default function AuthModal({
   }, [mode]);
 
   const startTimer = useCallback(() => {
-    setTimer(CODE_EXPIRY_SEC);
+    setTimer(RESEND_COOLDOWN_SEC);
     setCanResend(false);
   }, []);
 
-  // Step 1: send verification code
-  const handleSendCode = async () => {
+  // Step 1: envoyer l'email de réinitialisation via Supabase Auth
+  const handleSendResetEmail = async () => {
     setError("");
     if (!resetEmail.trim()) {
       setError("Please enter your email address.");
       return;
     }
     setLoading(true);
-    // Test mode: simulate sending after a short delay
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    startTimer();
-    setResetStep("code");
-    // In production, call supabase.auth.resetPasswordForEmail() here
-  };
-
-  // Step 2: verify the code
-  const handleVerifyCode = () => {
-    setError("");
-    if (!code.trim()) {
-      setError("Please enter the verification code.");
-      return;
-    }
-    if (code.trim() === MASTER_CODE) {
-      setResetStep("newPassword");
-    } else {
-      setError("Incorrect code. Please try again.");
+    try {
+      const { error: sendError } = await supabase.auth.resetPasswordForEmail(
+        resetEmail.trim(),
+        { redirectTo: `${window.location.origin}/?resetPassword=true` },
+      );
+      if (sendError) throw sendError;
+      startTimer();
+      setResetStep("sent");
+    } catch (err: any) {
+      setError(
+        err.message || "Unable to send the reset email. Please try again.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Step 3: update password (calls the secure Edge Function)
+  // Step 2: définir le nouveau mot de passe (session de récupération Supabase)
   const handleResetPassword = async () => {
     setError("");
     if (!newPassword) {
@@ -118,32 +144,16 @@ export default function AuthModal({
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-password`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            email: resetEmail,
-            code: code.trim(),
-            newPassword,
-          }),
-        },
-      );
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Password reset failed.");
-      }
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) throw updateError;
 
       // Succès : retour au login avec un message
       setError("");
       setMode("login");
       setResetStep("email");
-      alert("Password reset successfully! Sign in with your new password.");
+      alert("Password updated successfully! Sign in with your new password.");
 
       // Notification
       import("../api/supabaseApi").then(({ notificationApi }) => {
@@ -232,13 +242,8 @@ export default function AuthModal({
         if (signInError) throw signInError;
         if (!data.user) throw new Error("No user found");
 
-        const { data: adminData } = await supabase
-          .from("admin_users")
-          .select("role")
-          .eq("email", email)
-          .single();
-
-        const isAdmin = !!adminData;
+        const { data: isAdminUser } = await supabase.rpc("is_admin");
+        const isAdmin = !!isAdminUser;
 
         // Update last_login_date in customers (silent update, no upsert)
         supabase
@@ -329,7 +334,7 @@ export default function AuthModal({
               <h2 className="text-lg font-bold">Forgot password</h2>
             </div>
             <p className="text-sm text-gray-500">
-              Enter your email to receive a verification code.
+              Enter your email to receive a password reset link.
             </p>
             <div>
               <label className="block text-xs font-bold mb-1">Email</label>
@@ -343,16 +348,16 @@ export default function AuthModal({
               />
             </div>
             <button
-              onClick={handleSendCode}
+              onClick={handleSendResetEmail}
               disabled={loading}
               className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
             >
-              {loading ? "Sending..." : "Send a code"}
+              {loading ? "Sending..." : "Send reset link"}
             </button>
           </div>
         );
 
-      case "code":
+      case "sent":
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
@@ -362,49 +367,33 @@ export default function AuthModal({
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Verification</h2>
+              <h2 className="text-lg font-bold">Check your email</h2>
             </div>
             <p className="text-sm text-gray-500">
-              A code was sent to <strong>{resetEmail}</strong>
+              A password reset link was sent to <strong>{resetEmail}</strong>.
+              Click the link in the email to choose a new password.
             </p>
-            <div>
-              <label className="block text-xs font-bold mb-1">
-                Verification code
-              </label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm text-center tracking-widest"
-                placeholder="000000"
-                maxLength={6}
-                autoFocus
-              />
-            </div>
             {timer > 0 && (
               <p className="text-xs text-gray-400 text-center">
-                Resend code in {timer}s
+                Resend link in {timer}s
               </p>
             )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleVerifyCode}
-                className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition"
-              >
-                Verify
-              </button>
-              <button
-                onClick={() => {
-                  setError("");
-                  setCode("");
-                  handleSendCode();
-                }}
-                disabled={!canResend}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Resend
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setError("");
+                handleSendResetEmail();
+              }}
+              disabled={!canResend || loading}
+              className="w-full border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Resend link
+            </button>
+            <button
+              onClick={() => setMode("login")}
+              className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
+            >
+              Back to sign in
+            </button>
           </div>
         );
 
@@ -413,7 +402,7 @@ export default function AuthModal({
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <button
-                onClick={() => setResetStep("code")}
+                onClick={() => setResetStep("email")}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <ArrowLeft size={18} />
