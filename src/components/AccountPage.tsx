@@ -194,6 +194,24 @@ export default function AccountPage({
 
   // ── Auth & customer ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState<string | null>(null);
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user?.email) {
+          const cust = allCustomers.find((c) => c.email === session.user.email);
+          if (cust) {
+            setCustomerId(cust.id);
+            setCustomerEmail(session.user.email);
+          }
+        } else {
+          setCustomerId(null);
+          setCustomerEmail("");
+        }
+      },
+    );
+    return () => authListener?.subscription.unsubscribe();
+  }, [allCustomers]);
+
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);

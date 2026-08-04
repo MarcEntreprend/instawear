@@ -274,9 +274,22 @@ function getVariantImage(
   return product.image || PLACEHOLDER_IMG;
 }
 
-function generateOrderId(): string {
-  // ID de commande imprévisible (UUID) — préfixe ORD- pour le tracking
-  return `ORD-${crypto.randomUUID()}`;
+async function generateOrderId(): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const year = new Date().getFullYear();
+    const seq = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+    const id = `ORD-${year}-${seq}`;
+    // Vérifier en base que l'ID n'existe pas déjà
+    const { count } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("id", id);
+    if (count === 0) return id;
+  }
+  // Fallback : ajouter un suffixe aléatoire en cas de collision
+  const year = new Date().getFullYear();
+  const fallbackSuffix = Math.floor(Math.random() * 90) + 10;
+  return `ORD-${year}-${Math.floor(Math.random() * 9000) + 1000}-${fallbackSuffix}`;
 }
 
 // ─── Reusable form field ────────────────────────────────────────────────
@@ -1641,7 +1654,11 @@ function PaymentStep({
   onStripeCardError,
 }: PaymentStepProps) {
   const [showCardForm, setShowCardForm] = useState(false);
-  const [localOrderId] = useState(generateOrderId());
+  const [localOrderId, setLocalOrderId] = useState<string>("");
+
+  useEffect(() => {
+    generateOrderId().then(setLocalOrderId);
+  }, []);
 
   // Step 1: payment method selection
   if (!showCardForm) {
@@ -2209,7 +2226,7 @@ export default function CheckoutFlow({
     setProcessing(true);
     setPaymentError(null);
 
-    const newOrderId = generateOrderId();
+    const newOrderId = await generateOrderId();
     const createdAt = new Date().toISOString();
 
     try {
@@ -2356,7 +2373,7 @@ export default function CheckoutFlow({
     setProcessing(true);
     setPaymentError(null);
 
-    const newOrderId = generateOrderId();
+    const newOrderId = await generateOrderId();
     const createdAt = new Date().toISOString();
 
     try {
