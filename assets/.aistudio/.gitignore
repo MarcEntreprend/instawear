@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+assets/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+Models/
+*.zip
+instawear-security-check.zip
