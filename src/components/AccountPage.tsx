@@ -53,7 +53,6 @@ import CartIcon from "./CartIcon";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
-  allCustomers: { id: string; email: string }[];
   onClose: () => void;
   onViewProduct?: (
     productId: string,
@@ -186,7 +185,6 @@ function getVariantImage(product: any, selectedColor: string): string {
 
 // ─── Main component ───────────────────────────────────────────────────
 export default function AccountPage({
-  allCustomers,
   onClose,
   onViewProduct,
 }: AccountPageProps) {
@@ -194,24 +192,7 @@ export default function AccountPage({
 
   // ── Auth & customer ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState<string | null>(null);
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session?.user?.email) {
-          const cust = allCustomers.find((c) => c.email === session.user.email);
-          if (cust) {
-            setCustomerId(cust.id);
-            setCustomerEmail(session.user.email);
-          }
-        } else {
-          setCustomerId(null);
-          setCustomerEmail("");
-        }
-      },
-    );
-    return () => authListener?.subscription.unsubscribe();
-  }, [allCustomers]);
-
+  const [initializing, setInitializing] = useState(true);
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
@@ -221,32 +202,68 @@ export default function AccountPage({
     promotions: false,
   });
 
+  // Résout l'identité directement depuis la session Supabase Auth.
+  // IMPORTANT : on n'utilise plus allCustomers (cache global chargé une
+  // seule fois dans App.tsx) car il peut être en retard sur la session
+  // réelle (ex: juste après un signup, ou pendant que le cache charge
+  // encore) → c'était la cause du flash "Guest". customers.id == auth.uid()
+  // pour tout client (voir AuthModal.tsx : id: data.user.id à l'inscription),
+  // donc on peut requêter directement par cet ID, sans recherche par email.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user?.email) return;
-      const cust = allCustomers.find((c) => c.email === user.email);
-      if (cust) {
-        setCustomerId(cust.id);
+    let cancelled = false;
+
+    const resolveIdentity = async (
+      user: { id: string; email?: string; user_metadata?: any } | null,
+    ) => {
+      if (!user?.email) {
+        if (!cancelled) {
+          setCustomerId(null);
+          setCustomerEmail("");
+          setCustomerName("");
+          setInitializing(false);
+        }
+        return;
+      }
+
+      // Affichage immédiat (aucune requête réseau nécessaire) : email +
+      // nom depuis la session Auth elle-même, pour éliminer le flash Guest.
+      if (!cancelled) {
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
-        // Récupérer le vrai nom depuis la table customers
-        customerApi.get(cust.id).then((c) => {
-          if (c?.name) setCustomerName(c.name);
-          if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
-        });
-
-        // Charger les préférences
-        customerApi.get(cust.id).then((c) => {
-          if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
-        });
-
-        // Vérifier si le client est abonné à la newsletter
-        if (cust.email) {
-          newsletterApi.isSubscribed(cust.email).then(setNewsletterSubscribed);
-        }
+        setCustomerId(user.id);
       }
-    });
-  }, [allCustomers]);
+
+      // Complément : nom exact + préférences email depuis la table customers
+      const c = await customerApi.get(user.id);
+      if (cancelled) return;
+      if (c?.name) setCustomerName(c.name);
+      if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
+
+      newsletterApi.isSubscribed(user.email).then((subscribed) => {
+        if (!cancelled) setNewsletterSubscribed(subscribed);
+      });
+
+      if (!cancelled) setInitializing(false);
+    };
+
+    // Résolution initiale : getSession() lit la session locale instantanément
+    // (pas d'appel réseau comme getUser()) → aucun flash au montage.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => resolveIdentity(session?.user ?? null));
+
+    // Ré-résolution si la session change pendant que la page est ouverte
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        resolveIdentity(session?.user ?? null);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
 
   // ── Navigation ───────────────────────────────────────────────────
   const [tab, setTab] = useState<TabKey>("orders");
@@ -546,6 +563,21 @@ export default function AccountPage({
         interactions.filter((i) => i.status === "open").length || undefined,
     },
   ];
+
+  if (initializing) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ background: "var(--color-bg)" }}
+      >
+        <Loader2
+          size={32}
+          className="animate-spin"
+          style={{ color: "var(--color-accent)" }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -3029,6 +3061,7 @@ function ProfileTab({
   const [savingAddress, setSavingAddress] = useState(false);
 
   const [copied, setCopied] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // ── Charger les données ─────────────────────────────────────────
   useEffect(() => {
@@ -3126,6 +3159,48 @@ function ProfileTab({
     navigator.clipboard.writeText(customerEmail).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!customerId) return;
+    const confirmed = window.confirm(
+      "This will permanently delete your account, orders history access, saved addresses, favourites and cart. This action cannot be undone. Continue?",
+    );
+    if (!confirmed) return;
+    setDeletingAccount(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("No active session");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Deletion failed");
+      }
+
+      await supabase.auth.signOut();
+      onClose();
+      window.location.href = "/";
+    } catch (e: any) {
+      alert(
+        e.message ||
+          "Failed to delete account. Please try again or contact support.",
+      );
+      setDeletingAccount(false);
+    }
   };
 
   return (
@@ -3773,8 +3848,8 @@ function ProfileTab({
           className="mb-3 text-[12.5px]"
           style={{ color: "var(--color-ink4)" }}
         >
-          To update your personal information or delete your account, please
-          contact support.
+          To update your personal information, please contact support. Deleting
+          your account is permanent and cannot be undone.
         </p>
         <button
           className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
@@ -3790,6 +3865,23 @@ function ProfileTab({
           }}
         >
           <LogOut size={14} strokeWidth={1.75} /> Sign out of InstaWear
+        </button>
+        <button
+          disabled={deletingAccount || !customerId}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "#FEF2F2",
+            color: "#EF4444",
+            border: "1px solid #FECACA",
+          }}
+          onClick={handleDeleteAccount}
+        >
+          {deletingAccount ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Trash2 size={14} strokeWidth={1.75} />
+          )}
+          {deletingAccount ? "Deleting…" : "Delete my account"}
         </button>
       </div>
     </div>

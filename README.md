@@ -37,6 +37,7 @@ npx supabase functions deploy send-email --no-verify-jwt
 npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy reset-password --no-verify-jwt
+npx supabase functions deploy delete-account --no-verify-jwt
 
 
 ```

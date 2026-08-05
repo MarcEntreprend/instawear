@@ -428,12 +428,12 @@ export const customerApi = {
     }));
   },
   async get(id: string): Promise<Customer | null> {
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*, email_preferences")
-      .eq("id", id)
-      .single();
-    if (error) return null;
+    // L'utilisateur connecté ne peut lire que sa propre fiche via la RPC
+    // (SECURITY DEFINER, sans RLS). L'admin (Edge Functions) continue
+    // d'utiliser le service_role et n'est pas concerné.
+    const { data, error } = await supabase.rpc("get_my_customer_profile");
+    if (error || !data) return null;
+
     return {
       id: data.id,
       email: data.email,
@@ -892,31 +892,31 @@ export const orderApi = {
       }
     }
 
-    // Créer une notification admin (seulement si l'utilisateur est connecté)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      try {
-        await notificationApi.create({
-          title: `Nouvelle commande ${order.id}`,
-          description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
-          category: "orders",
-          priority: "medium",
-          metadata: {
-            orderId: order.id,
-            customerName: order.clientName,
-            amount: order.totalAmount,
-            currency: order.shippingAddress?.country === "US" ? "$" : "R$",
-            linkTo: `/admin/orders`,
-            source: "Client",
-          },
-          action_label: "Voir la commande",
-        });
-      } catch (e) {
-        console.warn("Échec création notification commande", e);
-      }
-    }
+    // // Créer une notification admin (seulement si l'utilisateur est connecté)
+    // const {
+    //   data: { user },
+    // } = await supabase.auth.getUser();
+    // if (user) {
+    //   try {
+    //     await notificationApi.create({
+    //       title: `Nouvelle commande ${order.id}`,
+    //       description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
+    //       category: "orders",
+    //       priority: "medium",
+    //       metadata: {
+    //         orderId: order.id,
+    //         customerName: order.clientName,
+    //         amount: order.totalAmount,
+    //         currency: order.shippingAddress?.country === "US" ? "$" : "R$",
+    //         linkTo: `/admin/orders`,
+    //         source: "Client",
+    //       },
+    //       action_label: "Voir la commande",
+    //     });
+    //   } catch (e) {
+    //     console.warn("Échec création notification commande", e);
+    //   }
+    // }
 
     // Créer une notification client pour la commande en attente
     if (order.clientEmail) {

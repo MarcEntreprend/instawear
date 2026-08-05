@@ -155,23 +155,28 @@ export default function AuthModal({
       setResetStep("email");
       alert("Password updated successfully! Sign in with your new password.");
 
-      // Notification
-      import("../api/supabaseApi").then(({ notificationApi }) => {
-        notificationApi
-          .create({
-            title: "Password reset",
-            description: `${resetEmail} reset their password`,
-            category: "customers",
-            priority: "medium",
-            metadata: {
-              customerName: resetEmail,
-              linkTo: "/admin/customers",
-              source: "Client",
-            },
-            action_label: "View customer",
-          })
-          .catch(() => {});
-      });
+      // Notification (uniquement si utilisateur connecté)
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (currentUser) {
+        import("../api/supabaseApi").then(({ notificationApi }) => {
+          notificationApi
+            .create({
+              title: "Password reset",
+              description: `${resetEmail} reset their password`,
+              category: "customers",
+              priority: "medium",
+              metadata: {
+                customerName: resetEmail,
+                linkTo: "/admin/customers",
+                source: "Client",
+              },
+              action_label: "View customer",
+            })
+            .catch(() => {});
+        });
+      }
     } catch (err: any) {
       setError(err.message || "Password reset failed.");
     } finally {
@@ -209,26 +214,34 @@ export default function AuthModal({
           if (insertError)
             console.warn("Customer creation error:", insertError);
           else {
-            // Create a "New customer" notification (async, non-blocking)
-            import("../api/supabaseApi").then(({ notificationApi }) => {
-              notificationApi
-                .create({
-                  title: "New customer registered",
-                  description: `${name || email} signed up on the store`,
-                  category: "customers",
-                  priority: "low",
-                  metadata: {
-                    customerId: data.user?.id ?? undefined,
-                    customerName: name || email,
-                    linkTo: "/admin/customers",
-                    source: "Client",
-                  },
-                  action_label: "View profile",
-                })
-                .catch((e) =>
-                  console.warn("Failed to create new customer notification", e),
-                );
-            });
+            // Create a "New customer" notification (uniquement si utilisateur connecté)
+            const {
+              data: { user: currentUser },
+            } = await supabase.auth.getUser();
+            if (currentUser) {
+              import("../api/supabaseApi").then(({ notificationApi }) => {
+                notificationApi
+                  .create({
+                    title: "New customer registered",
+                    description: `${name || email} signed up on the store`,
+                    category: "customers",
+                    priority: "low",
+                    metadata: {
+                      customerId: data.user?.id ?? undefined,
+                      customerName: name || email,
+                      linkTo: "/admin/customers",
+                      source: "Client",
+                    },
+                    action_label: "View profile",
+                  })
+                  .catch((e) =>
+                    console.warn(
+                      "Failed to create new customer notification",
+                      e,
+                    ),
+                  );
+              });
+            }
           }
         }
 

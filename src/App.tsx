@@ -1033,7 +1033,6 @@ export default function App() {
 
       {showAccountPage && (
         <AccountPage
-          allCustomers={allCustomers}
           onClose={() => setShowAccountPage(false)}
           onViewProduct={(productId, initialColor, initialSize) => {
             const product = products.find((p) => p.id === productId);
