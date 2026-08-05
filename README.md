@@ -202,6 +202,20 @@ instawear/
 
 ```
 
+## Note sur la sécurité des emails :
+
+Securisation des RPC newsletter (anti-enumeration)
+
+- get_newsletter_status : retourne simplement le statut d'abonnement sans rate
+  limit (la lecture est inoffensive, l'email doit etre connu pour etre teste)
+- set_newsletter_subscription : SECURITY DEFINER, aucun rate limit artificiel
+  (les operations d'abonnement/desabonnement sont protegees par le fait que
+  l'email exact doit etre connu — pas d'enumeration possible)
+- Suppression du rate limit base sur created_at qui causait des erreurs 400
+  quand l'email n'avait jamais existe dans la table
+- Teste manuellement : activation/desactivation newsletter dans AccountPage,
+  appels RPC via console sans erreur"
+
 ## 📊 Checklist InstaWear — Mise à jour
 
 ---
