@@ -264,9 +264,9 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 #### 🔐 Sécurité (⚠️ avant production)
 
-- [WIP] **RLS (Row Level Security)** sur les tables Supabase
-- [WIP] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
-- [WIP] **Protection injections** — URL, console, fuite de clés
+- [x] **RLS (Row Level Security)** sur les tables Supabase
+- [x] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
+- [x] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
 #### 🧩 UX / UI
