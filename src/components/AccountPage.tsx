@@ -408,12 +408,11 @@ export default function AccountPage({
 
   const fetchOrders = useCallback(
     async (page = 0, append = false, search?: string) => {
-      if (!customerId && !customerEmail) return;
+      if (!customerId) return;
       setLoadingOrders(true);
       try {
-        const identifier = customerEmail || customerId || "";
         const newOrders = await customerApi.getOrders(
-          identifier,
+          customerId,
           page,
           10,
           search,
@@ -423,7 +422,6 @@ export default function AccountPage({
         } else {
           setOrders(newOrders);
         }
-        // Si on reçoit moins de 10 résultats, il n'y a plus de données
         setHasMoreOrders(newOrders.length === 10);
       } catch (e) {
         console.error(e);
@@ -431,7 +429,7 @@ export default function AccountPage({
         setLoadingOrders(false);
       }
     },
-    [customerId, customerEmail],
+    [customerId],
   );
 
   const [hasMoreOrders, setHasMoreOrders] = useState(true);
@@ -482,10 +480,9 @@ export default function AccountPage({
     fetchNotifications(0, false);
     fetchInteractions();
     // Charger le nombre total réel d'orders
-    const identifier = customerEmail || customerId || "";
-    if (identifier) {
+    if (customerId) {
       customerApi
-        .getOrderCount(identifier)
+        .getOrderCount(customerId)
         .then(setTotalOrdersCount)
         .catch(() => {});
     }
@@ -999,15 +996,14 @@ function OrdersTab({
       setSearchDebouncing(false);
       return;
     }
-    const identifier = customerEmail || customerId || "";
-    if (!identifier) return;
+    if (!customerId) return;
 
     setSearchDebouncing(true);
     debounceRef.current = setTimeout(async () => {
       setServerSearchLoading(true);
       setSearchDebouncing(false);
       try {
-        const results = await customerApi.getOrders(identifier, 0, 50, search);
+        const results = await customerApi.getOrders(customerId, 0, 50, search);
         setServerResults(results);
         setServerSearch(search);
       } catch (e) {
