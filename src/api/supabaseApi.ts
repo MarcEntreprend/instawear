@@ -892,25 +892,30 @@ export const orderApi = {
       }
     }
 
-    // Créer une notification admin
-    try {
-      await notificationApi.create({
-        title: `Nouvelle commande ${order.id}`,
-        description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
-        category: "orders",
-        priority: "medium",
-        metadata: {
-          orderId: order.id,
-          customerName: order.clientName,
-          amount: order.totalAmount,
-          currency: order.shippingAddress?.country === "US" ? "$" : "R$",
-          linkTo: `/admin/orders`,
-          source: "Client",
-        },
-        action_label: "Voir la commande",
-      });
-    } catch (e) {
-      console.warn("Échec création notification commande", e);
+    // Créer une notification admin (seulement si l'utilisateur est connecté)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      try {
+        await notificationApi.create({
+          title: `Nouvelle commande ${order.id}`,
+          description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
+          category: "orders",
+          priority: "medium",
+          metadata: {
+            orderId: order.id,
+            customerName: order.clientName,
+            amount: order.totalAmount,
+            currency: order.shippingAddress?.country === "US" ? "$" : "R$",
+            linkTo: `/admin/orders`,
+            source: "Client",
+          },
+          action_label: "Voir la commande",
+        });
+      } catch (e) {
+        console.warn("Échec création notification commande", e);
+      }
     }
 
     // Créer une notification client pour la commande en attente
