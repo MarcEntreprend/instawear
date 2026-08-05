@@ -196,7 +196,7 @@ export const productApi = {
       .from("products")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
     if (error) return null;
     return mapProduct(data);
   },
@@ -254,7 +254,7 @@ export const productApi = {
       .from("products")
       .insert(row)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
 
     return mapProduct(data);
@@ -336,7 +336,7 @@ export const productApi = {
       .update(row)
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapProduct(data);
   },
@@ -753,9 +753,10 @@ export const customerApi = {
         tax_number: address.tax_number || null,
       })
       .select("id")
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!created) throw new Error("Failed to save address");
     return created.id;
   },
 
@@ -826,7 +827,7 @@ export const orderApi = {
       .from("orders")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
     if (error || !order) return null;
 
     // Charger les items en une requête (au lieu d'une par commande)
@@ -962,7 +963,7 @@ export const orderApi = {
         .from("orders")
         .select("client_id, client_email")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       // Déterminer le customer_id à utiliser
       let customerId = orderFull?.client_id;
@@ -1078,7 +1079,7 @@ export const podApi = {
         sync_status: partial.syncStatus ?? "idle",
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return this.getSettings();
   },
@@ -1433,7 +1434,7 @@ export const storeSettingsApi = {
       .from("store_settings")
       .select("*")
       .eq("id", true)
-      .single();
+      .maybeSingle();
     if (error || !data) {
       // Valeurs par défaut orientées US si la ligne n'existe pas encore
       return {
@@ -1551,7 +1552,7 @@ export const adminUserApi = {
         password_hash: admin.passwordHash ?? null,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -1567,7 +1568,7 @@ export const adminUserApi = {
       .update(partial)
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -1604,7 +1605,7 @@ export const heroPromotionsApi = {
         show_title: promo.showTitle,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
@@ -1630,7 +1631,7 @@ export const heroPromotionsApi = {
       })
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
@@ -1685,7 +1686,7 @@ export const referenceListApi = {
         sort_order: 0,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -1804,7 +1805,7 @@ export const notificationApi = {
       .from("notifications")
       .select("status")
       .eq("id", id)
-      .single();
+      .maybeSingle();
     // Si la notification était archivée, on la repasse en "read" (ou conserve son état précédent si on le stockait)
     const newStatus =
       prev?.status === "archived" ? "read" : prev?.status || "read";
@@ -1876,7 +1877,7 @@ export const notificationApi = {
         action_label: notification.action_label,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
 
     // Notifier le frontend (sidebar, compteurs) sans rechargement
@@ -2024,7 +2025,7 @@ export const apiConnectionsApi = {
         last_sync_at: api.lastSyncAt,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -2058,7 +2059,7 @@ export const apiConnectionsApi = {
       })
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
