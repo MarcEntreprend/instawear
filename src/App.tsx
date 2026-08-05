@@ -18,7 +18,12 @@ import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { Product, CartItem } from "./types";
 import { supabase } from "./lib/supabaseClient";
-import { productApi, heroPromotionsApi, customerApi } from "./api/supabaseApi";
+import {
+  productApi,
+  heroPromotionsApi,
+  customerApi,
+  orderApi,
+} from "./api/supabaseApi";
 import ProductDetailModal from "./components/ProductDetailModal";
 import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
@@ -619,13 +624,10 @@ export default function App() {
     const handleReturn = async () => {
       if (orderStatus === "success") {
         try {
-          const { data: order, error } = await supabase
-            .from("orders")
-            .select("status, client_email")
-            .eq("id", orderId)
-            .single();
+          // Récupère le statut via la RPC publique (aucune donnée sensible exposée)
+          const order = await orderApi.get(orderId);
 
-          if (error || !order) {
+          if (!order) {
             showToast("Order not found.", "error");
             return;
           }
@@ -643,21 +645,6 @@ export default function App() {
               "error",
             );
             return;
-          }
-
-          // Avertissement silencieux si l'email ne correspond pas
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (
-            user?.email &&
-            order.client_email &&
-            order.client_email !== user.email
-          ) {
-            console.warn(
-              "Stripe return: order email does not match logged-in user email. Order:",
-              orderId,
-            );
           }
 
           // Vider le panier localement

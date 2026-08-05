@@ -83,7 +83,7 @@ export default function OrderTrackingModal({
           status: found.status,
           totalAmount: found.totalAmount,
           shippingCost: found.shippingCost,
-          address: found.shippingAddress
+          address: found.shippingAddress?.address
             ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
             : null,
           message: found.notes || null,

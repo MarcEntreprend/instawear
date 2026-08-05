@@ -823,23 +823,28 @@ export const orderApi = {
     }));
   },
   async get(id: string): Promise<Order | null> {
-    const { data: order, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error || !order) return null;
+    // Tracking public : données limitées (statut, date, articles) via la RPC
+    // sécurisée get_order_tracking. Les champs sensibles (email, téléphone,
+    // adresse) ne sont pas exposés.
+    const { data, error } = await supabase.rpc("get_order_tracking", {
+      p_code: id,
+    });
+    if (error) throw error;
+    if (!data) return null;
 
-    // Charger les items en une requête (au lieu d'une par commande)
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", id);
-
-    const mapped = mapOrder(order);
-    mapped.items = (items ?? []).map((item: any) => ({
+    const row = data as any;
+    const mapped = mapOrder({
+      id: row.id,
+      client_id: row.client_id ?? "guest",
+      client_name: row.client_name,
+      created_at: row.created_at,
+      status: row.status,
+      total_amount: row.total_amount,
+      shipping_cost: row.shipping_cost,
+    });
+    mapped.items = (row.items ?? []).map((item: any) => ({
       id: item.id,
-      orderId: item.order_id,
+      orderId: id,
       productId: item.product_id,
       productTitle: item.product_title,
       productImage: item.product_image,
@@ -1033,6 +1038,13 @@ export const orderApi = {
   },
 };
 
+async function getAccessToken(): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token || "";
+}
+
 export const podApi = {
   async getSettings(): Promise<PodSettings> {
     const { data, error } = await supabase
@@ -1211,11 +1223,14 @@ export const podApi = {
     orderId: string,
   ): Promise<{ success: boolean; externalOrderId: string }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-printful-order`;
+    // Utiliser le token JWT admin (l'Edge Function vérifiera le rôle admin)
+    const token = await getAccessToken();
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ orderId }),
     });

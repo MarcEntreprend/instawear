@@ -202,8 +202,8 @@ export default {
       }
 
       const supabaseAdmin = createClient(
-        Deno.env.get("PROJECT_URL")!,
-        Deno.env.get("SERVICE_ROLE_KEY")!,
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
       if (event.type === "checkout.session.completed") {
@@ -264,12 +264,12 @@ export default {
 
             // 3. Printful
             await fetch(
-              `${Deno.env.get("PROJECT_URL")}/functions/v1/create-printful-order`,
+              `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-printful-order`,
               {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  apikey: Deno.env.get("SERVICE_ROLE_KEY")!,
+                  apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
                 },
                 body: JSON.stringify({ orderId }),
               },

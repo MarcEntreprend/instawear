@@ -33,7 +33,7 @@ import {
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
-import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
+import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL, CART_X_ICON } from "../constants/assets";
@@ -278,21 +278,12 @@ function getVariantImage(
 }
 
 async function generateOrderId(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const year = new Date().getFullYear();
-    const seq = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
-    const id = `ORD-${year}-${seq}`;
-    // Vérifier en base que l'ID n'existe pas déjà
-    const { count } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("id", id);
-    if (count === 0) return id;
-  }
-  // Fallback : ajouter un suffixe aléatoire en cas de collision
   const year = new Date().getFullYear();
-  const fallbackSuffix = Math.floor(Math.random() * 90) + 10;
-  return `ORD-${year}-${Math.floor(Math.random() * 9000) + 1000}-${fallbackSuffix}`;
+  // Suffixe aléatoire 6 chiffres (~900 000 combinaisons/an) : suffisant pour
+  // éviter les collisions sans requête en base (le SELECT serait bloqué par RLS
+  // pour les invités) et rend les IDs difficiles à deviner.
+  const seq = Math.floor(Math.random() * 900000) + 100000; // 100000-999999
+  return `ORD-${year}-${seq}`;
 }
 
 // ─── Reusable form field ────────────────────────────────────────────────
@@ -2429,11 +2420,6 @@ export default function CheckoutFlow({
             })
             .catch(console.warn);
         }
-
-        // Send to Printful (async)
-        podApi
-          .createOrder(newOrderId)
-          .catch((e) => console.warn("[Printful] Error sending order:", e));
 
         // Send recap via Telegram
         sendTelegramNotification(

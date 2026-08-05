@@ -107,6 +107,7 @@ export interface AdminCartItem {
 // ─── Order (§2.5) ─────────────────────────────────────────────────────────
 export type OrderStatus =
   | "pending"
+  | "paid"
   | "in_production"
   | "shipped"
   | "delivered"
