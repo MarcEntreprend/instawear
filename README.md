@@ -391,3 +391,25 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 | **Total**              |  **28** |                                                                                                                   |
 
 --- |
+
+git commit pr merge security-audit dans main
+
+git checkout main
+git merge security-audit --no-ff -m "feat(security): audit et correction des vulnerabilites critiques
+
+- RLS active sur 24 tables avec politiques par role (anon/authenticated/admin)
+- is_admin() SECURITY DEFINER (admin + super_admin)
+- RPC get_my_customer_profile (SECURITY DEFINER) pour lecture customers
+- Suppression du code maitre 000000, reset password via Supabase Auth
+- Montant Stripe recalcule cote serveur, verification amount_total vs commande
+- Verrouillage colonne api_key sur pod_settings, cle Printful en secret Edge Function
+- Remplacement REST admin_users par RPC is_admin() dans AuthModal
+- Resolution clientId par auth.uid() dans CheckoutFlow (evite enumeration email)
+- .single() -> .maybeSingle() sur 17 occurrences (plus de fuite d'info via 406)
+- Rate limiting sur les Edge Functions + trigger notifications
+- Headers securite dans vercel.json (CSP, X-Frame-Options, etc.)
+- Newsletter via RPC SECURITY DEFINER (plus d'acces direct aux tables)
+- Alignement des IDs customers/auth.users pour les comptes existants
+- Correction du flash 'Guest' dans AccountPage (resolution identite via session)
+- Suppression notificationApi.create cote client (gere par webhook Stripe)
+- fetchOrders force a customerId (auth.uid) pour empecher usurpation d'email"
