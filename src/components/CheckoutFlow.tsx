@@ -167,6 +167,9 @@ function sendTelegramNotification(
   const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
   window.open(telegramUrl, "_blank");
 }
+// TODO: Désactiver l’envoi d’email côté client avant la mise en production
+//  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
+// Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
 
 function sendOrderEmail(
   orderId: string,
@@ -1366,25 +1369,13 @@ function StripeCardForm({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (user?.email) {
-          const { data: existingCustomer } = await supabase
+        if (user?.id) {
+          const { data: existing } = await supabase
             .from("customers")
             .select("id")
-            .eq("email", user.email)
-            .single();
-          if (existingCustomer) {
-            clientId = existingCustomer.id;
-          } else {
-            const { data: newCustomer } = await supabase
-              .from("customers")
-              .insert({
-                email: user.email,
-                name: contactName,
-              })
-              .select("id")
-              .single();
-            clientId = newCustomer?.id ?? null;
-          }
+            .eq("id", user.id)
+            .maybeSingle();
+          clientId = existing?.id || user.id;
         }
       } catch (e) {
         console.warn(e);
@@ -1475,6 +1466,10 @@ function StripeCardForm({
         });
 
         // Email confirmation via Resend
+        // TODO: Désactiver l’envoi d’email côté client avant la mise en production
+        //  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
+        // Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
+
         sendOrderEmail(
           orderId,
           contactName,
@@ -2235,25 +2230,13 @@ export default function CheckoutFlow({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (user?.email) {
-          const { data: existingCustomer } = await supabase
+        if (user?.id) {
+          const { data: existing } = await supabase
             .from("customers")
             .select("id")
-            .eq("email", user.email)
-            .single();
-          if (existingCustomer) {
-            clientId = existingCustomer.id;
-          } else {
-            const { data: newCustomer } = await supabase
-              .from("customers")
-              .insert({
-                email: user.email,
-                name: user.user_metadata?.full_name || name,
-              })
-              .select("id")
-              .single();
-            clientId = newCustomer?.id ?? null;
-          }
+            .eq("id", user.id)
+            .maybeSingle();
+          clientId = existing?.id || user.id;
         }
       } catch (e) {
         console.warn(e);
@@ -2383,25 +2366,13 @@ export default function CheckoutFlow({
           const {
             data: { user },
           } = await supabase.auth.getUser();
-          if (user?.email) {
-            const { data: existingCustomer } = await supabase
+          if (user?.id) {
+            const { data: existing } = await supabase
               .from("customers")
               .select("id")
-              .eq("email", user.email)
-              .single();
-            if (existingCustomer) {
-              clientId = existingCustomer.id;
-            } else {
-              const { data: newCustomer } = await supabase
-                .from("customers")
-                .insert({
-                  email: user.email,
-                  name: user.user_metadata?.full_name || name,
-                })
-                .select("id")
-                .single();
-              clientId = newCustomer?.id ?? null;
-            }
+              .eq("id", user.id)
+              .maybeSingle();
+            clientId = existing?.id || user.id;
           }
         } catch (e) {
           console.warn("Could not link user to order", e);
@@ -2500,6 +2471,10 @@ export default function CheckoutFlow({
         });
 
         // Email confirmation via Resend
+        // TODO: Désactiver l’envoi d’email côté client avant la mise en production
+        //  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
+        // Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
+
         sendOrderEmail(
           newOrderId,
           name,
