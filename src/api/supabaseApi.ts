@@ -196,7 +196,7 @@ export const productApi = {
       .from("products")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
     if (error) return null;
     return mapProduct(data);
   },
@@ -254,7 +254,7 @@ export const productApi = {
       .from("products")
       .insert(row)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
 
     return mapProduct(data);
@@ -336,7 +336,7 @@ export const productApi = {
       .update(row)
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapProduct(data);
   },
@@ -428,12 +428,12 @@ export const customerApi = {
     }));
   },
   async get(id: string): Promise<Customer | null> {
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*, email_preferences")
-      .eq("id", id)
-      .single();
-    if (error) return null;
+    // L'utilisateur connecté ne peut lire que sa propre fiche via la RPC
+    // (SECURITY DEFINER, sans RLS). L'admin (Edge Functions) continue
+    // d'utiliser le service_role et n'est pas concerné.
+    const { data, error } = await supabase.rpc("get_my_customer_profile");
+    if (error || !data) return null;
+
     return {
       id: data.id,
       email: data.email,
@@ -753,9 +753,10 @@ export const customerApi = {
         tax_number: address.tax_number || null,
       })
       .select("id")
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!created) throw new Error("Failed to save address");
     return created.id;
   },
 
@@ -822,23 +823,28 @@ export const orderApi = {
     }));
   },
   async get(id: string): Promise<Order | null> {
-    const { data: order, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !order) return null;
+    // Tracking public : données limitées (statut, date, articles) via la RPC
+    // sécurisée get_order_tracking. Les champs sensibles (email, téléphone,
+    // adresse) ne sont pas exposés.
+    const { data, error } = await supabase.rpc("get_order_tracking", {
+      p_code: id,
+    });
+    if (error) throw error;
+    if (!data) return null;
 
-    // Charger les items en une requête (au lieu d'une par commande)
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", id);
-
-    const mapped = mapOrder(order);
-    mapped.items = (items ?? []).map((item: any) => ({
+    const row = data as any;
+    const mapped = mapOrder({
+      id: row.id,
+      client_id: row.client_id ?? "guest",
+      client_name: row.client_name,
+      created_at: row.created_at,
+      status: row.status,
+      total_amount: row.total_amount,
+      shipping_cost: row.shipping_cost,
+    });
+    mapped.items = (row.items ?? []).map((item: any) => ({
       id: item.id,
-      orderId: item.order_id,
+      orderId: id,
       productId: item.product_id,
       productTitle: item.product_title,
       productImage: item.product_image,
@@ -892,26 +898,31 @@ export const orderApi = {
       }
     }
 
-    // Créer une notification admin
-    try {
-      await notificationApi.create({
-        title: `Nouvelle commande ${order.id}`,
-        description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
-        category: "orders",
-        priority: "medium",
-        metadata: {
-          orderId: order.id,
-          customerName: order.clientName,
-          amount: order.totalAmount,
-          currency: order.shippingAddress?.country === "US" ? "$" : "R$",
-          linkTo: `/admin/orders`,
-          source: "Client",
-        },
-        action_label: "Voir la commande",
-      });
-    } catch (e) {
-      console.warn("Échec création notification commande", e);
-    }
+    // // Créer une notification admin (seulement si l'utilisateur est connecté)
+    // const {
+    //   data: { user },
+    // } = await supabase.auth.getUser();
+    // if (user) {
+    //   try {
+    //     await notificationApi.create({
+    //       title: `Nouvelle commande ${order.id}`,
+    //       description: `${order.clientName || "Client"} — ${order.items.length} article(s) — ${order.totalAmount.toFixed(2)} ${order.shippingAddress?.country === "US" ? "$" : "R$"}`,
+    //       category: "orders",
+    //       priority: "medium",
+    //       metadata: {
+    //         orderId: order.id,
+    //         customerName: order.clientName,
+    //         amount: order.totalAmount,
+    //         currency: order.shippingAddress?.country === "US" ? "$" : "R$",
+    //         linkTo: `/admin/orders`,
+    //         source: "Client",
+    //       },
+    //       action_label: "Voir la commande",
+    //     });
+    //   } catch (e) {
+    //     console.warn("Échec création notification commande", e);
+    //   }
+    // }
 
     // Créer une notification client pour la commande en attente
     if (order.clientEmail) {
@@ -957,7 +968,7 @@ export const orderApi = {
         .from("orders")
         .select("client_id, client_email")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       // Déterminer le customer_id à utiliser
       let customerId = orderFull?.client_id;
@@ -1027,6 +1038,22 @@ export const orderApi = {
   },
 };
 
+async function getAccessToken(): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token || "";
+}
+
+async function getPodAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  return {
+    "Content-Type": "application/json",
+    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export const podApi = {
   async getSettings(): Promise<PodSettings> {
     const { data, error } = await supabase
@@ -1050,7 +1077,7 @@ export const podApi = {
     }
     return {
       id: data.id,
-      apiKey: data.api_key,
+      apiKey: "", // la clé API Printful n'est plus exposée au client (secret Edge Function)
       storeId: data.store_id,
       storeName: data.store_name,
       isConnected: data.is_connected,
@@ -1060,11 +1087,11 @@ export const podApi = {
     };
   },
   async saveSettings(partial: Partial<PodSettings>): Promise<PodSettings> {
+    // La clé API Printful n'est plus persistée en base (secret Edge Function PRINTFUL_API_KEY).
     const { data, error } = await supabase
       .from("pod_settings")
       .upsert({
         id: "pod-main",
-        api_key: partial.apiKey ?? "",
         store_id: partial.storeId,
         store_name: partial.storeName ?? "InstaWear Boutique",
         is_connected: partial.isConnected ?? false,
@@ -1073,19 +1100,17 @@ export const podApi = {
         sync_status: partial.syncStatus ?? "idle",
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return this.getSettings();
   },
   async sync(): Promise<{ settings: PodSettings; log: SyncLog }> {
     const start = Date.now();
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1160,12 +1185,10 @@ export const podApi = {
    */
   async getProductDetails(productId: string): Promise<any> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({ action: "get-product", productId }),
     });
     if (!res.ok) {
@@ -1182,12 +1205,10 @@ export const podApi = {
     { id: number; name: string; thumbnail_url: string }[]
   > {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({ action: "list-products" }),
     });
     if (!res.ok) {
@@ -1205,11 +1226,14 @@ export const podApi = {
     orderId: string,
   ): Promise<{ success: boolean; externalOrderId: string }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-printful-order`;
+    // Utiliser le token JWT admin (l'Edge Function vérifiera le rôle admin)
+    const token = await getAccessToken();
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ orderId }),
     });
@@ -1237,12 +1261,10 @@ export const podApi = {
    */
   async getProductSizes(catalogProductId: string): Promise<any> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "get-product-sizes",
         productId: catalogProductId,
@@ -1265,12 +1287,10 @@ export const podApi = {
     catalogVariantId: string,
   ): Promise<{ min: number; max: number; currency: string }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "get-shipping-estimate",
         variantId: catalogVariantId, // envoi du catalogue variant ID
@@ -1298,14 +1318,12 @@ export const podApi = {
     webhookUrl: string,
     types: string[],
   ): Promise<void> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "setup-webhook",
           apiKey,
@@ -1332,14 +1350,12 @@ export const podApi = {
     url: string;
     types: string[];
   }> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "get-webhook-config",
           apiKey,
@@ -1364,14 +1380,12 @@ export const podApi = {
    * Désactive le webhook Printful.
    */
   async disableWebhook(apiKey: string, storeId?: string): Promise<void> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "disable-webhook",
           apiKey,
@@ -1403,12 +1417,10 @@ export const podApi = {
     storageUrls: Record<string, string>;
   }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "generate-mockups",
         productId,
@@ -1428,7 +1440,7 @@ export const storeSettingsApi = {
       .from("store_settings")
       .select("*")
       .eq("id", true)
-      .single();
+      .maybeSingle();
     if (error || !data) {
       // Valeurs par défaut orientées US si la ligne n'existe pas encore
       return {
@@ -1519,15 +1531,19 @@ export const dashboardApi = {
 
 export const adminUserApi = {
   async list(): Promise<AdminUser[]> {
-    const { data, error } = await supabase.from("admin_users").select("*");
-    if (error) throw error;
-    return (data ?? []).map((u: any) => ({
-      id: u.id,
-      email: u.email,
-      role: u.role,
-      createdAt: u.created_at,
-      lastLoginDate: u.last_login_date,
-    }));
+    try {
+      const { data, error } = await supabase.from("admin_users").select("*");
+      if (error) return [];
+      return (data ?? []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        createdAt: u.created_at,
+        lastLoginDate: u.last_login_date,
+      }));
+    } catch {
+      return [];
+    }
   },
   async create(
     admin: Omit<AdminUser, "id" | "createdAt"> & { passwordHash?: string },
@@ -1542,7 +1558,7 @@ export const adminUserApi = {
         password_hash: admin.passwordHash ?? null,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -1558,7 +1574,7 @@ export const adminUserApi = {
       .update(partial)
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -1595,7 +1611,7 @@ export const heroPromotionsApi = {
         show_title: promo.showTitle,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
@@ -1621,7 +1637,7 @@ export const heroPromotionsApi = {
       })
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
@@ -1676,7 +1692,7 @@ export const referenceListApi = {
         sort_order: 0,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -1795,7 +1811,7 @@ export const notificationApi = {
       .from("notifications")
       .select("status")
       .eq("id", id)
-      .single();
+      .maybeSingle();
     // Si la notification était archivée, on la repasse en "read" (ou conserve son état précédent si on le stockait)
     const newStatus =
       prev?.status === "archived" ? "read" : prev?.status || "read";
@@ -1867,7 +1883,7 @@ export const notificationApi = {
         action_label: notification.action_label,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
 
     // Notifier le frontend (sidebar, compteurs) sans rechargement
@@ -2015,7 +2031,7 @@ export const apiConnectionsApi = {
         last_sync_at: api.lastSyncAt,
       })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -2049,7 +2065,7 @@ export const apiConnectionsApi = {
       })
       .eq("id", id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return {
       id: data.id,
@@ -2079,82 +2095,39 @@ export const newsletterApi = {
   async subscribe(
     email: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Vérifier si déjà inscrit
-    const { data: existing } = await supabase
-      .from("newsletter_subscribers")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    // Vérifier si déjà inscrit (RPC SECURITY DEFINER, table non accessible en REST)
+    const { data: already, error: statusError } = await supabase.rpc(
+      "get_newsletter_status",
+      { p_email: email },
+    );
+    if (statusError) throw statusError;
 
-    if (existing) {
+    if (already) {
       return { success: false, message: "You're already subscribed!" };
     }
 
-    const { error } = await supabase
-      .from("newsletter_subscribers")
-      .insert({ email });
-
+    const { error } = await supabase.rpc("set_newsletter_subscription", {
+      p_email: email,
+      p_subscribed: true,
+    });
     if (error) throw error;
-
-    // Envoyer un email de bienvenue personnalisé via le template automation
-    try {
-      const { data: auto } = await supabase
-        .from("email_automations")
-        .select("subject, html_body")
-        .eq("trigger_type", "welcome")
-        .eq("enabled", true)
-        .maybeSingle();
-
-      const subject = auto?.subject || "Welcome to InstaWear! 🎉";
-      let html =
-        auto?.html_body ||
-        `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 8px">Welcome to InstaWear! 🎉</h1>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">You're now part of our community. You'll be the first to know about <strong>new drops</strong>, <strong>limited collections</strong>, and <strong>exclusive deals</strong> for global events.</p>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">We print each piece on demand — zero waste, zero overstock. Just event‑ready style, delivered to your door.</p>
-  <a href="https://instawear.vercel.app" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Explore the Collection →</a>
-  <p style="font-size:11px;color:#b5b3af;margin-top:32px;text-align:center">
-    InstaWear · 123 Main Street, Doral, FL 10001<br>
-    <a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a>
-  </p>
-</div>`;
-
-      html = html
-        .replace(/{{name}}/g, email.split("@")[0])
-        .replace(/{{email}}/g, email)
-        .replace(/{{brand}}/g, "InstaWear")
-        .replace(/{{footer}}/g, "InstaWear · 123 Main Street, Doral, FL 10001")
-        .replace(
-          /{{unsubscribe_link}}/g,
-          `https://instawear.vercel.app/unsubscribe?email=${encodeURIComponent(email)}`,
-        );
-
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ to: email, subject, html }),
-      }).catch(() => {});
-    } catch {
-      // fallback
-    }
 
     return { success: true, message: "Welcome! You're now subscribed." };
   },
   // ── Vérifier si un email est déjà abonné ──────────────────────────
   async isSubscribed(email: string): Promise<boolean> {
-    const { data } = await supabase
-      .from("newsletter_subscribers")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    const { data } = await supabase.rpc("get_newsletter_status", {
+      p_email: email,
+    });
     return !!data;
   },
 
   // ── Désabonner un email ──────────────────────────────────────────
   async unsubscribe(email: string): Promise<void> {
-    await supabase.from("newsletter_subscribers").delete().eq("email", email);
+    const { error } = await supabase.rpc("set_newsletter_subscription", {
+      p_email: email,
+      p_subscribed: false,
+    });
+    if (error) throw error;
   },
 };

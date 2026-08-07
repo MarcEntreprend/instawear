@@ -1310,13 +1310,17 @@ function ComposeSection({
       personalizedHtml = personalizedHtml.replace(/{{body}}/g, bodyContent);
 
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token || "";
         await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
               to: email,

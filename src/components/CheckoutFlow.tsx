@@ -33,7 +33,7 @@ import {
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
-import { orderApi, podApi, storeSettingsApi } from "../api/supabaseApi";
+import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG, LOGO_URL, CART_X_ICON } from "../constants/assets";
@@ -168,96 +168,6 @@ function sendTelegramNotification(
   window.open(telegramUrl, "_blank");
 }
 
-function sendOrderEmail(
-  orderId: string,
-  name: string,
-  email: string,
-  phone: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  stateCode: string,
-  cart: CartItem[],
-  total: number,
-  shippingCost: number,
-  currencySymbol: string,
-) {
-  const itemsHtml = cart
-    .map(
-      (item) => `
-    <tr>
-      <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
-        <table><tr>
-          <td style="width: 60px; vertical-align: top;">
-            <img src="${getVariantImage(item.product, item.selectedColor) || PLACEHOLDER_IMG}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
-          </td>
-          <td style="vertical-align: top; padding-left: 12px;">
-            <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product.title}</p>
-            <p style="margin: 4px 0; font-size: 12px; color: #888;">
-              Color: ${item.selectedColor} · Size: ${item.selectedSize} · Qty: ${item.quantity}
-            </p>
-          </td>
-          <td style="vertical-align: top; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;">
-            ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}
-          </td>
-        </tr></table>
-      </td>
-    </tr>
-  `,
-    )
-    .join("");
-
-  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#fff;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#a3a3a3;margin:4px 0 0;font-size:14px;">We're getting your order ready!</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-  ${itemsHtml}
-  <tr>
-    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
-      Subtotal: ${(total - shippingCost).toFixed(2)} ${currencySymbol}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
-      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currencySymbol}`}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
-      Order total: ${total.toFixed(2)} ${currencySymbol}
-    </td>
-  </tr>
-</table>
-<a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
-<div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
-<p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
-<p style="margin:0;font-size:13px;color:#555;">${address}<br>${city}, ${stateCode ? stateCode + ", " : ""}${zip}<br>${country}<br>${phone ? phone + "<br>" : ""}${email}</p>
-</div>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0 0 8px;">This email was sent to <strong>${email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
-<p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
-</div></div></body></html>`;
-
-  fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({
-      to: email,
-      subject: `Order ${orderId} confirmed!`,
-      html,
-    }),
-  }).catch(console.error);
-}
-
 // Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
@@ -274,9 +184,12 @@ function getVariantImage(
   return product.image || PLACEHOLDER_IMG;
 }
 
-function generateOrderId(): string {
+async function generateOrderId(): Promise<string> {
   const year = new Date().getFullYear();
-  const seq = Math.floor(Math.random() * 9000) + 1000;
+  // Suffixe aléatoire 6 chiffres (~900 000 combinaisons/an) : suffisant pour
+  // éviter les collisions sans requête en base (le SELECT serait bloqué par RLS
+  // pour les invités) et rend les IDs difficiles à deviner.
+  const seq = Math.floor(Math.random() * 900000) + 100000; // 100000-999999
   return `ORD-${year}-${seq}`;
 }
 
@@ -1305,9 +1218,14 @@ function StripeCardForm({
         },
         body: JSON.stringify({
           action: "payment-intent",
-          amount: total,
           currency: currencyCode,
           orderId,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            selectedColor: item.selectedColor,
+            selectedSize: item.selectedSize,
+          })),
         }),
       },
     );
@@ -1349,25 +1267,13 @@ function StripeCardForm({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (user?.email) {
-          const { data: existingCustomer } = await supabase
+        if (user?.id) {
+          const { data: existing } = await supabase
             .from("customers")
             .select("id")
-            .eq("email", user.email)
-            .single();
-          if (existingCustomer) {
-            clientId = existingCustomer.id;
-          } else {
-            const { data: newCustomer } = await supabase
-              .from("customers")
-              .insert({
-                email: user.email,
-                name: contactName,
-              })
-              .select("id")
-              .single();
-            clientId = newCustomer?.id ?? null;
-          }
+            .eq("id", user.id)
+            .maybeSingle();
+          clientId = existing?.id || user.id;
         }
       } catch (e) {
         console.warn(e);
@@ -1436,41 +1342,6 @@ function StripeCardForm({
           country,
           cart,
           total,
-          currencySymbol,
-        );
-
-        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
-          sendPendingEmail({
-            id: orderId,
-            clientEmail: contactEmail,
-            clientName: contactName,
-            items: cart.map((item) => ({
-              productTitle: item.product.title,
-              productImage: getVariantImage(item.product, item.selectedColor),
-              selectedColor: item.selectedColor,
-              selectedSize: item.selectedSize,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            })),
-            totalAmount: total,
-            shippingCost,
-          });
-        });
-
-        // Email confirmation via Resend
-        sendOrderEmail(
-          orderId,
-          contactName,
-          contactEmail,
-          contactPhone,
-          address,
-          city,
-          zip,
-          country,
-          stateCode,
-          cart,
-          total,
-          shippingCost,
           currencySymbol,
         );
 
@@ -1637,7 +1508,11 @@ function PaymentStep({
   onStripeCardError,
 }: PaymentStepProps) {
   const [showCardForm, setShowCardForm] = useState(false);
-  const [localOrderId] = useState(generateOrderId());
+  const [localOrderId, setLocalOrderId] = useState<string>("");
+
+  useEffect(() => {
+    generateOrderId().then(setLocalOrderId);
+  }, []);
 
   // Step 1: payment method selection
   if (!showCardForm) {
@@ -2205,7 +2080,7 @@ export default function CheckoutFlow({
     setProcessing(true);
     setPaymentError(null);
 
-    const newOrderId = generateOrderId();
+    const newOrderId = await generateOrderId();
     const createdAt = new Date().toISOString();
 
     try {
@@ -2214,25 +2089,13 @@ export default function CheckoutFlow({
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (user?.email) {
-          const { data: existingCustomer } = await supabase
+        if (user?.id) {
+          const { data: existing } = await supabase
             .from("customers")
             .select("id")
-            .eq("email", user.email)
-            .single();
-          if (existingCustomer) {
-            clientId = existingCustomer.id;
-          } else {
-            const { data: newCustomer } = await supabase
-              .from("customers")
-              .insert({
-                email: user.email,
-                name: user.user_metadata?.full_name || name,
-              })
-              .select("id")
-              .single();
-            clientId = newCustomer?.id ?? null;
-          }
+            .eq("id", user.id)
+            .maybeSingle();
+          clientId = existing?.id || user.id;
         }
       } catch (e) {
         console.warn(e);
@@ -2352,7 +2215,7 @@ export default function CheckoutFlow({
     setProcessing(true);
     setPaymentError(null);
 
-    const newOrderId = generateOrderId();
+    const newOrderId = await generateOrderId();
     const createdAt = new Date().toISOString();
 
     try {
@@ -2362,25 +2225,13 @@ export default function CheckoutFlow({
           const {
             data: { user },
           } = await supabase.auth.getUser();
-          if (user?.email) {
-            const { data: existingCustomer } = await supabase
+          if (user?.id) {
+            const { data: existing } = await supabase
               .from("customers")
               .select("id")
-              .eq("email", user.email)
-              .single();
-            if (existingCustomer) {
-              clientId = existingCustomer.id;
-            } else {
-              const { data: newCustomer } = await supabase
-                .from("customers")
-                .insert({
-                  email: user.email,
-                  name: user.user_metadata?.full_name || name,
-                })
-                .select("id")
-                .single();
-              clientId = newCustomer?.id ?? null;
-            }
+              .eq("id", user.id)
+              .maybeSingle();
+            clientId = existing?.id || user.id;
           }
         } catch (e) {
           console.warn("Could not link user to order", e);
@@ -2438,11 +2289,6 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send to Printful (async)
-        podApi
-          .createOrder(newOrderId)
-          .catch((e) => console.warn("[Printful] Error sending order:", e));
-
         // Send recap via Telegram
         sendTelegramNotification(
           newOrderId,
@@ -2456,42 +2302,6 @@ export default function CheckoutFlow({
           country,
           cart,
           total,
-          currencySymbol,
-        );
-
-        // Email pending
-        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
-          sendPendingEmail({
-            id: newOrderId,
-            clientEmail: email,
-            clientName: name,
-            items: cart.map((item) => ({
-              productTitle: item.product.title,
-              productImage: getVariantImage(item.product, item.selectedColor),
-              selectedColor: item.selectedColor,
-              selectedSize: item.selectedSize,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            })),
-            totalAmount: total,
-            shippingCost,
-          });
-        });
-
-        // Email confirmation via Resend
-        sendOrderEmail(
-          newOrderId,
-          name,
-          email,
-          phone,
-          address,
-          city,
-          zip,
-          country,
-          stateCode,
-          cart,
-          total,
-          shippingCost,
           currencySymbol,
         );
       })();

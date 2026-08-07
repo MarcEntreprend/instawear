@@ -17,9 +17,54 @@ export default {
 
     try {
       const supabaseAdmin = createClient(
-        Deno.env.get("PROJECT_URL")!,
-        Deno.env.get("SERVICE_ROLE_KEY")!,
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
+
+      // ── Vérification de l'appelant ─────────────────────────────────
+      // Deux accès autorisés :
+      //   1. Appel interne (stripe-webhook) avec la clé service_role.
+      //   2. Utilisateur authentifié avec le rôle admin.
+      const apikeyHeader = req.headers.get("apikey") || "";
+      const authHeader = req.headers.get("Authorization") || "";
+      const token = authHeader.replace("Bearer ", "");
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      if (apikeyHeader !== serviceRoleKey) {
+        if (!token) {
+          return new Response(JSON.stringify({ error: "Non autorisé" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: userData, error: userError } =
+          await supabaseAdmin.auth.getUser(token);
+        if (userError || !userData?.user) {
+          return new Response(JSON.stringify({ error: "Session invalide" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        // const { data: adminRow } = await supabaseAdmin
+        //   .from("admin_users")
+        //   .select("id")
+        //   .eq("id", userData.user.id)
+        //   .maybeSingle();
+        const { data: adminRow } = await supabaseAdmin
+          .from("admin_users")
+          .select("id")
+          .eq("email", userData.user.email)
+          .maybeSingle();
+        if (!adminRow) {
+          return new Response(
+            JSON.stringify({ error: "Accès administrateur requis" }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
 
       const body = await req.json().catch(() => ({}));
       const { orderId } = body;
@@ -41,6 +86,21 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 404,
         });
+      }
+
+      if (order.status !== "paid") {
+        return new Response(
+          JSON.stringify({
+            error:
+              "La commande doit être payée avant l'envoi à Printful (statut actuel: " +
+              order.status +
+              ").",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          },
+        );
       }
 
       const { data: orderItems, error: itemsError } = await supabaseAdmin
@@ -202,11 +262,11 @@ export default {
 <p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
 </div></div></body></html>`;
 
-        await fetch(`${Deno.env.get("PROJECT_URL")}/functions/v1/send-email`, {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: Deno.env.get("SERVICE_ROLE_KEY")!,
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
           },
           body: JSON.stringify({
             to: order.client_email,

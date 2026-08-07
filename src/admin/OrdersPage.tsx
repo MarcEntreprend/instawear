@@ -29,6 +29,7 @@ const ORDER_STATUS_LABEL: Record<
   { label: string; color: string; bg: string }
 > = {
   pending: { label: "En attente", color: "#92400e", bg: "#fef3c7" },
+  paid: { label: "Payée", color: "#065f46", bg: "#d1fae5" },
   in_production: { label: "En production", color: "#1e40af", bg: "#dbeafe" },
   shipped: { label: "Expédiée", color: "#065f46", bg: "#d1fae5" },
   delivered: { label: "Livrée", color: "#166534", bg: "#dcfce7" },
@@ -906,7 +907,7 @@ export default function OrdersPage() {
                 <OrderStatusBadge status={selectedOrder.status} />
 
                 {/* ajout du bouton « Envoyer à Printful » */}
-                {selectedOrder.status === "pending" && (
+                {selectedOrder.status === "paid" && (
                   <div style={{ marginTop: 10 }}>
                     <button
                       onClick={async () => {

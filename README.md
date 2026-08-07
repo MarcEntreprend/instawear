@@ -36,7 +36,8 @@ npx supabase functions deploy printful-webhook --no-verify-jwt
 npx supabase functions deploy send-email --no-verify-jwt
 npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
-npx supabase functions deploy reset-password --no-verify-jwt
+npx supabase functions deploy delete-account --no-verify-jwt
+
 
 ```
 
@@ -46,6 +47,10 @@ npx supabase functions deploy reset-password --no-verify-jwt
 
 Local: http://localhost:5173/
 ➜ Network: http://192.168.15.2:5173/
+
+## tester si TypeScript compile sans erreur
+
+npx tsc --noEmit
 
 ## Structure arborescente
 
@@ -196,6 +201,20 @@ instawear/
 
 ```
 
+## Note sur la sécurité des emails :
+
+Securisation des RPC newsletter (anti-enumeration)
+
+- get_newsletter_status : retourne simplement le statut d'abonnement sans rate
+  limit (la lecture est inoffensive, l'email doit etre connu pour etre teste)
+- set_newsletter_subscription : SECURITY DEFINER, aucun rate limit artificiel
+  (les operations d'abonnement/desabonnement sont protegees par le fait que
+  l'email exact doit etre connu — pas d'enumeration possible)
+- Suppression du rate limit base sur created_at qui causait des erreurs 400
+  quand l'email n'avait jamais existe dans la table
+- Teste manuellement : activation/desactivation newsletter dans AccountPage,
+  appels RPC via console sans erreur"
+
 ## 📊 Checklist InstaWear — Mise à jour
 
 ---
@@ -259,9 +278,9 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 #### 🔐 Sécurité (⚠️ avant production)
 
-- [ ] **RLS (Row Level Security)** sur les tables Supabase
-- [ ] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
-- [ ] **Protection injections** — URL, console, fuite de clés
+- [x] **RLS (Row Level Security)** sur les tables Supabase
+- [x] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
+- [x] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
 #### 🧩 UX / UI
@@ -329,6 +348,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] Annulée (Cancelled)
 - [x] Promotions & deals
 - [ ] order_failed vs order_canceled : quel cas n est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
+- [ ] welcome email newsletter supprimé : get it back
 
 #### 📮 Emails / Resend (post-domain)
 
@@ -371,3 +391,25 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 | **Total**              |  **28** |                                                                                                                   |
 
 --- |
+
+git commit pr merge security-audit dans main
+
+git checkout main
+git merge security-audit --no-ff -m "feat(security): audit et correction des vulnerabilites critiques
+
+- RLS active sur 24 tables avec politiques par role (anon/authenticated/admin)
+- is_admin() SECURITY DEFINER (admin + super_admin)
+- RPC get_my_customer_profile (SECURITY DEFINER) pour lecture customers
+- Suppression du code maitre 000000, reset password via Supabase Auth
+- Montant Stripe recalcule cote serveur, verification amount_total vs commande
+- Verrouillage colonne api_key sur pod_settings, cle Printful en secret Edge Function
+- Remplacement REST admin_users par RPC is_admin() dans AuthModal
+- Resolution clientId par auth.uid() dans CheckoutFlow (evite enumeration email)
+- .single() -> .maybeSingle() sur 17 occurrences (plus de fuite d'info via 406)
+- Rate limiting sur les Edge Functions + trigger notifications
+- Headers securite dans vercel.json (CSP, X-Frame-Options, etc.)
+- Newsletter via RPC SECURITY DEFINER (plus d'acces direct aux tables)
+- Alignement des IDs customers/auth.users pour les comptes existants
+- Correction du flash 'Guest' dans AccountPage (resolution identite via session)
+- Suppression notificationApi.create cote client (gere par webhook Stripe)
+- fetchOrders force a customerId (auth.uid) pour empecher usurpation d'email"

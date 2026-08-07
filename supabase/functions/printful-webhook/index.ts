@@ -1,6 +1,12 @@
-// supabase/functions/printful-webhook/index.ts
+// supabase/functions/stripe-webhook/index.ts
+
 // @ts-nocheck
+// Webhook Stripe réel : vérifie la signature, puis gère
+// checkout.session.completed → commande "paid" + notifications.
+// Idempotent : une commande déjà "paid" n'est jamais retraitée.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@13";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,160 +14,339 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper Telegram (API Bot)
+async function sendTelegramServer(
+  orderId: string,
+  name: string,
+  phone: string,
+  email: string,
+  address: string,
+  city: string,
+  zip: string,
+  country: string,
+  items: any[],
+  total: number,
+  currency: string,
+) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID")!;
+  if (!token || !chatId) {
+    console.error("Telegram secrets missing");
+    return;
+  }
+
+  const itemsStr = items
+    .map(
+      (item: any) =>
+        `- ${item.product_title} (${item.selected_size}, ${item.selected_color}) ×${item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)} ${currency}`,
+    )
+    .join("\n");
+
+  const text =
+    `🛒 *INSTAWEAR ORDER*\n\n` +
+    `🔑 *Order #:* ${orderId}\n\n` +
+    `*Customer:* ${name}\n` +
+    `*Phone:* ${phone}\n` +
+    `*Email:* ${email}\n` +
+    `*Address:* ${address}, ${city} ${zip}, ${country}\n` +
+    `\n📦 *Items:*\n${itemsStr}\n\n` +
+    `💰 *Total:* ${total.toFixed(2)} ${currency}`;
+
+  const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+  const tgBody = JSON.stringify({
+    chat_id: chatId,
+    text,
+    parse_mode: "Markdown",
+  });
+
+  try {
+    const tgRes = await fetch(tgUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: tgBody,
+    });
+    const tgResult = await tgRes.text();
+    console.log("Telegram send result:", tgRes.status, tgResult);
+  } catch (err) {
+    console.error("Telegram fetch error:", err);
+  }
+}
+
+// ── Helper Email (Resend) ───────────────────────────────────────────────
+function sendEmailServer(
+  orderId: string,
+  name: string,
+  email: string,
+  phone: string,
+  address: string,
+  city: string,
+  zip: string,
+  country: string,
+  stateCode: string,
+  items: any[],
+  total: number,
+  currency: string,
+  shippingCost: number,
+) {
+  const itemsHtml = items
+    .map(
+      (item: any) => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
+        <table><tr>
+          <td style="width: 60px; vertical-align: top;">
+            <img src="${item.product_image || "https://instawear.vercel.app/Instawear-missing-item.svg"}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
+          </td>
+          <td style="vertical-align: top; padding-left: 12px;">
+            <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product_title}</p>
+            <p style="margin: 4px 0; font-size: 12px; color: #888;">
+              Color: ${item.selected_color} · Size: ${item.selected_size} · Qty: ${item.quantity}
+            </p>
+          </td>
+          <td style="vertical-align: top; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;">
+            ${(item.unit_price * item.quantity).toFixed(2)} ${currency}
+          </td>
+        </tr></table>
+      </td>
+    </tr>`,
+    )
+    .join("");
+
+  const subtotal = items.reduce(
+    (sum: number, item: any) => sum + item.unit_price * item.quantity,
+    0,
+  );
+
+  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
+<div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#fff;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#a3a3a3;margin:4px 0 0;font-size:14px;">We're getting your order ready!</p>
+</div>
+<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+<h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed and is now in our quality assurance queue. We take extra care to inspect every item before packing. You will receive your tracking number as soon as it is handed over to the carrier, usually within 2 to 3 business days.</p>
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+  ${itemsHtml}
+  <tr>
+    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
+      Subtotal: ${subtotal.toFixed(2)} ${currency}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
+      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currency}`}
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
+      Order total: ${total.toFixed(2)} ${currency}
+    </td>
+  </tr>
+</table>
+<a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
+<p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
+<p style="margin:0;font-size:13px;color:#555;">${address}<br>${city}, ${stateCode ? stateCode + ", " : ""}${zip}<br>${country}<br>${phone ? phone + "<br>" : ""}${email}</p>
+</div>
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
+<p style="margin:0 0 8px;">This email was sent to <strong>${email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
+<p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
+</div></div></body></html>`;
+
+  const apiKey = Deno.env.get("RESEND_API_KEY")!;
+  const fromEmail =
+    Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
+
+  fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [email],
+      subject: `Order ${orderId} confirmed!`,
+      html,
+    }),
+  }).catch(console.error);
+}
+
+// ── Main handler ────────────────────────────────────────────────────────
 export default {
   async fetch(req: Request): Promise<Response> {
-    if (req.method === "OPTIONS")
+    if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeaders });
+    }
 
     try {
-      const body = await req.json();
-      const eventType = body?.type;
-      const eventData = body?.data;
+      // Même fallback de clé que stripe-checkout (TEST d'abord, sinon PROD).
+      const stripe = new Stripe(
+        Deno.env.get("STRIPE_SECRET_KEY_TEST") ||
+          Deno.env.get("STRIPE_SECRET_KEY")!,
+        { apiVersion: "2023-10-16" },
+      );
+      const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+      const signature = req.headers.get("stripe-signature")!;
 
-      if (!eventType || !eventData) {
-        return new Response(JSON.stringify({ error: "Invalid payload" }), {
+      if (!signature) {
+        return new Response(JSON.stringify({ error: "Signature manquante" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      const body = await req.text();
+      let event: Stripe.Event;
+
+      try {
+        event = await stripe.webhooks.constructEventAsync(
+          body,
+          signature,
+          webhookSecret,
+        );
+      } catch (err: any) {
+        return new Response(
+          `Webhook signature verification failed: ${err.message}`,
+          { status: 400 },
+        );
       }
 
       const supabaseAdmin = createClient(
-        Deno.env.get("PROJECT_URL")!,
-        Deno.env.get("SERVICE_ROLE_KEY")!,
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
-      const printfulOrderId = eventData.order?.id?.toString();
-      if (!printfulOrderId) {
-        return new Response(JSON.stringify({ error: "Missing order id" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const orderId = session.metadata?.orderId;
 
-      // Récupérer la commande
-      const { data: order, error: orderError } = await supabaseAdmin
-        .from("orders")
-        .select("id, client_id, client_email, status, notes")
-        .eq("external_order_id", printfulOrderId)
-        .maybeSingle();
-
-      if (orderError || !order) {
-        console.warn(`Order not found for Printful id ${printfulOrderId}`);
-        return new Response(JSON.stringify({ error: "Order not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      let newStatus = order.status;
-      let emailType = "";
-      let trackingNumber = "";
-      let notes = order.notes || "";
-
-      switch (eventType) {
-        case "package_shipped": {
-          newStatus = "shipped";
-          emailType = "shipped";
-          const shipment = eventData.shipment;
-          if (shipment?.tracking_number) {
-            trackingNumber = shipment.tracking_number;
-            notes += `\nTracking: ${trackingNumber} (carrier: ${shipment.carrier || "N/A"})`;
-          }
-          break;
+        if (!orderId) {
+          return new Response(JSON.stringify({ error: "orderId manquant" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
-        case "order_canceled":
-          newStatus = "cancelled";
-          emailType = "cancelled";
-          break;
-        case "order_failed":
-          newStatus = "failed";
-          emailType = "failed";
-          break;
-        case "order_updated":
-          break;
-        default:
+
+        // ── Idempotence : ne pas retraiter une commande déjà payée ──
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from("orders")
+          .select("status, external_order_id, total_amount, shipping_cost")
+          .eq("id", orderId)
+          .single();
+        if (existingError || !existing) {
+          return new Response(
+            JSON.stringify({ error: "Commande introuvable" }),
+            {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Déjà traité → on répond 200 sans rien refaire
+        // (Stripe retente sinon, ce qui créerait des doublons).
+        if (
+          existing.status === "paid" &&
+          existing.external_order_id === session.id
+        ) {
           return new Response(JSON.stringify({ received: true }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-      }
+        }
 
-      // Mise à jour de la commande
-      if (newStatus !== order.status || trackingNumber) {
+        // ── Vérification du montant (contre le montant autoritatif en base) ──
+        const expectedAmount = Math.round(
+          Number(existing.total_amount || 0) * 100,
+        );
+        if (session.amount_total != null && expectedAmount > 0) {
+          if (session.amount_total !== expectedAmount) {
+            return new Response(
+              JSON.stringify({
+                error: `Montant incohérent: ${session.amount_total} != ${expectedAmount}`,
+              }),
+              {
+                status: 400,
+                headers: {
+                  ...corsHeaders,
+                  "Content-Type": "application/json",
+                },
+              },
+            );
+          }
+        }
+
         await supabaseAdmin
           .from("orders")
-          .update({ status: newStatus, notes })
-          .eq("id", order.id);
-      }
+          .update({ status: "paid", external_order_id: session.id })
+          .eq("id", orderId);
 
-      // ── Notification admin ──────────────────────────────────────
-      const statusLabels = {
-        shipped: "Expédiée",
-        cancelled: "Annulée",
-        failed: "Échouée",
-      };
-      if (newStatus !== order.status && statusLabels[newStatus]) {
-        await supabaseAdmin.from("notifications").insert({
-          title: `Statut commande mis à jour`,
-          description: `Commande ${order.id} → "${statusLabels[newStatus]}"`,
-          category: "orders",
-          priority: newStatus === "cancelled" ? "high" : "low",
-          status: "unread",
-          timestamp: new Date().toISOString(),
-          metadata: {
-            orderId: order.id,
-            linkTo: "/admin/orders",
-            source: "Printful",
-          },
-          action_label: "Voir la commande",
-        });
-      }
+        const { data: order } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("id", orderId)
+          .single();
 
-      // ── Notification client ─────────────────────────────────────
-      try {
-        let customerId = order.client_id;
-        if (order.client_email) {
-          const { data: customer } = await supabaseAdmin
-            .from("customers")
-            .select("id")
-            .eq("email", order.client_email)
-            .maybeSingle();
-          if (customer) customerId = customer.id;
+        if (order) {
+          const { data: items } = await supabaseAdmin
+            .from("order_items")
+            .select("*")
+            .eq("order_id", orderId);
+
+          const currencySymbol =
+            order.shipping_address_country === "US" ? "$" : "€";
+
+          // 1. Telegram (API Bot)
+          await sendTelegramServer(
+            orderId,
+            order.client_name || "Client",
+            order.shipping_address_phone || "",
+            order.client_email || "",
+            order.shipping_address_address || "",
+            order.shipping_address_city || "",
+            order.shipping_address_zip || "",
+            order.shipping_address_country || "US",
+            items ?? [],
+            order.total_amount,
+            currencySymbol,
+          );
+
+          // 2. Email client (le coût de port est passé explicitement)
+          sendEmailServer(
+            orderId,
+            order.client_name || "Client",
+            order.client_email || "",
+            order.shipping_address_phone || "",
+            order.shipping_address_address || "",
+            order.shipping_address_city || "",
+            order.shipping_address_zip || "",
+            order.shipping_address_country || "US",
+            order.shipping_address_state_code || "",
+            items ?? [],
+            order.total_amount,
+            currencySymbol,
+            order.shipping_cost || 0,
+          );
+
+          // 3. Printful
+          await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-printful-order`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+              },
+              body: JSON.stringify({ orderId }),
+            },
+          );
         }
-        if (customerId) {
-          await supabaseAdmin.from("customer_notifications").insert({
-            customer_id: customerId,
-            title: `Order ${order.id}`,
-            message: `Your order status has been updated to: ${newStatus.replace("_", " ")}.`,
-            type: "order_status",
-            metadata: { orderId: order.id, status: newStatus },
-          });
-        }
-      } catch (e) {
-        console.warn("Échec insertion notification client", e);
       }
 
-      // ── Envoi email ─────────────────────────────────────────────
-      if (emailType && order.client_email) {
-        const emailHtml = buildEmailHtml(emailType, order.id, trackingNumber);
-        await fetch(`${Deno.env.get("PROJECT_URL")}/functions/v1/send-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: Deno.env.get("SERVICE_ROLE_KEY")!,
-          },
-          body: JSON.stringify({
-            to: order.client_email,
-            subject: getEmailSubject(emailType),
-            html: emailHtml,
-          }),
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ received: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -169,50 +354,3 @@ export default {
     }
   },
 };
-
-// ─── Helpers email (inchangés) ──────────────────────────────────────────
-function getEmailSubject(type: string): string {
-  switch (type) {
-    case "shipped":
-      return "📦 Your order has been shipped!";
-    case "cancelled":
-      return "❌ Your order has been cancelled";
-    case "failed":
-      return "⚠️ Issue with your order";
-    default:
-      return "Order update";
-  }
-}
-
-function buildEmailHtml(
-  type: string,
-  orderId: string,
-  tracking?: string,
-): string {
-  const trackingSection = tracking
-    ? `<p><strong>Tracking number:</strong> ${tracking}</p>`
-    : "";
-  switch (type) {
-    case "shipped":
-      return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px">
-        <h1 style="font-size:24px;font-weight:800;color:#1a1916">Your order has been shipped! 📦</h1>
-        <p>Order <strong>${orderId}</strong> is on its way.</p>
-        ${trackingSection}
-        <p>Thank you for shopping with InstaWear.</p>
-      </div>`;
-    case "cancelled":
-      return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px">
-        <h1 style="font-size:24px;font-weight:800;color:#1a1916">Order cancelled ❌</h1>
-        <p>Order <strong>${orderId}</strong> has been cancelled.</p>
-        <p>If you have questions, contact our support.</p>
-      </div>`;
-    case "failed":
-      return `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px">
-        <h1 style="font-size:24px;font-weight:800;color:#1a1916">Issue with your order ⚠️</h1>
-        <p>We encountered a problem with order <strong>${orderId}</strong>.</p>
-        <p>Our team will contact you shortly.</p>
-      </div>`;
-    default:
-      return `<p>Order ${orderId} status update.</p>`;
-  }
-}
