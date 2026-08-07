@@ -377,18 +377,18 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 ## 📊 Compteurs de ce qui reste
 
-| Catégorie              |    Restant | Détail                                                                                                            |
-| ---------------------- | ---------: | ----------------------------------------------------------------------------------------------------------------- |
-| Bugs                   |          2 | Double ajout, persistance du panier                                                                               |
-| Sécurité               | (en cours) | RLS, contrôle d'accès, injections, autres                                                                         |
-| UX/UI                  |          6 | Animations, badge admin, icône cœur, responsive mobile, modal de commande (InteractionsPage) + navigation, footer |
-| Produits               |          3 | Standardiser la disponibilité, visibilité admin, informations produit manquantes                                  |
-| Livraison              |          6 | Webhooks optionnels : `hold`, `remove_hold`, `refunded`, `returned` (2 déjà implémentés)                          |
-| Emails transactionnels |          1 | `order_failed` vs `order_canceled`                                                                                |
-| Emails / Resend        |          3 | URLs, images, informations de l'entreprise                                                                        |
-| Footer                 |          2 | Newsletter, liens                                                                                                 |
-| Codes morts            |          1 | `DealsSection.tsx` : phrase obsolète                                                                              |
-| **Total**              |     **28** |                                                                                                                   |
+| Catégorie              | Restant | Détail                                                                                                            |
+| ---------------------- | ------: | ----------------------------------------------------------------------------------------------------------------- |
+| Bugs                   |       2 | Double ajout, persistance du panier                                                                               |
+| Sécurité               |       4 | RLS, contrôle d'accès, injections, autres                                                                         |
+| UX/UI                  |       6 | Animations, badge admin, icône cœur, responsive mobile, modal de commande (InteractionsPage) + navigation, footer |
+| Produits               |       3 | Standardiser la disponibilité, visibilité admin, informations produit manquantes                                  |
+| Livraison              |       6 | Webhooks optionnels : `hold`, `remove_hold`, `refunded`, `returned` (2 déjà implémentés)                          |
+| Emails transactionnels |       1 | `order_failed` vs `order_canceled`                                                                                |
+| Emails / Resend        |       3 | URLs, images, informations de l'entreprise                                                                        |
+| Footer                 |       2 | Newsletter, liens                                                                                                 |
+| Codes morts            |       1 | `DealsSection.tsx` : phrase obsolète                                                                              |
+| **Total**              |  **28** |                                                                                                                   |
 
 --- |
 
