@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ArrowLeft,
 } from "lucide-react";
+import DOMPurify from "dompurify";
 import type { Product } from "../types";
 import ImageZoom from "./ImageZoom";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -47,7 +48,9 @@ function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
       {mainTable.description && (
         <div
           className="mb-2 text-[10px] leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: mainTable.description }}
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(mainTable.description),
+          }}
         />
       )}
       {mainTable.image_url && (

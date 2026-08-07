@@ -348,6 +348,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] Annulée (Cancelled)
 - [x] Promotions & deals
 - [ ] order_failed vs order_canceled : quel cas n est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
+- [ ] welcome email newsletter supprimé : get it back
 
 #### 📮 Emails / Resend (post-domain)
 

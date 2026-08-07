@@ -1,7 +1,9 @@
 // supabase/functions/stripe-webhook/index.ts
 
 // @ts-nocheck
-// Webhook Stripe – met à jour le statut, envoie Telegram + Email, puis Printful
+// Webhook Stripe réel : vérifie la signature, puis gère
+// checkout.session.completed → commande "paid" + notifications.
+// Idempotent : une commande déjà "paid" n'est jamais retraitée.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13";
@@ -12,7 +14,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Helper Telegram (API Bot) ───────────────────────────────────────
+// Helper Telegram (API Bot)
 async function sendTelegramServer(
   orderId: string,
   name: string,
@@ -70,7 +72,7 @@ async function sendTelegramServer(
   }
 }
 
-// ── Helper Email (Resend) ────────────────────────────────────────────
+// ── Helper Email (Resend) ───────────────────────────────────────────────
 function sendEmailServer(
   orderId: string,
   name: string,
@@ -84,6 +86,7 @@ function sendEmailServer(
   items: any[],
   total: number,
   currency: string,
+  shippingCost: number,
 ) {
   const itemsHtml = items
     .map(
@@ -113,7 +116,6 @@ function sendEmailServer(
     (sum: number, item: any) => sum + item.unit_price * item.quantity,
     0,
   );
-  const shippingCost = order.shipping_cost || 0;
 
   const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
 <div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
@@ -122,7 +124,7 @@ function sendEmailServer(
 </div>
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed and is now in our quality assurance queue. We take extra care to inspect every item before packing. You will receive your tracking number as soon as it is handed over to the carrier, usually within 2 to 3 business days.</p>
 <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
   ${itemsHtml}
   <tr>
@@ -170,8 +172,7 @@ function sendEmailServer(
   }).catch(console.error);
 }
 
-// ── Main handler ─────────────────────────────────────────────────────
-
+// ── Main handler ────────────────────────────────────────────────────────
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -179,11 +180,21 @@ export default {
     }
 
     try {
-      const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY_TEST")!, {
-        apiVersion: "2023-10-16",
-      });
+      // Même fallback de clé que stripe-checkout (TEST d'abord, sinon PROD).
+      const stripe = new Stripe(
+        Deno.env.get("STRIPE_SECRET_KEY_TEST") ||
+          Deno.env.get("STRIPE_SECRET_KEY")!,
+        { apiVersion: "2023-10-16" },
+      );
       const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
       const signature = req.headers.get("stripe-signature")!;
+
+      if (!signature) {
+        return new Response(JSON.stringify({ error: "Signature manquante" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const body = await req.text();
       let event: Stripe.Event;
@@ -210,71 +221,125 @@ export default {
         const session = event.data.object as Stripe.Checkout.Session;
         const orderId = session.metadata?.orderId;
 
-        if (orderId) {
-          await supabaseAdmin
-            .from("orders")
-            .update({ status: "paid", external_order_id: session.id })
-            .eq("id", orderId);
+        if (!orderId) {
+          return new Response(JSON.stringify({ error: "orderId manquant" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-          const { data: order } = await supabaseAdmin
-            .from("orders")
-            .select("*")
-            .eq("id", orderId)
-            .single();
+        // ── Idempotence : ne pas retraiter une commande déjà payée ──
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from("orders")
+          .select("status, external_order_id, total_amount, shipping_cost")
+          .eq("id", orderId)
+          .single();
+        if (existingError || !existing) {
+          return new Response(
+            JSON.stringify({ error: "Commande introuvable" }),
+            {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
 
-          if (order) {
-            const { data: items } = await supabaseAdmin
-              .from("order_items")
-              .select("*")
-              .eq("order_id", orderId);
+        // Déjà traité → on répond 200 sans rien refaire
+        // (Stripe retente sinon, ce qui créerait des doublons).
+        if (
+          existing.status === "paid" &&
+          existing.external_order_id === session.id
+        ) {
+          return new Response(JSON.stringify({ received: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
 
-            const currencySymbol =
-              order.shipping_address_country === "US" ? "$" : "€";
-
-            // 1. Telegram (API Bot)
-            await sendTelegramServer(
-              orderId,
-              order.client_name || "Client",
-              order.shipping_address_phone || "",
-              order.client_email || "",
-              order.shipping_address_address || "",
-              order.shipping_address_city || "",
-              order.shipping_address_zip || "",
-              order.shipping_address_country || "US",
-              items ?? [],
-              order.total_amount,
-              currencySymbol,
-            );
-
-            // 2. Email client
-            sendEmailServer(
-              orderId,
-              order.client_name || "Client",
-              order.client_email || "",
-              order.shipping_address_phone || "",
-              order.shipping_address_address || "",
-              order.shipping_address_city || "",
-              order.shipping_address_zip || "",
-              order.shipping_address_country || "US",
-              order.shipping_address_state_code || "",
-              items ?? [],
-              order.total_amount,
-              currencySymbol,
-            );
-
-            // 3. Printful
-            await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-printful-order`,
+        // ── Vérification du montant (contre le montant autoritatif en base) ──
+        const expectedAmount = Math.round(
+          Number(existing.total_amount || 0) * 100,
+        );
+        if (session.amount_total != null && expectedAmount > 0) {
+          if (session.amount_total !== expectedAmount) {
+            return new Response(
+              JSON.stringify({
+                error: `Montant incohérent: ${session.amount_total} != ${expectedAmount}`,
+              }),
               {
-                method: "POST",
+                status: 400,
                 headers: {
+                  ...corsHeaders,
                   "Content-Type": "application/json",
-                  apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
                 },
-                body: JSON.stringify({ orderId }),
               },
             );
           }
+        }
+
+        await supabaseAdmin
+          .from("orders")
+          .update({ status: "paid", external_order_id: session.id })
+          .eq("id", orderId);
+
+        const { data: order } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("id", orderId)
+          .single();
+
+        if (order) {
+          const { data: items } = await supabaseAdmin
+            .from("order_items")
+            .select("*")
+            .eq("order_id", orderId);
+
+          const currencySymbol =
+            order.shipping_address_country === "US" ? "$" : "€";
+
+          // 1. Telegram (API Bot)
+          await sendTelegramServer(
+            orderId,
+            order.client_name || "Client",
+            order.shipping_address_phone || "",
+            order.client_email || "",
+            order.shipping_address_address || "",
+            order.shipping_address_city || "",
+            order.shipping_address_zip || "",
+            order.shipping_address_country || "US",
+            items ?? [],
+            order.total_amount,
+            currencySymbol,
+          );
+
+          // 2. Email client (le coût de port est passé explicitement)
+          sendEmailServer(
+            orderId,
+            order.client_name || "Client",
+            order.client_email || "",
+            order.shipping_address_phone || "",
+            order.shipping_address_address || "",
+            order.shipping_address_city || "",
+            order.shipping_address_zip || "",
+            order.shipping_address_country || "US",
+            order.shipping_address_state_code || "",
+            items ?? [],
+            order.total_amount,
+            currencySymbol,
+            order.shipping_cost || 0,
+          );
+
+          // 3. Printful
+          await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-printful-order`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+              },
+              body: JSON.stringify({ orderId }),
+            },
+          );
         }
       }
 

@@ -261,6 +261,46 @@ export default {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
+      // ── Vérification de l'appelant ─────────────────────────────────
+      // Toutes les actions (sync, webhook, mockups, shipping, produits)
+      // sont réservées à l'administrateur. Même pattern que
+      // create-printful-order : JWT utilisateur + appartenance à admin_users.
+      const apikeyHeader = req.headers.get("apikey") || "";
+      const authHeader = req.headers.get("Authorization") || "";
+      const token = authHeader.replace("Bearer ", "");
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      if (apikeyHeader !== serviceRoleKey) {
+        if (!token) {
+          return new Response(JSON.stringify({ error: "Non autorisé" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: userData, error: userError } =
+          await supabaseAdmin.auth.getUser(token);
+        if (userError || !userData?.user) {
+          return new Response(JSON.stringify({ error: "Session invalide" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: adminRow } = await supabaseAdmin
+          .from("admin_users")
+          .select("id")
+          .eq("email", userData.user.email)
+          .maybeSingle();
+        if (!adminRow) {
+          return new Response(
+            JSON.stringify({ error: "Accès administrateur requis" }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+
       const body = await req.json().catch(() => ({}));
 
       // ─── Mode "list-products" ──────────────────────────────────────

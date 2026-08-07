@@ -1045,6 +1045,15 @@ async function getAccessToken(): Promise<string> {
   return session?.access_token || "";
 }
 
+async function getPodAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  return {
+    "Content-Type": "application/json",
+    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export const podApi = {
   async getSettings(): Promise<PodSettings> {
     const { data, error } = await supabase
@@ -1098,12 +1107,10 @@ export const podApi = {
   async sync(): Promise<{ settings: PodSettings; log: SyncLog }> {
     const start = Date.now();
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1178,12 +1185,10 @@ export const podApi = {
    */
   async getProductDetails(productId: string): Promise<any> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({ action: "get-product", productId }),
     });
     if (!res.ok) {
@@ -1200,12 +1205,10 @@ export const podApi = {
     { id: number; name: string; thumbnail_url: string }[]
   > {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({ action: "list-products" }),
     });
     if (!res.ok) {
@@ -1258,12 +1261,10 @@ export const podApi = {
    */
   async getProductSizes(catalogProductId: string): Promise<any> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "get-product-sizes",
         productId: catalogProductId,
@@ -1286,12 +1287,10 @@ export const podApi = {
     catalogVariantId: string,
   ): Promise<{ min: number; max: number; currency: string }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "get-shipping-estimate",
         variantId: catalogVariantId, // envoi du catalogue variant ID
@@ -1319,14 +1318,12 @@ export const podApi = {
     webhookUrl: string,
     types: string[],
   ): Promise<void> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "setup-webhook",
           apiKey,
@@ -1353,14 +1350,12 @@ export const podApi = {
     url: string;
     types: string[];
   }> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "get-webhook-config",
           apiKey,
@@ -1385,14 +1380,12 @@ export const podApi = {
    * Désactive le webhook Printful.
    */
   async disableWebhook(apiKey: string, storeId?: string): Promise<void> {
+    const headers = await getPodAuthHeaders();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
+        headers,
         body: JSON.stringify({
           action: "disable-webhook",
           apiKey,
@@ -1424,12 +1417,10 @@ export const podApi = {
     storageUrls: Record<string, string>;
   }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      },
+      headers,
       body: JSON.stringify({
         action: "generate-mockups",
         productId,
@@ -2120,51 +2111,6 @@ export const newsletterApi = {
       p_subscribed: true,
     });
     if (error) throw error;
-
-    // Envoyer un email de bienvenue personnalisé via le template automation
-    try {
-      const { data: auto } = await supabase
-        .from("email_automations")
-        .select("subject, html_body")
-        .eq("trigger_type", "welcome")
-        .eq("enabled", true)
-        .maybeSingle();
-
-      const subject = auto?.subject || "Welcome to InstaWear! 🎉";
-      let html =
-        auto?.html_body ||
-        `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;background:#fff">
-  <h1 style="font-size:24px;font-weight:800;color:#1a1916;margin:0 0 8px">Welcome to InstaWear! 🎉</h1>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">You're now part of our community. You'll be the first to know about <strong>new drops</strong>, <strong>limited collections</strong>, and <strong>exclusive deals</strong> for global events.</p>
-  <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">We print each piece on demand — zero waste, zero overstock. Just event‑ready style, delivered to your door.</p>
-  <a href="https://instawear.vercel.app" style="display:inline-block;background:#ff5c35;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Explore the Collection →</a>
-  <p style="font-size:11px;color:#b5b3af;margin-top:32px;text-align:center">
-    InstaWear · 123 Main Street, Doral, FL 10001<br>
-    <a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a>
-  </p>
-</div>`;
-
-      html = html
-        .replace(/{{name}}/g, email.split("@")[0])
-        .replace(/{{email}}/g, email)
-        .replace(/{{brand}}/g, "InstaWear")
-        .replace(/{{footer}}/g, "InstaWear · 123 Main Street, Doral, FL 10001")
-        .replace(
-          /{{unsubscribe_link}}/g,
-          `https://instawear.vercel.app/unsubscribe?email=${encodeURIComponent(email)}`,
-        );
-
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ to: email, subject, html }),
-      }).catch(() => {});
-    } catch {
-      // fallback
-    }
 
     return { success: true, message: "Welcome! You're now subscribed." };
   },

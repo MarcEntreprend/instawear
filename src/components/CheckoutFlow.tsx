@@ -167,99 +167,6 @@ function sendTelegramNotification(
   const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
   window.open(telegramUrl, "_blank");
 }
-// TODO: Désactiver l’envoi d’email côté client avant la mise en production
-//  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
-// Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
-
-function sendOrderEmail(
-  orderId: string,
-  name: string,
-  email: string,
-  phone: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  stateCode: string,
-  cart: CartItem[],
-  total: number,
-  shippingCost: number,
-  currencySymbol: string,
-) {
-  const itemsHtml = cart
-    .map(
-      (item) => `
-    <tr>
-      <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
-        <table><tr>
-          <td style="width: 60px; vertical-align: top;">
-            <img src="${getVariantImage(item.product, item.selectedColor) || PLACEHOLDER_IMG}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
-          </td>
-          <td style="vertical-align: top; padding-left: 12px;">
-            <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product.title}</p>
-            <p style="margin: 4px 0; font-size: 12px; color: #888;">
-              Color: ${item.selectedColor} · Size: ${item.selectedSize} · Qty: ${item.quantity}
-            </p>
-          </td>
-          <td style="vertical-align: top; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;">
-            ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}
-          </td>
-        </tr></table>
-      </td>
-    </tr>
-  `,
-    )
-    .join("");
-
-  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#fff;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#a3a3a3;margin:4px 0 0;font-size:14px;">We're getting your order ready!</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-  ${itemsHtml}
-  <tr>
-    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
-      Subtotal: ${(total - shippingCost).toFixed(2)} ${currencySymbol}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
-      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currencySymbol}`}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
-      Order total: ${total.toFixed(2)} ${currencySymbol}
-    </td>
-  </tr>
-</table>
-<a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
-<div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
-<p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
-<p style="margin:0;font-size:13px;color:#555;">${address}<br>${city}, ${stateCode ? stateCode + ", " : ""}${zip}<br>${country}<br>${phone ? phone + "<br>" : ""}${email}</p>
-</div>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0 0 8px;">This email was sent to <strong>${email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
-<p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
-</div></div></body></html>`;
-
-  fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({
-      to: email,
-      subject: `Order ${orderId} confirmed!`,
-      html,
-    }),
-  }).catch(console.error);
-}
 
 // Resolves the best image for a specific product color
 function getVariantImage(
@@ -1438,45 +1345,6 @@ function StripeCardForm({
           currencySymbol,
         );
 
-        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
-          sendPendingEmail({
-            id: orderId,
-            clientEmail: contactEmail,
-            clientName: contactName,
-            items: cart.map((item) => ({
-              productTitle: item.product.title,
-              productImage: getVariantImage(item.product, item.selectedColor),
-              selectedColor: item.selectedColor,
-              selectedSize: item.selectedSize,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            })),
-            totalAmount: total,
-            shippingCost,
-          });
-        });
-
-        // Email confirmation via Resend
-        // TODO: Désactiver l’envoi d’email côté client avant la mise en production
-        //  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
-        // Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
-
-        sendOrderEmail(
-          orderId,
-          contactName,
-          contactEmail,
-          contactPhone,
-          address,
-          city,
-          zip,
-          country,
-          stateCode,
-          cart,
-          total,
-          shippingCost,
-          currencySymbol,
-        );
-
         onSuccess(orderId);
       } catch (e: any) {
         setProcessing(false);
@@ -2434,46 +2302,6 @@ export default function CheckoutFlow({
           country,
           cart,
           total,
-          currencySymbol,
-        );
-
-        // Email pending
-        import("../utils/emailTemplates").then(({ sendPendingEmail }) => {
-          sendPendingEmail({
-            id: newOrderId,
-            clientEmail: email,
-            clientName: name,
-            items: cart.map((item) => ({
-              productTitle: item.product.title,
-              productImage: getVariantImage(item.product, item.selectedColor),
-              selectedColor: item.selectedColor,
-              selectedSize: item.selectedSize,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            })),
-            totalAmount: total,
-            shippingCost,
-          });
-        });
-
-        // Email confirmation via Resend
-        // TODO: Désactiver l’envoi d’email côté client avant la mise en production
-        //  clé anon est déjà exposée, et l’Edge Function send-email peut être appelée par n’importe qui.
-        // Pour réduire la surface d’attaque future, faut dépendre du webhook de printful pr les mails d achat
-
-        sendOrderEmail(
-          newOrderId,
-          name,
-          email,
-          phone,
-          address,
-          city,
-          zip,
-          country,
-          stateCode,
-          cart,
-          total,
-          shippingCost,
           currencySymbol,
         );
       })();
