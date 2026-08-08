@@ -26,6 +26,12 @@ interface TrackedOrder {
   shippingCost: number;
   address: string | null;
   message: string | null;
+  trackingInfo?: {
+    carrier?: string | null;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    shipDate?: string | null;
+  } | null;
   items: {
     productId: string;
     title: string;
@@ -87,6 +93,7 @@ export default function OrderTrackingModal({
             ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
             : null,
           message: found.notes || null,
+          trackingInfo: found.trackingInfo || null,
           items: found.items.map((item) => ({
             productId: item.productId,
             title: item.productTitle || item.productId,
@@ -306,6 +313,89 @@ export default function OrderTrackingModal({
                 </div>
               )}
             </div>
+
+            {order.status === "shipped" && order.trackingInfo && (
+              <div
+                style={{
+                  borderTop: "1px solid var(--color-border)",
+                  paddingTop: 10,
+                  marginBottom: 10,
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--color-ink)",
+                    marginBottom: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Truck size={14} color="var(--color-accent)" />
+                  Tracking
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 6,
+                    fontSize: 12.5,
+                    color: "var(--color-ink2)",
+                  }}
+                >
+                  {order.trackingInfo.carrier && (
+                    <div>
+                      <span style={{ color: "var(--color-ink4)" }}>
+                        Carrier:
+                      </span>{" "}
+                      {order.trackingInfo.carrier}
+                    </div>
+                  )}
+                  {order.trackingInfo.shipDate && (
+                    <div>
+                      <span style={{ color: "var(--color-ink4)" }}>
+                        Shipped on:
+                      </span>{" "}
+                      {new Date(order.trackingInfo.shipDate).toLocaleDateString(
+                        "en-US",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        },
+                      )}
+                    </div>
+                  )}
+                  {order.trackingInfo.trackingNumber && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <span style={{ color: "var(--color-ink4)" }}>
+                        Tracking #:
+                      </span>{" "}
+                      {order.trackingInfo.trackingUrl ? (
+                        <a
+                          href={order.trackingInfo.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "var(--color-accent)",
+                            fontWeight: 600,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          {order.trackingInfo.trackingNumber}
+                        </a>
+                      ) : (
+                        <span style={{ fontFamily: "monospace" }}>
+                          {order.trackingInfo.trackingNumber}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div
               style={{

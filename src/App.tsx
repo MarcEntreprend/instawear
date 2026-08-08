@@ -305,7 +305,6 @@ export default function App() {
       if (session?.user?.email) {
         // Vérifier localement puis côté serveur si l'utilisateur est admin
         const isAdminUser = await checkAdminEmail(session.user.email);
-        console.log("🔍 checkAdminEmail returned:", isAdminUser);
         if (isAdminUser) {
           setIsAdmin(true);
           setIsUser(false);
@@ -663,7 +662,6 @@ export default function App() {
               .maybeSingle();
             if (customerData) {
               await customerApi.clearCart(customerData.id);
-              console.log("🗑️ Cart cleared in Supabase for", currentUser.email);
             }
           }
 

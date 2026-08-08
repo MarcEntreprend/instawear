@@ -8,11 +8,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+// CORS restreint : ce webhook est un endpoint serveur→serveur (Stripe).
+// Seules les origines de l'application peuvent l'appeler depuis un
+// navigateur ; les autres origines ne reçoivent pas d'en-tête CORS.
+const ALLOWED_ORIGINS = [
+  "https://instawear.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
+    };
+  }
+  return {};
+}
 
 // Helper Telegram (API Bot)
 async function sendTelegramServer(
@@ -65,8 +80,9 @@ async function sendTelegramServer(
       headers: { "Content-Type": "application/json" },
       body: tgBody,
     });
-    const tgResult = await tgRes.text();
-    console.log("Telegram send result:", tgRes.status, tgResult);
+    if (!tgRes.ok) {
+      console.error("Telegram send error:", tgRes.status, await tgRes.text());
+    }
   } catch (err) {
     console.error("Telegram fetch error:", err);
   }
@@ -124,7 +140,7 @@ function sendEmailServer(
 </div>
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed and is now in our quality assurance queue. We take extra care to inspect every item before packing. You will receive your tracking number as soon as it is handed over to the carrier, usually within 2 to 3 business days.</p>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed. We'll let you know as soon as it ships.</p>
 <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
   ${itemsHtml}
   <tr>
@@ -176,7 +192,7 @@ function sendEmailServer(
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
+      return new Response("ok", { headers: getCorsHeaders(req) });
     }
 
     try {
@@ -192,7 +208,10 @@ export default {
       if (!signature) {
         return new Response(JSON.stringify({ error: "Signature manquante" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: {
+            ...getCorsHeaders(req),
+            "Content-Type": "application/json",
+          },
         });
       }
 
@@ -224,7 +243,10 @@ export default {
         if (!orderId) {
           return new Response(JSON.stringify({ error: "orderId manquant" }), {
             status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
           });
         }
 
@@ -239,7 +261,10 @@ export default {
             JSON.stringify({ error: "Commande introuvable" }),
             {
               status: 404,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              headers: {
+                ...getCorsHeaders(req),
+                "Content-Type": "application/json",
+              },
             },
           );
         }
@@ -251,7 +276,10 @@ export default {
           existing.external_order_id === session.id
         ) {
           return new Response(JSON.stringify({ received: true }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
           });
         }
 
@@ -268,7 +296,7 @@ export default {
               {
                 status: 400,
                 headers: {
-                  ...corsHeaders,
+                  ...getCorsHeaders(req),
                   "Content-Type": "application/json",
                 },
               },
@@ -344,12 +372,12 @@ export default {
       }
 
       return new Response(JSON.stringify({ received: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     } catch (error: any) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
   },

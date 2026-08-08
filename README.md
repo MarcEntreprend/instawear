@@ -41,6 +41,43 @@ npx supabase functions deploy delete-account --no-verify-jwt
 
 ```
 
+## Secrets & Supabase Vault
+
+Les Edge Functions lisent leurs secrets via `Deno.env.get(...)`. Les variables
+requises sont :
+
+| Secret                                         | Utilisé par                                    |
+| ---------------------------------------------- | ---------------------------------------------- |
+| `SUPABASE_SERVICE_ROLE_KEY`                    | toutes les fonctions (injecté automatiquement) |
+| `STRIPE_SECRET_KEY` / `STRIPE_SECRET_KEY_TEST` | stripe-checkout, stripe-webhook                |
+| `STRIPE_WEBHOOK_SECRET`                        | stripe-webhook (signature)                     |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL`         | send-email, stripe-webhook                     |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`      | stripe-webhook                                 |
+| `PRINTFUL_API_KEY` (si utilisée)               | sync-printful                                  |
+
+### Recommandation : déplacer les secrets vers Supabase Vault
+
+Au lieu de les déclarer en variables d'environnement, stockez les secrets
+sensibles (clés API Stripe/Printful/Resend, tokens Telegram) dans Supabase
+Vault. L'accès se fait alors via la fonction SQL `vault.decrypted_secrets`
+(préfixe `VITE_` exclu) ou `pgsodium` :
+
+```sql
+-- Insérer un secret dans le Vault (ex. clé Stripe test)
+SELECT vault.create_secret(
+  'sk_test_xxxx',
+  'STRIPE_SECRET_KEY_TEST'
+);
+```
+
+Dans l'Edge Function, remplacez `Deno.env.get("STRIPE_SECRET_KEY_TEST")` par
+une lecture via le client Supabase (`supabase.rpc` sur
+`vault.decrypted_secrets`). Avantages : secret chiffré au repos, rotation
+traçable, pas de clé visible dans le dashboard Functions.
+
+> NB : `SUPABASE_SERVICE_ROLE_KEY` reste injecté par la plateforme ; il ne
+> doit pas être déplacé dans le Vault.
+
 ## IPv4 Address
 
 `192.168.15.2`
@@ -348,7 +385,6 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 - [x] Annulée (Cancelled)
 - [x] Promotions & deals
 - [ ] order_failed vs order_canceled : quel cas n est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
-- [ ] welcome email newsletter supprimé : get it back
 
 #### 📮 Emails / Resend (post-domain)
 
@@ -391,25 +427,3 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 | **Total**              |  **28** |                                                                                                                   |
 
 --- |
-
-git commit pr merge security-audit dans main
-
-git checkout main
-git merge security-audit --no-ff -m "feat(security): audit et correction des vulnerabilites critiques
-
-- RLS active sur 24 tables avec politiques par role (anon/authenticated/admin)
-- is_admin() SECURITY DEFINER (admin + super_admin)
-- RPC get_my_customer_profile (SECURITY DEFINER) pour lecture customers
-- Suppression du code maitre 000000, reset password via Supabase Auth
-- Montant Stripe recalcule cote serveur, verification amount_total vs commande
-- Verrouillage colonne api_key sur pod_settings, cle Printful en secret Edge Function
-- Remplacement REST admin_users par RPC is_admin() dans AuthModal
-- Resolution clientId par auth.uid() dans CheckoutFlow (evite enumeration email)
-- .single() -> .maybeSingle() sur 17 occurrences (plus de fuite d'info via 406)
-- Rate limiting sur les Edge Functions + trigger notifications
-- Headers securite dans vercel.json (CSP, X-Frame-Options, etc.)
-- Newsletter via RPC SECURITY DEFINER (plus d'acces direct aux tables)
-- Alignement des IDs customers/auth.users pour les comptes existants
-- Correction du flash 'Guest' dans AccountPage (resolution identite via session)
-- Suppression notificationApi.create cote client (gere par webhook Stripe)
-- fetchOrders force a customerId (auth.uid) pour empecher usurpation d'email"

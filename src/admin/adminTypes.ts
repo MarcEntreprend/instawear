@@ -136,7 +136,16 @@ export interface Order {
   shippingAddress: ShippingAddress;
   externalOrderId?: string;
   notes?: string;
+  trackingInfo?: TrackingInfo | null;
   items: OrderItem[];
+}
+
+// ─── Tracking d'expédition (Printful) ───────────────────────────────────
+export interface TrackingInfo {
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  shipDate?: string | null;
 }
 
 // ─── Order Item (§2.6) ────────────────────────────────────────────────────
