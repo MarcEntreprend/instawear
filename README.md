@@ -238,80 +238,17 @@ instawear/
 
 ```
 
-## Note sur la sécurité des emails :
-
-Securisation des RPC newsletter (anti-enumeration)
-
-- get_newsletter_status : retourne simplement le statut d'abonnement sans rate
-  limit (la lecture est inoffensive, l'email doit etre connu pour etre teste)
-- set_newsletter_subscription : SECURITY DEFINER, aucun rate limit artificiel
-  (les operations d'abonnement/desabonnement sont protegees par le fait que
-  l'email exact doit etre connu — pas d'enumeration possible)
-- Suppression du rate limit base sur created_at qui causait des erreurs 400
-  quand l'email n'avait jamais existe dans la table
-- Teste manuellement : activation/desactivation newsletter dans AccountPage,
-  appels RPC via console sans erreur"
-
 ## 📊 Checklist InstaWear — Mise à jour
 
 ---
 
 ### 🐛 Bugs
 
-#### Panier
-
-- [*] **Double ajout** — parfois 2 items au lieu d'1 au clic sur "Ajouter au panier" ou "Acheter maintenant"
-- [*] **Persistance après refresh** — le panier ne doit être vidé qu'après un checkout réussi
-- [x] Toast caché derrière la modale
-- [x] Validation formulaire : scroll vers le champ manquant + surbrillance
-- [x] Effacement du message d'erreur quand l'utilisateur remplit le champ
-- [x] Message "This order does not belong to you" pour les invités
-- [x] Écart de prix entre checkout et Stripe (frais de port manquants)
-
-#### Header
-
-- [x] Logo / nom InstaWear rafraîchit la page
-- [x] Barre de recherche redirige vers le produit
-
-#### Order Page (admin)
-
-- [x] Bouton "Envoyer à Printful" avec animation spinner
-- [x] Statut "En production" = même action que "Envoyer à Printful"
-- [x] **Statut non synchronisé** — commande pas envoyée à Printful mais site affiche "envoyé"
-
-#### Notifications (admin)
-
-- [x] Actions groupées actives sur sélections mixtes (lus + non lus)
-- [x] Badge dans l'onglet navigateur (nombre d'items dans le panier)
-
-#### Sidebar panier
-
-- [x] Fermeture au clic extérieur
-
-#### Offline / Erreurs
-
-- [x] Fallback réseau (message "Oups !")
-- [x] Fallback images
-- [x] Placeholder barre de recherche générique
-
-#### Stripe Checkout
-
-- [x] Animation de chargement (spinner "Redirection vers Stripe…")
-- [x] Simulation email à la confirmation
-
 ---
 
 ### ✨ Améliorations
 
-#### Prévoire erreur address
-
-- [x] **Anticiper les mauvaises infos lors du checkout, et meme depuis accountpage** : car les mauvaises addressses par exemples passent payment (ne devraient pas) mais bloquent à la production (par ex si le zip code n est pas bon, printful ne prend pas la production). ce qui va me forcer un refund.
-
-```
-
-Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code.","error":{"reason":"BadRequest","message":"Recipient: Shipping address state and ZIP code don't match. Enter the correct state or ZIP code."}}
-
-```
+- [ ] ...
 
 #### 🔐 Sécurité (⚠️ avant production)
 
@@ -394,11 +331,7 @@ Erreur d'envoi à Printful : Erreur Printful: {"code":400,"result":"Recipient: S
 
 #### 👤 Espace client
 
-- [x] Bouton 'Buy Now' doit diriger directement vers step un, avec tout le panier
-- [x] Page compte avec onglets (commandes, favoris, panier, support, profil)
-- [x] **Adresses sauvegardées** (éditable, dernière utilisée conservée, préférée)
-- [x] Page 404 personnalisée
-- [x] Bouton désinscription dans le profil
+- [ ] ...
 
 #### 🦶 Footer
 
