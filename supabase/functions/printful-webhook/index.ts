@@ -1,214 +1,154 @@
-// supabase/functions/stripe-webhook/index.ts
-
+// supabase/functions/printful-webhook/index.ts
 // @ts-nocheck
-// Webhook Stripe réel : vérifie la signature, puis gère
-// checkout.session.completed → commande "paid" + notifications.
-// Idempotent : une commande déjà "paid" n'est jamais retraitée.
+// Webhook Printful – reçoit les événements réels de Printful et met à jour
+// le statut de la commande (shipped / cancelled) + note le numéro de suivi.
+//
+// Printful n'offre pas de signature HMAC (pas de X-PF-Signature) : la
+// validation repose sur la structure du payload, le store ID et la
+// correspondance de l'ordre via external_id / external_order_id.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@13";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+// CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
+// origines de l'application (frontend Vercel + localhost de dev) peuvent
+// l'appeler depuis un navigateur ; les autres origines ne reçoivent pas
+// d'en-tête Access-Control-Allow-Origin.
+const ALLOWED_ORIGINS = [
+  "https://instawear.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+];
 
-// Helper Telegram (API Bot)
-async function sendTelegramServer(
-  orderId: string,
-  name: string,
-  phone: string,
-  email: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  items: any[],
-  total: number,
-  currency: string,
-) {
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
-  const chatId = Deno.env.get("TELEGRAM_CHAT_ID")!;
-  if (!token || !chatId) {
-    console.error("Telegram secrets missing");
-    return;
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type",
+    };
   }
-
-  const itemsStr = items
-    .map(
-      (item: any) =>
-        `- ${item.product_title} (${item.selected_size}, ${item.selected_color}) ×${item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)} ${currency}`,
-    )
-    .join("\n");
-
-  const text =
-    `🛒 *INSTAWEAR ORDER*\n\n` +
-    `🔑 *Order #:* ${orderId}\n\n` +
-    `*Customer:* ${name}\n` +
-    `*Phone:* ${phone}\n` +
-    `*Email:* ${email}\n` +
-    `*Address:* ${address}, ${city} ${zip}, ${country}\n` +
-    `\n📦 *Items:*\n${itemsStr}\n\n` +
-    `💰 *Total:* ${total.toFixed(2)} ${currency}`;
-
-  const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-  const tgBody = JSON.stringify({
-    chat_id: chatId,
-    text,
-    parse_mode: "Markdown",
-  });
-
-  try {
-    const tgRes = await fetch(tgUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: tgBody,
-    });
-    const tgResult = await tgRes.text();
-    console.log("Telegram send result:", tgRes.status, tgResult);
-  } catch (err) {
-    console.error("Telegram fetch error:", err);
-  }
+  return {};
 }
 
-// ── Helper Email (Resend) ───────────────────────────────────────────────
-function sendEmailServer(
-  orderId: string,
-  name: string,
-  email: string,
-  phone: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  stateCode: string,
-  items: any[],
-  total: number,
-  currency: string,
-  shippingCost: number,
-) {
-  const itemsHtml = items
-    .map(
-      (item: any) => `
-    <tr>
-      <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
-        <table><tr>
-          <td style="width: 60px; vertical-align: top;">
-            <img src="${item.product_image || "https://instawear.vercel.app/Instawear-missing-item.svg"}" style="width: 52px; height: 52px; border-radius: 8px; object-fit: cover;">
-          </td>
-          <td style="vertical-align: top; padding-left: 12px;">
-            <p style="margin: 0; font-weight: 600; font-size: 14px;">${item.product_title}</p>
-            <p style="margin: 4px 0; font-size: 12px; color: #888;">
-              Color: ${item.selected_color} · Size: ${item.selected_size} · Qty: ${item.quantity}
-            </p>
-          </td>
-          <td style="vertical-align: top; text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap;">
-            ${(item.unit_price * item.quantity).toFixed(2)} ${currency}
-          </td>
-        </tr></table>
-      </td>
-    </tr>`,
-    )
-    .join("");
+// Événements que nous traitons activement.
+const SUPPORTED_TYPES = new Set([
+  "package_shipped",
+  "order_failed",
+  "order_canceled",
+]);
 
-  const subtotal = items.reduce(
-    (sum: number, item: any) => sum + item.unit_price * item.quantity,
-    0,
-  );
+// ── Email d'expédition automatique (via send-email, clé service_role) ───
+async function sendShippedEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  shipment: any,
+) {
+  const trackingNumber = shipment?.tracking_number;
+  const trackingUrl = shipment?.tracking_url;
+  const carrier = shipment?.carrier || shipment?.service;
+
+  const trackingHtml = trackingNumber
+    ? `
+    <p style="margin:0 0 8px;"><strong>Carrier:</strong> ${carrier || "—"}</p>
+    <p style="margin:0 0 8px;"><strong>Tracking number:</strong> ${
+      trackingUrl
+        ? `<a href="${trackingUrl}" style="color:#FF5C35;">${trackingNumber}</a>`
+        : trackingNumber
+    }</p>
+    ${trackingUrl ? `<p style="margin:0;"><a href="${trackingUrl}" style="color:#FF5C35;">Follow your package →</a></p>` : ""}`
+    : "";
 
   const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#000;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#fff;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#a3a3a3;margin:4px 0 0;font-size:14px;">We're getting your order ready!</p>
+<div style="background:#dbeafe;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#1e40af;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#1e40af;margin:4px 0 0;font-size:14px;">Your order is on its way!</p>
 </div>
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">Order confirmed 🎉</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${name}</strong>,<br><br>Thank you for shopping with us. Your order <strong>${orderId}</strong> has been confirmed and is now in our quality assurance queue. We take extra care to inspect every item before packing. You will receive your tracking number as soon as it is handed over to the carrier, usually within 2 to 3 business days.</p>
-<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-  ${itemsHtml}
-  <tr>
-    <td colspan="2" style="padding-top:16px;text-align:right;font-size:13px;color:#888;">
-      Subtotal: ${subtotal.toFixed(2)} ${currency}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
-      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currency}`}
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
-      Order total: ${total.toFixed(2)} ${currency}
-    </td>
-  </tr>
-</table>
-<a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
-<div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
-<p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
-<p style="margin:0;font-size:13px;color:#555;">${address}<br>${city}, ${stateCode ? stateCode + ", " : ""}${zip}<br>${country}<br>${phone ? phone + "<br>" : ""}${email}</p>
+<h2 style="margin:0 0 8px;font-size:18px;">Shipped 🚚</h2>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,<br><br>Your order <strong>${order.id}</strong> has been shipped and is on its way to you.</p>
+<div style="padding:16px;background:#f9fafb;border-radius:8px;font-size:13px;color:#555;">
+${trackingHtml}
 </div>
+<a href="https://instawear.vercel.app/?order=success&id=${order.id}" style="display:inline-block;margin-top:20px;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0 0 8px;">This email was sent to <strong>${email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
-<p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
+<p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
 </div></div></body></html>`;
 
-  const apiKey = Deno.env.get("RESEND_API_KEY")!;
-  const fromEmail =
-    Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
-
-  fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [email],
-      subject: `Order ${orderId} confirmed!`,
-      html,
-    }),
-  }).catch(console.error);
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify({
+        to: order.client_email,
+        subject: `Your order ${order.id} has shipped!`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Shipped email error:", err);
+  }
 }
 
-// ── Main handler ────────────────────────────────────────────────────────
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
+      return new Response("ok", { headers: getCorsHeaders(req) });
     }
 
     try {
-      // Même fallback de clé que stripe-checkout (TEST d'abord, sinon PROD).
-      const stripe = new Stripe(
-        Deno.env.get("STRIPE_SECRET_KEY_TEST") ||
-          Deno.env.get("STRIPE_SECRET_KEY")!,
-        { apiVersion: "2023-10-16" },
-      );
-      const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
-      const signature = req.headers.get("stripe-signature")!;
-
-      if (!signature) {
-        return new Response(JSON.stringify({ error: "Signature manquante" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      // ── 1. Lire et valider la structure du payload ────────────────
+      const rawBody = await req.text();
+      let payload: any;
+      try {
+        payload = JSON.parse(rawBody);
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "Payload JSON invalide" }),
+          {
+            status: 400,
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
+        );
       }
 
-      const body = await req.text();
-      let event: Stripe.Event;
-
-      try {
-        event = await stripe.webhooks.constructEventAsync(
-          body,
-          signature,
-          webhookSecret,
-        );
-      } catch (err: any) {
+      const type = payload?.type;
+      const store = payload?.store;
+      const data = payload?.data;
+      if (typeof type !== "string" || !data || typeof data !== "object") {
         return new Response(
-          `Webhook signature verification failed: ${err.message}`,
-          { status: 400 },
+          JSON.stringify({ error: "Structure webhook invalide" }),
+          {
+            status: 400,
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      // ── 2. Ignorer les événements non gérés (réponse 2xx) ─────────
+      if (!SUPPORTED_TYPES.has(type)) {
+        return new Response(
+          JSON.stringify({
+            received: true,
+            handled: false,
+            reason: "unsupported_type",
+          }),
+          {
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
         );
       }
 
@@ -217,140 +157,167 @@ export default {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const orderId = session.metadata?.orderId;
-
-        if (!orderId) {
-          return new Response(JSON.stringify({ error: "orderId manquant" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        // ── Idempotence : ne pas retraiter une commande déjà payée ──
-        const { data: existing, error: existingError } = await supabaseAdmin
-          .from("orders")
-          .select("status, external_order_id, total_amount, shipping_cost")
-          .eq("id", orderId)
-          .single();
-        if (existingError || !existing) {
+      // ── 3. Vérifier le store ID (anti-spoofing) ──────────────────
+      if (store != null) {
+        const { data: settings } = await supabaseAdmin
+          .from("pod_settings")
+          .select("store_id")
+          .eq("id", "pod-main")
+          .maybeSingle();
+        const expectedStore = settings?.store_id;
+        if (expectedStore && String(store) !== String(expectedStore).trim()) {
           return new Response(
-            JSON.stringify({ error: "Commande introuvable" }),
+            JSON.stringify({
+              received: false,
+              error: "Store ID mismatch",
+            }),
             {
-              status: 404,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
-          );
-        }
-
-        // Déjà traité → on répond 200 sans rien refaire
-        // (Stripe retente sinon, ce qui créerait des doublons).
-        if (
-          existing.status === "paid" &&
-          existing.external_order_id === session.id
-        ) {
-          return new Response(JSON.stringify({ received: true }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        // ── Vérification du montant (contre le montant autoritatif en base) ──
-        const expectedAmount = Math.round(
-          Number(existing.total_amount || 0) * 100,
-        );
-        if (session.amount_total != null && expectedAmount > 0) {
-          if (session.amount_total !== expectedAmount) {
-            return new Response(
-              JSON.stringify({
-                error: `Montant incohérent: ${session.amount_total} != ${expectedAmount}`,
-              }),
-              {
-                status: 400,
-                headers: {
-                  ...corsHeaders,
-                  "Content-Type": "application/json",
-                },
-              },
-            );
-          }
-        }
-
-        await supabaseAdmin
-          .from("orders")
-          .update({ status: "paid", external_order_id: session.id })
-          .eq("id", orderId);
-
-        const { data: order } = await supabaseAdmin
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
-
-        if (order) {
-          const { data: items } = await supabaseAdmin
-            .from("order_items")
-            .select("*")
-            .eq("order_id", orderId);
-
-          const currencySymbol =
-            order.shipping_address_country === "US" ? "$" : "€";
-
-          // 1. Telegram (API Bot)
-          await sendTelegramServer(
-            orderId,
-            order.client_name || "Client",
-            order.shipping_address_phone || "",
-            order.client_email || "",
-            order.shipping_address_address || "",
-            order.shipping_address_city || "",
-            order.shipping_address_zip || "",
-            order.shipping_address_country || "US",
-            items ?? [],
-            order.total_amount,
-            currencySymbol,
-          );
-
-          // 2. Email client (le coût de port est passé explicitement)
-          sendEmailServer(
-            orderId,
-            order.client_name || "Client",
-            order.client_email || "",
-            order.shipping_address_phone || "",
-            order.shipping_address_address || "",
-            order.shipping_address_city || "",
-            order.shipping_address_zip || "",
-            order.shipping_address_country || "US",
-            order.shipping_address_state_code || "",
-            items ?? [],
-            order.total_amount,
-            currencySymbol,
-            order.shipping_cost || 0,
-          );
-
-          // 3. Printful
-          await fetch(
-            `${Deno.env.get("SUPABASE_URL")}/functions/v1/create-printful-order`,
-            {
-              method: "POST",
+              status: 403,
               headers: {
+                ...getCorsHeaders(req),
                 "Content-Type": "application/json",
-                apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
               },
-              body: JSON.stringify({ orderId }),
             },
           );
         }
       }
 
-      return new Response(JSON.stringify({ received: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // ── 4. Retrouver la commande locale ───────────────────────────
+      const orderData = data.order;
+      const pfOrderId = orderData?.id;
+      const externalId = orderData?.external_id;
+
+      let orderId: string | null = null;
+      let order: any = null;
+
+      // L'ordre Printful référence notre id via external_id
+      if (externalId) {
+        const { data: found } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("id", String(externalId))
+          .maybeSingle();
+        if (found) {
+          order = found;
+          orderId = found.id;
+        }
+      }
+
+      // Sinon on cherche par external_order_id (l'ID Printful stocké)
+      if (!order && pfOrderId != null) {
+        const { data: found } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("external_order_id", String(pfOrderId))
+          .maybeSingle();
+        if (found) {
+          order = found;
+          orderId = found.id;
+        }
+      }
+
+      if (!orderId || !order) {
+        return new Response(
+          JSON.stringify({
+            received: true,
+            handled: false,
+            reason: "order_not_found",
+          }),
+          {
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      // ── 5. Appliquer la transition de statut ──────────────────────
+      const shipment = data.shipment;
+      const trackingNumber = shipment?.tracking_number;
+      const trackingUrl = shipment?.tracking_url;
+      const carrier = shipment?.carrier || shipment?.service;
+      const shipDate = shipment?.ship_date || null;
+
+      let newStatus: string | null = null;
+      const notes: string[] = [];
+
+      if (order.notes) notes.push(order.notes);
+      const reason = data.reason;
+
+      const updatePayload: Record<string, any> = {};
+
+      if (type === "package_shipped") {
+        if (order.status !== "shipped") {
+          newStatus = "shipped";
+        }
+        // Tracking structuré (exposé au client via get_order_tracking)
+        const trackingInfo: Record<string, any> = {
+          carrier: carrier || null,
+          tracking_number: trackingNumber || null,
+          tracking_url: trackingUrl || null,
+          ship_date: shipDate || null,
+        };
+        updatePayload.tracking_info = trackingInfo;
+        if (trackingNumber) {
+          notes.push(
+            `Tracking Printful: ${carrier ? `${carrier} ` : ""}${trackingNumber}${trackingUrl ? ` (${trackingUrl})` : ""}`,
+          );
+        }
+      } else if (type === "order_failed") {
+        if (order.status !== "cancelled") {
+          newStatus = "cancelled";
+        }
+        notes.push(`Échec commande Printful${reason ? ` : ${reason}` : ""}`);
+      } else if (type === "order_canceled") {
+        if (order.status !== "cancelled") {
+          newStatus = "cancelled";
+        }
+        notes.push(
+          `Commande annulée chez Printful${reason ? ` : ${reason}` : ""}`,
+        );
+      }
+
+      if (newStatus) updatePayload.status = newStatus;
+      if (notes.length > 0)
+        updatePayload.notes = notes.filter(Boolean).join("\n");
+
+      await supabaseAdmin
+        .from("orders")
+        .update(updatePayload)
+        .eq("id", orderId);
+
+      // Email d'expédition automatique (uniquement sur une nouvelle
+      // transition vers "shipped", pas sur les ré-expéditions répétées).
+      if (type === "package_shipped" && newStatus === "shipped") {
+        await sendShippedEmail(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          order,
+          shipment,
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ received: true, handled: true, orderId }),
+        {
+          headers: {
+            ...getCorsHeaders(req),
+            "Content-Type": "application/json",
+          },
+        },
+      );
     } catch (error: any) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: error?.message || "Erreur inconnue" }),
+        {
+          status: 500,
+          headers: {
+            ...getCorsHeaders(req),
+            "Content-Type": "application/json",
+          },
+        },
+      );
     }
   },
 };

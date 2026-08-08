@@ -137,6 +137,14 @@ const mapOrder = (row: any): Order => ({
   },
   externalOrderId: row.external_order_id,
   notes: row.notes,
+  trackingInfo: row.tracking_info
+    ? {
+        carrier: row.tracking_info.carrier ?? null,
+        trackingNumber: row.tracking_info.tracking_number ?? null,
+        trackingUrl: row.tracking_info.tracking_url ?? null,
+        shipDate: row.tracking_info.ship_date ?? null,
+      }
+    : null,
   items: [], // à remplir séparément
 });
 
@@ -841,6 +849,7 @@ export const orderApi = {
       status: row.status,
       total_amount: row.total_amount,
       shipping_cost: row.shipping_cost,
+      tracking_info: row.tracking_info,
     });
     mapped.items = (row.items ?? []).map((item: any) => ({
       id: item.id,

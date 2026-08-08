@@ -340,9 +340,7 @@ export default function ProductFormPanel({
     }
     setImportingPrintful(true);
     try {
-      console.log("[Printful] Récupération du produit", form.externalProductId);
       const pfProduct = await podApi.getProductDetails(form.externalProductId);
-      console.log("[Printful] Données reçues :", pfProduct);
 
       const title = (pfProduct.name || pfProduct.title || "") as string;
       const description = (pfProduct.description || "") as string;
@@ -481,9 +479,7 @@ export default function ProductFormPanel({
       setImportingPrintful(false);
 
       // Enregistrer automatiquement le produit
-      console.log("[Printful] Sauvegarde automatique du produit...");
       await onSave(updatedForm);
-      console.log("[Printful] Produit sauvegardé.");
     } catch (err: any) {
       console.error("[Printful] Erreur :", err);
       setImportError(err.message || "Erreur lors de l'import Printful");
