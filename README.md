@@ -1,35 +1,45 @@
+<div align="center">
+  <img src="public/InstaWear-logo-wh-middle-no-BG.png" alt="InstaWear" width="400" />
+</div>
+
 # InstaWear
 
-Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festivals, saisons). Designs générés par IA, impression par Printful.
+Boutique en ligne Print-on-Demand de vêtements événementiels (sport, festivals, saisons).  
+Designs générés par IA, impression par Printful.
+
+---
 
 ## Run Locally
 
-**Prerequisites :** Node.js
+**Prerequisites:** Node.js
 
-1. Install dependencies :
-   `npm install`
-2. Run the app :
-   `npm run dev`
+1. Install dependencies:
 
-<!--  -->
+   ```bash
+   npm install
+   ```
 
-`npx vite --host`
+2. Run the app:
+   ```bash
+   npm run dev
+   ```
 
-`npx vite --force`
--> Ça redémarre Vite en ignorant le cache !
+### Useful Vite commands
 
+```bash
+npx vite --host
+npx vite --force   # Redémarre Vite en ignorant le cache
 ```
 
+Supprime le cache de Vite (`node_modules/.vite`). Vite stocke les fichiers précompilés ici. Les supprimer force Vite à tout recompiler proprement au prochain `npm run dev`. Résout les erreurs 500 sur des fichiers CSS/JS qui persistent après correction.
+
+```powershell
 Remove-Item -Recurse -Force node_modules/.vite -ErrorAction SilentlyContinue
-
 ```
 
-Supprime le cache de Vite (node_modules/.vite). Vite stocke les fichiers précompilés ici. Les supprimer force Vite à tout recompiler proprement au prochain npm run dev. Résout les erreurs 500 sur des fichiers CSS/JS qui persistent après correction.
+3. Déployer les Edge Functions
 
-3. Déployer l'Edge Function
-
-```
-
+```bash
 npx supabase functions deploy sync-printful --no-verify-jwt
 npx supabase functions deploy create-printful-order --no-verify-jwt
 npx supabase functions deploy printful-webhook --no-verify-jwt
@@ -37,47 +47,48 @@ npx supabase functions deploy send-email --no-verify-jwt
 npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy delete-account --no-verify-jwt
-
-
 ```
 
-## TEST livraison :
+---
+
+## Test livraison
 
 ```powershell
-    # Ton order id local
-    $orderId = "ORD-2026-957682"
-    # Store ID Printful (doit matcher pod_settings.store_id)
-    $storeId = "InstaWear2"
+# Ton order id local
+$orderId = "ORD-2026-957682"
+# Store ID Printful (doit matcher pod_settings.store_id)
+$storeId = "InstaWear2"
 
-    $body = @{
-      type  = "package_shipped"
-      store = $storeId
-      data  = @{
-        order = @{
-          id          = 987654322    # id Printful (change pour éviter doublon)
-          external_id = $orderId
-        }
-        shipment = @{
-          carrier         = "USPS"
-          service         = "USPS First Class"
-          tracking_number = "9400TEST0003"   # change le numero a chaque test (anti-doublon)
-          tracking_url    = "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400TEST0003"
-          ship_date       = "2026-08-10"
-          reshipment      = $false
-        }
-      }
-    } | ConvertTo-Json -Depth 5
+$body = @{
+  type  = "package_shipped"
+  store = $storeId
+  data  = @{
+    order = @{
+      id          = 987654322    # id Printful (change pour éviter doublon)
+      external_id = $orderId
+    }
+    shipment = @{
+      carrier         = "USPS"
+      service         = "USPS First Class"
+      tracking_number = "9400TEST0003"   # change le numero a chaque test (anti-doublon)
+      tracking_url    = "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400TEST0003"
+      ship_date       = "2026-08-10"
+      reshipment      = $false
+    }
+  }
+} | ConvertTo-Json -Depth 5
 
-    Invoke-RestMethod -Uri "https://hkbybsycaylobvbnnwak.supabase.co/functions/v1/printful-webhook" `
-      -Method Post -ContentType "application/json" `
-      -Headers @{ apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTU1NTcxNCwiZXhwIjoyMDk3MTMxNzE0fQ.4wYYSz1a2Ls599Jym69vl4l4875B1UZLv9GKzF1Ut8A" } `
-      -Body $body
+Invoke-RestMethod -Uri "https://hkbybsycaylobvbnnwak.supabase.co/functions/v1/printful-webhook" `
+  -Method Post -ContentType "application/json" `
+  -Headers @{ apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTU1NTcxNCwiZXhwIjoyMDk3MTMxNzE0fQ.4wYYSz1a2Ls599Jym69vl4l4875B1UZLv9GKzF1Ut8A" } `
+  -Body $body
 ```
+
+---
 
 ## Secrets & Supabase Vault
 
-Les Edge Functions lisent leurs secrets via `Deno.env.get(...)`. Les variables
-requises sont :
+Les Edge Functions lisent leurs secrets via `Deno.env.get(...)`. Les variables requises sont :
 
 | Secret                                         | Utilisé par                                    |
 | ---------------------------------------------- | ---------------------------------------------- |
@@ -90,10 +101,7 @@ requises sont :
 
 ### Recommandation : déplacer les secrets vers Supabase Vault
 
-Au lieu de les déclarer en variables d'environnement, stockez les secrets
-sensibles (clés API Stripe/Printful/Resend, tokens Telegram) dans Supabase
-Vault. L'accès se fait alors via la fonction SQL `vault.decrypted_secrets`
-(préfixe `VITE_` exclu) ou `pgsodium` :
+Au lieu de les déclarer en variables d'environnement, stockez les secrets sensibles (clés API Stripe/Printful/Resend, tokens Telegram) dans Supabase Vault. L'accès se fait alors via la fonction SQL `vault.decrypted_secrets` (préfixe `VITE_` exclu) ou `pgsodium` :
 
 ```sql
 -- Insérer un secret dans le Vault (ex. clé Stripe test)
@@ -103,157 +111,168 @@ SELECT vault.create_secret(
 );
 ```
 
-Dans l'Edge Function, remplacez `Deno.env.get("STRIPE_SECRET_KEY_TEST")` par
-une lecture via le client Supabase (`supabase.rpc` sur
-`vault.decrypted_secrets`). Avantages : secret chiffré au repos, rotation
-traçable, pas de clé visible dans le dashboard Functions.
+Dans l'Edge Function, remplacez `Deno.env.get("STRIPE_SECRET_KEY_TEST")` par une lecture via le client Supabase (`supabase.rpc` sur `vault.decrypted_secrets`).
 
-> NB : `SUPABASE_SERVICE_ROLE_KEY` reste injecté par la plateforme ; il ne
-> doit pas être déplacé dans le Vault.
+**Avantages :**
+
+- Secret chiffré au repos
+- Rotation traçable
+- Pas de clé visible dans le dashboard Functions
+
+> **NB :** `SUPABASE_SERVICE_ROLE_KEY` reste injecté par la plateforme ; il ne doit pas être déplacé dans le Vault.
+
+---
 
 ## IPv4 Address
 
-`192.168.15.2`
+```
+192.168.15.2
+```
 
-Local: http://localhost:5173/
-➜ Network: http://192.168.15.2:5173/
+- **Local:** http://localhost:5173/
+- **Network:** http://192.168.15.2:5173/
 
-## tester si TypeScript compile sans erreur
+---
 
+## Tester si TypeScript compile sans erreur
+
+```bash
 npx tsc --noEmit
+```
+
+---
 
 ## Structure arborescente
 
-```
-
+```text
 instawear/
 ├── .vscode/
-│ └── settings.json
+│   └── settings.json
 ├── assets/
-│ └── .aistudio/
-│ └── .gitignore
+│   └── .aistudio/
+│       └── .gitignore
 ├── data/
-│ ├── assets.json
-│ ├── products.json
-│ └── settings.json
+│   ├── assets.json
+│   ├── products.json
+│   └── settings.json
 ├── dist/
 ├── node_modules/
 ├── public/
-│ ├── flags/
-│ │ ├── be.svg
-│ │ ├── br.svg
-│ │ ├── ca.svg
-│ │ ├── ch.svg
-│ │ ├── fr.svg
-│ │ ├── gb.svg
-│ │ ├── jp.svg
-│ │ └── us.svg
-│ ├── globe-off.svg
-│ ├── InstaWear-logo-settings.png
-│ ├── InstaWear-logo-wh-middle-no-BG.png
-│ ├── InstaWear-logo.png
-│ ├── Instawear-missing-item.svg
-│ └── unsubscribe.html
+│   ├── flags/
+│   │   ├── be.svg
+│   │   ├── br.svg
+│   │   ├── ca.svg
+│   │   ├── ch.svg
+│   │   ├── fr.svg
+│   │   ├── gb.svg
+│   │   ├── jp.svg
+│   │   └── us.svg
+│   ├── globe-off.svg
+│   ├── InstaWear-logo-settings.png
+│   ├── InstaWear-logo-wh-middle-no-BG.png
+│   ├── InstaWear-logo.png
+│   ├── Instawear-missing-item.svg
+│   └── unsubscribe.html
 ├── src/
-│ ├── admin/
-│ │ ├── emailMarketing/
-│ │ │ ├── constants.tsx
-│ │ │ ├── emailTemplates.tsx
-│ │ │ ├── helpers.ts
-│ │ │ ├── useToast.ts
-│ │ │ └── VariablesModal.tsx
-│ │ ├── AdminDashboardNew.tsx
-│ │ ├── adminHooks.ts
-│ │ ├── AdminSidebar.tsx
-│ │ ├── adminStyles.ts
-│ │ ├── adminTypes.ts
-│ │ ├── AdminUsersPage.tsx
-│ │ ├── CustomersPage.tsx
-│ │ ├── EmailMarketingPage.tsx
-│ │ ├── HelpPage.tsx
-│ │ ├── IntegrationsPage.tsx
-│ │ ├── InteractionsPage.tsx
-│ │ ├── NotificationsPage.tsx
-│ │ ├── OrdersPage.tsx
-│ │ ├── PrintfulProductForm.tsx
-│ │ ├── ProductFormPanel.tsx
-│ │ ├── ProductQuickViewModal.tsx
-│ │ ├── ProductsPage.tsx
-│ │ ├── PromotionsPage.tsx
-│ │ ├── ReportInfoModal.tsx
-│ │ ├── ReportsPage.tsx
-│ │ ├── SettingsPage.tsx
-│ │ └── useAdminHighlight.ts
-│ ├── api/
-│ │ ├── storageApi.ts
-│ │ └── supabaseApi.ts
-│ ├── components/
-│ │ ├── AboutSection.tsx
-│ │ ├── AccountPage.tsx
-│ │ ├── AuthModal.tsx
-│ │ ├── CartDrawer.tsx
-│ │ ├── CatalogSection.tsx
-│ │ ├── CheckoutFlow.tsx
-│ │ ├── CopyID.tsx
-│ │ ├── DealsSection.tsx
-│ │ ├── FaqSection.tsx
-│ │ ├── Footer.tsx
-│ │ ├── Header.tsx
-│ │ ├── HeroCarousel.tsx
-│ │ ├── ImageZoom.tsx
-│ │ ├── NotFound.tsx
-│ │ ├── OrderModal.tsx
-│ │ ├── OrderStatusStepper.tsx
-│ │ ├── OrderTrackingModal.tsx
-│ │ ├── ProductDetailModal.tsx
-│ │ ├── ProductModal.tsx
-│ │ ├── ProfileModal.tsx
-│ │ ├── ReassuranceBar.tsx
-│ │ ├── StoreProductCard.tsx
-│ │ ├── TagInput.tsx
-│ │ └── ToastContainer.tsx
-│ ├── constants/
-│ │ ├── assets.ts
-│ │ └── orderStatus.tsx
-│ ├── data/
-│ │ ├── countries.ts
-│ │ ├── faq.ts
-│ │ └── shippingRates.ts
-│ ├── hooks/
-│ │ ├── useCurrencySymbol.ts
-│ │ ├── useLocalStorage.ts
-│ │ ├── useShippingSettings.ts
-│ │ └── useTabBadge.ts
-│ ├── lib/
-│ │ └── supabaseClient.ts
-│ ├── utils/
-│ │ ├── emailTemplates.ts
-│ │ └── format.ts
-│ ├── App.tsx
-│ ├── index.css
-│ ├── main.tsx
-│ ├── types.ts
-│ └── vite-env.d.ts
+│   ├── admin/
+│   │   ├── emailMarketing/
+│   │   │   ├── constants.tsx
+│   │   │   ├── emailTemplates.tsx
+│   │   │   ├── helpers.ts
+│   │   │   ├── useToast.ts
+│   │   │   └── VariablesModal.tsx
+│   │   ├── AdminDashboardNew.tsx
+│   │   ├── adminHooks.ts
+│   │   ├── AdminSidebar.tsx
+│   │   ├── adminStyles.ts
+│   │   ├── adminTypes.ts
+│   │   ├── AdminUsersPage.tsx
+│   │   ├── CustomersPage.tsx
+│   │   ├── EmailMarketingPage.tsx
+│   │   ├── HelpPage.tsx
+│   │   ├── IntegrationsPage.tsx
+│   │   ├── InteractionsPage.tsx
+│   │   ├── NotificationsPage.tsx
+│   │   ├── OrdersPage.tsx
+│   │   ├── PrintfulProductForm.tsx
+│   │   ├── ProductFormPanel.tsx
+│   │   ├── ProductQuickViewModal.tsx
+│   │   ├── ProductsPage.tsx
+│   │   ├── PromotionsPage.tsx
+│   │   ├── ReportInfoModal.tsx
+│   │   ├── ReportsPage.tsx
+│   │   ├── SettingsPage.tsx
+│   │   └── useAdminHighlight.ts
+│   ├── api/
+│   │   ├── storageApi.ts
+│   │   └── supabaseApi.ts
+│   ├── components/
+│   │   ├── AboutSection.tsx
+│   │   ├── AccountPage.tsx
+│   │   ├── AuthModal.tsx
+│   │   ├── CartDrawer.tsx
+│   │   ├── CatalogSection.tsx
+│   │   ├── CheckoutFlow.tsx
+│   │   ├── CopyID.tsx
+│   │   ├── DealsSection.tsx
+│   │   ├── FaqSection.tsx
+│   │   ├── Footer.tsx
+│   │   ├── Header.tsx
+│   │   ├── HeroCarousel.tsx
+│   │   ├── ImageZoom.tsx
+│   │   ├── NotFound.tsx
+│   │   ├── OrderModal.tsx
+│   │   ├── OrderStatusStepper.tsx
+│   │   ├── OrderTrackingModal.tsx
+│   │   ├── ProductDetailModal.tsx
+│   │   ├── ProductModal.tsx
+│   │   ├── ProfileModal.tsx
+│   │   ├── ReassuranceBar.tsx
+│   │   ├── StoreProductCard.tsx
+│   │   ├── TagInput.tsx
+│   │   └── ToastContainer.tsx
+│   ├── constants/
+│   │   ├── assets.ts
+│   │   └── orderStatus.tsx
+│   ├── data/
+│   │   ├── countries.ts
+│   │   ├── faq.ts
+│   │   └── shippingRates.ts
+│   ├── hooks/
+│   │   ├── useCurrencySymbol.ts
+│   │   ├── useLocalStorage.ts
+│   │   ├── useShippingSettings.ts
+│   │   └── useTabBadge.ts
+│   ├── lib/
+│   │   └── supabaseClient.ts
+│   ├── utils/
+│   │   ├── emailTemplates.ts
+│   │   └── format.ts
+│   ├── App.tsx
+│   ├── index.css
+│   ├── main.tsx
+│   ├── types.ts
+│   └── vite-env.d.ts
 ├── supabase/
-│ ├── .temp/
-│ ├── functions/
-│ │ ├── create-printful-order/
-│ │ │ └── index.ts
-│ │ ├── printful-webhook/
-│ │ │ └── index.ts
-│ │ ├── reset-password/
-│ │ │ └── index.ts
-│ │ ├── send-email/
-│ │ │ └── index.ts
-│ │ ├── stripe-checkout/
-│ │ │ └── index.ts
-│ │ ├── stripe-webhook/
-│ │ │ └── index.ts
-│ │ └── sync-printful/
-│ │ ├── .npmrc
-│ │ ├── deno.json
-│ │ └── index.ts
-│ └── config.toml
+│   ├── .temp/
+│   ├── functions/
+│   │   ├── create-printful-order/
+│   │   │   └── index.ts
+│   │   ├── printful-webhook/
+│   │   │   └── index.ts
+│   │   ├── reset-password/
+│   │   │   └── index.ts
+│   │   ├── send-email/
+│   │   │   └── index.ts
+│   │   ├── stripe-checkout/
+│   │   │   └── index.ts
+│   │   ├── stripe-webhook/
+│   │   │   └── index.ts
+│   │   └── sync-printful/
+│   │       ├── .npmrc
+│   │       ├── deno.json
+│   │       └── index.ts
+│   └── config.toml
 ├── .env
 ├── .env.example
 ├── .env.local
@@ -270,22 +289,21 @@ instawear/
 ├── tsconfig.json
 ├── vercel.json
 └── vite.config.ts
-
 ```
 
-## 📊 Checklist InstaWear — Mise à jour
+---
+
+## Checklist InstaWear — Mise à jour
+
+### Bugs
 
 ---
 
-### 🐛 Bugs
-
----
-
-### ✨ Améliorations
+### Améliorations
 
 - [ ] ...
 
-#### 🔐 Sécurité (⚠️ avant production)
+#### Sécurité (⚠️ avant production)
 
 - [x] DONE
   - [x] **RLS (Row Level Security)** sur les tables Supabase
@@ -293,7 +311,7 @@ instawear/
   - [x] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
-#### 🧩 UX / UI
+#### UX / UI
 
 - [x] DONE
   - [x] Popups ne cachent plus les boutons d'achat/paiement
@@ -302,11 +320,11 @@ instawear/
 - [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin (nouvelles commandes + changements de statut Printful)
 - [ ] Icône cœur des cartes produit (et modale info produit)
 - [ ] **Mobile friendly** — toutes les pages utilisateur
-- dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
-  - [ ] **Voir détails rapide** : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
-  - [ ] **Voir dans commande** : naviguer vers la page order, avec useAdminHighlight
+- Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
+  - [ ] **Voir détails rapide** : faire apparaître le même modal `Order detail modal` de `src/admin/OrdersPage.tsx`, tout en restant dans la conversa (renommer en `OrderQuickViewModal` ?)
+  - [ ] **Voir dans commande** : naviguer vers la page order, avec `useAdminHighlight`
 
-#### 📦 Produits
+#### Produits
 
 - [x] DONE
   - [x] Couleurs affichées et sélectionnables
@@ -314,10 +332,10 @@ instawear/
   - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
   - [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
   - [x] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
-  - [x] checking variant missmatch :
-  - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
-  - [x] on printful, the wrong variant is passed / or not passed at all
-  - [x] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
+  - [x] Checking variant mismatch :
+    - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
+    - [x] on Printful, the wrong variant is passed / or not passed at all
+  - [x] **Verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
   - [x] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
   - [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
@@ -325,31 +343,32 @@ instawear/
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
 - [ ] **Comments and review ?** also showing in the user's dashboard.
 
-#### 🚚 Livraison
+#### Livraison
 
 - [x] DONE
   - [x] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
   - [x] **Webhook & mail**
-  - [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
-  - [x] faut verifier que le user reçoive les notifications qu'il faut aussi
-  - [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
-  - en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
-    - [x] package_shipped : "Your order has been shipped! 📦"
-    - [x] order_failed : "Issue with your order ⚠️"
-    - [x] order_canceled : "❌ Your order has been cancelled"
+  - [x] Faut vérifier que je reçoive dans mes notifications (`src/admin/NotificationsPage.tsx`) des infos sur les statuts des order ⇒ ce n'est pas encore mis en place
+  - [x] Faut vérifier que le user reçoive les notifications qu'il faut aussi
+  - [x] Et vérifier que le webhook modifie le statut du order dans mon projet / ma BDD réellement (écoute réel)
+  - En testant les webhook manuellement (PowerShell), les mails reçus dans mon Resend :
+    - [x] `package_shipped` : "Your order has been shipped! 📦"
+    - [x] `order_failed` : "Issue with your order ⚠️"
+    - [x] `order_canceled` : "❌ Your order has been cancelled"
 
-- webhook optionnels :
-- [ ] order_put_hold 🟡 Optionnel : alerte admin "commande en pause"
-- [ ] order_remove_hold 🟡 Optionnel : alerte "reprise"
-- [ ] order_refunded 🟡 Optionnel : log admin
-- [ ] package_returned 🟡 Optionnel : statut → returned
-- [ ] product_synced ⚪ Pas nécessaire (déjà géré par sync)
-- [ ] product_updated ⚪ Pas nécessaire
-- [ ] product_deleted ⚪ Pas nécessaire
-- [ ] stock_updated ⚪ Pas nécessaire pour l'instant
-- [ ] order_put_hold_approval ⚪ Pas nécessaire
+**Webhooks optionnels :**
 
-#### 📧 Emails transactionnels
+- [ ] `order_put_hold` 🟡 Optionnel : alerte admin "commande en pause"
+- [ ] `order_remove_hold` 🟡 Optionnel : alerte "reprise"
+- [ ] `order_refunded` 🟡 Optionnel : log admin
+- [ ] `package_returned` 🟡 Optionnel : statut → returned
+- [ ] `product_synced` ⚪ Pas nécessaire (déjà géré par sync)
+- [ ] `product_updated` ⚪ Pas nécessaire
+- [ ] `product_deleted` ⚪ Pas nécessaire
+- [ ] `stock_updated` ⚪ Pas nécessaire pour l'instant
+- [ ] `order_put_hold_approval` ⚪ Pas nécessaire
+
+#### Emails transactionnels
 
 - [x] Commande confirmée (Order confirmed)
 - [x] Ajouter les frais de transport dans le récap email
@@ -360,30 +379,32 @@ instawear/
 - [x] Livrée (Delivered)
 - [x] Annulée (Cancelled)
 - [x] Promotions & deals
-- [ ] order_failed vs order_canceled : quel cas n est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
+- [ ] `order_failed` vs `order_canceled` : quel cas n'est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
 
-#### 📮 Emails / Resend (post-domain)
+#### Emails
 
-- [ ] **Aligner les URLs** — utiliser le domaine d'envoi (`instawear.vercel.app`)
-- [ ] **Héberger les images** — ne pas utiliser `files.cdn.printful.com`
-- [ ] **Infos business** — adresse postale Doral, FL dans le pied de page email
+- Resend (post-domain) :
+  - [ ] **Aligner les URLs** — utiliser le domaine d'envoi (`instawear.vercel.app`)
+  - [ ] **Héberger les images** — ne pas utiliser `files.cdn.printful.com`
+  - [ ] **Infos business** — adresse postale Doral, FL dans le pied de page email
+- [ ] Cliquer sur le bouton "View order details →" dans le mail : rediriger vers `instawear.vercel.app` > ouvrir modal 'Track Your Order' avec le code de l'order déjà inséré dans le champ de recherche et déjà run / les infos déjà recherchées, donc affichées.
 
-#### 👤 Espace client
+#### Espace client
 
 - [ ] ...
 
-#### 🦶 Footer
+#### Footer
 
 - [ ] **Newsletter** — repenser l'intérêt client (offres, bonus, exclusivités)
 - [ ] **Liens** — compléter (Mentions légales, CGU, politique de retour…)
 
-#### Codes morts - rechercher et vérifier
+#### Codes morts — rechercher et vérifier
 
-- [ ] `src\components\DealsSection.tsx` -> _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
+- [ ] `src/components/DealsSection.tsx` → _'Score exclusive deals on our AI-powered sports tees & hoodies before'_
 
 ---
 
-## 📊 Compteurs de ce qui reste
+## Compteurs de ce qui reste
 
 | Catégorie              | Restant | Détail                                                                                                            |
 | ---------------------- | ------: | ----------------------------------------------------------------------------------------------------------------- |
@@ -397,5 +418,3 @@ instawear/
 | Footer                 |       2 | Newsletter, liens                                                                                                 |
 | Codes morts            |       1 | `DealsSection.tsx` : phrase obsolète                                                                              |
 | **Total**              |  **28** |                                                                                                                   |
-
---- |
