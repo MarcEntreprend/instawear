@@ -254,18 +254,20 @@ instawear/
 
 #### 🔐 Sécurité (⚠️ avant production)
 
-- [x] **RLS (Row Level Security)** sur les tables Supabase
-- [x] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
-- [x] **Protection injections** — URL, console, fuite de clés
+- [x] DONE
+  - [x] **RLS (Row Level Security)** sur les tables Supabase
+  - [x] **Admin / user access** — vérifier les rôles dans les Edge Functions et appels API
+  - [x] **Protection injections** — URL, console, fuite de clés
 - [ ] Autres ?
 
 #### 🧩 UX / UI
 
+- [x] DONE
+  - [x] Popups ne cachent plus les boutons d'achat/paiement
+  - [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
 - [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin (nouvelles commandes + changements de statut Printful)
 - [ ] Icône cœur des cartes produit (et modale info produit)
-- [x] Popups ne cachent plus les boutons d'achat/paiement
-- [x] **Copie order ID en un clic** — icône + animation check
 - [ ] **Mobile friendly** — toutes les pages utilisateur
 - dans `src\admin\InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
   - [ ] **Voir détails rapide** : faire apparaitre le meme modal `Order detail modal` de `src\admin\OrdersPage.tsx`, tout en restant dans la conversa (renommer en OrderQuickViewModal ?)
@@ -273,33 +275,35 @@ instawear/
 
 #### 📦 Produits
 
-- [x] Couleurs affichées et sélectionnables
-- [x] Tailles affichées et sélectionnables
-- [x] **Image du variant sélectionné** dans le panier, favoris, checkout
-- [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
-- [x] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
-- [x] checking variant missmatch :
-- [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
-- [x] on printful, the wrong variant is passed / or not passed at all
+- [x] DONE
+  - [x] Couleurs affichées et sélectionnables
+  - [x] Tailles affichées et sélectionnables
+  - [x] **Image du variant sélectionné** dans le panier, favoris, checkout
+  - [x] **Image placeholder du shipping fee** dans Stripe — remplacé par icône boîte
+  - [x] **Ouvrir le variant correspondant** — clic sur un produit dans OrdersPage (admin) ou espace client → le variant exact s'ouvre dans le modal
+  - [x] checking variant missmatch :
+  - [x] in mail for Order confirmed (while the good variant is passed in Payment pending mails)
+  - [x] on printful, the wrong variant is passed / or not passed at all
+  - [x] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
+  - [x] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
+  - [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
 - [ ] **Standardiser `useProductAvailability`** — hook réutilisable
-- [x] **verify promotions** : working smooth ? promotional products shown on filter "Deals🔴" ?
 - [ ] **Visibilité de produits / via admin** — logique actif/inactif absente de certaines pages
-- [x] **Comparatif synchronisation** — X produits sync vs Y nouveaux dans settings
-- [x] **Guide des tailles** — dynamique via API Printful, fallback "(Approx.)" pour les manuels
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
 - [ ] **Comments and review ?** also showing in the user's dashboard.
 
 #### 🚚 Livraison
 
-- [x] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
-- [x] **Webhook & mail**
-- [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
-- [x] faut verifier que le user reçoive les notifications qu'il faut aussi
-- [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
-- en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
-  - [x] package_shipped : "Your order has been shipped! 📦"
-  - [x] order_failed : "Issue with your order ⚠️"
-  - [x] order_canceled : "❌ Your order has been cancelled"
+- [x] DONE
+  - [x] **Webhook Printful** — mise à jour automatique du tracking → déclenchement email
+  - [x] **Webhook & mail**
+  - [x] faut verifier que je reçoive dans mes notifications (src\admin\NotificationsPage.tsx) des infos sur les statuts des order => ce n est pas encore mis en place
+  - [x] faut verifier que le user reçoive les notifications qu'il faut aussi
+  - [x] et verifier que le webhook modifie le statut du order dans mon projet /ma bdd réellement (écoute réel).
+  - en testant les webhook manuellement (powershell), les mails reçus dans mon resend :
+    - [x] package_shipped : "Your order has been shipped! 📦"
+    - [x] order_failed : "Issue with your order ⚠️"
+    - [x] order_canceled : "❌ Your order has been cancelled"
 
 - webhook optionnels :
 - [ ] order_put_hold 🟡 Optionnel : alerte admin "commande en pause"
