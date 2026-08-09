@@ -50,6 +50,7 @@ import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 import CartIcon from "./CartIcon";
+import OrderStatusStepper, { StatusPill } from "./OrderStatusStepper";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
@@ -77,69 +78,6 @@ type TabKey =
   | "notifications"
   | "profile"
   | "support";
-
-// ─── Status config ────────────────────────────────────────────────────
-const ORDER_STATUS: Record<
-  string,
-  {
-    label: string;
-    icon: React.ReactNode;
-    color: string;
-    bg: string;
-    step: number;
-  }
-> = {
-  paid: {
-    label: "Paid",
-    icon: <CheckCircle2 size={12} strokeWidth={2} />,
-    color: "#2563eb",
-    bg: "#dbeafe",
-    step: 0,
-  },
-  pending: {
-    label: "Pending",
-    icon: <Clock size={12} strokeWidth={2} />,
-    color: "#d97706",
-    bg: "#fef3c7",
-    step: 1,
-  },
-  in_production: {
-    label: "In Production",
-    icon: <Box size={12} strokeWidth={2} />,
-    color: "#7c3aed",
-    bg: "#ede9fe",
-    step: 2,
-  },
-  shipped: {
-    label: "Shipped",
-    icon: <Truck size={12} strokeWidth={2} />,
-    color: "#059669",
-    bg: "#d1fae5",
-    step: 3,
-  },
-  delivered: {
-    label: "Delivered",
-    icon: <CheckCircle2 size={12} strokeWidth={2} />,
-    color: "#166534",
-    bg: "#dcfce7",
-    step: 4,
-  },
-  cancelled: {
-    label: "Cancelled",
-    icon: <XCircle size={12} strokeWidth={2} />,
-    color: "#991b1b",
-    bg: "#fee2e2",
-    step: -1,
-  },
-};
-
-const STATUS_STEPS = [
-  "Paid",
-  "Pending",
-  "In Production",
-  "Shipped",
-  "Delivered",
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function initials(email: string, name?: string): string {
@@ -1538,8 +1476,6 @@ function OrderDetail({
     initialSize?: string,
   ) => void;
 }) {
-  const st = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
-
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
       <button
@@ -1550,97 +1486,8 @@ function OrderDetail({
         <ArrowLeft size={14} strokeWidth={2} /> All Orders
       </button>
 
-      {/* Status timeline */}
-      {order.status !== "cancelled" && (
-        <div
-          className="rounded-2xl p-4"
-          style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-border)",
-          }}
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <p
-              className="text-[12px] font-semibold uppercase tracking-[0.08em]"
-              style={{ color: "var(--color-ink4)" }}
-            >
-              Order Status
-            </p>
-            <StatusPill status={order.status} />
-          </div>
-          <div className="flex items-center gap-0">
-            {STATUS_STEPS.map((step, i) => {
-              const reached = st.step >= i;
-              const current = st.step === i;
-              return (
-                <React.Fragment key={step}>
-                  <div className="flex flex-col items-center gap-1">
-                    <div
-                      className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
-                      style={{
-                        background: current
-                          ? "var(--color-accent)"
-                          : reached
-                            ? "var(--color-ink4)"
-                            : "var(--color-surface2)",
-                        border: current
-                          ? "2px solid var(--color-accent)"
-                          : `2px solid ${reached ? "var(--color-ink4)" : "var(--color-border)"}`,
-                        boxShadow: current
-                          ? "0 0 0 3px var(--color-accent-bg)"
-                          : "none",
-                        animation: current
-                          ? "pulse-ring 1.8s ease-out infinite"
-                          : "none",
-                      }}
-                    >
-                      {reached ? (
-                        <CheckCircle2
-                          size={13}
-                          strokeWidth={2.5}
-                          style={{ color: "white" }}
-                        />
-                      ) : (
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ background: "var(--color-border)" }}
-                        />
-                      )}
-                    </div>
-                    <span
-                      className="text-[9px] font-semibold text-center leading-tight whitespace-nowrap"
-                      style={{
-                        color: current
-                          ? "var(--color-ink)"
-                          : reached
-                            ? "var(--color-ink4)"
-                            : "var(--color-ink3)",
-                      }}
-                    >
-                      {step}
-                    </span>
-                  </div>
-                  {i < STATUS_STEPS.length - 1 && (
-                    <div
-                      className="mx-1 h-0.5 flex-1 rounded-full transition-all duration-500"
-                      style={{
-                        background:
-                          // Les deux étapes sont passées → gris
-                          st.step > i + 1
-                            ? "var(--color-ink4)"
-                            : // L'étape de gauche est passée, celle de droite est en cours → accent
-                              st.step > i
-                              ? "var(--color-accent)"
-                              : "var(--color-border)",
-                      }}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
+      <OrderStatusStepper status={order.status} />
 
       {/* Order info */}
       <div
@@ -3881,20 +3728,6 @@ function ProfileTab({
         </button>
       </div>
     </div>
-  );
-}
-
-// ─── Shared UI pieces ────────────────────────────────────────────────
-
-function StatusPill({ status }: { status: string }) {
-  const st = ORDER_STATUS[status] || ORDER_STATUS.pending;
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
-      style={{ background: st.bg, color: st.color }}
-    >
-      {st.icon} {st.label}
-    </span>
   );
 }
 

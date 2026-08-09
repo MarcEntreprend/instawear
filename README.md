@@ -170,6 +170,7 @@ instawear/
 │ │ ├── ImageZoom.tsx
 │ │ ├── NotFound.tsx
 │ │ ├── OrderModal.tsx
+│ │ ├── OrderStatusStepper.tsx
 │ │ ├── OrderTrackingModal.tsx
 │ │ ├── ProductDetailModal.tsx
 │ │ ├── ProductModal.tsx
@@ -179,7 +180,8 @@ instawear/
 │ │ ├── TagInput.tsx
 │ │ └── ToastContainer.tsx
 │ ├── constants/
-│ │ └── assets.ts
+│ │ ├── assets.ts
+│ │ └── orderStatus.tsx
 │ ├── data/
 │ │ ├── countries.ts
 │ │ ├── faq.ts

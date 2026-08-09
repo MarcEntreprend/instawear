@@ -136,16 +136,24 @@ export interface Order {
   shippingAddress: ShippingAddress;
   externalOrderId?: string;
   notes?: string;
-  trackingInfo?: TrackingInfo | null;
+  // Tableau de colis : un par expédition/réexpédition Printful. Toujours un
+  // tableau (potentiellement vide), jamais null — mapOrder() dans
+  // supabaseApi.ts normalise systématiquement, y compris pour les
+  // commandes antérieures qui stockaient un objet unique en base.
+  trackingInfo: TrackingInfo[];
   items: OrderItem[];
 }
 
-// ─── Tracking d'expédition (Printful) ───────────────────────────────────
+// ─── Tracking d'expédition (Printful) — un colis individuel ─────────────
 export interface TrackingInfo {
   carrier?: string | null;
+  service?: string | null;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
   shipDate?: string | null;
+  // true uniquement si Printful a explicitement marqué ce colis comme une
+  // réexpédition (shipment.reshipment côté Webhook API) — jamais déduit.
+  reshipment?: boolean;
 }
 
 // ─── Order Item (§2.6) ────────────────────────────────────────────────────

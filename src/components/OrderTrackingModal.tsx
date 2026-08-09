@@ -1,19 +1,13 @@
 //src/components/OrderTrackingModal.tsx
 
 import React, { useState } from "react";
-import {
-  X,
-  Search,
-  Package,
-  Clock,
-  CheckCircle,
-  Truck,
-  MapPin,
-} from "lucide-react";
+import { X, Search, Truck, RefreshCw } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import CopyID from "./CopyID";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { orderApi } from "../api/supabaseApi";
+import OrderStatusStepper from "./OrderStatusStepper";
+import type { TrackingInfo } from "../admin/adminTypes";
 
 interface TrackedOrder {
   id: string;
@@ -26,12 +20,9 @@ interface TrackedOrder {
   shippingCost: number;
   address: string | null;
   message: string | null;
-  trackingInfo?: {
-    carrier?: string | null;
-    trackingNumber?: string | null;
-    trackingUrl?: string | null;
-    shipDate?: string | null;
-  } | null;
+  // Un élément par colis (voir TrackingInfo dans adminTypes.ts). orderApi.get()
+  // renvoie déjà ce tableau normalisé via mapOrder() dans supabaseApi.ts.
+  shipments: TrackingInfo[];
   items: {
     productId: string;
     title: string;
@@ -52,14 +43,6 @@ interface OrderTrackingModalProps {
   ) => void;
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: "Pending", color: "#92400e" },
-  in_production: { label: "In Production", color: "#1e40af" },
-  shipped: { label: "Shipped", color: "#065f46" },
-  delivered: { label: "Delivered", color: "#166534" },
-  cancelled: { label: "Cancelled", color: "#991b1b" },
-};
-
 export default function OrderTrackingModal({
   onClose,
   onSelectProduct,
@@ -79,7 +62,9 @@ export default function OrderTrackingModal({
       // orderApi est déjà importé en haut du fichier
       const found = await orderApi.get(code);
       if (found) {
-        // Convertir l'objet Order (Supabase) en TrackedOrder (format du composant)
+        // Convertir l'objet Order (Supabase) en TrackedOrder (format du composant).
+        // found.trackingInfo est déjà un tableau normalisé par mapOrder()
+        // dans supabaseApi.ts — aucune normalisation supplémentaire ici.
         const tracked: TrackedOrder = {
           id: found.id,
           clientName: found.clientName || found.shippingAddress?.fullName || "",
@@ -93,7 +78,7 @@ export default function OrderTrackingModal({
             ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
             : null,
           message: found.notes || null,
-          trackingInfo: found.trackingInfo || null,
+          shipments: found.trackingInfo || [],
           items: found.items.map((item) => ({
             productId: item.productId,
             title: item.productTitle || item.productId,
@@ -245,41 +230,6 @@ export default function OrderTrackingModal({
                   <CopyID id={order.id} />
                 </p>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <p
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "var(--color-ink3)",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Status
-                </p>
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "2px 10px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background:
-                      (
-                        STATUS_LABELS[order.status] || {
-                          color: "#555",
-                          bg: "#f3f4f6",
-                        }
-                      ).color + "22",
-                    color: (STATUS_LABELS[order.status] || { color: "#555" })
-                      .color,
-                  }}
-                >
-                  {
-                    (STATUS_LABELS[order.status] || { label: order.status })
-                      .label
-                  }
-                </span>
-              </div>
             </div>
 
             <div
@@ -314,12 +264,20 @@ export default function OrderTrackingModal({
               )}
             </div>
 
-            {order.status === "shipped" && order.trackingInfo && (
+            {/* Barre de progression partagée — identique à AccountPage.tsx et à l'email d'expédition */}
+            <div style={{ marginBottom: 14 }}>
+              <OrderStatusStepper status={order.status} />
+            </div>
+
+            {order.status === "shipped" && order.shipments.length > 0 && (
               <div
                 style={{
                   borderTop: "1px solid var(--color-border)",
                   paddingTop: 10,
                   marginBottom: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
                 <p
@@ -327,73 +285,127 @@ export default function OrderTrackingModal({
                     fontSize: 12,
                     fontWeight: 700,
                     color: "var(--color-ink)",
-                    marginBottom: 8,
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
                   }}
                 >
                   <Truck size={14} color="var(--color-accent)" />
-                  Tracking
+                  {order.shipments.length > 1
+                    ? `Tracking (${order.shipments.length} packages)`
+                    : "Tracking"}
                 </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 6,
-                    fontSize: 12.5,
-                    color: "var(--color-ink2)",
-                  }}
-                >
-                  {order.trackingInfo.carrier && (
-                    <div>
-                      <span style={{ color: "var(--color-ink4)" }}>
-                        Carrier:
-                      </span>{" "}
-                      {order.trackingInfo.carrier}
-                    </div>
-                  )}
-                  {order.trackingInfo.shipDate && (
-                    <div>
-                      <span style={{ color: "var(--color-ink4)" }}>
-                        Shipped on:
-                      </span>{" "}
-                      {new Date(order.trackingInfo.shipDate).toLocaleDateString(
-                        "en-US",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </div>
-                  )}
-                  {order.trackingInfo.trackingNumber && (
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <span style={{ color: "var(--color-ink4)" }}>
-                        Tracking #:
-                      </span>{" "}
-                      {order.trackingInfo.trackingUrl ? (
-                        <a
-                          href={order.trackingInfo.trackingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+
+                {order.shipments.map((shipment, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: "var(--color-surface2)",
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          color: "var(--color-ink3)",
+                        }}
+                      >
+                        {order.shipments.length > 1
+                          ? `Package ${i + 1} of ${order.shipments.length}`
+                          : "Package"}
+                      </span>
+                      {/* Badge réexpédition — basé uniquement sur le champ
+                          reshipment renvoyé par Printful (signal réel, pas
+                          une heuristique maison). */}
+                      {shipment.reshipment && (
+                        <span
                           style={{
-                            color: "var(--color-accent)",
-                            fontWeight: 600,
-                            textDecoration: "underline",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            color: "#92400e",
+                            background: "#fef3c7",
+                            borderRadius: 999,
+                            padding: "2px 8px",
                           }}
                         >
-                          {order.trackingInfo.trackingNumber}
-                        </a>
-                      ) : (
-                        <span style={{ fontFamily: "monospace" }}>
-                          {order.trackingInfo.trackingNumber}
+                          <RefreshCw size={10} strokeWidth={2.5} />
+                          Reshipped free of charge
                         </span>
                       )}
                     </div>
-                  )}
-                </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 6,
+                        fontSize: 12.5,
+                        color: "var(--color-ink2)",
+                      }}
+                    >
+                      {shipment.carrier && (
+                        <div>
+                          <span style={{ color: "var(--color-ink4)" }}>
+                            Carrier:
+                          </span>{" "}
+                          {shipment.carrier}
+                        </div>
+                      )}
+                      {shipment.shipDate && (
+                        <div>
+                          <span style={{ color: "var(--color-ink4)" }}>
+                            Shipped on:
+                          </span>{" "}
+                          {new Date(shipment.shipDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </div>
+                      )}
+                      {shipment.trackingNumber && (
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <span style={{ color: "var(--color-ink4)" }}>
+                            Tracking #:
+                          </span>{" "}
+                          {shipment.trackingUrl ? (
+                            <a
+                              href={shipment.trackingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "var(--color-accent)",
+                                fontWeight: 600,
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {shipment.trackingNumber}
+                            </a>
+                          ) : (
+                            <span style={{ fontFamily: "monospace" }}>
+                              {shipment.trackingNumber}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

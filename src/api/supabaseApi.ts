@@ -137,14 +137,25 @@ const mapOrder = (row: any): Order => ({
   },
   externalOrderId: row.external_order_id,
   notes: row.notes,
-  trackingInfo: row.tracking_info
-    ? {
-        carrier: row.tracking_info.carrier ?? null,
-        trackingNumber: row.tracking_info.tracking_number ?? null,
-        trackingUrl: row.tracking_info.tracking_url ?? null,
-        shipDate: row.tracking_info.ship_date ?? null,
-      }
-    : null,
+  // tracking_info est désormais un TABLEAU de colis côté DB (un par
+  // expédition/réexpédition Printful), poussé par printful-webhook/index.ts
+  // au lieu d'être écrasé. Les commandes créées avant cette évolution
+  // stockent encore un objet unique : on le normalise ici en tableau à un
+  // élément pour que tous les consommateurs (OrderTrackingModal.tsx,
+  // AccountPage.tsx) n'aient qu'un seul format à gérer.
+  trackingInfo: (Array.isArray(row.tracking_info)
+    ? row.tracking_info
+    : row.tracking_info
+      ? [row.tracking_info]
+      : []
+  ).map((shipment: any) => ({
+    carrier: shipment.carrier ?? null,
+    service: shipment.service ?? null,
+    trackingNumber: shipment.tracking_number ?? null,
+    trackingUrl: shipment.tracking_url ?? null,
+    shipDate: shipment.ship_date ?? null,
+    reshipment: shipment.reshipment === true,
+  })),
   items: [], // à remplir séparément
 });
 
