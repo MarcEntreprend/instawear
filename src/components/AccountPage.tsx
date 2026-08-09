@@ -41,7 +41,12 @@ import {
   Upload,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
+import {
+  customerApi,
+  interactionApi,
+  mapOrder,
+  newsletterApi,
+} from "../api/supabaseApi";
 import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -1169,24 +1174,7 @@ function OrdersTab({
                         }),
                       );
                       setSelectedOrder({
-                        id: refreshed.id,
-                        clientId: refreshed.client_id,
-                        clientName: refreshed.client_name,
-                        clientEmail: refreshed.client_email,
-                        createdAt: refreshed.created_at,
-                        status: refreshed.status,
-                        totalAmount: refreshed.total_amount,
-                        shippingCost: refreshed.shipping_cost,
-                        shippingAddress: {
-                          fullName: refreshed.shipping_address_full_name,
-                          address: refreshed.shipping_address_address,
-                          city: refreshed.shipping_address_city,
-                          zip: refreshed.shipping_address_zip,
-                          country: refreshed.shipping_address_country,
-                          phone: refreshed.shipping_address_phone,
-                        },
-                        externalOrderId: refreshed.external_order_id,
-                        notes: refreshed.notes,
+                        ...mapOrder(refreshed),
                         items,
                       } as Order);
                     } else {
@@ -1326,24 +1314,7 @@ function OrdersTab({
                         }),
                       );
                       setSelectedOrder({
-                        id: refreshed.id,
-                        clientId: refreshed.client_id,
-                        clientName: refreshed.client_name,
-                        clientEmail: refreshed.client_email,
-                        createdAt: refreshed.created_at,
-                        status: refreshed.status,
-                        totalAmount: refreshed.total_amount,
-                        shippingCost: refreshed.shipping_cost,
-                        shippingAddress: {
-                          fullName: refreshed.shipping_address_full_name,
-                          address: refreshed.shipping_address_address,
-                          city: refreshed.shipping_address_city,
-                          zip: refreshed.shipping_address_zip,
-                          country: refreshed.shipping_address_country,
-                          phone: refreshed.shipping_address_phone,
-                        },
-                        externalOrderId: refreshed.external_order_id,
-                        notes: refreshed.notes,
+                        ...mapOrder(refreshed),
                         items,
                       } as Order);
                     } else {

@@ -118,7 +118,7 @@ const mapProduct = (row: any): AdminProduct => ({
   updatedAt: row.updated_at,
 });
 
-const mapOrder = (row: any): Order => ({
+export const mapOrder = (row: any): Order => ({
   id: row.id,
   clientId: row.client_id ?? "guest",
   clientName: row.client_name,
