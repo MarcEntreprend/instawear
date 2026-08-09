@@ -21,6 +21,7 @@ import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
 import NotificationsPage from "./NotificationsPage";
 import OrdersPage from "./OrdersPage";
+import ShippedDeliveredPage from "./ShippedDeliveredPage";
 import PromotionsPage from "./PromotionsPage";
 import ReportsPage from "./ReportsPage";
 import IntegrationsPage from "./IntegrationsPage";
@@ -1063,6 +1064,7 @@ export default function AdminDashboard({
     orders: "Commandes",
     products: "Produits",
     notifications: "Notifications",
+    shipped: "Expédiées & Livrées",
     customers: "Clients",
     promotions: "Promotions & Deals",
     "email-marketing": "Email Marketing",
@@ -1312,6 +1314,7 @@ export default function AdminDashboard({
           )}
           {section === "products" && <ProductsPage />}
           {section === "notifications" && <NotificationsPage />}
+          {section === "shipped" && <ShippedDeliveredPage />}
           {section === "customers" && (
             <CustomersPage
               onNavigate={navigate}

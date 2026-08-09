@@ -41,6 +41,39 @@ npx supabase functions deploy delete-account --no-verify-jwt
 
 ```
 
+## TEST livraison :
+
+```powershell
+    # Ton order id local
+    $orderId = "ORD-2026-957682"
+    # Store ID Printful (doit matcher pod_settings.store_id)
+    $storeId = "InstaWear2"
+
+    $body = @{
+      type  = "package_shipped"
+      store = $storeId
+      data  = @{
+        order = @{
+          id          = 987654322    # id Printful (change pour éviter doublon)
+          external_id = $orderId
+        }
+        shipment = @{
+          carrier         = "USPS"
+          service         = "USPS First Class"
+          tracking_number = "9400TEST0003"   # change le numero a chaque test (anti-doublon)
+          tracking_url    = "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400TEST0003"
+          ship_date       = "2026-08-10"
+          reshipment      = $false
+        }
+      }
+    } | ConvertTo-Json -Depth 5
+
+    Invoke-RestMethod -Uri "https://hkbybsycaylobvbnnwak.supabase.co/functions/v1/printful-webhook" `
+      -Method Post -ContentType "application/json" `
+      -Headers @{ apikey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrYnlic3ljYXlsb2J2Ym5ud2FrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTU1NTcxNCwiZXhwIjoyMDk3MTMxNzE0fQ.4wYYSz1a2Ls599Jym69vl4l4875B1UZLv9GKzF1Ut8A" } `
+      -Body $body
+```
+
 ## Secrets & Supabase Vault
 
 Les Edge Functions lisent leurs secrets via `Deno.env.get(...)`. Les variables
