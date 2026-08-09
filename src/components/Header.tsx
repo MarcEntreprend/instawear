@@ -659,7 +659,7 @@ export default function Header({
               <Heart size={20} strokeWidth={1.8} />
               {favoriteCount > 0 && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-gray-900 font-bold"
+                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-white font-bold"
                   style={{ fontSize: "9px", background: "var(--color-accent)" }}
                 >
                   {favoriteCount}
