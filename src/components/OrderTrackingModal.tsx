@@ -403,6 +403,43 @@ export default function OrderTrackingModal({
                           )}
                         </div>
                       )}
+                      {shipment.estimatedMinDate && (
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <span style={{ color: "var(--color-ink4)" }}>
+                            Estimated delivery:
+                          </span>{" "}
+                          {shipment.estimatedMinDate ===
+                          shipment.estimatedMaxDate ? (
+                            <strong>
+                              {new Date(
+                                shipment.estimatedMinDate + "T00:00:00",
+                              ).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </strong>
+                          ) : (
+                            <strong>
+                              {new Date(
+                                shipment.estimatedMinDate + "T00:00:00",
+                              ).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}{" "}
+                              –{" "}
+                              {new Date(
+                                shipment.estimatedMaxDate + "T00:00:00",
+                              ).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </strong>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

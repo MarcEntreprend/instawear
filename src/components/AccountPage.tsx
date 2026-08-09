@@ -2064,7 +2064,10 @@ function NotificationsTab({
               </p>
               <p
                 className="text-[12px] mt-1"
-                style={{ color: "var(--color-ink3)" }}
+                style={{
+                  color: "var(--color-ink3)",
+                  whiteSpace: "pre-wrap",
+                }}
               >
                 {formatMessageText(notif.message)}
               </p>

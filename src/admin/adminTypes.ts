@@ -154,6 +154,10 @@ export interface TrackingInfo {
   // true uniquement si Printful a explicitement marqué ce colis comme une
   // réexpédition (shipment.reshipment côté Webhook API) — jamais déduit.
   reshipment?: boolean;
+  // Fenêtre d'arrivée estimée ("YYYY-MM-DD"), calculée par le webhook
+  // (ship_date + délais numériques de store_settings, jours ouvrés).
+  estimatedMinDate?: string | null;
+  estimatedMaxDate?: string | null;
 }
 
 // ─── Order Item (§2.6) ────────────────────────────────────────────────────
@@ -243,6 +247,10 @@ export interface StoreSettings {
   freeShippingThreshold: number;
   shippingCost: number;
   shippingDelay: string;
+  // Délais numériques (jours ouvrés) utilisés pour calculer l'estimation
+  // d'arrivée d'un colis dans le webhook Printful. Optionnels.
+  shippingDelayMinDays?: number | null;
+  shippingDelayMaxDays?: number | null;
   globalCountdownEnd?: string; // ISO datetime
 }
 

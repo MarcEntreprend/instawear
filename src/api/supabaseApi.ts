@@ -155,6 +155,8 @@ const mapOrder = (row: any): Order => ({
     trackingUrl: shipment.tracking_url ?? null,
     shipDate: shipment.ship_date ?? null,
     reshipment: shipment.reshipment === true,
+    estimatedMinDate: shipment.estimated_min_date ?? null,
+    estimatedMaxDate: shipment.estimated_max_date ?? null,
   })),
   items: [], // à remplir séparément
 });
@@ -1470,6 +1472,8 @@ export const storeSettingsApi = {
         freeShippingThreshold: 35,
         shippingCost: 4.99,
         shippingDelay: "3-5 jours ouvrés",
+        shippingDelayMinDays: null,
+        shippingDelayMaxDays: null,
         globalCountdownEnd: undefined,
       };
     }
@@ -1480,6 +1484,14 @@ export const storeSettingsApi = {
       freeShippingThreshold: data.free_shipping_threshold,
       shippingCost: data.shipping_cost,
       shippingDelay: data.shipping_delay,
+      shippingDelayMinDays:
+        data.shipping_delay_min_days != null
+          ? Number(data.shipping_delay_min_days)
+          : null,
+      shippingDelayMaxDays:
+        data.shipping_delay_max_days != null
+          ? Number(data.shipping_delay_max_days)
+          : null,
       globalCountdownEnd: data.global_countdown_end,
     };
   },
@@ -1492,6 +1504,14 @@ export const storeSettingsApi = {
       free_shipping_threshold: partial.freeShippingThreshold ?? 35,
       shipping_cost: partial.shippingCost ?? 4.99,
       shipping_delay: partial.shippingDelay ?? "3-5 jours ouvrés",
+      shipping_delay_min_days:
+        partial.shippingDelayMinDays != null
+          ? partial.shippingDelayMinDays
+          : null,
+      shipping_delay_max_days:
+        partial.shippingDelayMaxDays != null
+          ? partial.shippingDelayMaxDays
+          : null,
       global_countdown_end: partial.globalCountdownEnd,
     });
     if (error) throw error;

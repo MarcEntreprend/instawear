@@ -59,6 +59,55 @@ const ACCENT = "#059669"; // couleur "shipped" (var(--color-accent) côté site)
 const REACHED_GREY = "#9CA3AF"; // approx var(--color-ink4)
 const BORDER_GREY = "#E5E7EB"; // approx var(--color-border)
 
+// ── Estimation d'arrivée ────────────────────────────────────────────────
+// La fenêtre d'arrivée d'un colis = ship_date + [min_days .. max_days]
+// jours ouvrés, où min/max viennent de store_settings (voir migration
+// 20260809_add_shipping_delay_days.sql). Calculé ici, au moment du webhook,
+// puis stocké dans chaque colis de tracking_info → lu ensuite par le site,
+// la page compte et les emails sans dépendre de l'horloge du client.
+
+function addBusinessDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  let added = 0;
+  while (added < days) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+// Calcule estimated_min_date / estimated_max_date pour un colis. Renvoie
+// null si on n'a ni date d'expédition ni délais numériques configurés.
+function computeEstimate(
+  shipDate: string | null,
+  minDays: number | null,
+  maxDays: number | null,
+): { estimatedMinDate: string | null; estimatedMaxDate: string | null } {
+  if (!shipDate || minDays == null) {
+    return { estimatedMinDate: null, estimatedMaxDate: null };
+  }
+  const max = maxDays != null ? Math.max(maxDays, minDays) : minDays;
+  return {
+    estimatedMinDate: addBusinessDays(shipDate, minDays),
+    estimatedMaxDate: addBusinessDays(shipDate, max),
+  };
+}
+
+// Formate une date ISO "YYYY-MM-DD" en "12 août 2026" (locale fr, pour le
+// mail). Retourne null si la date est absente ou invalide.
+function formatEstimateDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 // Construit la barre de progression en HTML/CSS inline --- reproduit
 // visuellement OrderStatusStepper.tsx (mêmes 5 étapes, même logique
 // reached/current) pour que le mail et le site racontent la même histoire.
@@ -116,11 +165,23 @@ async function sendShippedEmail(
           ? `Package ${i + 1} of ${allShipments.length}`
           : "Package";
 
+      // Fenêtre d'arrivée estimée — calculée côté webhook (ship_date +
+      // délais numériques de store_settings) puis stockée sur le colis.
+      let estimateHtml = "";
+      const minEst = formatEstimateDate(shipment?.estimated_min_date);
+      const maxEst = formatEstimateDate(shipment?.estimated_max_date);
+      if (minEst && maxEst && minEst === maxEst) {
+        estimateHtml = `<p style="margin:6px 0 0;font-size:13px;"><strong>Estimated delivery:</strong> ${minEst}</p>`;
+      } else if (minEst && maxEst) {
+        estimateHtml = `<p style="margin:6px 0 0;font-size:13px;"><strong>Estimated delivery:</strong> ${minEst} – ${maxEst}</p>`;
+      }
+
       return `
       <div style="background:#f9fafb;border-radius:8px;padding:14px;margin-bottom:10px;">
         <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${label}</p>
         ${reshipmentBadge}
-        <p style="margin:0 0 4px;font-size:13px;"><strong>Carrier:</strong> ${carrier || "---"}</p>
+        ${estimateHtml}
+        <p style="margin:6px 0 4px;font-size:13px;"><strong>Carrier:</strong> ${carrier || "---"}</p>
         <p style="margin:0;font-size:13px;">
           <strong>Tracking:</strong>
           ${
@@ -315,6 +376,30 @@ export default {
       const carrier = shipment?.carrier || shipment?.service;
       const shipDate = shipment?.ship_date || null;
 
+      // Délais numériques (jours ouvrés) pour le calcul de l'estimation
+      // d'arrivée. Voir migration 20260809_add_shipping_delay_days.sql.
+      let minDays: number | null = null;
+      let maxDays: number | null = null;
+      try {
+        const { data: storeSettings } = await supabaseAdmin
+          .from("store_settings")
+          .select("shipping_delay_min_days, shipping_delay_max_days")
+          .eq("id", true)
+          .maybeSingle();
+        if (storeSettings) {
+          minDays =
+            typeof storeSettings.shipping_delay_min_days === "number"
+              ? storeSettings.shipping_delay_min_days
+              : null;
+          maxDays =
+            typeof storeSettings.shipping_delay_max_days === "number"
+              ? storeSettings.shipping_delay_max_days
+              : null;
+        }
+      } catch (err) {
+        console.warn("store_settings illisibles, estimation désactivée:", err);
+      }
+
       let newStatus: string | null = null;
       const notes: string[] = [];
 
@@ -323,6 +408,7 @@ export default {
 
       const updatePayload: Record<string, any> = {};
       let allShipments: any[] = [];
+      let isDuplicate = false;
 
       if (type === "package_shipped") {
         if (order.status !== "shipped") {
@@ -337,6 +423,22 @@ export default {
             ? [existing]
             : [];
 
+        // Anti-doublon : Printful peut renvoyer le même webhook en retry
+        // (même tracking_number). Dans ce cas on ne ré-ajoute pas le colis
+        // et on ne renvoie ni email ni notification.
+        if (trackingNumber) {
+          isDuplicate = existingShipments.some(
+            (s) => s?.tracking_number === trackingNumber,
+          );
+        }
+
+        // Fenêtre d'arrivée estimée pour CE colis (ship_date + délais)
+        const { estimatedMinDate, estimatedMaxDate } = computeEstimate(
+          shipDate,
+          minDays,
+          maxDays,
+        );
+
         // Nouveau colis à ajouter (reshipment du flag Printful)
         const newShipment = {
           carrier: carrier || null,
@@ -345,14 +447,21 @@ export default {
           tracking_url: trackingUrl || null,
           ship_date: shipDate || null,
           reshipment: shipment?.reshipment === true,
+          estimated_min_date: estimatedMinDate,
+          estimated_max_date: estimatedMaxDate,
         };
 
-        allShipments = [...existingShipments, newShipment];
-        updatePayload.tracking_info = allShipments;
+        if (!isDuplicate) {
+          allShipments = [...existingShipments, newShipment];
+          updatePayload.tracking_info = allShipments;
+        } else {
+          // Garder l'existant tel quel (pas de doublon dans le tableau)
+          allShipments = existingShipments;
+        }
 
-        if (trackingNumber) {
+        if (trackingNumber && !isDuplicate) {
           notes.push(
-            `Tracking Printful: ${carrier ? `${carrier} ` : ""}${trackingNumber}${trackingUrl ? ` (${trackingUrl})` : ""}${newShipment.reshipment ? " [REEXPEDITION]" : ""}`,
+            `Tracking Printful: ${carrier ? `${carrier} ` : ""}${trackingNumber}${trackingUrl ? ` (${trackingUrl})` : ""}${newShipment.reshipment ? " [REEXPEDITION]" : ""}${estimatedMinDate ? ` — Arrivée estimée: ${formatEstimateDate(estimatedMinDate)}${estimatedMaxDate && estimatedMaxDate !== estimatedMinDate ? ` – ${formatEstimateDate(estimatedMaxDate)}` : ""}` : ""}`,
           );
         }
       } else if (type === "order_failed") {
@@ -378,15 +487,99 @@ export default {
         .update(updatePayload)
         .eq("id", orderId);
 
-      // Email d'expédition automatique (uniquement sur une nouvelle
-      // transition vers "shipped", pas sur les ré-expéditions répétées).
-      if (type === "package_shipped" && newStatus === "shipped") {
-        await sendShippedEmail(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-          order,
-          allShipments,
-        );
+      // ── 6. Notifications + email (uniquement si un nouveau colis a
+      //      réellement été enregistré, jamais sur un doublon de retry) ──
+      if (type === "package_shipped" && !isDuplicate) {
+        const estMin = allShipments.length
+          ? allShipments[allShipments.length - 1]?.estimated_min_date
+          : null;
+        const estMax = allShipments.length
+          ? allShipments[allShipments.length - 1]?.estimated_max_date
+          : null;
+        const estLabel =
+          estMin && estMax && estMin === estMax
+            ? formatEstimateDate(estMin)
+            : estMin && estMax
+              ? `${formatEstimateDate(estMin)} – ${formatEstimateDate(estMax)}`
+              : null;
+
+        // Notification client (table customer_notifications, RLS *_own).
+        // On n'insère que si la commande est liée à un compte client
+        // (client_id renseigné — pas de compte = commande invité).
+        if (order.client_id) {
+          try {
+            await supabaseAdmin.from("customer_notifications").insert({
+              customer_id: order.client_id,
+              title: order.client_name
+                ? `Votre commande ${orderId} est expédiée !`
+                : `Commande ${orderId} expédiée`,
+              message: [
+                `Votre commande ${orderId} a été expédiée${carrier ? ` par ${carrier}` : ""}.`,
+                estLabel ? `Arrivée estimée : ${estLabel}.` : null,
+                trackingUrl
+                  ? `Suivez votre colis : ${trackingUrl}`
+                  : trackingNumber
+                    ? `Numéro de suivi : ${trackingNumber}`
+                    : null,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+              type: "order_status",
+              is_read: false,
+              metadata: {
+                orderId,
+                carrier: carrier || null,
+                tracking_number: trackingNumber || null,
+                tracking_url: trackingUrl || null,
+                estimated_min_date: estMin || null,
+                estimated_max_date: estMax || null,
+              },
+            });
+          } catch (err) {
+            console.warn("Échec notification client:", err);
+          }
+        }
+
+        // Notification admin (table notifications, RLS is_admin) — visible
+        // dans NotificationsPage (supervision), avec l'estimation.
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Commande ${orderId} expédiée`,
+            description: [
+              `${order.client_name || "Client"} — ${carrier ? `${carrier} — ` : ""}${trackingNumber || "numéro de suivi inconnu"}.`,
+              estLabel ? `Arrivée estimée : ${estLabel}.` : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            category: "orders",
+            priority: "low",
+            status: "unread",
+            metadata: {
+              orderId,
+              customerName: order.client_name || null,
+              tracking_number: trackingNumber || null,
+              tracking_url: trackingUrl || null,
+              estimated_min_date: estMin || null,
+              estimated_max_date: estMax || null,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch (err) {
+          console.warn("Échec notification admin:", err);
+        }
+
+        // Email d'expédition automatique (uniquement sur une nouvelle
+        // transition vers "shipped", pas sur les ré-expéditions répétées).
+        if (newStatus === "shipped") {
+          await sendShippedEmail(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            order,
+            allShipments,
+          );
+        }
       }
 
       return new Response(
