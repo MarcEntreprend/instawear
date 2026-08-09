@@ -367,7 +367,7 @@ function OrderSummaryPanel({
 
           <div className={collapsed ? "hidden lg:block" : "block"}>
             <h3 className="font-black text-sm text-(--color-ink) mb-4 hidden lg:flex items-center gap-2">
-              <CarrotIcon
+              <CartIcon
                 size={16}
                 strokeWidth={2}
                 className="text-(--color-accent)"
