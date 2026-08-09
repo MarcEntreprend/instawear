@@ -41,7 +41,12 @@ import {
   Upload,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { customerApi, interactionApi, newsletterApi } from "../api/supabaseApi";
+import {
+  customerApi,
+  interactionApi,
+  mapOrder,
+  newsletterApi,
+} from "../api/supabaseApi";
 import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -51,6 +56,7 @@ import { formatCPFCNPJ } from "../utils/format";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 import CartIcon from "./CartIcon";
 import OrderStatusStepper, { StatusPill } from "./OrderStatusStepper";
+import ShipmentTrackingBlock from "./ShipmentTrackingBlock";
 
 // ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
@@ -1168,24 +1174,7 @@ function OrdersTab({
                         }),
                       );
                       setSelectedOrder({
-                        id: refreshed.id,
-                        clientId: refreshed.client_id,
-                        clientName: refreshed.client_name,
-                        clientEmail: refreshed.client_email,
-                        createdAt: refreshed.created_at,
-                        status: refreshed.status,
-                        totalAmount: refreshed.total_amount,
-                        shippingCost: refreshed.shipping_cost,
-                        shippingAddress: {
-                          fullName: refreshed.shipping_address_full_name,
-                          address: refreshed.shipping_address_address,
-                          city: refreshed.shipping_address_city,
-                          zip: refreshed.shipping_address_zip,
-                          country: refreshed.shipping_address_country,
-                          phone: refreshed.shipping_address_phone,
-                        },
-                        externalOrderId: refreshed.external_order_id,
-                        notes: refreshed.notes,
+                        ...mapOrder(refreshed),
                         items,
                       } as Order);
                     } else {
@@ -1325,24 +1314,7 @@ function OrdersTab({
                         }),
                       );
                       setSelectedOrder({
-                        id: refreshed.id,
-                        clientId: refreshed.client_id,
-                        clientName: refreshed.client_name,
-                        clientEmail: refreshed.client_email,
-                        createdAt: refreshed.created_at,
-                        status: refreshed.status,
-                        totalAmount: refreshed.total_amount,
-                        shippingCost: refreshed.shipping_cost,
-                        shippingAddress: {
-                          fullName: refreshed.shipping_address_full_name,
-                          address: refreshed.shipping_address_address,
-                          city: refreshed.shipping_address_city,
-                          zip: refreshed.shipping_address_zip,
-                          country: refreshed.shipping_address_country,
-                          phone: refreshed.shipping_address_phone,
-                        },
-                        externalOrderId: refreshed.external_order_id,
-                        notes: refreshed.notes,
+                        ...mapOrder(refreshed),
                         items,
                       } as Order);
                     } else {
@@ -1488,6 +1460,21 @@ function OrderDetail({
 
       {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
+
+      {/* Suivi des colis expédiés — visible uniquement pour les commandes
+          expédiées/livrées ayant au moins un colis enregistré par le webhook. */}
+      {(order.status === "shipped" || order.status === "delivered") &&
+        order.trackingInfo?.length > 0 && (
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            <ShipmentTrackingBlock shipments={order.trackingInfo} />
+          </div>
+        )}
 
       {/* Order info */}
       <div
@@ -1987,29 +1974,60 @@ function CartTab({
 const ORDER_ID_REGEX =
   /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
 
+// Regex pour détecter une URL http(s) — rendue cliquable dans les
+// notifications (ex: lien de suivi du colis) en ouvrant un nouvel onglet.
+const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
+
+// Combine les deux : un seul passage, chaque match est soit un URL, soit
+// un ID de commande.
+const MESSAGE_TOKEN_REGEX = new RegExp(
+  `(${ORDER_ID_REGEX.source.replace(/^\/|\/$/g, "")})|(${URL_REGEX.source.replace(/^\/|\/$/g, "")})`,
+  "gi",
+);
+
 /**
- * Transforme un texte en ReactNode en remplaçant les IDs de commande
- * par leur version majuscule + bouton CopyID.
+ * Transforme un texte en ReactNode :
+ * - URLs → lien cliquable (nouvel onglet) ;
+ * - IDs de commande → version majuscule + bouton CopyID.
+ * Le reste du texte est conservé tel quel.
  */
 function formatMessageText(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  const regex = new RegExp(ORDER_ID_REGEX.source, "gi");
-
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = MESSAGE_TOKEN_REGEX.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
-    const orderId = match[0].toUpperCase();
-    parts.push(
-      <span key={match.index} style={{ whiteSpace: "nowrap" }}>
-        {orderId}
-        <CopyID id={orderId} size={11} />
-      </span>,
-    );
-    lastIndex = match.index + match[0].length;
+    const token = match[0];
+    if (new RegExp(URL_REGEX.source).test(token)) {
+      parts.push(
+        <a
+          key={match.index}
+          href={token}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: "var(--color-accent)",
+            fontWeight: 600,
+            textDecoration: "underline",
+            wordBreak: "break-all",
+          }}
+        >
+          {token}
+        </a>,
+      );
+    } else {
+      const orderId = token.toUpperCase();
+      parts.push(
+        <span key={match.index} style={{ whiteSpace: "nowrap" }}>
+          {orderId}
+          <CopyID id={orderId} size={11} />
+        </span>,
+      );
+    }
+    lastIndex = match.index + token.length;
   }
 
   if (lastIndex < text.length) {
@@ -2064,7 +2082,10 @@ function NotificationsTab({
               </p>
               <p
                 className="text-[12px] mt-1"
-                style={{ color: "var(--color-ink3)" }}
+                style={{
+                  color: "var(--color-ink3)",
+                  whiteSpace: "pre-wrap",
+                }}
               >
                 {formatMessageText(notif.message)}
               </p>

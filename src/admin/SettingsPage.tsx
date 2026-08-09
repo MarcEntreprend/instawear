@@ -107,6 +107,8 @@ export default function SettingsPage() {
     freeShippingThreshold: 35,
     shippingCost: 4.99,
     shippingDelay: "5-7 jours ouvrés",
+    shippingDelayMinDays: null,
+    shippingDelayMaxDays: null,
     globalCountdownEnd: "",
   });
 
@@ -673,6 +675,81 @@ export default function SettingsPage() {
                   placeholder="5-7 jours ouvrés"
                 />
               </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Délai minimum (jours ouvrés)
+                </label>
+                <input
+                  type="number"
+                  value={storeForm.shippingDelayMinDays ?? ""}
+                  onChange={(e) =>
+                    setStoreForm({
+                      ...storeForm,
+                      shippingDelayMinDays:
+                        e.target.value === ""
+                          ? null
+                          : Math.max(0, Number(e.target.value)),
+                    })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  min={0}
+                  step={1}
+                  placeholder="3"
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--color-ink2)",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  Délai maximum (jours ouvrés)
+                </label>
+                <input
+                  type="number"
+                  value={storeForm.shippingDelayMaxDays ?? ""}
+                  onChange={(e) =>
+                    setStoreForm({
+                      ...storeForm,
+                      shippingDelayMaxDays:
+                        e.target.value === ""
+                          ? null
+                          : Math.max(0, Number(e.target.value)),
+                    })
+                  }
+                  className="input-base"
+                  style={{ width: "100%" }}
+                  min={0}
+                  step={1}
+                  placeholder="5"
+                />
+              </div>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-ink3)",
+                  gridColumn: "1 / -1",
+                  marginTop: -4,
+                }}
+              >
+                Ces valeurs numériques alimentent l'estimation « Arrivée estimée
+                » envoyée par email et affichée dans le suivi de commande
+                (départ + délai en jours ouvrés). Le champ texte ci-dessus reste
+                le libellé affiché sur la fiche produit.
+              </p>
             </div>
             <div>
               <label

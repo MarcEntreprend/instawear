@@ -17,6 +17,7 @@ import {
   Bell,
   MessageSquare,
   Mail,
+  Truck,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -30,6 +31,7 @@ export type AdminSection =
   | "dashboard"
   | "orders"
   | "notifications"
+  | "shipped"
   | "products"
   | "customers"
   | "interactions"
@@ -51,6 +53,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "orders", label: "Commandes", icon: CartIcon },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "shipped", label: "Expédiées & Livrées", icon: Truck },
   { id: "products", label: "Produits", icon: Package },
   { id: "customers", label: "Clients", icon: Users },
   { id: "interactions", label: "Interactions", icon: MessageSquare },

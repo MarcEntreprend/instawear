@@ -22,6 +22,7 @@ import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import CartIcon from "../components/CartIcon";
+import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 
 // ─── Status labels & colors ────────────────────────────────────────────────
 const ORDER_STATUS_LABEL: Record<
@@ -1024,6 +1025,26 @@ export default function OrdersPage() {
                 )}
               </div>
             </div>
+
+            {/* Suivi des colis — visible pour les commandes expédiées/livrées
+                ayant au moins un colis enregistré par le webhook Printful. */}
+            {(selectedOrder.status === "shipped" ||
+              selectedOrder.status === "delivered") &&
+              selectedOrder.trackingInfo?.length > 0 && (
+                <div
+                  style={{
+                    marginBottom: 24,
+                    padding: 16,
+                    borderRadius: 12,
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <ShipmentTrackingBlock
+                    shipments={selectedOrder.trackingInfo}
+                  />
+                </div>
+              )}
 
             {/* Items */}
             <div>
