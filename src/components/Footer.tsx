@@ -208,10 +208,6 @@ export default function Footer({
             Print Policy
           </a>
           <span>•</span>
-          <a href="#" className="hover:underline">
-            Creator Terms
-          </a>
-          <span>•</span>
           {isAdmin && (
             <button
               onClick={onOpenAdmin}

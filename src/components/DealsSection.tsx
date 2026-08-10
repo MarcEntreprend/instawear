@@ -25,7 +25,7 @@ export default function DealsSection({
   if (dealExpired && !dealFadingOut) return null; // ne plus masquer si aucun deal
   if (dealProducts.length === 0) {
     return (
-      <section className="section-container w-full px-4">
+      <section className="section-container w-full">
         <div className="bg-white/40 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
           <p className="text-sm text-gray-500">
             No active deals right now. Check back soon!
@@ -37,7 +37,7 @@ export default function DealsSection({
 
   return (
     <section
-      className={`section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
+      className={`section-container w-full grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
     >
       <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
         <div>
@@ -60,7 +60,10 @@ export default function DealsSection({
           <div className="flex items-center gap-2 mt-1.5">
             {countdownString.split(":").map((unit, i) => (
               <span key={i} className="flex items-center gap-2">
-                <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
+                <span
+                  className="bg-white font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200"
+                  style={{ color: "var(--color-accent)" }}
+                >
                   {unit}
                 </span>
                 {i < 2 && <span className="text-gray-500 font-bold">:</span>}

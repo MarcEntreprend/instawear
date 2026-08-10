@@ -56,7 +56,7 @@ export default function HeroCarousel({
 
   return (
     <section
-      className="relative section-container mt-6 px-4"
+      className="relative section-container mt-6"
       onMouseEnter={() => setAutoPlayPaused(true)}
       onMouseLeave={() => setAutoPlayPaused(false)}
     >

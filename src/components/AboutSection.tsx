@@ -4,7 +4,7 @@ export default function AboutSection() {
   return (
     <section
       id="section-about"
-      className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
+      className="bg-white border-t border-gray-200 mt-12 py-12 scroll-mt-28"
     >
       <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
         <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">

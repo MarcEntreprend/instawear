@@ -221,29 +221,33 @@ export default function ProductDetailModal({
         </button>
 
         {/* ── 3-COLUMN LAYOUT ────────────────────────────────────── */}
-        <div className="flex flex-col lg:flex-row gap-8 p-8 md:p-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[46%_28%_26%] gap-8 p-8 md:p-10">
           {/* ── COLONNE GAUCHE : Images ──────────────────────────── */}
-          <div className="lg:w-[45%] flex flex-col sm:flex-row gap-6">
+          <div className="lg:w-full grid gap-6">
             {/* Miniatures verticales (desktop) ou horizontales (mobile) */}
             {variantImages.length > 1 ? (
               <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
-                {variantImages.map((v) => (
-                  <button
-                    key={v.color}
-                    onClick={() => setPickedColor(v.color)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                      pickedColor === v.color
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={v.image}
-                      alt={v.color_name || v.color}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+                {variantImages.map((v) => {
+                  const active = pickedColor === v.color;
+                  return (
+                    <button
+                      key={v.color}
+                      onClick={() => setPickedColor(v.color)}
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-all"
+                      style={{
+                        borderColor: active
+                          ? "var(--color-accent)"
+                          : "var(--color-border)",
+                      }}
+                    >
+                      <img
+                        src={v.image}
+                        alt={v.color_name || v.color}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
               </div>
             ) : allImages.length > 1 ? (
               <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
@@ -251,11 +255,13 @@ export default function ProductDetailModal({
                   <button
                     key={idx}
                     onClick={() => setActiveGalleryIndex(idx)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeGalleryIndex === idx
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-all"
+                    style={{
+                      borderColor:
+                        activeGalleryIndex === idx
+                          ? "var(--color-accent)"
+                          : "var(--color-border)",
+                    }}
                   >
                     <img
                       src={img}
@@ -327,7 +333,7 @@ export default function ProductDetailModal({
                     pickedColor
                   : "Select"}
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" id="variantColors">
                 {dispColors.map((c, idx) => {
                   const isPicked =
                     pickedColor === c || (!pickedColor && idx === 0);
@@ -335,16 +341,20 @@ export default function ProductDetailModal({
                     <button
                       key={idx}
                       onClick={() => setPickedColor(c)}
-                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"}`}
-                      style={{ backgroundColor: c }}
-                      title={dispColorNames?.[idx] || ""}
+                      className="w-9 h-9 rounded-full border-2 transition-all p-0.5"
+                      style={{
+                        backgroundColor: c,
+                        borderColor: isPicked
+                          ? "var(--color-accent)"
+                          : "var(--color-border)",
+                        transform: isPicked ? "scale(1.05)" : "scale(1)",
+                      }}
                     />
                   );
                 })}
               </div>
             </div>
 
-            {/* Sizes */}
             <div className="mt-4">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -416,15 +426,29 @@ export default function ProductDetailModal({
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5">
-                {dispSizes.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setPickedSize(s)}
-                    className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 text-gray-600 bg-gray-50/60"}`}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {dispSizes.map((s) => {
+                  const active = pickedSize === s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setPickedSize(s)}
+                      className="min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5"
+                      style={{
+                        borderColor: active
+                          ? "var(--color-accent)"
+                          : "var(--color-border)",
+                        background: active
+                          ? "var(--color-accent-bg)"
+                          : "#f8fafc",
+                        color: active
+                          ? "var(--color-ink)"
+                          : "var(--color-ink3)",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -508,7 +532,7 @@ export default function ProductDetailModal({
 
                 {/* Boutons d'action */}
                 {product.isActive ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3">
                     <button
                       onClick={() =>
                         onAddToCart(
@@ -517,7 +541,12 @@ export default function ProductDetailModal({
                           pickedSize,
                         )
                       }
-                      className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      className="w-full text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+                        boxShadow: "var(--shadow-accent)",
+                      }}
                     >
                       Add to cart
                     </button>
@@ -529,7 +558,10 @@ export default function ProductDetailModal({
                           pickedSize,
                         )
                       }
-                      className="w-full bg-linear-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      className="w-full text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      style={{
+                        background: "linear-gradient(135deg, #f59e0b, #f97316)",
+                      }}
                     >
                       Buy now
                     </button>

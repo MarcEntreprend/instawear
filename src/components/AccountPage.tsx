@@ -558,7 +558,7 @@ export default function AccountPage({
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar (desktop ≥ sm) ────────────────────────────── */}
         <aside
-          className="hidden sm:flex w-64 flex-col shrink-0 overflow-y-auto"
+          className="hidden sm:flex w-72 flex-col shrink-0 overflow-y-auto"
           style={{
             borderRight: "1px solid var(--color-border)",
             background: "var(--color-surface)",
@@ -770,81 +770,83 @@ export default function AccountPage({
 
         {/* ── Content ───────────────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
-          <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
             {/* Section heading */}
-            <div className="mb-5 hidden sm:flex items-center justify-between">
-              <h2
-                className="text-[20px] font-bold tracking-tight"
-                style={{ color: "var(--color-ink)" }}
-              >
-                {NAV.find((n) => n.key === tab)?.label}
-              </h2>
-            </div>
+            <div className="mb-5 hidden sm:flex items-center justify-between gap-4">
+              <div>
+                <h2
+                  className="text-[22px] font-black tracking-tight"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {NAV.find((n) => n.key === tab)?.label}
+                </h2>
+              </div>
 
-            {tab === "orders" && (
-              <OrdersTab
-                orders={orders}
-                loading={loadingOrders}
-                currencySymbol={currencySymbol}
-                onViewProduct={onViewProduct}
-                onRefresh={fetchOrders}
-                onLoadMore={handleLoadMoreOrders}
-                hasMore={hasMoreOrders}
-                customerEmail={customerEmail}
-                customerId={customerId}
-              />
-            )}
-            {tab === "favorites" && (
-              <FavoritesTab
-                favorites={favorites}
-                loading={loadingFav}
-                currencySymbol={currencySymbol}
-                onRemove={handleRemoveFavourite}
-                onRemoveAll={handleRemoveAllFavourites}
-                onViewProduct={onViewProduct}
-              />
-            )}
-            {tab === "cart" && (
-              <CartTab
-                items={cart}
-                loading={loadingCart}
-                currencySymbol={currencySymbol}
-                onRemove={handleRemoveCartItem}
-                onClear={handleClearCart}
-                onViewProduct={onViewProduct}
-                onUpdateQty={handleUpdateCartQty}
-              />
-            )}
-            {tab === "notifications" && (
-              <NotificationsTab
-                notifications={customerNotifications}
-                loading={loadingNotifs}
-                onMarkRead={handleMarkNotifRead}
-              />
-            )}
-            {tab === "profile" && (
-              <ProfileTab
-                customerEmail={customerEmail}
-                customerName={customerName}
-                customerId={customerId}
-                orders={orders}
-                preferences={customerPreferences}
-                onUpdatePreferences={handleUpdatePreferences}
-                newsletterSubscribed={newsletterSubscribed}
-                onClose={onClose}
-                onToggleNewsletter={handleToggleNewsletter}
-              />
-            )}
-            {tab === "support" && (
-              <SupportTab
-                interactions={interactions}
-                loading={loadingInter}
-                customerEmail={customerEmail}
-                customerName={customerName}
-                orders={orders}
-                currencySymbol={currencySymbol}
-              />
-            )}
+              {tab === "orders" && (
+                <OrdersTab
+                  orders={orders}
+                  loading={loadingOrders}
+                  currencySymbol={currencySymbol}
+                  onViewProduct={onViewProduct}
+                  onRefresh={fetchOrders}
+                  onLoadMore={handleLoadMoreOrders}
+                  hasMore={hasMoreOrders}
+                  customerEmail={customerEmail}
+                  customerId={customerId}
+                />
+              )}
+              {tab === "favorites" && (
+                <FavoritesTab
+                  favorites={favorites}
+                  loading={loadingFav}
+                  currencySymbol={currencySymbol}
+                  onRemove={handleRemoveFavourite}
+                  onRemoveAll={handleRemoveAllFavourites}
+                  onViewProduct={onViewProduct}
+                />
+              )}
+              {tab === "cart" && (
+                <CartTab
+                  items={cart}
+                  loading={loadingCart}
+                  currencySymbol={currencySymbol}
+                  onRemove={handleRemoveCartItem}
+                  onClear={handleClearCart}
+                  onViewProduct={onViewProduct}
+                  onUpdateQty={handleUpdateCartQty}
+                />
+              )}
+              {tab === "notifications" && (
+                <NotificationsTab
+                  notifications={customerNotifications}
+                  loading={loadingNotifs}
+                  onMarkRead={handleMarkNotifRead}
+                />
+              )}
+              {tab === "profile" && (
+                <ProfileTab
+                  customerEmail={customerEmail}
+                  customerName={customerName}
+                  customerId={customerId}
+                  orders={orders}
+                  preferences={customerPreferences}
+                  onUpdatePreferences={handleUpdatePreferences}
+                  newsletterSubscribed={newsletterSubscribed}
+                  onClose={onClose}
+                  onToggleNewsletter={handleToggleNewsletter}
+                />
+              )}
+              {tab === "support" && (
+                <SupportTab
+                  interactions={interactions}
+                  loading={loadingInter}
+                  customerEmail={customerEmail}
+                  customerName={customerName}
+                  orders={orders}
+                  currencySymbol={currencySymbol}
+                />
+              )}
+            </div>
           </div>
         </main>
       </div>

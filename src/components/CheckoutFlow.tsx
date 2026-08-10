@@ -492,7 +492,7 @@ function CartReviewStep({
         {cart.map((item, idx) => (
           <div
             key={idx}
-            className="flex gap-4 p-3 rounded-2xl"
+            className="flex gap-4 p-4 rounded-[26px] shadow-sm"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
@@ -2395,7 +2395,7 @@ export default function CheckoutFlow({
             />
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 items-start">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-[1.6fr_0.95fr] gap-8 items-start">
             <div>
               {step === 1 && (
                 <CartReviewStep

@@ -53,20 +53,21 @@ export default function CatalogSection({
   return (
     <section
       id="section-catalog"
-      className="section-container w-full px-4 scroll-mt-28"
+      className="section-container w-full scroll-mt-28"
     >
       {/* Section header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-200 pb-3">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-gray-400 mb-2">
+            InstaWear storefront
+          </p>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
             <Sparkles className="w-6 h-6 text-(--color-accent) animate-pulse" />
             Collection
           </h2>
-          <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-            <span>T-Shirts, Hoodies & Event Accessories</span>
-            <span className="sm:hidden text-gray-400 font-medium ml-auto">
-              ({filteredProducts.length})
-            </span>
+          <p className="text-sm text-gray-500 mt-2 max-w-2xl">
+            Discover premium, limited-edition apparel and accessories made for
+            bold everyday wear.
           </p>
         </div>
         <div className="text-xs font-semibold text-gray-500 hidden sm:block">
@@ -82,7 +83,7 @@ export default function CatalogSection({
       {(searchTerm || selectedCategory || selectedEventType) && (
         <div
           id="section-filters"
-          className="scroll-mt-36 mb-4 bg-white/60 border border-gray-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm"
+          className="scroll-mt-36 mb-4 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-3xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm"
         >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-gray-500">Active filters:</span>
@@ -172,28 +173,14 @@ export default function CatalogSection({
           </p>
           <button
             onClick={onClearFilters}
-            className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200"
-            style={{
-              background: "transparent",
-              color: "var(--color-accent)",
-              border: "1.5px solid var(--color-accent)",
-              fontFamily: "var(--font-sans)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-accent)";
-              e.currentTarget.style.color = "white";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--color-accent)";
-            }}
+            className="mt-4 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 btn-outline-accent"
           >
             Browse collection
           </button>
         </div>
       ) : (
         /* Product grid */
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => (
             <StoreProductCard
               key={product.id}

@@ -8,10 +8,7 @@ export default function FaqSection() {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   return (
-    <section
-      id="section-faq"
-      className="section-container w-full px-4 scroll-mt-28"
-    >
+    <section id="section-faq" className="section-container w-full scroll-mt-28">
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
           <HelpCircle className="w-6 h-6 text-(--color-accent)" />
