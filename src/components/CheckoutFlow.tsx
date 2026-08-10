@@ -17,7 +17,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Truck,
-  Store,
   User,
   Phone,
   Mail,
@@ -28,7 +27,7 @@ import {
   Loader2,
   Copy,
   Trash2,
-  CarrotIcon,
+  ShoppingBag,
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -56,6 +55,7 @@ import CartIcon from "./CartIcon";
 const stripePromise = loadStripe(
   import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY,
 );
+
 interface CheckoutFlowProps {
   cart: CartItem[];
   detectedCountry?: string | null;
@@ -63,7 +63,7 @@ interface CheckoutFlowProps {
   onUpdateQty: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
   onSuccess: () => void;
-  confirmModeOrderId?: string; // when set, display confirmation directly
+  confirmModeOrderId?: string;
 }
 
 type StepId = 1 | 2 | 3 | 4;
@@ -136,7 +136,6 @@ function sendTelegramNotification(
   name: string,
   phone: string,
   email: string,
-  reception: string,
   address: string,
   city: string,
   zip: string,
@@ -151,10 +150,7 @@ function sendTelegramNotification(
     `*Customer:* ${name}\n` +
     `*Phone:* ${phone}\n` +
     `*Email:* ${email}\n` +
-    `*Reception:* ${reception === "retrait" ? "Pickup" : "Delivery"}\n` +
-    (reception === "livraison"
-      ? `*Address:* ${address}, ${city} ${zip}, ${country}\n`
-      : "") +
+    `*Address:* ${address}, ${city} ${zip}, ${country}\n` +
     `\n\u{1F4E6} *Items:*\n` +
     cart
       .map(
@@ -168,7 +164,6 @@ function sendTelegramNotification(
   window.open(telegramUrl, "_blank");
 }
 
-// Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
   selectedColor: string,
@@ -186,14 +181,12 @@ function getVariantImage(
 
 async function generateOrderId(): Promise<string> {
   const year = new Date().getFullYear();
-  // Suffixe aléatoire 6 chiffres (~900 000 combinaisons/an) : suffisant pour
-  // éviter les collisions sans requête en base (le SELECT serait bloqué par RLS
-  // pour les invités) et rend les IDs difficiles à deviner.
-  const seq = Math.floor(Math.random() * 900000) + 100000; // 100000-999999
+  const seq = Math.floor(Math.random() * 900000) + 100000;
   return `ORD-${year}-${seq}`;
 }
 
 // ─── Reusable form field ────────────────────────────────────────────────
+
 interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   required?: boolean;
@@ -202,6 +195,7 @@ interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
     size?: number;
     strokeWidth?: number;
     className?: string;
+    style?: React.CSSProperties;
   }>;
   onClearError?: () => void;
 }
@@ -217,7 +211,10 @@ function TextField({
 }: TextFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+      <label
+        className="text-[11px] font-bold uppercase tracking-wider"
+        style={{ color: "var(--color-ink3)" }}
+      >
         {label} {required && <span className="text-(--color-accent)">*</span>}
       </label>
       <div className="relative">
@@ -225,7 +222,8 @@ function TextField({
           <Icon
             size={15}
             strokeWidth={2}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-ink4) pointer-events-none"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: "var(--color-ink4)" }}
           />
         )}
         <input
@@ -234,14 +232,21 @@ function TextField({
             inputProps.onChange?.(e);
             if (onClearError) onClearError();
           }}
-          className={`w-full ${Icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors duration-150 bg-(--color-surface) text-(--color-ink) placeholder:text-(--color-ink4) focus:ring-2 focus:ring-(--color-accent-soft) ${className || ""}`}
+          className={`w-full ${Icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors duration-150 ${className || ""}`}
           style={{
+            background: "var(--color-surface)",
+            color: "var(--color-ink)",
             border: `1.5px solid ${error ? "#fca5a5" : "var(--color-border2)"}`,
+            fontFamily: "var(--font-sans)",
           }}
+          placeholder={inputProps.placeholder || ""}
         />
       </div>
       {error && (
-        <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1">
+        <p
+          className="text-[11px] font-semibold flex items-center gap-1"
+          style={{ color: "var(--color-negative)" }}
+        >
           <AlertCircle size={11} strokeWidth={2.5} />
           {error}
         </p>
@@ -274,7 +279,7 @@ function Stepper({
               className={`flex flex-col items-center gap-1.5 shrink-0 ${clickable ? "cursor-pointer" : "cursor-default"}`}
             >
               <span
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
                 style={{
                   border: `2px solid ${isDone || isActive ? "var(--color-accent)" : "var(--color-border2)"}`,
                   background: isDone
@@ -289,10 +294,10 @@ function Stepper({
                       : "var(--color-ink4)",
                 }}
               >
-                {isDone ? <Check size={14} strokeWidth={2.5} /> : s.id}
+                {isDone ? <Check size={13} strokeWidth={2.5} /> : s.id}
               </span>
               <span
-                className="text-[10px] font-bold uppercase tracking-wider hidden sm:block transition-colors"
+                className="text-[9px] font-bold uppercase tracking-wider hidden sm:block"
                 style={{
                   color:
                     isActive || isDone
@@ -321,7 +326,7 @@ function Stepper({
   );
 }
 
-// ─── Order summary (sticky on desktop, collapsible on mobile) ─────────────
+// ─── Order summary ─────────────────────────────────────────────
 
 function OrderSummaryPanel({
   cart,
@@ -329,7 +334,6 @@ function OrderSummaryPanel({
   shippingCost,
   total,
   currencySymbol,
-  reception,
   threshold,
 }: {
   cart: CartItem[];
@@ -337,7 +341,6 @@ function OrderSummaryPanel({
   shippingCost: number;
   total: number;
   currencySymbol: string;
-  reception: "retrait" | "livraison";
   threshold: number;
 }) {
   const [collapsed, setCollapsed] = useState(true);
@@ -345,48 +348,63 @@ function OrderSummaryPanel({
 
   return (
     <div className="lg:sticky lg:top-6">
-      <div className="bezel-outer">
-        <div className="bezel-inner p-5">
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="lg:hidden w-full flex items-center justify-between mb-1"
+      <div className="card-premium p-5 rounded-3xl">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="lg:hidden w-full flex items-center justify-between mb-1"
+        >
+          <span
+            className="font-black text-sm flex items-center gap-2"
+            style={{ color: "var(--color-ink)" }}
           >
-            <span className="font-black text-sm text-(--color-ink) flex items-center gap-2">
-              <CartIcon
-                size={16}
-                strokeWidth={2}
-                className="text-(--color-accent)"
-              />
-              Summary ({itemCount})
-            </span>
-            <span className="font-black text-sm text-(--color-ink)">
-              {total.toFixed(2)} {currencySymbol}
-            </span>
-          </button>
+            <CartIcon
+              size={16}
+              strokeWidth={2}
+              style={{ color: "var(--color-accent)" }}
+            />
+            Summary ({itemCount})
+          </span>
+          <span
+            className="font-black text-sm"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {total.toFixed(2)} {currencySymbol}
+          </span>
+        </button>
 
-          <div className={collapsed ? "hidden lg:block" : "block"}>
-            <h3 className="font-black text-sm text-(--color-ink) mb-4 hidden lg:flex items-center gap-2">
-              <CartIcon
-                size={16}
-                strokeWidth={2}
-                className="text-(--color-accent)"
-              />
-              Order Summary
-            </h3>
+        <div className={collapsed ? "hidden lg:block" : "block"}>
+          <h3
+            className="font-black text-sm mb-4 hidden lg:flex items-center gap-2"
+            style={{ color: "var(--color-ink)" }}
+          >
+            <CartIcon
+              size={16}
+              strokeWidth={2}
+              style={{ color: "var(--color-accent)" }}
+            />
+            Order Summary
+          </h3>
 
-            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4">
-              {cart.map((item, i) => (
+          <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4 pt-2">
+            {cart.map((item, i) => {
+              const imgSrc = getVariantImage(item.product, item.selectedColor);
+              return (
                 <div key={i} className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-14 rounded-lg overflow-hidden shrink-0 relative"
-                    style={{ background: "var(--color-surface2)" }}
-                  >
-                    <img
-                      src={getVariantImage(item.product, item.selectedColor)}
-                      alt={item.product.title}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="relative shrink-0">
+                    <div
+                      className="w-12 h-14 rounded-lg overflow-hidden"
+                      style={{ background: "var(--color-surface2)" }}
+                    >
+                      <img
+                        src={imgSrc}
+                        alt={item.product.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) =>
+                          ((e.target as HTMLImageElement).src = PLACEHOLDER_IMG)
+                        }
+                      />
+                    </div>
                     <span
                       className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full text-white text-[9px] font-black flex items-center justify-center"
                       style={{ background: "var(--color-accent)" }}
@@ -395,65 +413,81 @@ function OrderSummaryPanel({
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-(--color-ink) line-clamp-1">
+                    <p
+                      className="text-xs font-bold line-clamp-1"
+                      style={{ color: "var(--color-ink)" }}
+                    >
                       {item.product.title}
                     </p>
-                    <p className="text-[10px] text-(--color-ink3)">
+                    <p
+                      className="text-[10px]"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
                       {item.selectedSize} \u00B7 {item.quantity} \u00D7{" "}
                       {item.unitPrice.toFixed(2)} {currencySymbol}
                     </p>
                   </div>
-                  <span className="text-xs font-black text-(--color-ink) shrink-0">
+                  <span
+                    className="text-xs font-black shrink-0"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     {(item.unitPrice * item.quantity).toFixed(2)}{" "}
                     {currencySymbol}
                   </span>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
+          <div
+            className="flex flex-col gap-1.5 text-xs pt-3"
+            style={{ borderTop: "1px solid var(--color-border)" }}
+          >
             <div
-              className="flex flex-col gap-1.5 text-xs pt-3"
-              style={{ borderTop: "1px solid var(--color-border)" }}
+              className="flex justify-between"
+              style={{ color: "var(--color-ink3)" }}
             >
-              <div className="flex justify-between text-(--color-ink3)">
-                <span>Subtotal</span>
-                <span>
-                  {cartTotal.toFixed(2)} {currencySymbol}
-                </span>
-              </div>
-              <div
-                className="flex justify-between"
-                style={{
-                  color:
-                    shippingCost === 0
-                      ? "var(--color-success)"
-                      : "var(--color-ink3)",
-                }}
+              <span>Subtotal</span>
+              <span>
+                {cartTotal.toFixed(2)} {currencySymbol}
+              </span>
+            </div>
+            <div
+              className="flex justify-between"
+              style={{
+                color:
+                  shippingCost === 0
+                    ? "var(--color-success)"
+                    : "var(--color-ink3)",
+              }}
+            >
+              <span>Shipping</span>
+              <span>
+                {shippingCost === 0
+                  ? "Free"
+                  : `${shippingCost.toFixed(2)} ${currencySymbol}`}
+              </span>
+            </div>
+            {shippingCost > 0 && (
+              <p
+                className="text-[10px] mt-0.5"
+                style={{ color: "var(--color-accent)" }}
               >
-                <span>
-                  Shipping{reception === "retrait" ? " (pickup)" : ""}
-                </span>
-                <span>
-                  {shippingCost === 0
-                    ? "Free"
-                    : `${shippingCost.toFixed(2)} ${currencySymbol}`}
-                </span>
-              </div>
-              {shippingCost > 0 && reception === "livraison" && (
-                <p className="text-[10px] text-(--color-accent) mt-0.5">
-                  {(threshold - cartTotal).toFixed(2)} {currencySymbol} away
-                  from free shipping
-                </p>
-              )}
-              <div
-                className="flex justify-between pt-2 mt-1 text-sm font-black text-(--color-ink)"
-                style={{ borderTop: "1px solid var(--color-border)" }}
-              >
-                <span>Total</span>
-                <span>
-                  {total.toFixed(2)} {currencySymbol}
-                </span>
-              </div>
+                {(threshold - cartTotal).toFixed(2)} {currencySymbol} away from
+                free shipping
+              </p>
+            )}
+            <div
+              className="flex justify-between pt-2 mt-1 text-sm font-black"
+              style={{
+                borderTop: "1px solid var(--color-border)",
+                color: "var(--color-ink)",
+              }}
+            >
+              <span>Total</span>
+              <span>
+                {total.toFixed(2)} {currencySymbol}
+              </span>
             </div>
           </div>
         </div>
@@ -480,110 +514,148 @@ function CartReviewStep({
   return (
     <div className="flex flex-col gap-5 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="text-3xl sm:text-4xl font-serif"
+          style={{ color: "var(--color-ink)" }}
+        >
           Your Cart
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-1">
+        <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
           Review your items before continuing.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
-        {cart.map((item, idx) => (
-          <div
-            key={idx}
-            className="flex gap-4 p-3 rounded-2xl"
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
+        {cart.map((item, idx) => {
+          const imgSrc = getVariantImage(item.product, item.selectedColor);
+          return (
             <div
-              className="w-20 h-24 rounded-xl overflow-hidden shrink-0"
-              style={{ background: "var(--color-surface2)" }}
+              key={idx}
+              className="flex gap-4 p-3 rounded-2xl"
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+              }}
             >
-              <img
-                src={getVariantImage(item.product, item.selectedColor)}
-                alt={item.product.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-(--color-ink4)">
-                  {item.product.brand}
-                </p>
-                <h4 className="text-sm font-bold text-(--color-ink) line-clamp-1 mt-0.5">
-                  {item.product.title}
-                </h4>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span
-                    className="w-3.5 h-3.5 rounded-full border block"
-                    style={{
-                      backgroundColor: item.selectedColor,
-                      borderColor: "var(--color-border)",
-                    }}
-                  />
-                  <span
-                    className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
-                    style={{
-                      background: "var(--color-surface2)",
-                      color: "var(--color-ink3)",
-                    }}
+              <div
+                className="w-20 h-24 rounded-xl overflow-hidden shrink-0"
+                style={{ background: "var(--color-surface2)" }}
+              >
+                <img
+                  src={imgSrc}
+                  alt={item.product.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) =>
+                    ((e.target as HTMLImageElement).src = PLACEHOLDER_IMG)
+                  }
+                />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                <div>
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wider"
+                    style={{ color: "var(--color-ink4)" }}
                   >
-                    {item.selectedSize}
+                    {item.product.brand}
+                  </p>
+                  <h4
+                    className="text-sm font-bold line-clamp-1 mt-0.5"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {item.product.title}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border block"
+                      style={{
+                        backgroundColor: item.selectedColor,
+                        borderColor: "var(--color-border)",
+                      }}
+                    />
+                    <span
+                      className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
+                      style={{
+                        background: "var(--color-surface2)",
+                        color: "var(--color-ink3)",
+                      }}
+                    >
+                      {item.selectedSize}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <div
+                    className="flex items-center gap-1 rounded-lg"
+                    style={{ border: "1px solid var(--color-border)" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQty(idx, -1)}
+                      className="w-7 h-7 flex items-center justify-center font-black transition-colors"
+                      style={{ color: "var(--color-ink2)" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "var(--color-ink)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "var(--color-ink2)")
+                      }
+                    >
+                      −
+                    </button>
+                    <span
+                      className="w-6 text-center text-xs font-bold"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQty(idx, 1)}
+                      className="w-7 h-7 flex items-center justify-center font-black transition-colors"
+                      style={{ color: "var(--color-ink2)" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "var(--color-ink)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "var(--color-ink2)")
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span
+                    className="text-sm font-black"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {(item.unitPrice * item.quantity).toFixed(2)}{" "}
+                    {currencySymbol}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-2">
-                <div
-                  className="flex items-center gap-1 rounded-lg"
-                  style={{ border: "1px solid var(--color-border)" }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onUpdateQty(idx, -1)}
-                    className="w-7 h-7 flex items-center justify-center text-(--color-ink2) hover:text-(--color-ink) font-black transition-colors"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center text-xs font-bold text-(--color-ink)">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateQty(idx, 1)}
-                    className="w-7 h-7 flex items-center justify-center text-(--color-ink2) hover:text-(--color-ink) font-black transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-                <span className="text-sm font-black text-(--color-ink)">
-                  {(item.unitPrice * item.quantity).toFixed(2)} {currencySymbol}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => onRemoveItem(idx)}
+                aria-label="Remove item"
+                className="self-start transition-colors p-1"
+                style={{ color: "var(--color-ink4)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.color = "var(--color-negative)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.color = "var(--color-ink4)")
+                }
+              >
+                <Trash2 size={15} strokeWidth={2} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onRemoveItem(idx)}
-              aria-label="Remove item"
-              className="self-start text-(--color-ink4) hover:text-rose-500 transition-colors p-1"
-            >
-              <Trash2 size={15} strokeWidth={2} />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <button
         type="button"
         onClick={onNext}
-        className="mt-2 w-full sm:w-auto sm:self-end flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-          boxShadow: "var(--shadow-accent)",
-        }}
+        className="pill-btn pill-btn-accent w-full sm:w-auto sm:self-end"
       >
         Continue to Shipping
         <ArrowRight size={15} strokeWidth={2.5} />
@@ -601,8 +673,6 @@ interface ContactStepProps {
   setPhone: (v: string) => void;
   email: string;
   setEmail: (v: string) => void;
-  reception: "retrait" | "livraison";
-  setReception: (v: "retrait" | "livraison") => void;
   savedAddresses: any[];
   selectedAddressId: string;
   setSelectedAddressId: (v: string) => void;
@@ -637,8 +707,6 @@ function ContactStep({
   setPhone,
   email,
   setEmail,
-  reception,
-  setReception,
   savedAddresses,
   selectedAddressId,
   setSelectedAddressId,
@@ -670,95 +738,23 @@ function ContactStep({
   return (
     <div className="flex flex-col gap-6 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="text-3xl sm:text-4xl font-serif"
+          style={{ color: "var(--color-ink)" }}
+        >
           Shipping &amp; Contact
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-1">
+        <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
           Where and how would you like to receive your order?
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setReception("livraison")}
-          className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-150"
-          style={{
-            border: `1.5px solid ${reception === "livraison" ? "var(--color-accent)" : "var(--color-border)"}`,
-            background:
-              reception === "livraison"
-                ? "var(--color-accent-bg)"
-                : "var(--color-surface)",
-          }}
-        >
-          <Truck
-            size={18}
-            strokeWidth={2}
-            style={{
-              color:
-                reception === "livraison"
-                  ? "var(--color-accent)"
-                  : "var(--color-ink3)",
-            }}
-          />
-          <div>
-            <p
-              className="text-xs font-black"
-              style={{
-                color:
-                  reception === "livraison"
-                    ? "var(--color-accent)"
-                    : "var(--color-ink)",
-              }}
-            >
-              Delivery
-            </p>
-            <p className="text-[10px] text-(--color-ink4)">To your address</p>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setReception("retrait")}
-          className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-150"
-          style={{
-            border: `1.5px solid ${reception === "retrait" ? "var(--color-accent)" : "var(--color-border)"}`,
-            background:
-              reception === "retrait"
-                ? "var(--color-accent-bg)"
-                : "var(--color-surface)",
-          }}
-        >
-          <Store
-            size={18}
-            strokeWidth={2}
-            style={{
-              color:
-                reception === "retrait"
-                  ? "var(--color-accent)"
-                  : "var(--color-ink3)",
-            }}
-          />
-          <div>
-            <p
-              className="text-xs font-black"
-              style={{
-                color:
-                  reception === "retrait"
-                    ? "var(--color-accent)"
-                    : "var(--color-ink)",
-              }}
-            >
-              Pickup
-            </p>
-            <p className="text-[10px] text-(--color-ink4)">On site, free</p>
-          </div>
-        </button>
-      </div>
-
-      {/* Saved addresses */}
       {savedAddresses.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+          <label
+            className="text-[11px] font-bold uppercase tracking-wider"
+            style={{ color: "var(--color-ink3)" }}
+          >
             Saved Address
           </label>
           <select
@@ -778,8 +774,12 @@ function ContactStep({
                 setTaxNumber(addr.tax_number || "");
               }
             }}
-            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
-            style={{ border: "1.5px solid var(--color-border2)" }}
+            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+            style={{
+              background: "var(--color-surface)",
+              color: "var(--color-ink)",
+              border: "1.5px solid var(--color-border2)",
+            }}
           >
             <option value="">— Choose an address —</option>
             {savedAddresses.map((addr) => (
@@ -850,206 +850,213 @@ function ContactStep({
         }}
       />
 
-      {reception === "livraison" && (
-        <div className="flex flex-col gap-4 pt-1 animate-fade-up">
+      <div className="flex flex-col gap-4 pt-1 animate-fade-up">
+        <TextField
+          label="Address"
+          id="address"
+          required
+          icon={MapPin}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="132 Main Street"
+          autoComplete="address-line1"
+          error={errors.address}
+          onClearError={() => {
+            if (errors.address) {
+              const next = { ...errors };
+              delete next.address;
+              setErrors(next);
+            }
+          }}
+        />
+        <div className="grid grid-cols-2 gap-4">
           <TextField
-            label="Address"
-            id="address"
+            label="City"
+            id="city"
             required
-            icon={MapPin}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="132 Main Street"
-            autoComplete="address-line1"
-            error={errors.address}
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="New York"
+            autoComplete="address-level2"
+            error={errors.city}
             onClearError={() => {
-              if (errors.address) {
+              if (errors.city) {
                 const next = { ...errors };
-                delete next.address;
+                delete next.city;
                 setErrors(next);
               }
             }}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="City"
-              id="city"
-              required
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="New York"
-              autoComplete="address-level2"
-              error={errors.city}
-              onClearError={() => {
-                if (errors.city) {
-                  const next = { ...errors };
-                  delete next.city;
-                  setErrors(next);
+          <TextField
+            label="ZIP Code"
+            id="zip"
+            required
+            value={zip}
+            onChange={(e) => {
+              const val = e.target.value;
+              setZip(val);
+              if (errors.zip) {
+                const next = { ...errors };
+                delete next.zip;
+                setErrors(next);
+              }
+              setZipWarning(null);
+              if (
+                country === "US" &&
+                val.trim().length >= 5 &&
+                /^\d{5}(-\d{4})?$/.test(val.trim())
+              ) {
+                const trimmed = val.trim().slice(0, 5);
+                if (zipValidatedRef.current !== trimmed) {
+                  zipValidatedRef.current = trimmed;
+                  validateUSZip(trimmed, stateCode.trim()).then(
+                    ({ valid, suggestedState, message }) => {
+                      if (!valid || message) {
+                        setZipWarning(message || null);
+                      }
+                    },
+                  );
                 }
-              }}
-            />
-            <TextField
-              label="ZIP Code"
-              id="zip"
-              required
-              value={zip}
-              onChange={(e) => {
-                const val = e.target.value;
-                setZip(val);
-                if (errors.zip) {
-                  const next = { ...errors };
-                  delete next.zip;
-                  setErrors(next);
+              }
+            }}
+            onBlur={() => {
+              if (
+                country === "US" &&
+                zip.trim().length >= 5 &&
+                /^\d{5}(-\d{4})?$/.test(zip.trim()) &&
+                !zipWarning
+              ) {
+                const trimmed = zip.trim().slice(0, 5);
+                if (zipValidatedRef.current !== trimmed) {
+                  zipValidatedRef.current = trimmed;
+                  validateUSZip(trimmed, stateCode.trim()).then(
+                    ({ valid, suggestedState, message }) => {
+                      if (!valid || message) {
+                        setZipWarning(message || null);
+                      }
+                    },
+                  );
                 }
-                setZipWarning(null);
-                // Déclenche la validation si 5 chiffres saisis
-                if (
-                  country === "US" &&
-                  val.trim().length >= 5 &&
-                  /^\d{5}(-\d{4})?$/.test(val.trim())
-                ) {
-                  const trimmed = val.trim().slice(0, 5);
-                  if (zipValidatedRef.current !== trimmed) {
-                    zipValidatedRef.current = trimmed;
-                    validateUSZip(trimmed, stateCode.trim()).then(
-                      ({ valid, suggestedState, message }) => {
-                        if (!valid || message) {
-                          setZipWarning(message || null);
-                        }
-                      },
-                    );
-                  }
-                }
-              }}
-              onBlur={() => {
-                // Validation au blur si pas encore faite
-                if (
-                  country === "US" &&
-                  zip.trim().length >= 5 &&
-                  /^\d{5}(-\d{4})?$/.test(zip.trim()) &&
-                  !zipWarning
-                ) {
-                  const trimmed = zip.trim().slice(0, 5);
-                  if (zipValidatedRef.current !== trimmed) {
-                    zipValidatedRef.current = trimmed;
-                    validateUSZip(trimmed, stateCode.trim()).then(
-                      ({ valid, suggestedState, message }) => {
-                        if (!valid || message) {
-                          setZipWarning(message || null);
-                        }
-                      },
-                    );
-                  }
-                }
-              }}
-              placeholder="10001"
-              autoComplete="postal-code"
-              error={errors.zip}
-              onClearError={() => {
-                if (errors.zip) {
-                  const next = { ...errors };
-                  delete next.zip;
-                  setErrors(next);
-                }
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              Country <span className="text-(--color-accent)">*</span>
-            </label>
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
-              style={{ border: "1.5px solid var(--color-border2)" }}
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag} {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {needsState && (
-            <TextField
-              label={country === "BR" ? "State (UF)" : "State / Province"}
-              id="stateCode"
-              required
-              value={stateCode}
-              onChange={(e) => setStateCode(e.target.value.toUpperCase())}
-              placeholder={country === "BR" ? "SP" : "NY"}
-              maxLength={2}
-              autoComplete="address-level1"
-              error={errors.stateCode}
-              onClearError={() => {
-                if (errors.stateCode) {
-                  const next = { ...errors };
-                  delete next.stateCode;
-                  setErrors(next);
-                }
-              }}
-            />
-          )}
-
-          {country === "BR" && (
-            <TextField
-              label="CPF or CNPJ"
-              id="taxNumber"
-              required
-              value={taxNumber}
-              onChange={(e) => setTaxNumber(formatCPFCNPJ(e.target.value))}
-              placeholder="000.000.000-00"
-              autoComplete="off"
-              error={errors.taxNumber}
-              onClearError={() => {
-                if (errors.taxNumber) {
-                  const next = { ...errors };
-                  delete next.taxNumber;
-                  setErrors(next);
-                }
-              }}
-            />
-          )}
+              }
+            }}
+            placeholder="10001"
+            autoComplete="postal-code"
+            error={errors.zip}
+            onClearError={() => {
+              if (errors.zip) {
+                const next = { ...errors };
+                delete next.zip;
+                setErrors(next);
+              }
+            }}
+          />
         </div>
-      )}
+
+        <div className="flex flex-col gap-1.5">
+          <label
+            className="text-[11px] font-bold uppercase tracking-wider"
+            style={{ color: "var(--color-ink3)" }}
+          >
+            Country <span className="text-(--color-accent)">*</span>
+          </label>
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+            style={{
+              background: "var(--color-surface)",
+              color: "var(--color-ink)",
+              border: "1.5px solid var(--color-border2)",
+            }}
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.flag} {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {needsState && (
+          <TextField
+            label={country === "BR" ? "State (UF)" : "State / Province"}
+            id="stateCode"
+            required
+            value={stateCode}
+            onChange={(e) => setStateCode(e.target.value.toUpperCase())}
+            placeholder={country === "BR" ? "SP" : "NY"}
+            maxLength={2}
+            autoComplete="address-level1"
+            error={errors.stateCode}
+            onClearError={() => {
+              if (errors.stateCode) {
+                const next = { ...errors };
+                delete next.stateCode;
+                setErrors(next);
+              }
+            }}
+          />
+        )}
+
+        {country === "BR" && (
+          <TextField
+            label="CPF or CNPJ"
+            id="taxNumber"
+            required
+            value={taxNumber}
+            onChange={(e) => setTaxNumber(formatCPFCNPJ(e.target.value))}
+            placeholder="000.000.000-00"
+            autoComplete="off"
+            error={errors.taxNumber}
+            onClearError={() => {
+              if (errors.taxNumber) {
+                const next = { ...errors };
+                delete next.taxNumber;
+                setErrors(next);
+              }
+            }}
+          />
+        )}
+      </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+        <label
+          className="text-[11px] font-bold uppercase tracking-wider"
+          style={{ color: "var(--color-ink3)" }}
+        >
           Message (optional)
         </label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={3}
-          className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none bg-(--color-surface) text-(--color-ink) placeholder:text-(--color-ink4)"
-          style={{ border: "1.5px solid var(--color-border2)" }}
+          className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none"
+          style={{
+            background: "var(--color-surface)",
+            color: "var(--color-ink)",
+            border: "1.5px solid var(--color-border2)",
+            fontFamily: "var(--font-sans)",
+          }}
           placeholder="Delivery instructions, personalization..."
         />
       </div>
 
-      <div className="flex items-center justify-between mt-1 gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2)"
-          style={{ border: "1px solid var(--color-border)" }}
+          className="pill-btn pill-btn-outline"
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          Back
         </button>
         <button
           type="button"
           onClick={onNext}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-            boxShadow: "var(--shadow-accent)",
-          }}
+          className="pill-btn pill-btn-accent flex-1 sm:flex-none"
         >
-          Continue to Payment <ArrowRight size={15} strokeWidth={2.5} />
+          Continue to Payment
+          <ArrowRight size={15} strokeWidth={2.5} />
         </button>
         {zipWarning && (
           <div
@@ -1069,11 +1076,18 @@ function ContactStep({
             <button
               type="button"
               onClick={() => {
-                const el = document.getElementById("zip");
-                if (el) {
-                  el.scrollIntoView({ behavior: "smooth", block: "center" });
-                  el.focus();
-                }
+                setZipWarning?.(null);
+                onJumpToShipping?.();
+                setTimeout(() => {
+                  const el = document.getElementById("zip");
+                  if (el) {
+                    el.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                    el.focus();
+                  }
+                }, 300);
               }}
               className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-opacity shrink-0"
               style={{ background: "var(--color-accent)" }}
@@ -1109,11 +1123,9 @@ interface PaymentStepProps {
   onBack: () => void;
   onPay: () => void;
   onStripePay: () => void;
-  // Nouvelles props pour le formulaire carte direct
   contactName: string;
   contactEmail: string;
   contactPhone: string;
-  reception: "retrait" | "livraison";
   address: string;
   city: string;
   zip: string;
@@ -1143,7 +1155,6 @@ function StripeCardForm({
   contactName,
   contactEmail,
   contactPhone,
-  reception,
   address,
   city,
   zip,
@@ -1164,7 +1175,6 @@ function StripeCardForm({
   contactName: string;
   contactEmail: string;
   contactPhone: string;
-  reception: "retrait" | "livraison";
   address: string;
   city: string;
   zip: string;
@@ -1180,7 +1190,6 @@ function StripeCardForm({
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Style cohérent avec le thème (clair/sombre) via variables CSS
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
 
   const elementOptions = {
@@ -1207,7 +1216,6 @@ function StripeCardForm({
     setProcessing(true);
     setErrorMsg(null);
 
-    // 1. Create PaymentIntent via Edge Function
     const piRes = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
       {
@@ -1243,7 +1251,6 @@ function StripeCardForm({
       return;
     }
 
-    // 2. Confirm payment with Stripe
     const { error, paymentIntent } = await stripe.confirmCardPayment(
       piData.clientSecret,
       {
@@ -1261,7 +1268,6 @@ function StripeCardForm({
     }
 
     if (paymentIntent && paymentIntent.status === "succeeded") {
-      // Sauvegarder l'adresse de livraison pour le client
       let clientId: string | null = null;
       try {
         const {
@@ -1296,7 +1302,6 @@ function StripeCardForm({
           .catch(console.warn);
       }
 
-      // 3. Save order in Supabase
       try {
         await orderApi.create({
           id: orderId,
@@ -1309,12 +1314,12 @@ function StripeCardForm({
           shippingCost,
           shippingAddress: {
             fullName: contactName,
-            address: reception === "livraison" ? address : "Pickup",
-            city: reception === "livraison" ? city : "",
-            zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "FR",
-            state_code: reception === "livraison" ? stateCode : "",
-            tax_number: reception === "livraison" ? taxNumber : "",
+            address: address,
+            city: city,
+            zip: zip,
+            country: country,
+            state_code: stateCode,
+            tax_number: taxNumber,
             phone: contactPhone,
           },
           notes: message,
@@ -1335,7 +1340,6 @@ function StripeCardForm({
           contactName,
           contactPhone,
           contactEmail,
-          reception,
           address,
           city,
           zip,
@@ -1367,15 +1371,28 @@ function StripeCardForm({
           <button
             type="button"
             onClick={onBack}
-            className="text-(--color-ink4) hover:text-(--color-ink) transition-colors"
+            className="transition-colors"
+            style={{ color: "var(--color-ink4)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--color-ink)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--color-ink4)")
+            }
           >
             <ArrowLeft size={16} strokeWidth={2.5} />
           </button>
-          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+          <h2
+            className="text-3xl sm:text-4xl font-serif"
+            style={{ color: "var(--color-ink)" }}
+          >
             Pay by Card
           </h2>
         </div>
-        <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
+        <p
+          className="text-sm mt-1 flex items-center gap-1.5"
+          style={{ color: "var(--color-ink3)" }}
+        >
           <Lock
             size={12}
             strokeWidth={2.5}
@@ -1385,31 +1402,57 @@ function StripeCardForm({
         </p>
       </div>
 
-      {/* Separate fields */}
       <div className="flex flex-col gap-4 max-w-sm">
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+          <label
+            className="text-[11px] font-bold uppercase tracking-wider"
+            style={{ color: "var(--color-ink3)" }}
+          >
             Card Number <span className="text-(--color-accent)">*</span>
           </label>
-          <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+          <div
+            className="p-3 rounded-xl"
+            style={{
+              border: "1px solid var(--color-border)",
+              background: "var(--color-surface)",
+            }}
+          >
             <CardNumberElement options={elementOptions} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+            <label
+              className="text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: "var(--color-ink3)" }}
+            >
               Expiry <span className="text-(--color-accent)">*</span>
             </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+            <div
+              className="p-3 rounded-xl"
+              style={{
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+              }}
+            >
               <CardExpiryElement options={elementOptions} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+            <label
+              className="text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: "var(--color-ink3)" }}
+            >
               CVV <span className="text-(--color-accent)">*</span>
             </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
+            <div
+              className="p-3 rounded-xl"
+              style={{
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+              }}
+            >
               <CardCvcElement options={elementOptions} />
             </div>
           </div>
@@ -1420,9 +1463,9 @@ function StripeCardForm({
         <div
           className="flex items-start gap-2 p-3.5 rounded-xl text-xs font-medium max-w-sm"
           style={{
-            background: "var(--notif-negative-bg)",
-            color: "var(--notif-negative)",
-            border: "1px solid var(--notif-negative)",
+            background: "var(--color-negative-bg)",
+            color: "var(--color-negative)",
+            border: "1px solid var(--color-negative)",
           }}
         >
           <AlertCircle size={15} strokeWidth={2} className="shrink-0 mt-0.5" />
@@ -1435,20 +1478,15 @@ function StripeCardForm({
           type="button"
           onClick={onBack}
           disabled={processing}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
-          style={{ border: "1px solid var(--color-border)" }}
+          className="pill-btn pill-btn-outline"
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          Back
         </button>
         <button
           type="submit"
           disabled={processing || !stripe}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-            boxShadow: "var(--shadow-accent)",
-          }}
+          className="pill-btn pill-btn-accent flex-1 sm:flex-none"
         >
           {processing ? (
             <>
@@ -1490,7 +1528,6 @@ function PaymentStep({
   contactName,
   contactEmail,
   contactPhone,
-  reception,
   address,
   city,
   zip,
@@ -1514,15 +1551,17 @@ function PaymentStep({
     generateOrderId().then(setLocalOrderId);
   }, []);
 
-  // Step 1: payment method selection
   if (!showCardForm) {
     return (
       <div className="flex flex-col gap-6 animate-fade-up">
         <div>
-          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+          <h2
+            className="text-3xl sm:text-4xl font-serif"
+            style={{ color: "var(--color-ink)" }}
+          >
             Payment
           </h2>
-          <p className="text-sm text-(--color-ink3) mt-1">
+          <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
             Choose your payment method.
           </p>
           {zipWarning && (
@@ -1566,17 +1605,11 @@ function PaymentStep({
         </div>
 
         <div className="flex flex-col gap-4">
-          {/* Stripe Checkout option */}
           <button
             type="button"
             onClick={onStripePay}
             disabled={processing}
-            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0"
-            style={{
-              background: "var(--color-surface)",
-              border: "1.5px solid var(--color-border2)",
-              boxShadow: "var(--shadow-sm)",
-            }}
+            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0 card-premium"
           >
             {processing ? (
               <>
@@ -1587,10 +1620,16 @@ function PaymentStep({
                   <Loader2 size={24} className="animate-spin text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-(--color-ink)">
+                  <p
+                    className="text-sm font-black"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     Redirecting to Stripe…
                   </p>
-                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                  <p
+                    className="text-[11px] mt-0.5"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
                     You will be redirected to the secure payment page
                   </p>
                 </div>
@@ -1606,37 +1645,41 @@ function PaymentStep({
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-(--color-ink)">
+                  <p
+                    className="text-sm font-black"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     Stripe Checkout
                   </p>
-                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
+                  <p
+                    className="text-[11px] mt-0.5"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
                     Credit card, Apple Pay, Google Pay — secure
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-(--color-ink)">
+                  <p
+                    className="text-sm font-black"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     {total.toFixed(2)} {currencySymbol}
                   </p>
                   <ArrowRight
                     size={15}
                     strokeWidth={2.5}
-                    className="ml-auto mt-1 text-(--color-accent)"
+                    className="ml-auto mt-1"
+                    style={{ color: "var(--color-accent)" }}
                   />
                 </div>
               </>
             )}
           </button>
 
-          {/* Direct card option */}
           <button
             type="button"
             onClick={() => setShowCardForm(true)}
-            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-            style={{
-              background: "var(--color-surface)",
-              border: "1.5px solid var(--color-border2)",
-              boxShadow: "var(--shadow-sm)",
-            }}
+            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] card-premium"
           >
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
@@ -1652,21 +1695,31 @@ function PaymentStep({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-(--color-ink)">
+              <p
+                className="text-sm font-black"
+                style={{ color: "var(--color-ink)" }}
+              >
                 Pay by Card
               </p>
-              <p className="text-[11px] text-(--color-ink4) mt-0.5">
+              <p
+                className="text-[11px] mt-0.5"
+                style={{ color: "var(--color-ink4)" }}
+              >
                 Enter your card details securely
               </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-sm font-black text-(--color-ink)">
+              <p
+                className="text-sm font-black"
+                style={{ color: "var(--color-ink)" }}
+              >
                 {total.toFixed(2)} {currencySymbol}
               </p>
               <ArrowRight
                 size={15}
                 strokeWidth={2.5}
-                className="ml-auto mt-1 text-(--color-accent)"
+                className="ml-auto mt-1"
+                style={{ color: "var(--color-accent)" }}
               />
             </div>
           </button>
@@ -1676,16 +1729,15 @@ function PaymentStep({
           type="button"
           onClick={onBack}
           disabled={processing}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
-          style={{ border: "1px solid var(--color-border)" }}
+          className="pill-btn pill-btn-outline"
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          Back
         </button>
       </div>
     );
   }
 
-  // Step 2: Stripe card form
   return (
     <Elements stripe={stripePromise}>
       <StripeCardForm
@@ -1696,7 +1748,6 @@ function PaymentStep({
         contactName={contactName}
         contactEmail={contactEmail}
         contactPhone={contactPhone}
-        reception={reception}
         address={address}
         city={city}
         zip={zip}
@@ -1742,10 +1793,16 @@ function ConfirmationStep({
         />
       </div>
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="text-3xl sm:text-4xl font-serif"
+          style={{ color: "var(--color-ink)" }}
+        >
           Order Confirmed
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-2 leading-relaxed max-w-sm">
+        <p
+          className="text-sm mt-2 leading-relaxed max-w-sm"
+          style={{ color: "var(--color-ink3)" }}
+        >
           Your payment has been accepted. The order is being sent to our print
           shop.
         </p>
@@ -1755,11 +1812,17 @@ function ConfirmationStep({
         className="w-full rounded-2xl p-5"
         style={{ background: "var(--color-surface2)" }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-widest text-(--color-ink3) mb-2">
+        <p
+          className="text-[10px] font-bold uppercase tracking-widest mb-2"
+          style={{ color: "var(--color-ink3)" }}
+        >
           Order Reference
         </p>
         <div className="flex items-center justify-center gap-3">
-          <span className="font-mono font-black text-xl tracking-wider text-(--color-accent)">
+          <span
+            className="font-mono font-black text-xl tracking-wider"
+            style={{ color: "var(--color-accent)" }}
+          >
             {orderId}
           </span>
           <button
@@ -1792,13 +1855,17 @@ function ConfirmationStep({
         )}
       </div>
 
-      <div className="w-full flex flex-col gap-2 text-left text-xs text-(--color-ink3) leading-relaxed">
+      <div
+        className="w-full flex flex-col gap-2 text-left text-xs leading-relaxed"
+        style={{ color: "var(--color-ink3)" }}
+      >
         {email && (
           <p className="flex items-start gap-2">
             <Mail
               size={13}
               strokeWidth={2}
-              className="shrink-0 mt-0.5 text-(--color-accent)"
+              className="shrink-0 mt-0.5"
+              style={{ color: "var(--color-accent)" }}
             />
             A confirmation has been sent to{" "}
             <strong className="text-(--color-ink2)">{email}</strong>.
@@ -1808,7 +1875,8 @@ function ConfirmationStep({
           <CheckCircle2
             size={13}
             strokeWidth={2}
-            className="shrink-0 mt-0.5 text-(--color-accent)"
+            className="shrink-0 mt-0.5"
+            style={{ color: "var(--color-accent)" }}
           />
           Our team has been notified automatically of your order.
         </p>
@@ -1817,12 +1885,7 @@ function ConfirmationStep({
       <button
         type="button"
         onClick={onClose}
-        className="mt-2 w-full flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-          boxShadow: "var(--shadow-accent)",
-        }}
+        className="pill-btn pill-btn-accent w-full"
       >
         Back to Shop
       </button>
@@ -1845,15 +1908,13 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
           className="w-10 h-10 mx-auto mb-3"
           style={{ opacity: 0.5 }}
         />
-        <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
-        <p className="text-xs text-(--color-ink3) mb-5">
+        <p className="font-bold" style={{ color: "var(--color-ink)" }}>
+          Your cart is empty
+        </p>
+        <p className="text-xs mb-5" style={{ color: "var(--color-ink3)" }}>
           Add some items before checking out.
         </p>
-        <button
-          onClick={onClose}
-          className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
-          style={{ background: "var(--color-accent)" }}
-        >
+        <button onClick={onClose} className="pill-btn pill-btn-accent">
           Back to Shop
         </button>
       </div>
@@ -1908,9 +1969,7 @@ export default function CheckoutFlow({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [reception, setReception] = useState<"retrait" | "livraison">(
-    "livraison",
-  );
+  const reception = "livraison";
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
@@ -1998,10 +2057,7 @@ export default function CheckoutFlow({
   // Use country-specific shipping rates based on user location
   const { cost: countryShippingCost, threshold: countryThreshold } =
     useShippingSettings(country);
-  const shippingCost =
-    reception === "retrait" || cartTotal >= countryThreshold
-      ? 0
-      : countryShippingCost;
+  const shippingCost = cartTotal >= countryThreshold ? 0 : countryShippingCost;
   const total = cartTotal + shippingCost;
 
   const validateContact = (): boolean => {
@@ -2011,25 +2067,22 @@ export default function CheckoutFlow({
     if (!email.trim()) e.email = "Email is required for order confirmation.";
     else if (!EMAIL_REGEX.test(email)) e.email = "Invalid email format.";
 
-    if (reception === "livraison") {
-      if (!address.trim()) e.address = "Address is required.";
-      if (!city.trim()) e.city = "City is required.";
-      if (!zip.trim()) e.zip = "ZIP code is required.";
-      if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
-        e.stateCode = "This field is required.";
-      if (
-        country === "US" &&
-        zip.trim() &&
-        !/^\d{5}(-\d{4})?$/.test(zip.trim())
-      ) {
-        e.zip = "US ZIP code must be 5 digits (e.g. 10001).";
-      }
-      if (country === "BR" && !taxNumber.trim())
-        e.taxNumber = "CPF/CNPJ is required.";
+    if (!address.trim()) e.address = "Address is required.";
+    if (!city.trim()) e.city = "City is required.";
+    if (!zip.trim()) e.zip = "ZIP code is required.";
+    if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
+      e.stateCode = "This field is required.";
+    if (
+      country === "US" &&
+      zip.trim() &&
+      !/^\d{5}(-\d{4})?$/.test(zip.trim())
+    ) {
+      e.zip = "US ZIP code must be 5 digits (e.g. 10001).";
     }
+    if (country === "BR" && !taxNumber.trim())
+      e.taxNumber = "CPF/CNPJ is required.";
     setErrors(e);
 
-    // Auto-scroll to the first invalid field
     if (Object.keys(e).length > 0) {
       setTimeout(() => {
         const firstError = Object.keys(e)[0];
@@ -2112,12 +2165,12 @@ export default function CheckoutFlow({
         shippingCost,
         shippingAddress: {
           fullName: name,
-          address: reception === "livraison" ? address : "Pickup",
-          city: reception === "livraison" ? city : "",
-          zip: reception === "livraison" ? zip : "",
-          country: reception === "livraison" ? country : "US",
-          state_code: reception === "livraison" ? stateCode : "",
-          tax_number: reception === "livraison" ? taxNumber : "",
+          address: address,
+          city,
+          zip,
+          country,
+          state_code: stateCode,
+          tax_number: taxNumber,
           phone,
         },
         notes: message,
@@ -2134,7 +2187,6 @@ export default function CheckoutFlow({
         })),
       } as any);
 
-      // Sauvegarder l'adresse de livraison pour le client
       if (clientId) {
         customerApi
           .saveAddressIfNew(clientId, {
@@ -2153,7 +2205,6 @@ export default function CheckoutFlow({
           .catch(console.warn);
       }
 
-      // Redirect to Stripe Checkout
       const stripeRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
         {
@@ -2170,9 +2221,8 @@ export default function CheckoutFlow({
                 image: getVariantImage(item.product, item.selectedColor),
                 unitAmount: Math.round(item.unitPrice * 100),
                 quantity: item.quantity,
-                currency: currencyCode, // devise dynamique
+                currency: currencyCode,
               })),
-              // Ajouter les frais de port comme un item séparé si > 0
               ...(shippingCost > 0
                 ? [
                     {
@@ -2201,7 +2251,6 @@ export default function CheckoutFlow({
       window.location.href = url;
     } catch (err: any) {
       console.error(err);
-      // Supprimer la commande créée pour éviter les doublons
       await supabase.from("orders").delete().eq("id", newOrderId);
       setPaymentError(
         err?.message || "An error occurred while creating the payment.",
@@ -2248,12 +2297,12 @@ export default function CheckoutFlow({
           shippingCost,
           shippingAddress: {
             fullName: name,
-            address: reception === "livraison" ? address : "Pickup",
-            city: reception === "livraison" ? city : "",
-            zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "us",
-            state_code: reception === "livraison" ? stateCode : "",
-            tax_number: reception === "livraison" ? taxNumber : "",
+            address: address,
+            city,
+            zip,
+            country,
+            state_code: stateCode,
+            tax_number: taxNumber,
             phone,
           },
           notes: message,
@@ -2270,7 +2319,6 @@ export default function CheckoutFlow({
           })),
         } as any);
 
-        // Sauvegarder l'adresse de livraison pour le client
         if (clientId) {
           customerApi
             .saveAddressIfNew(clientId, {
@@ -2289,13 +2337,11 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send recap via Telegram
         sendTelegramNotification(
           newOrderId,
           name,
           phone,
           email,
-          reception,
           address,
           city,
           zip,
@@ -2306,8 +2352,6 @@ export default function CheckoutFlow({
         );
       })();
 
-      // Délai minimum pour un retour visuel crédible, pendant que le
-      // travail réel (Supabase + Printful) s'exécute en parallèle.
       const minDelay = new Promise((resolve) => setTimeout(resolve, 1100));
       await Promise.all([work, minDelay]);
 
@@ -2344,7 +2388,7 @@ export default function CheckoutFlow({
 
       {/* Header */}
       <header
-        className="glass shrink-0 z-10 px-4 sm:px-6 py-4 flex items-center justify-between"
+        className="glass shrink-0 z-10 px-4 sm:px-6 py-2.5 flex items-center justify-between"
         style={{ borderBottom: "1px solid var(--color-border)" }}
       >
         <div className="flex items-center gap-2.5">
@@ -2353,19 +2397,36 @@ export default function CheckoutFlow({
             alt="InstaWear"
             className="h-7 w-7 rounded-lg object-cover"
           />
-          <span className="font-black text-sm sm:text-base text-(--color-ink)">
+          <span
+            className="font-black text-sm sm:text-base"
+            style={{ color: "var(--color-ink)" }}
+          >
             InstaWear
           </span>
           <span className="text-(--color-ink4) hidden sm:inline">/</span>
-          <span className="text-xs sm:text-sm font-bold text-(--color-ink2) hidden sm:inline">
+          <span
+            className="text-xs sm:text-sm font-bold hidden sm:inline"
+            style={{ color: "var(--color-ink2)" }}
+          >
             Secure Checkout
           </span>
         </div>
         <button
           onClick={onClose}
           aria-label="Close"
-          className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--color-surface2) text-(--color-ink3) hover:text-(--color-ink)"
-          style={{ border: "1px solid var(--color-border)" }}
+          className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+          style={{
+            border: "1px solid var(--color-border)",
+            color: "var(--color-ink3)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--color-surface2)";
+            e.currentTarget.style.color = "var(--color-ink)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--color-ink3)";
+          }}
         >
           <X size={17} strokeWidth={2} />
         </button>
@@ -2373,7 +2434,7 @@ export default function CheckoutFlow({
 
       {/* Stepper */}
       <div
-        className="py-5 sm:py-6 shrink-0"
+        className="py-3 sm:py-4 shrink-0"
         style={{
           borderBottom: "1px solid var(--color-border)",
           background: "var(--color-surface)",
@@ -2414,8 +2475,6 @@ export default function CheckoutFlow({
                   setPhone={setPhone}
                   email={email}
                   setEmail={setEmail}
-                  reception={reception}
-                  setReception={setReception}
                   savedAddresses={savedAddresses}
                   selectedAddressId={selectedAddressId}
                   setSelectedAddressId={setSelectedAddressId}
@@ -2469,7 +2528,6 @@ export default function CheckoutFlow({
                   contactName={name}
                   contactEmail={email}
                   contactPhone={phone}
-                  reception={reception}
                   address={address}
                   city={city}
                   zip={zip}
@@ -2501,7 +2559,6 @@ export default function CheckoutFlow({
               shippingCost={shippingCost}
               total={total}
               currencySymbol={currencySymbol}
-              reception={reception}
               threshold={countryThreshold}
             />
           </div>

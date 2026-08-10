@@ -1,67 +1,101 @@
-// src/components/OrderStatusStepper.tsx
-
 import React from "react";
-import { CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Package,
+  Truck,
+  Home,
+  XCircle,
+} from "lucide-react";
 import { ORDER_STATUS, STATUS_STEPS } from "../constants/orderStatus";
 
-// StatusPill — petit badge coloré (utilisé dans les listes de commandes,
-// à la fois dans AccountPage.tsx et potentiellement ailleurs). Extrait ici
-// pour ne plus être dupliqué.
+// ─── StatusPill (badge coloré) ────────────────────────────────────
 export function StatusPill({ status }: { status: string }) {
   const st = ORDER_STATUS[status] || ORDER_STATUS.pending;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
       style={{ background: st.bg, color: st.color }}
     >
-      {st.icon} {st.label}
+      {st.icon}
+      {st.label}
     </span>
   );
 }
 
+// ─── OrderStatusStepper ──────────────────────────────────────────
 interface OrderStatusStepperProps {
   status: string;
   className?: string;
 }
 
-// OrderStatusStepper — barre de progression horizontale à 5 étapes
-// (Paid → Pending → In Production → Shipped → Delivered), extraite telle
-// quelle depuis AccountPage.tsx (OrderDetail) pour être réutilisée à
-// l'identique dans OrderTrackingModal.tsx (suivi public par référence de
-// commande). Ne rend rien si la commande est annulée, comme avant.
+// Icônes pour chaque étape
+const STEP_ICONS: Record<string, React.ReactNode> = {
+  Pending: <Clock size={14} strokeWidth={2.5} />,
+  Paid: <CheckCircle2 size={14} strokeWidth={2.5} />,
+  "In Production": <Package size={14} strokeWidth={2.5} />,
+  Shipped: <Truck size={14} strokeWidth={2.5} />,
+  Delivered: <Home size={14} strokeWidth={2.5} />,
+};
+
 export default function OrderStatusStepper({
   status,
   className,
 }: OrderStatusStepperProps) {
-  if (status === "cancelled") return null;
+  // Annulé → on affiche un message explicite
+  if (status === "cancelled") {
+    return (
+      <div
+        className={`card-premium rounded-3xl p-5 ${className || ""}`}
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <div className="flex items-center gap-3 text-rose-600">
+          <XCircle size={20} strokeWidth={2} />
+          <span className="text-sm font-bold">Order cancelled</span>
+        </div>
+      </div>
+    );
+  }
+
   const st = ORDER_STATUS[status] || ORDER_STATUS.pending;
 
   return (
     <div
-      className={`rounded-2xl p-4 ${className || ""}`}
+      className={`card-premium rounded-3xl p-5 ${className || ""}`}
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
-      <div className="mb-3 flex items-center justify-between">
+      {/* Entête */}
+      <div className="mb-4 flex items-center justify-between">
         <p
-          className="text-[12px] font-semibold uppercase tracking-[0.08em]"
+          className="text-[11px] font-bold uppercase tracking-[0.12em]"
           style={{ color: "var(--color-ink4)" }}
         >
-          Order Status
+          Suivi de commande
         </p>
         <StatusPill status={status} />
       </div>
+
+      {/* Barre de progression */}
       <div className="flex items-center gap-0">
         {STATUS_STEPS.map((step, i) => {
           const reached = st.step >= i;
           const current = st.step === i;
+          const isLast = i === STATUS_STEPS.length - 1;
+
           return (
             <React.Fragment key={step}>
-              <div className="flex flex-col items-center gap-1">
+              {/* Étape */}
+              <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                {/* Cercle */}
                 <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300"
                   style={{
                     background: current
                       ? "var(--color-accent)"
@@ -72,28 +106,31 @@ export default function OrderStatusStepper({
                       ? "2px solid var(--color-accent)"
                       : `2px solid ${reached ? "var(--color-ink4)" : "var(--color-border)"}`,
                     boxShadow: current
-                      ? "0 0 0 3px var(--color-accent-bg)"
+                      ? "0 0 0 4px var(--color-accent-bg)"
                       : "none",
                     animation: current
                       ? "pulse-ring 1.8s ease-out infinite"
                       : "none",
+                    transform: current ? "scale(1.05)" : "scale(1)",
                   }}
                 >
                   {reached ? (
-                    <CheckCircle2
-                      size={13}
-                      strokeWidth={2.5}
-                      style={{ color: "white" }}
-                    />
+                    <span className="text-white">
+                      {STEP_ICONS[step] || (
+                        <CheckCircle2 size={14} strokeWidth={2.5} />
+                      )}
+                    </span>
                   ) : (
                     <span
-                      className="h-2 w-2 rounded-full"
+                      className="h-2.5 w-2.5 rounded-full"
                       style={{ background: "var(--color-border)" }}
                     />
                   )}
                 </div>
+
+                {/* Label */}
                 <span
-                  className="text-[9px] font-semibold text-center leading-tight whitespace-nowrap"
+                  className="text-[9px] font-semibold text-center leading-tight truncate max-w-17.5"
                   style={{
                     color: current
                       ? "var(--color-ink)"
@@ -105,9 +142,11 @@ export default function OrderStatusStepper({
                   {step}
                 </span>
               </div>
-              {i < STATUS_STEPS.length - 1 && (
+
+              {/* Ligne de connexion (sauf après la dernière étape) */}
+              {!isLast && (
                 <div
-                  className="mx-1 h-0.5 flex-1 rounded-full transition-all duration-500"
+                  className="h-0.5 flex-1 rounded-full transition-all duration-500"
                   style={{
                     background:
                       st.step > i + 1
@@ -115,6 +154,7 @@ export default function OrderStatusStepper({
                         : st.step > i
                           ? "var(--color-accent)"
                           : "var(--color-border)",
+                    height: "3px",
                   }}
                 />
               )}

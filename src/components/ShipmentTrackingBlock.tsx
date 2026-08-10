@@ -1,7 +1,5 @@
-// src/components/ShipmentTrackingBlock.tsx
-
-// Bloc de suivi des colis expédiés — partagé entre AccountPage, le modal
-// admin de OrdersPage et la page admin « Expédiées / Livrées ».
+// Bloc de suivi des colis expédiés – partagé entre AccountPage, le modal admin
+// et la page admin « Expédiées / Livrées ».
 // Affiche pour chaque colis : fenêtre d'arrivée estimée, transporteur,
 // date d'expédition et numéro de suivi cliquable.
 
@@ -31,153 +29,126 @@ export default function ShipmentTrackingBlock({
   if (!shipments || shipments.length === 0) return null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
-      <p
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          color: "var(--color-ink)",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          margin: 0,
-        }}
-      >
-        <Truck size={14} color="var(--color-accent)" />
-        {shipments.length > 1
-          ? `Suivi (${shipments.length} colis)`
-          : "Suivi du colis"}
-      </p>
+    <div className="flex flex-col gap-3">
+      {/* En-tête */}
+      <div className="flex items-center gap-2">
+        <Truck size={16} className="text-(--color-accent)" strokeWidth={2} />
+        <span
+          className="text-sm font-bold"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {shipments.length > 1
+            ? `Suivi (${shipments.length} colis)`
+            : "Suivi du colis"}
+        </span>
+      </div>
 
-      {shipments.map((shipment, i) => {
-        const carrier = shipment?.carrier || shipment?.service;
-        const trackingNumber = shipment?.trackingNumber;
-        const trackingUrl = shipment?.trackingUrl;
-        const minEst = formatDateFr(shipment?.estimatedMinDate ?? null);
-        const maxEst = formatDateFr(shipment?.estimatedMaxDate ?? null);
-        const shipDate = formatDateFr(shipment?.shipDate ?? null);
+      {/* Liste des colis */}
+      <div className="flex flex-col gap-3">
+        {shipments.map((shipment, i) => {
+          const carrier = shipment?.carrier || shipment?.service;
+          const trackingNumber = shipment?.trackingNumber;
+          const trackingUrl = shipment?.trackingUrl;
+          const minEst = formatDateFr(shipment?.estimatedMinDate ?? null);
+          const maxEst = formatDateFr(shipment?.estimatedMaxDate ?? null);
+          const shipDate = formatDateFr(shipment?.shipDate ?? null);
 
-        const estimateLabel =
-          minEst && maxEst && minEst === maxEst
-            ? minEst
-            : minEst && maxEst
-              ? `${minEst} – ${maxEst}`
-              : null;
+          const estimateLabel =
+            minEst && maxEst && minEst === maxEst
+              ? minEst
+              : minEst && maxEst
+                ? `${minEst} – ${maxEst}`
+                : null;
 
-        return (
-          <div
-            key={i}
-            style={{
-              background: "var(--color-surface2)",
-              borderRadius: 12,
-              padding: 12,
-            }}
-          >
+          return (
             <div
+              key={i}
+              className="rounded-2xl p-4 border"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 6,
+                background: "var(--color-surface2)",
+                borderColor: "var(--color-border)",
               }}
             >
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: "var(--color-ink3)",
-                }}
-              >
-                {shipments.length > 1
-                  ? `Colis ${i + 1} sur ${shipments.length}`
-                  : "Colis"}
-              </span>
-              {shipment?.reshipment && (
+              {/* En-tête du colis */}
+              <div className="flex items-center justify-between mb-2">
                 <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    color: "#92400e",
-                    background: "#fef3c7",
-                    borderRadius: 999,
-                    padding: "2px 8px",
-                  }}
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "var(--color-ink3)" }}
                 >
-                  <RefreshCw size={10} strokeWidth={2.5} />
-                  Réexpédié gratuitement
+                  {shipments.length > 1
+                    ? `Colis ${i + 1} sur ${shipments.length}`
+                    : "Colis"}
                 </span>
-              )}
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 6,
-                fontSize: 12.5,
-                color: "var(--color-ink2)",
-              }}
-            >
-              {estimateLabel && (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <span style={{ color: "var(--color-ink4)" }}>
-                    Arrivée estimée :
-                  </span>{" "}
-                  <strong>{estimateLabel}</strong>
-                </div>
-              )}
-              {carrier && (
-                <div>
-                  <span style={{ color: "var(--color-ink4)" }}>
-                    Transporteur :
-                  </span>{" "}
-                  {carrier}
-                </div>
-              )}
-              {shipDate && (
-                <div>
-                  <span style={{ color: "var(--color-ink4)" }}>
-                    Expédié le :
-                  </span>{" "}
-                  {shipDate}
-                </div>
-              )}
-              {trackingNumber && (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <span style={{ color: "var(--color-ink4)" }}>Suivi n° :</span>{" "}
-                  {trackingUrl ? (
-                    <a
-                      href={trackingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "var(--color-accent)",
-                        fontWeight: 600,
-                        textDecoration: "underline",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {trackingNumber}
-                    </a>
-                  ) : (
-                    <span style={{ fontFamily: "monospace" }}>
-                      {trackingNumber}
+                {shipment?.reshipment && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                    style={{
+                      background: "#fef3c7",
+                      color: "#92400e",
+                    }}
+                  >
+                    <RefreshCw size={11} strokeWidth={2.5} />
+                    Réexpédié gratuitement
+                  </span>
+                )}
+              </div>
+
+              {/* Détails du colis */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm">
+                {estimateLabel && (
+                  <div className="col-span-full">
+                    <span className="text-(--color-ink4)">
+                      Arrivée estimée :
+                    </span>{" "}
+                    <strong style={{ color: "var(--color-ink)" }}>
+                      {estimateLabel}
+                    </strong>
+                  </div>
+                )}
+                {carrier && (
+                  <div>
+                    <span className="text-(--color-ink4)">Transporteur :</span>{" "}
+                    <span style={{ color: "var(--color-ink2)" }}>
+                      {carrier}
                     </span>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+                {shipDate && (
+                  <div>
+                    <span className="text-(--color-ink4)">Expédié le :</span>{" "}
+                    <span style={{ color: "var(--color-ink2)" }}>
+                      {shipDate}
+                    </span>
+                  </div>
+                )}
+                {trackingNumber && (
+                  <div className="col-span-full">
+                    <span className="text-(--color-ink4)">Suivi n° :</span>{" "}
+                    {trackingUrl ? (
+                      <a
+                        href={trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline break-all"
+                        style={{ color: "var(--color-accent)" }}
+                      >
+                        {trackingNumber}
+                      </a>
+                    ) : (
+                      <span
+                        className="font-mono"
+                        style={{ color: "var(--color-ink2)" }}
+                      >
+                        {trackingNumber}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

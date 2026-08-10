@@ -1,7 +1,7 @@
 // src/components/ProfileModal.tsx — User profile modal (frontend)
 
 import React, { useEffect, useState } from "react";
-import { X, User, Package, Heart } from "lucide-react";
+import { X, Package, Heart, LogOut } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
 
@@ -23,14 +23,13 @@ export default function ProfileModal({
   const displayName = isAdmin ? "Admin" : userName || "User";
   const role = isAdmin ? "administrator" : "customer";
 
-  // Stats for regular users
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [orderCount, setOrderCount] = useState<number>(0);
   const [favoriteCount, setFavoriteCount] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) return; // skip stats for admin
+    if (isAdmin) return;
 
     const loadStats = async () => {
       setLoadingStats(true);
@@ -40,7 +39,6 @@ export default function ProfileModal({
         } = await supabase.auth.getUser();
         if (user?.email) {
           setUserEmail(user.email);
-          // Local lookup to avoid 406 errors
           const customer = allCustomers.find((c) => c.email === user.email);
           if (customer) {
             const [orders, favs] = await Promise.all([
@@ -59,97 +57,156 @@ export default function ProfileModal({
     };
 
     loadStats();
-  }, [isAdmin]);
+  }, [isAdmin, allCustomers]);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{
+        background: "rgba(26,20,10,0.5)",
+        backdropFilter: "blur(4px)",
+      }}
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-fade-up"
-        style={{ border: "1px solid var(--color-border)" }}
+        className="card-premium w-full max-w-sm p-6 relative animate-fade-up"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 28,
+          boxShadow: "var(--shadow-xl)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-500"
+          className="absolute top-4 right-4 p-1 rounded-full transition-colors hover:bg-(--color-surface2)"
+          style={{ color: "var(--color-ink4)" }}
         >
-          <X size={18} />
+          <X size={18} strokeWidth={2} />
         </button>
 
-        <div className="flex flex-col items-center text-center gap-4">
+        <div className="flex flex-col items-center text-center gap-5">
           {/* Avatar */}
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-xl"
-            style={{ background: "var(--color-accent)" }}
+            className="w-16 h-16 rounded-3xl flex items-center justify-center text-white font-black text-2xl transition-transform duration-200 hover:scale-105"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
+              boxShadow: "var(--shadow-accent)",
+            }}
           >
             {displayName.charAt(0).toUpperCase()}
           </div>
 
           {/* Identity */}
           <div>
-            <p className="font-bold text-gray-900">{displayName}</p>
+            <p
+              className="text-lg font-bold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {displayName}
+            </p>
             {userEmail && (
-              <p className="text-xs text-gray-500 mt-0.5">{userEmail}</p>
+              <p
+                className="text-sm mt-0.5"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                {userEmail}
+              </p>
             )}
-            <p className="text-xs text-gray-500 mt-1">Signed in as {role}</p>
+            <p
+              className="text-xs mt-1 font-medium"
+              style={{ color: "var(--color-ink3)" }}
+            >
+              Signed in as {role}
+            </p>
           </div>
 
           {/* Stats (regular user only) */}
           {!isAdmin && (
             <div
-              className="w-full flex justify-center gap-6 py-3 border-y border-gray-100"
+              className="w-full flex justify-center gap-8 py-4"
               style={{
                 borderTop: "1px solid var(--color-border)",
                 borderBottom: "1px solid var(--color-border)",
               }}
             >
               {loadingStats ? (
-                <p className="text-xs text-gray-400">Loading…</p>
+                <p className="text-sm" style={{ color: "var(--color-ink4)" }}>
+                  Loading…
+                </p>
               ) : (
                 <>
                   <div className="flex flex-col items-center gap-1">
-                    <Package size={18} style={{ color: "var(--color-ink4)" }} />
-                    <span className="text-sm font-bold text-gray-900">
+                    <Package
+                      size={20}
+                      strokeWidth={1.75}
+                      style={{ color: "var(--color-ink4)" }}
+                    />
+                    <span
+                      className="text-lg font-black"
+                      style={{ color: "var(--color-ink)" }}
+                    >
                       {orderCount}
                     </span>
-                    <span className="text-[10px] text-gray-500">Orders</span>
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      Orders
+                    </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <Heart size={18} style={{ color: "#EF4444" }} />
-                    <span className="text-sm font-bold text-gray-900">
+                    <Heart
+                      size={20}
+                      strokeWidth={1.75}
+                      style={{ color: "#EF4444" }}
+                    />
+                    <span
+                      className="text-lg font-black"
+                      style={{ color: "var(--color-ink)" }}
+                    >
                       {favoriteCount}
                     </span>
-                    <span className="text-[10px] text-gray-500">Wishlist</span>
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      Wishlist
+                    </span>
                   </div>
                 </>
               )}
             </div>
           )}
 
-          {/* Sign out */}
+          {/* Sign out button */}
           <button
             onClick={() => {
               onLogout();
               onClose();
             }}
-            className="w-full py-2.5 rounded-xl font-bold text-sm transition-all duration-200"
+            className="pill-btn w-full justify-center gap-2 font-bold transition-all duration-200"
             style={{
-              background: "transparent",
-              color: "var(--color-accent)",
-              border: "1.5px solid var(--color-accent)",
-              fontFamily: "var(--font-sans)",
+              background: "var(--color-accent)",
+              color: "white",
+              padding: "12px 20px",
+              boxShadow: "var(--shadow-accent)",
+              border: "none",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-accent)";
-              e.currentTarget.style.color = "white";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow =
+                "0 12px 40px rgba(255,92,53,.28)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--color-accent)";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "var(--shadow-accent)";
             }}
           >
+            <LogOut size={16} strokeWidth={2} />
             Sign out
           </button>
         </div>
