@@ -204,7 +204,7 @@ export default function Header({
             setTypedText("");
           }
         },
-        isDeleting ? 800 : 2000,
+        isDeleting ? 400 : 1200,
       );
     }
 
@@ -466,7 +466,7 @@ export default function Header({
                           ? "Search an item..."
                           : typedText
                     }
-                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap placeholder:text-(--color-ink4)"
                     style={{
                       color: "var(--color-ink)",
                       fontFamily: "var(--font-sans)",

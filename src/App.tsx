@@ -1,5 +1,4 @@
-//src/App.tsx — frontstore
-
+// src/App.tsx — frontstore
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -115,7 +114,6 @@ export default function App() {
   const [cartLoaded, setCartLoaded] = useState(false);
 
   // Local caches to avoid 406 errors on admin_users and customers
-  // const [adminEmails, setAdminEmails] = useState<string[]>([]);f
   const [allCustomers, setAllCustomers] = useState<
     { id: string; email: string }[]
   >([]);
@@ -793,7 +791,13 @@ export default function App() {
   const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
+    <div
+      className="min-h-screen flex flex-col font-sans"
+      style={{
+        background: "var(--color-bg)",
+        color: "var(--color-ink)",
+      }}
+    >
       {/* App Header */}
       <Header
         cart={cart}
