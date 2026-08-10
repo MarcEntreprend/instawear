@@ -50,6 +50,7 @@ export default function OrderTrackingModal({
   const [input, setInput] = useState("");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [error, setError] = useState("");
+  const [searching, setSearching] = useState(false);
   const currencySymbol = useCurrencySymbol();
 
   const handleSearch = async () => {
@@ -58,6 +59,7 @@ export default function OrderTrackingModal({
     const code = input.trim();
     if (!code) return;
 
+    setSearching(true);
     try {
       // orderApi est déjà importé en haut du fichier
       const found = await orderApi.get(code);
@@ -92,12 +94,14 @@ export default function OrderTrackingModal({
         setOrder(tracked);
       } else {
         setError(
-          "No order found with that reference. Please double‑check your order ID.",
+          "No order found with that reference. Please double-check your order ID.",
         );
       }
     } catch (err) {
       setError("An error occurred while searching for your order.");
       console.error(err);
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -116,21 +120,26 @@ export default function OrderTrackingModal({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 20,
+            marginBottom: 22,
           }}
         >
           <h2
-            style={{ fontWeight: 700, fontSize: 18, color: "var(--color-ink)" }}
+            className="font-serif"
+            style={{ fontSize: 22, color: "var(--color-ink)" }}
           >
-            Track Your Order
+            Track your order
           </h2>
           <button
             onClick={onClose}
             style={{
+              width: 36,
+              height: 36,
+              borderRadius: 999,
               background: "var(--color-surface2)",
               border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "4px 8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               cursor: "pointer",
               color: "var(--color-ink2)",
             }}
@@ -140,7 +149,7 @@ export default function OrderTrackingModal({
         </div>
 
         {/* Search field */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
           <input
             type="text"
             value={input}
@@ -149,11 +158,11 @@ export default function OrderTrackingModal({
             placeholder="Enter your order reference (e.g. ORD-2026-3104)"
             style={{
               flex: 1,
-              padding: "10px 14px",
-              borderRadius: 12,
+              padding: "12px 18px",
+              borderRadius: 999,
               border: "1.5px solid var(--color-border2)",
               background: "var(--color-surface)",
-              fontSize: 14,
+              fontSize: 13,
               fontFamily: "monospace",
               color: "var(--color-ink)",
               outline: "none",
@@ -161,21 +170,12 @@ export default function OrderTrackingModal({
           />
           <button
             onClick={handleSearch}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 12,
-              border: "none",
-              background: "var(--color-accent)",
-              color: "white",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            className="pill-btn pill-btn-accent"
+            style={{ padding: "0 22px" }}
+            disabled={searching}
           >
-            <Search size={16} />
-            Track
+            <Search size={15} />
+            {searching ? "..." : "Track"}
           </button>
         </div>
 
@@ -185,7 +185,11 @@ export default function OrderTrackingModal({
               color: "#ef4444",
               fontSize: 13,
               textAlign: "center",
-              marginBottom: 12,
+              marginBottom: 16,
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 16,
+              padding: "10px 14px",
             }}
           >
             {error}
@@ -194,26 +198,29 @@ export default function OrderTrackingModal({
 
         {order && (
           <div
+            className="card-premium"
             style={{
               background: "var(--color-surface2)",
-              borderRadius: 14,
-              padding: 18,
+              borderRadius: 24,
+              padding: 20,
             }}
           >
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                marginBottom: 12,
+                marginBottom: 14,
               }}
             >
               <div>
                 <p
                   style={{
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize: 10.5,
+                    fontWeight: 800,
                     color: "var(--color-ink3)",
                     textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginBottom: 4,
                   }}
                 >
                   Order
@@ -224,6 +231,8 @@ export default function OrderTrackingModal({
                     fontWeight: 800,
                     fontSize: 16,
                     color: "var(--color-accent)",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
                   {order.id}
@@ -239,7 +248,7 @@ export default function OrderTrackingModal({
                 gap: 10,
                 fontSize: 13,
                 color: "var(--color-ink2)",
-                marginBottom: 12,
+                marginBottom: 14,
               }}
             >
               <div>
@@ -265,7 +274,7 @@ export default function OrderTrackingModal({
             </div>
 
             {/* Barre de progression partagée — identique à AccountPage.tsx et à l'email d'expédition */}
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
               <OrderStatusStepper status={order.status} />
             </div>
 
@@ -273,8 +282,8 @@ export default function OrderTrackingModal({
               <div
                 style={{
                   borderTop: "1px solid var(--color-border)",
-                  paddingTop: 10,
-                  marginBottom: 10,
+                  paddingTop: 14,
+                  marginBottom: 14,
                   display: "flex",
                   flexDirection: "column",
                   gap: 12,
@@ -300,9 +309,9 @@ export default function OrderTrackingModal({
                   <div
                     key={i}
                     style={{
-                      background: "var(--color-surface2)",
-                      borderRadius: 12,
-                      padding: 12,
+                      background: "var(--color-surface)",
+                      borderRadius: 18,
+                      padding: 14,
                     }}
                   >
                     <div
@@ -310,7 +319,7 @@ export default function OrderTrackingModal({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        marginBottom: 6,
+                        marginBottom: 8,
                       }}
                     >
                       <span
@@ -329,16 +338,10 @@ export default function OrderTrackingModal({
                           une heuristique maison). */}
                       {shipment.reshipment && (
                         <span
+                          className="chip"
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 10.5,
-                            fontWeight: 700,
                             color: "#92400e",
                             background: "#fef3c7",
-                            borderRadius: 999,
-                            padding: "2px 8px",
                           }}
                         >
                           <RefreshCw size={10} strokeWidth={2.5} />
@@ -390,7 +393,7 @@ export default function OrderTrackingModal({
                               rel="noopener noreferrer"
                               style={{
                                 color: "var(--color-accent)",
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 textDecoration: "underline",
                               }}
                             >
@@ -428,7 +431,7 @@ export default function OrderTrackingModal({
                                 month: "short",
                                 year: "numeric",
                               })}{" "}
-                              –{" "}
+                              -{" "}
                               {new Date(
                                 shipment.estimatedMaxDate + "T00:00:00",
                               ).toLocaleDateString("en-US", {
@@ -449,8 +452,8 @@ export default function OrderTrackingModal({
             <div
               style={{
                 borderTop: "1px solid var(--color-border)",
-                paddingTop: 10,
-                marginBottom: 10,
+                paddingTop: 14,
+                marginBottom: 14,
               }}
             >
               <p
@@ -458,7 +461,7 @@ export default function OrderTrackingModal({
                   fontSize: 12,
                   fontWeight: 700,
                   color: "var(--color-ink)",
-                  marginBottom: 8,
+                  marginBottom: 10,
                 }}
               >
                 Items
@@ -481,12 +484,12 @@ export default function OrderTrackingModal({
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    padding: "4px 0",
+                    padding: "6px 8px",
                     cursor: "pointer",
                     fontSize: 12.5,
                     color: "var(--color-ink2)",
                     marginBottom: 4,
-                    borderRadius: 8,
+                    borderRadius: 12,
                     transition: "background 0.15s",
                   }}
                   onMouseEnter={(e) =>
@@ -508,19 +511,19 @@ export default function OrderTrackingModal({
                       src={item.productImage || PLACEHOLDER_IMG}
                       alt={item.title}
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 6,
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
                         objectFit: "cover",
                         border: "1px solid var(--color-border)",
                         flexShrink: 0,
                       }}
                     />
                     <span>
-                      {item.title} ({item.selectedSize}) × {item.quantity}
+                      {item.title} ({item.selectedSize}) x {item.quantity}
                     </span>
                   </div>
-                  <span style={{ fontWeight: 600, marginLeft: 8 }}>
+                  <span style={{ fontWeight: 700, marginLeft: 8 }}>
                     {(item.unitPrice * item.quantity).toFixed(2)}{" "}
                     {currencySymbol}
                   </span>
@@ -531,11 +534,12 @@ export default function OrderTrackingModal({
             <div
               style={{
                 borderTop: "1px solid var(--color-border)",
-                paddingTop: 10,
+                paddingTop: 14,
                 display: "flex",
                 justifyContent: "space-between",
-                fontWeight: 700,
-                fontSize: 14,
+                fontWeight: 800,
+                fontSize: 15,
+                color: "var(--color-ink)",
               }}
             >
               <span>Total</span>
@@ -563,11 +567,11 @@ const overlay: React.CSSProperties = {
 
 const panel: React.CSSProperties = {
   background: "var(--color-surface)",
-  borderRadius: 20,
-  maxWidth: 500,
+  borderRadius: 28,
+  maxWidth: 520,
   width: "90%",
   maxHeight: "85vh",
   overflowY: "auto",
-  padding: 28,
+  padding: 30,
   boxShadow: "var(--shadow-xl)",
 };

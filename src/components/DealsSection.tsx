@@ -22,13 +22,13 @@ export default function DealsSection({
   onSelectProduct,
 }: DealsSectionProps) {
   const dealProducts = products.filter((p: any) => p.dealActive && p.isActive);
-  if (dealExpired && !dealFadingOut) return null; // ne plus masquer si aucun deal
+  if (dealExpired && !dealFadingOut) return null;
   if (dealProducts.length === 0) {
     return (
       <section className="section-container w-full px-4">
-        <div className="bg-white/40 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
+        <div className="bg-white/40 border border-dashed border-gray-200 rounded-3xl p-6 text-center">
           <p className="text-sm text-gray-500">
-            No active deals right now. Check back soon!
+            No active deals right now. Check back soon.
           </p>
         </div>
       </section>
@@ -39,31 +39,32 @@ export default function DealsSection({
     <section
       className={`section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
     >
-      <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
-        <div>
-          <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-            🔥 TODAY'S DROP
+      <div className="panel-ink lg:col-span-4 rounded-3xl p-7 flex flex-col justify-between min-h-75 relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/5 blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <span className="chip uppercase tracking-wide bg-(--color-accent) text-white">
+            Today's drop
           </span>
-          <h3 className="text-2xl font-black mt-3 leading-tight">
-            Limited-Edition Game Day Gear
+          <h3 className="font-serif text-2xl mt-4 leading-tight">
+            Limited-edition game day gear
           </h3>
-          <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-            Score exclusive deals on our AI-powered sports tees & hoodies before
-            the next big matchup kicks off. Once it's gone, it's gone.
+          <p className="text-xs text-white/60 mt-2.5 leading-relaxed">
+            Score exclusive deals on our sports tees and hoodies before the next
+            big matchup kicks off. Once it's gone, it's gone.
           </p>
         </div>
 
-        <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
-          <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-            Offer ends in:
+        <div className="relative z-10 my-6 bg-white/6 p-4 border border-white/10 rounded-2xl">
+          <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest">
+            Offer ends in
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-2">
             {countdownString.split(":").map((unit, i) => (
               <span key={i} className="flex items-center gap-2">
-                <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
+                <span className="bg-white/10 text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded-xl border border-white/10">
                   {unit}
                 </span>
-                {i < 2 && <span className="text-gray-500 font-bold">:</span>}
+                {i < 2 && <span className="text-white/40 font-bold">:</span>}
               </span>
             ))}
           </div>
@@ -71,24 +72,24 @@ export default function DealsSection({
 
         <button
           onClick={() => onSelectEventType("sport")}
-          className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
+          className="pill-btn pill-btn-accent relative z-10 w-full justify-center"
         >
-          Shop Sports Gear &rarr;
+          Shop sports gear
         </button>
       </div>
 
-      <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
+      <div className="lg:col-span-8 bg-white/60 border border-gray-200 rounded-3xl p-6 flex flex-col justify-between">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
           <div>
-            <h3 className="text-lg font-black tracking-wide text-gray-900">
-              🛍️ Bundle & Save
+            <h3 className="font-serif text-xl tracking-wide text-gray-900">
+              Bundle and save
             </h3>
             <p className="text-xs text-gray-500 mt-0.5">
               Complete your look and save on printing costs.
             </p>
           </div>
-          <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-            FROM $5.99 PER ITEM
+          <span className="chip uppercase tracking-wide bg-(--color-accent-bg) text-(--color-accent)">
+            From $5.99 per item
           </span>
         </div>
 
@@ -97,13 +98,13 @@ export default function DealsSection({
             <div
               key={item.id}
               onClick={() => onSelectProduct(item)}
-              className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
+              className="card-premium group bg-gray-50 rounded-2xl p-2.5 cursor-pointer text-center flex flex-col justify-between h-full"
             >
-              <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
+              <div className="aspect-square rounded-xl overflow-hidden bg-white relative">
                 <img
                   src={item.image || PLACEHOLDER_IMG}
                   alt={item.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
               <div className="mt-2 text-left">
@@ -118,7 +119,7 @@ export default function DealsSection({
                     {item.price} {currencySymbol}
                   </span>
                   {item.originalPrice && (
-                    <span className="text-[10px] text-gray-500 line-through">
+                    <span className="text-[10px] text-gray-400 line-through">
                       {item.originalPrice} {currencySymbol}
                     </span>
                   )}

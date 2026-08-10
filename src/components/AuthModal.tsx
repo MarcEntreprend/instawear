@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { X, ArrowLeft, Mail, Lock, CheckCircle2 } from "lucide-react";
+import { X, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 interface AuthModalProps {
   onClose: () => void;
@@ -33,7 +33,6 @@ export default function AuthModal({
   // Password reset state
   const [resetStep, setResetStep] = useState<ResetStep>("email");
   const [resetEmail, setResetEmail] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [timer, setTimer] = useState(0);
@@ -89,7 +88,6 @@ export default function AuthModal({
     setName("");
     setResetStep("email");
     setResetEmail("");
-    setCode("");
     setNewPassword("");
     setConfirmPassword("");
     setTimer(0);
@@ -286,45 +284,50 @@ export default function AuthModal({
     }
   };
 
+  const inputClass =
+    "w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm text-gray-900 outline-none transition-colors focus:border-(--color-accent) placeholder:text-gray-400";
+  const labelClass =
+    "block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5";
+
   // Login/signup form
   const renderAuthForm = () => (
     <form onSubmit={handleSubmit} className="space-y-4">
       {mode === "signup" && (
         <div>
-          <label className="block text-xs font-bold mb-1">Name</label>
+          <label className={labelClass}>Name</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 border rounded-lg text-sm"
+            className={inputClass}
             required
           />
         </div>
       )}
       <div>
-        <label className="block text-xs font-bold mb-1">Email</label>
+        <label className={labelClass}>Email</label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 border rounded-lg text-sm"
+          className={inputClass}
           required
         />
       </div>
       <div>
-        <label className="block text-xs font-bold mb-1">Password</label>
+        <label className={labelClass}>Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-2 border rounded-lg text-sm"
+          className={inputClass}
           required
         />
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+        className="pill-btn pill-btn-accent w-full justify-center disabled:opacity-50"
       >
         {loading ? "Loading..." : mode === "login" ? "Sign in" : "Sign up"}
       </button>
@@ -337,25 +340,27 @@ export default function AuthModal({
       case "email":
         return (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setMode("login")}
-                className="text-gray-400 hover:text-gray-600"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={16} strokeWidth={2} />
               </button>
-              <h2 className="text-lg font-bold">Forgot password</h2>
+              <h2 className="font-serif text-xl text-gray-900">
+                Forgot password
+              </h2>
             </div>
             <p className="text-sm text-gray-500">
               Enter your email to receive a password reset link.
             </p>
             <div>
-              <label className="block text-xs font-bold mb-1">Email</label>
+              <label className={labelClass}>Email</label>
               <input
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
+                className={inputClass}
                 placeholder="you@email.com"
                 required
               />
@@ -363,7 +368,7 @@ export default function AuthModal({
             <button
               onClick={handleSendResetEmail}
               disabled={loading}
-              className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+              className="pill-btn pill-btn-accent w-full justify-center disabled:opacity-50"
             >
               {loading ? "Sending..." : "Send reset link"}
             </button>
@@ -373,19 +378,29 @@ export default function AuthModal({
       case "sent":
         return (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setResetStep("email")}
-                className="text-gray-400 hover:text-gray-600"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={16} strokeWidth={2} />
               </button>
-              <h2 className="text-lg font-bold">Check your email</h2>
+              <h2 className="font-serif text-xl text-gray-900">
+                Check your email
+              </h2>
             </div>
-            <p className="text-sm text-gray-500">
-              A password reset link was sent to <strong>{resetEmail}</strong>.
-              Click the link in the email to choose a new password.
-            </p>
+            <div className="flex items-start gap-3 p-4 rounded-2xl bg-(--color-accent-bg)">
+              <CheckCircle2
+                size={18}
+                strokeWidth={2}
+                className="text-(--color-accent) shrink-0 mt-0.5"
+              />
+              <p className="text-sm text-gray-600 leading-relaxed">
+                A password reset link was sent to{" "}
+                <strong className="text-gray-900">{resetEmail}</strong>. Click
+                the link in the email to choose a new password.
+              </p>
+            </div>
             {timer > 0 && (
               <p className="text-xs text-gray-400 text-center">
                 Resend link in {timer}s
@@ -397,13 +412,13 @@ export default function AuthModal({
                 handleSendResetEmail();
               }}
               disabled={!canResend || loading}
-              className="w-full border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="pill-btn pill-btn-outline w-full justify-center disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Resend link
             </button>
             <button
               onClick={() => setMode("login")}
-              className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
+              className="w-full text-center text-xs font-semibold text-gray-400 hover:text-gray-700 transition-colors"
             >
               Back to sign in
             </button>
@@ -413,45 +428,41 @@ export default function AuthModal({
       case "newPassword":
         return (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setResetStep("email")}
-                className="text-gray-400 hover:text-gray-600"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={16} strokeWidth={2} />
               </button>
-              <h2 className="text-lg font-bold">New password</h2>
+              <h2 className="font-serif text-xl text-gray-900">New password</h2>
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1">
-                New password
-              </label>
+              <label className={labelClass}>New password</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-                placeholder="••••••••"
+                className={inputClass}
+                placeholder="At least 6 characters"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1">
-                Confirm password
-              </label>
+              <label className={labelClass}>Confirm password</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-                placeholder="••••••••"
+                className={inputClass}
+                placeholder="Re-enter your password"
                 required
               />
             </div>
             <button
               onClick={handleResetPassword}
               disabled={loading}
-              className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+              className="pill-btn pill-btn-accent w-full justify-center disabled:opacity-50"
             >
               {loading ? "Updating..." : "Reset password"}
             </button>
@@ -462,25 +473,25 @@ export default function AuthModal({
 
   // Main render
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur p-4">
+      <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-7 sm:p-8 relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-700 transition-colors"
         >
-          <X size={20} />
+          <X size={17} strokeWidth={2} />
         </button>
 
         {/* Title (hidden in reset mode) */}
         {mode !== "resetPassword" && (
-          <h2 className="text-xl font-bold mb-4">
+          <h2 className="font-serif text-2xl text-gray-900 mb-6">
             {mode === "login" ? "Sign in" : "Sign up"}
           </h2>
         )}
 
         {/* Error message */}
         {error && (
-          <p className="text-red-500 text-sm mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-red-600 text-sm mb-4 bg-red-50 border border-red-100 rounded-2xl p-3.5">
             {error}
           </p>
         )}
@@ -490,12 +501,12 @@ export default function AuthModal({
 
         {/* Bottom links (login/signup only) */}
         {mode !== "resetPassword" && (
-          <div className="mt-3 flex justify-between text-sm">
+          <div className="mt-5 flex justify-between text-sm">
             <button
               onClick={() => {
                 setMode(mode === "login" ? "signup" : "login");
               }}
-              className="text-orange-500 hover:underline"
+              className="text-(--color-accent) font-semibold hover:underline"
             >
               {mode === "login"
                 ? "Create an account"
@@ -507,7 +518,7 @@ export default function AuthModal({
                   setMode("resetPassword");
                   setResetEmail(email); // Pre-fill with email from login form
                 }}
-                className="text-gray-500 hover:text-orange-500 hover:underline"
+                className="text-gray-400 hover:text-(--color-accent) transition-colors"
               >
                 Forgot password?
               </button>

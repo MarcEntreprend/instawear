@@ -1,8 +1,5 @@
-// src\components\Header.tsx
-
 import React, { useState, useEffect, useRef } from "react";
 import {
-  ShoppingCart,
   Search,
   Heart,
   User,
@@ -11,6 +8,7 @@ import {
   Zap,
   Sun,
   Moon,
+  Package,
 } from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
 import { CART_PLUS_ICON } from "../constants/assets";
@@ -49,21 +47,6 @@ interface HeaderProps {
   onToggleDarkMode?: () => void;
 }
 
-// { label: "Sport", section: "catalog", eventType: "sport", category: null },
-// {
-//   label: "Festivals",
-//   section: "catalog",
-//   eventType: "culture",
-//   category: null,
-// },
-// {
-//   label: "Saisons",
-//   section: "catalog",
-//   eventType: "saisonnier",
-//   category: null,
-// },
-
-// Définition structurée de la navigation (logique v3)
 const NAV_LINKS: NavLink[] = [
   { label: "Shop", section: "catalog", eventType: null, category: null },
   { label: "About", section: "about", eventType: null, category: null },
@@ -82,9 +65,9 @@ const CATEGORY_PILLS = [
     eventType: null,
     category: "deals",
   },
-  { label: "🏆 Sports", eventType: "sport", category: null },
-  { label: "🎉 Festivals", eventType: "culture", category: null },
-  { label: "🍂 Seasonal", eventType: "saisonnier", category: null },
+  { label: "Sports", eventType: "sport", category: null },
+  { label: "Festivals", eventType: "culture", category: null },
+  { label: "Seasonal", eventType: "saisonnier", category: null },
   { divider: true },
   { label: "T-Shirts", eventType: null, category: "tshirt" },
   { label: "Hoodies", eventType: null, category: "hoodie" },
@@ -121,7 +104,6 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  // États pour l'animation de frappe
   const [currentSuggestion, setCurrentSuggestion] = useState("");
   const [typedText, setTypedText] = useState("");
   const [charIndex, setCharIndex] = useState(0);
@@ -133,9 +115,7 @@ export default function Header({
   const inputRef = useRef<HTMLInputElement>(null);
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
 
-  // fonction pour mettre à jour les suggestions
   const updateSuggestions = (term: string) => {
-    // Nettoyer tout timer en cours
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
       searchTimerRef.current = null;
@@ -159,7 +139,6 @@ export default function Header({
       setShowSuggestions(true);
       setSearchLoading(false);
     } else {
-      // Aucune correspondance → afficher d'abord une animation « … »
       setFilteredSuggestions([]);
       setShowSuggestions(true);
       setSearchLoading(true);
@@ -179,14 +158,13 @@ export default function Header({
     setSearchVal(currentSearchTerm);
   }, [currentSearchTerm]);
 
-  // Effet de frappe pour le placeholder
   useEffect(() => {
     const suggestionsList =
       searchSuggestions && searchSuggestions.length > 0
         ? searchSuggestions
         : products.filter((p) => p.isActive).map((p) => p.title);
 
-    if (suggestionsList.length === 0) return; // condition pour désactiver l’effet si la liste est vide
+    if (suggestionsList.length === 0) return;
 
     if (!currentSuggestion) {
       const randomSuggestion =
@@ -233,7 +211,6 @@ export default function Header({
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, currentSuggestion, searchSuggestions]);
 
-  // écouteur pour la touche Échap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && mobileMenuOpen) {
@@ -244,27 +221,21 @@ export default function Header({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
 
-  // Nettoyer le timer de recherche au démontage
   useEffect(() => {
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
 
-  // Logique de soumission de la recherche
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(searchVal);
     inputRef.current?.blur();
-    // Le scroll automatique sera déclenché par le useEffect dans App.tsx
   };
 
-  // Logique de navigation structurée (v3)
   const handleNavLink = (link: NavLink) => {
-    // Ne mettre à jour les filtres que si le lien en porte explicitement
     if (link.eventType != null) onSelectEventType(link.eventType);
     if (link.category != null) onSelectCategory(link.category);
-    // Scroll vers la section appropriée
     if (link.eventType || link.category) {
       onScrollToSection("filters");
     } else {
@@ -276,12 +247,9 @@ export default function Header({
   const handlePill = (pill: any) => {
     onSelectCategory(pill.category ?? null);
     onSelectEventType(pill.eventType ?? null);
-
-    // Pour "Tout voir" (aucun filtre), on scrolle directement vers le catalogue
     if (!pill.eventType && !pill.category) {
       onScrollToSection("catalog");
     }
-    // Les autres pilules déclencheront le useEffect via le changement d'état
   };
 
   const isPillActive = (pill: any) => {
@@ -292,23 +260,29 @@ export default function Header({
 
   return (
     <>
-      {/* Promo bar (visuel v2) */}
+      {/* Bandeau promo en marquee (style v1) */}
       <div
-        className="w-full py-2 px-4 text-center text-xs font-semibold"
-        style={{
-          background: "var(--color-accent)",
-          color: "white",
-          letterSpacing: "0.03em",
-        }}
+        className="w-full py-2 overflow-hidden"
+        style={{ background: "var(--color-accent)" }}
       >
-        <span className="inline-flex items-center gap-2">
-          <Zap size={12} strokeWidth={2.5} />
-          Free shipping over $35 — Printed within 24h, zero wasted inventory
-          <Zap size={12} strokeWidth={2.5} />
-        </span>
+        <div className="marquee-track">
+          {[0, 1].map((g) => (
+            <div key={g} className="flex items-center gap-14 pr-14 shrink-0">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-2 text-white text-[11px] font-bold uppercase tracking-wider whitespace-nowrap"
+                >
+                  <Zap size={11} strokeWidth={2.5} />
+                  Free shipping over $35, printed within 24h
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Main header (visuel v2) */}
+      {/* Main header (avec conteneur largeur contrainte) */}
       <header
         className="sticky top-0 z-30 w-full transition-all duration-300"
         style={{
@@ -323,559 +297,533 @@ export default function Header({
           boxShadow: isScrolled ? "var(--shadow-sm)" : "none",
         }}
       >
-        <nav className="w-full px-4 py-3 flex items-center gap-3">
-          {/* Logo */}
-          <button
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="flex items-center gap-2 shrink-0 group"
-            aria-label="InstaWear — Accueil"
-          >
-            <div className="relative shrink-0">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-200 group-hover:scale-105 relative overflow-hidden"
-                style={{
-                  background: "var(--color-accent)",
-                  boxShadow: "var(--shadow-accent)",
-                }}
-              >
+        <div className="max-w-7xl mx-auto px-4">
+          <nav className="w-full py-3 flex items-center gap-3">
+            {/* Logo */}
+            <button
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              className="flex items-center gap-2 shrink-0 group"
+              aria-label="InstaWear, Accueil"
+            >
+              <div className="relative shrink-0">
+                <div
+                  className="w-9 h-9 rounded-2xl flex items-center justify-center font-black text-lg text-gray-900 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105 group-hover:-rotate-3 relative overflow-hidden"
+                  style={{
+                    background: "var(--color-accent)",
+                    boxShadow: "var(--shadow-accent)",
+                  }}
+                >
+                  <img
+                    src="/InstaWear-logo.png"
+                    alt="InstaWear"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      const el = e.currentTarget as HTMLImageElement;
+                      el.style.display = "none";
+                      (el.nextElementSibling as HTMLElement).style.display =
+                        "flex";
+                    }}
+                  />
+                  <span className="hidden absolute inset-0 items-center justify-center">
+                    I
+                  </span>
+                </div>
                 <img
-                  src="/InstaWear-logo.png"
-                  alt="InstaWear"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
+                  alt={detectedCountry || "US"}
+                  className="absolute -top-0.5 -right-0.5 w-4 h-3 rounded-sm object-cover border border-white"
+                  style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }}
+                  title={`Shipping to ${detectedCountry || "US"}`}
                   onError={(e) => {
-                    const el = e.currentTarget as HTMLImageElement;
-                    el.style.display = "none";
-                    (el.nextElementSibling as HTMLElement).style.display =
-                      "flex";
+                    (e.currentTarget as HTMLImageElement).style.display =
+                      "none";
                   }}
                 />
-                <span className="hidden absolute inset-0 items-center justify-center">
-                  I
-                </span>
               </div>
-              {/* Drapeau en badge */}
-              <img
-                src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
-                alt={detectedCountry || "US"}
-                className="absolute -top-0.5 -right-0.5 w-4 h-3 rounded-sm object-cover border border-white"
-                style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }}
-                title={`Shipping to ${detectedCountry || "US"}`}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-            </div>
-            <span
-              className="font-black text-xl tracking-tight hidden sm:block"
-              style={{
-                color: "var(--color-ink)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
-              Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
-            </span>
-          </button>
-
-          {/* Nav links — desktop (logique v3, visuel v2) */}
-          <nav className="hidden lg:flex items-center gap-1 ml-4">
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => handleNavLink(link)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+              <span
+                className="font-black text-xl tracking-tight hidden sm:block"
                 style={{
-                  color: "var(--color-ink2)",
-                  background: "transparent",
+                  color: "var(--color-ink)",
+                  fontFamily: "var(--font-sans)",
                 }}
+              >
+                Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+              </span>
+            </button>
+
+            {/* Nav links desktop */}
+            <nav className="hidden lg:flex items-center gap-1 ml-4">
+              {NAV_LINKS.map((link) => (
+                <button
+                  key={link.label}
+                  onClick={() => handleNavLink(link)}
+                  className="link-underline px-3 py-1.5 text-sm font-semibold transition-colors duration-150"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  {link.label}
+                </button>
+              ))}
+              <button
+                onClick={onOpenTracking}
+                className="link-underline flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-colors duration-150"
+                style={{ color: "var(--color-ink2)" }}
+              >
+                <Package size={15} strokeWidth={2} />
+                My order
+              </button>
+            </nav>
+
+            {/* Search */}
+            <div
+              className={`flex-1 min-w-0 mx-auto relative ${!searchFocused ? "search-rainbow" : ""}`}
+            >
+              <form onSubmit={handleSubmit}>
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 overflow-hidden"
+                  style={{
+                    background: searchFocused
+                      ? "var(--color-surface)"
+                      : "var(--color-surface2)",
+                    border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "transparent"}`,
+                    zIndex: searchFocused ? 1 : 0,
+                  }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      color: "var(--color-ink4)",
+                      flexShrink: 0,
+                      overflow: "visible",
+                    }}
+                  >
+                    <circle cx="10.5" cy="10.5" r="5.5" />
+                    <line x1="14.5" y1="14.5" x2="20" y2="20" />
+                    <g className="search-star search-star-1">
+                      <path
+                        d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                        fill="currentColor"
+                        stroke="none"
+                        transform="translate(-13, -1) scale(0.8)"
+                      />
+                    </g>
+                    <g className="search-star search-star-2">
+                      <path
+                        d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                        fill="currentColor"
+                        stroke="none"
+                        transform="translate(-8, 14) scale(0.6)"
+                      />
+                    </g>
+                    <g className="search-star search-star-3">
+                      <path
+                        d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
+                        fill="currentColor"
+                        stroke="none"
+                        transform="translate(2, -8) scale(0.7)"
+                      />
+                    </g>
+                  </svg>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={searchVal}
+                    onChange={(e) => {
+                      setSearchVal(e.target.value);
+                      updateSuggestions(e.target.value);
+                    }}
+                    onFocus={() => {
+                      setSearchFocused(true);
+                      setMobileMenuOpen(false);
+                      if (searchVal.trim()) {
+                        updateSuggestions(searchVal);
+                      }
+                    }}
+                    onBlur={() => {
+                      setSearchFocused(false);
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSearchVal("");
+                        onSearch("");
+                        setShowSuggestions(false);
+                        inputRef.current?.blur();
+                      }
+                    }}
+                    placeholder={
+                      searchFocused || searchVal
+                        ? ""
+                        : products.length === 0
+                          ? "Search an item..."
+                          : typedText
+                    }
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
+                    style={{
+                      color: "var(--color-ink)",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                  />
+                  {searchVal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchVal("");
+                        onSearch("");
+                      }}
+                      className="p-0.5 rounded transition-colors"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      <X size={13} strokeWidth={2} />
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && (
+              <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-200 rounded-2xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                {searchLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <span className="text-sm text-gray-500 animate-pulse">
+                      Searching...
+                    </span>
+                  </div>
+                ) : filteredSuggestions.length > 0 ? (
+                  filteredSuggestions.map((p) => {
+                    const index = p.title
+                      .toLowerCase()
+                      .indexOf(searchVal.toLowerCase());
+                    const before = p.title.substring(0, index);
+                    const match = p.title.substring(
+                      index,
+                      index + searchVal.length,
+                    );
+                    const after = p.title.substring(index + searchVal.length);
+                    const categoryLabel =
+                      p.category === "tshirt"
+                        ? "T-Shirt"
+                        : p.category === "hoodie"
+                          ? "Hoodie"
+                          : p.category === "accessory"
+                            ? "Accessory"
+                            : p.category === "mug"
+                              ? "Mug"
+                              : p.category;
+
+                    return (
+                      <button
+                        key={p.id}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-100 last:border-0"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSearchVal(p.title);
+                          onSearch(p.title);
+                          setShowSuggestions(false);
+                          inputRef.current?.blur();
+                        }}
+                      >
+                        <div className="mx-auto flex items-center gap-3 w-fit max-w-full">
+                          <span
+                            className="truncate max-w-55"
+                            style={{ color: "var(--color-ink)" }}
+                          >
+                            {before}
+                            <strong style={{ color: "var(--color-accent)" }}>
+                              {match}
+                            </strong>
+                            {after}
+                          </span>
+                          <span className="chip bg-gray-100 text-gray-500 shrink-0">
+                            {categoryLabel}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <span className="text-sm text-gray-500">
+                      No results for "{searchVal}"
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <nav className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                className="p-1 rounded-full transition-all duration-200 shrink-0 relative"
+                style={{ color: "var(--color-ink2)", width: 32, height: 32 }}
+                title={
+                  darkMode ? "Switch to light mode" : "Switch to dark mode"
+                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 20px rgba(0,0,0,0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <span
+                  key={darkMode ? "sun" : "moon"}
+                  className="theme-toggle-icon enter absolute inset-0 flex items-center justify-center"
+                >
+                  {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                </span>
+              </button>
+
+              <button
+                onClick={onOpenFavorites}
+                className="relative p-2 rounded-xl transition-all duration-200"
+                style={{ color: "var(--color-ink2)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--color-surface2)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 8px 20px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+                aria-label="My wishlist"
+              >
+                <Heart size={20} strokeWidth={1.8} />
+                {favoriteCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-white font-bold"
+                    style={{
+                      fontSize: "9px",
+                      background: "var(--color-accent)",
+                    }}
+                  >
+                    {favoriteCount}
+                  </span>
+                )}
+              </button>
+
+              {isAdminLoggedIn || isUserLoggedIn ? (
+                <button
+                  onClick={isUserLoggedIn ? onOpenAccount : onOpenProfile}
+                  className="flex md:hidden p-2 rounded-xl transition-all duration-200"
+                  style={{
+                    color: isAdminLoggedIn
+                      ? "var(--color-accent)"
+                      : "var(--color-ink2)",
+                  }}
+                >
+                  <User size={20} strokeWidth={1.8} />
+                </button>
+              ) : (
+                <button
+                  onClick={onOpenAuth}
+                  className="flex md:hidden p-2 rounded-xl transition-all duration-200"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  <User size={20} strokeWidth={1.8} />
+                </button>
+              )}
+
+              {isUserLoggedIn ? (
+                <button
+                  onClick={onOpenAccount}
+                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  <User size={18} strokeWidth={1.8} />
+                  Account
+                </button>
+              ) : isAdminLoggedIn ? (
+                <button
+                  onClick={onOpenProfile}
+                  className="hidden md:flex p-2 rounded-xl transition-all duration-200"
+                  style={{ color: "var(--color-accent)" }}
+                >
+                  <User size={20} strokeWidth={1.8} />
+                </button>
+              ) : (
+                <button
+                  onClick={onOpenAuth}
+                  className="hidden md:flex p-2 rounded-xl transition-all duration-200"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  <User size={20} strokeWidth={1.8} />
+                </button>
+              )}
+
+              <button
+                onClick={onOpenCart}
+                className="pill-btn pill-btn-accent relative"
+                style={{ padding: "10px 18px" }}
+                aria-label={`Cart, ${totalQty} item(s)`}
+              >
+                <img
+                  src={CART_PLUS_ICON}
+                  alt="Cart"
+                  className="w-4 h-4"
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+                <span className="hidden sm:inline">Cart</span>
+                {totalQty > 0 && (
+                  <span
+                    className="flex items-center justify-center rounded-full font-black text-white"
+                    style={{
+                      minWidth: 18,
+                      height: 18,
+                      padding: "0 5px",
+                      fontSize: "10px",
+                      background: "rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    {totalQty}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 rounded-xl transition-all duration-150"
+                style={{ color: "var(--color-ink2)" }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "var(--color-surface2)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = "transparent")
                 }
+                aria-label="Menu"
               >
-                {link.label}
-              </button>
-            ))}
-            {/* Suivi de commande — desktop */}
-            <button
-              onClick={onOpenTracking}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
-              style={{
-                color: "var(--color-ink2)",
-                background: "transparent",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--color-surface2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              📦 My Order
-            </button>
-          </nav>
-
-          {/* Search — center (visuel v2) */}
-          <div
-            className={`flex-1 min-w-0 mx-auto relative ${!searchFocused ? "search-rainbow" : ""}`}
-          >
-            <form onSubmit={handleSubmit}>
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 overflow-hidden"
-                style={{
-                  background: searchFocused
-                    ? "var(--color-surface)"
-                    : "var(--color-surface2)",
-                  border: `1.5px solid ${searchFocused ? "var(--color-accent)" : "transparent"}`,
-                  zIndex: searchFocused ? 1 : 0,
-                }}
-              >
-                {/* icône de recherche animée */}
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: "var(--color-ink4)",
-                    flexShrink: 0,
-                    overflow: "visible",
-                  }}
-                >
-                  {/* Loupe */}
-                  <circle cx="10.5" cy="10.5" r="5.5" />
-                  <line x1="14.5" y1="14.5" x2="20" y2="20" />
-                  {/* Étoiles animées */}
-                  <g className="search-star search-star-1">
-                    <path
-                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                      fill="currentColor"
-                      stroke="none"
-                      transform="translate(-13, -1) scale(0.8)"
-                    />
-                  </g>
-                  <g className="search-star search-star-2">
-                    <path
-                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                      fill="currentColor"
-                      stroke="none"
-                      transform="translate(-8, 14) scale(0.6)"
-                    />
-                  </g>
-                  <g className="search-star search-star-3">
-                    <path
-                      d="M17.5 2L18.2 4.2L20.5 4.9L18.2 5.6L17.5 7.8L16.8 5.6L14.5 4.9L16.8 4.2Z"
-                      fill="currentColor"
-                      stroke="none"
-                      transform="translate(2, -8) scale(0.7)"
-                    />
-                  </g>
-                </svg>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={searchVal}
-                  onChange={(e) => {
-                    setSearchVal(e.target.value);
-                    updateSuggestions(e.target.value);
-                  }}
-                  onFocus={() => {
-                    setSearchFocused(true);
-                    setMobileMenuOpen(false);
-                    if (searchVal.trim()) {
-                      updateSuggestions(searchVal);
-                    }
-                  }}
-                  onBlur={() => {
-                    setSearchFocused(false);
-                    setTimeout(() => setShowSuggestions(false), 200);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setSearchVal("");
-                      onSearch("");
-                      setShowSuggestions(false);
-                      inputRef.current?.blur();
-                    }
-                  }}
-                  placeholder={
-                    searchFocused || searchVal
-                      ? ""
-                      : products.length === 0
-                        ? "Search an item..."
-                        : typedText
-                  }
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm transition-all duration-300 search-input overflow-hidden text-ellipsis whitespace-nowrap"
-                  style={{
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                />
-                {searchVal && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchVal("");
-                      onSearch("");
-                    }}
-                    className="p-0.5 rounded transition-colors"
-                    style={{ color: "var(--color-ink4)" }}
-                  >
-                    <X size={13} strokeWidth={2} />
-                  </button>
+                {mobileMenuOpen ? (
+                  <X size={20} strokeWidth={2} />
+                ) : (
+                  <Menu size={20} strokeWidth={2} />
                 )}
-              </div>
-            </form>
-          </div>
-
-          {/* affichage de la liste de suggestions */}
-          {showSuggestions && (
-            <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
-              {searchLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <span className="text-sm text-gray-500 animate-pulse">
-                    Searching...
-                  </span>
-                </div>
-              ) : filteredSuggestions.length > 0 ? (
-                filteredSuggestions.map((p) => {
-                  const index = p.title
-                    .toLowerCase()
-                    .indexOf(searchVal.toLowerCase());
-                  const before = p.title.substring(0, index);
-                  const match = p.title.substring(
-                    index,
-                    index + searchVal.length,
-                  );
-                  const after = p.title.substring(index + searchVal.length);
-                  const categoryLabel =
-                    p.category === "tshirt"
-                      ? "T-Shirt"
-                      : p.category === "hoodie"
-                        ? "Hoodie"
-                        : p.category === "accessory"
-                          ? "Accessory"
-                          : p.category === "mug"
-                            ? "Mug"
-                            : p.category;
-
-                  return (
-                    <button
-                      key={p.id}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm border-b border-gray-100 last:border-0"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setSearchVal(p.title);
-                        onSearch(p.title);
-                        setShowSuggestions(false);
-                        inputRef.current?.blur();
-                      }}
-                    >
-                      <div className="mx-auto flex items-center gap-3 w-fit max-w-full">
-                        <span
-                          className="truncate max-w-55"
-                          style={{ color: "var(--color-ink)" }}
-                        >
-                          {before}
-                          <strong style={{ color: "var(--color-accent)" }}>
-                            {match}
-                          </strong>
-                          {after}
-                        </span>
-                        <span
-                          className="text-xs shrink-0 px-2 py-0.5 rounded-full"
-                          style={{
-                            background: "var(--color-surface2)",
-                            color: "var(--color-ink3)",
-                            border: "1px solid var(--color-border)",
-                          }}
-                        >
-                          {categoryLabel}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="flex items-center justify-center py-4">
-                  <span className="text-sm text-gray-500">
-                    No results for "{searchVal}"
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Actions (visuel v2) */}
-          <nav className="flex items-center gap-2 shrink-0">
-            {/* Dark mode toggle */}
-            <button
-              type="button"
-              onClick={onToggleDarkMode}
-              className="p-1 rounded-full transition-all duration-200 shrink-0 relative"
-              style={{ color: "var(--color-ink2)", width: 32, height: 32 }}
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.12)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            >
-              <span
-                key={darkMode ? "sun" : "moon"}
-                className="theme-toggle-icon enter absolute inset-0 flex items-center justify-center"
-              >
-                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </span>
-            </button>
-
-            {/* Favorites */}
-            <button
-              onClick={onOpenFavorites}
-              className="relative p-2 rounded-xl transition-all duration-200"
-              style={{ color: "var(--color-ink2)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--color-surface2)";
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-              aria-label="My wishlist"
-            >
-              <Heart size={20} strokeWidth={1.8} />
-              {favoriteCount > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-white font-bold"
-                  style={{ fontSize: "9px", background: "var(--color-accent)" }}
-                >
-                  {favoriteCount}
-                </span>
-              )}
-            </button>
-
-            {/* User — mobile uniquement */}
-            {isAdminLoggedIn || isUserLoggedIn ? (
-              <button
-                onClick={isUserLoggedIn ? onOpenAccount : onOpenProfile}
-                className="flex md:hidden p-2 rounded-xl transition-all duration-200"
-                style={{
-                  color: isAdminLoggedIn
-                    ? "var(--color-accent)"
-                    : "var(--color-ink2)",
-                }}
-              >
-                <User size={20} strokeWidth={1.8} />
               </button>
-            ) : (
-              <button
-                onClick={onOpenAuth}
-                className="flex md:hidden p-2 rounded-xl transition-all duration-200"
-                style={{ color: "var(--color-ink2)" }}
-              >
-                <User size={20} strokeWidth={1.8} />
-              </button>
-            )}
-
-            {/* User / Admin */}
-            {isUserLoggedIn ? (
-              <button
-                onClick={onOpenAccount}
-                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
-                style={{ color: "var(--color-ink2)" }}
-              >
-                <User size={18} strokeWidth={1.8} />
-                Account
-              </button>
-            ) : isAdminLoggedIn ? (
-              <button
-                onClick={onOpenProfile}
-                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
-                style={{ color: "var(--color-accent)" }}
-              >
-                <User size={20} strokeWidth={1.8} />
-              </button>
-            ) : (
-              <button
-                onClick={onOpenAuth}
-                className="hidden md:flex p-2 rounded-xl transition-all duration-200"
-                style={{ color: "var(--color-ink2)" }}
-              >
-                <User size={20} strokeWidth={1.8} />
-              </button>
-            )}
-
-            {/* {isUserLoggedIn && (
-              <button
-                onClick={onOpenAccount}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-(--color-surface2)"
-              >
-                <User size={16} />
-                Account
-              </button>
-            )} */}
-
-            {/* Cart */}
-            <button
-              onClick={onOpenCart}
-              className="relative flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all duration-200"
-              style={{
-                background: "var(--color-accent)",
-                boxShadow: "var(--shadow-accent)",
-                fontFamily: "var(--font-sans)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 40px rgba(255,92,53,.28)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "var(--shadow-accent)";
-              }}
-              aria-label={`Cart — ${totalQty} item(s)`}
-            >
-              <img
-                src={CART_PLUS_ICON}
-                alt="Cart"
-                className="w-4 h-4"
-                style={{ filter: "brightness(0) invert(1)" }}
-              />
-              <span className="hidden sm:inline">Cart</span>
-              {totalQty > 0 && (
-                <span
-                  className="flex items-center justify-center rounded-full font-black text-gray-900"
-                  style={{
-                    minWidth: 20,
-                    height: 20,
-                    padding: "0 5px",
-                    fontSize: "11px",
-                    background: "rgba(0,0,0,0.35)",
-                    color: "#ffffff",
-                  }}
-                >
-                  {totalQty}
-                </span>
-              )}
-            </button>
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl transition-all duration-150"
-              style={{ color: "var(--color-ink2)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--color-surface2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-              aria-label="Menu"
-            >
-              {mobileMenuOpen ? (
-                <X size={20} strokeWidth={2} />
-              ) : (
-                <Menu size={20} strokeWidth={2} />
-              )}
-            </button>
+            </nav>
           </nav>
-        </nav>
 
-        {/* Category pills sub-nav (visuel v2, logique v3) */}
-        <div
-          className="border-t"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto scrollbar-none">
-            {CATEGORY_PILLS.map((pill: any, i) => {
-              if (pill.divider) {
-                return (
-                  <span key={i} className="text-gray-300 shrink-0">
-                    |
-                  </span>
-                );
-              }
-              const active = isPillActive(pill);
-              return (
-                <button
-                  key={i}
-                  onClick={() => handlePill(pill)}
-                  className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150"
-                  style={{
-                    background: active ? "var(--color-accent)" : "transparent",
-                    color: active ? "white" : "var(--color-ink3)",
-                    border: `1.5px solid ${active ? "var(--color-accent)" : "transparent"}`,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active)
-                      e.currentTarget.style.background =
-                        "var(--color-surface2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active)
-                      e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  {pill.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Mobile menu overlay (visuel v2, logique v3) */}
-        {mobileMenuOpen && (
+          {/* Category pills */}
           <div
-            className="absolute top-full left-0 right-0 z-20 lg:hidden animate-fade-in"
-            style={{
-              background: "rgba(26,25,22,.5)",
-              backdropFilter: "blur(4px)",
-              height: "calc(100vh - 100%)",
-            }}
-            onClick={() => setMobileMenuOpen(false)}
+            className="border-t"
+            style={{ borderColor: "var(--color-border)" }}
           >
-            <div
-              className="animate-fade-up p-6 pt-4"
-              style={{
-                background: "var(--color-surface)",
-                borderBottom: "1px solid var(--color-border)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <span
-                  className="font-black text-lg"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  Menu
-                </span>
-                <button onClick={() => setMobileMenuOpen(false)}>
-                  <X size={22} style={{ color: "var(--color-ink2)" }} />
-                </button>
-              </div>
-              <nav className="flex flex-col gap-1">
-                {NAV_LINKS.map((link, i) => (
+            <div className="py-2 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto scrollbar-none">
+              {CATEGORY_PILLS.map((pill: any, i) => {
+                if (pill.divider) {
+                  return (
+                    <span key={i} className="text-gray-300 shrink-0">
+                      |
+                    </span>
+                  );
+                }
+                const active = isPillActive(pill);
+                return (
                   <button
-                    key={link.label}
-                    onClick={() => handleNavLink(link)}
-                    className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up"
+                    key={i}
+                    onClick={() => handlePill(pill)}
+                    className="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                    style={{
+                      background: active
+                        ? "var(--color-accent)"
+                        : "transparent",
+                      color: active ? "white" : "var(--color-ink3)",
+                      border: `1.5px solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
+                      boxShadow: active ? "var(--shadow-accent)" : "none",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active)
+                        e.currentTarget.style.background =
+                          "var(--color-surface2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active)
+                        e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mobile menu overlay */}
+          {mobileMenuOpen && (
+            <div
+              className="absolute top-full left-0 right-0 z-20 lg:hidden animate-fade-in"
+              style={{
+                background: "rgba(26,25,22,.5)",
+                backdropFilter: "blur(4px)",
+                height: "calc(100vh - 100%)",
+              }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div
+                className="animate-fade-up p-6 pt-4 rounded-b-3xl"
+                style={{
+                  background: "var(--color-surface)",
+                  borderBottom: "1px solid var(--color-border)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <span
+                    className="font-black text-lg"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    Menu
+                  </span>
+                  <button onClick={() => setMobileMenuOpen(false)}>
+                    <X size={22} style={{ color: "var(--color-ink2)" }} />
+                  </button>
+                </div>
+                <nav className="flex flex-col gap-1">
+                  {NAV_LINKS.map((link, i) => (
+                    <button
+                      key={link.label}
+                      onClick={() => handleNavLink(link)}
+                      className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up transition-colors"
+                      style={{
+                        color: "var(--color-ink)",
+                        animationDelay: `${i * 0.05}s`,
+                        fontFamily: "var(--font-sans)",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background =
+                          "var(--color-surface2)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      onOpenTracking();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5 transition-colors"
                     style={{
                       color: "var(--color-ink)",
-                      animationDelay: `${i * 0.05}s`,
                       fontFamily: "var(--font-sans)",
                     }}
                     onMouseEnter={(e) =>
@@ -886,69 +834,47 @@ export default function Header({
                       (e.currentTarget.style.background = "transparent")
                     }
                   >
-                    {link.label}
+                    <Package size={17} strokeWidth={2} />
+                    Order tracking
                   </button>
-                ))}
-                {/* Suivi de commande — mobile */}
-                <button
-                  onClick={() => {
-                    onOpenTracking();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
-                  style={{
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--color-surface2)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  📦 Order tracking
-                </button>
-                <div
-                  className="h-px my-2"
-                  style={{ background: "var(--color-border)" }}
-                />
-                <div
-                  className="h-px my-2"
-                  style={{ background: "var(--color-border)" }}
-                />
-                <button
-                  onClick={() => {
-                    if (isAdminLoggedIn || isUserLoggedIn) {
-                      onLogout();
-                    } else {
-                      onOpenAuth();
+                  <div
+                    className="h-px my-2"
+                    style={{ background: "var(--color-border)" }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (isAdminLoggedIn || isUserLoggedIn) {
+                        onLogout();
+                      } else {
+                        onOpenAuth();
+                      }
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5 transition-colors"
+                    style={{
+                      color:
+                        isAdminLoggedIn || isUserLoggedIn
+                          ? "var(--color-accent)"
+                          : "var(--color-ink)",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "var(--color-surface2)")
                     }
-                    setMobileMenuOpen(false);
-                  }}
-                  className="text-left px-4 py-3 rounded-xl font-semibold text-base animate-fade-up delay-5"
-                  style={{
-                    color:
-                      isAdminLoggedIn || isUserLoggedIn
-                        ? "var(--color-accent)"
-                        : "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--color-surface2)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  {isAdminLoggedIn || isUserLoggedIn
-                    ? "Sign out"
-                    : "Sign in / Sign up"}
-                </button>
-              </nav>
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    {isAdminLoggedIn || isUserLoggedIn
+                      ? "Sign out"
+                      : "Sign in / Sign up"}
+                  </button>
+                </nav>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </header>
     </>
   );

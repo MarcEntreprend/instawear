@@ -1,7 +1,7 @@
 // src/components/CartDrawer.tsx
 
 import React from "react";
-import { X, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
+import { X, Trash2, Plus, Minus, ArrowRight, ShoppingBag } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useShippingSettings } from "../hooks/useShippingSettings";
 import {
@@ -35,7 +35,6 @@ export default function CartDrawer({
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
   const currencySymbol = useCurrencySymbol();
 
-  // Resolves the best image for a specific product color
   function getVariantImage(
     product: CartItem["product"],
     selectedColor: string,
@@ -53,14 +52,12 @@ export default function CartDrawer({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 animate-fade-in"
         style={{ background: "rgba(26,25,22,.5)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <div
         className="fixed inset-y-0 right-0 z-40 w-full max-w-100 flex flex-col animate-slide-right"
         style={{
@@ -69,24 +66,21 @@ export default function CartDrawer({
           boxShadow: "var(--shadow-xl)",
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between p-5 pb-4"
           style={{ borderBottom: "1px solid var(--color-border)" }}
         >
-          <div className="flex items-center gap-2">
-            <img
-              src={cartCount > 0 ? CART_CHECK_ICON : CART_X_ICON}
-              alt="Cart"
-              className="w-5 h-5"
-              style={{
-                color: "var(--color-accent)",
-                filter:
-                  document.documentElement.getAttribute("data-theme") === "dark"
-                    ? "invert(1)"
-                    : "none",
-              }}
-            />
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ background: "var(--color-accent-bg)" }}
+            >
+              <ShoppingBag
+                size={16}
+                strokeWidth={2}
+                style={{ color: "var(--color-accent)" }}
+              />
+            </div>
             <span
               className="font-black text-base"
               style={{
@@ -94,7 +88,7 @@ export default function CartDrawer({
                 fontFamily: "var(--font-sans)",
               }}
             >
-              Your Cart
+              Your cart
             </span>
             {cartCount > 0 && (
               <span
@@ -107,7 +101,7 @@ export default function CartDrawer({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
+            className="p-1.5 rounded-full transition-colors"
             style={{ color: "var(--color-ink3)" }}
             onMouseEnter={(e) =>
               (e.currentTarget.style.background = "var(--color-surface2)")
@@ -123,12 +117,12 @@ export default function CartDrawer({
         {cart.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              className="w-16 h-16 rounded-3xl flex items-center justify-center"
               style={{ background: "var(--color-surface2)" }}
             >
               <img
                 src={CART_X_ICON}
-                alt="Empty Cart"
+                alt="Empty cart"
                 className="w-7 h-7"
                 style={{
                   opacity: 0.5,
@@ -154,31 +148,23 @@ export default function CartDrawer({
                 Browse our collections and add items you love.
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
-              style={{
-                background: "var(--color-accent)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
+            <button onClick={onClose} className="pill-btn pill-btn-accent">
               Continue shopping
               <ArrowRight size={15} strokeWidth={2} />
             </button>
           </div>
         ) : (
           <>
-            {/* Free shipping progress */}
             {!freeShipping && (
               <div
-                className="px-5 py-3"
+                className="px-5 py-3.5"
                 style={{
                   background: "var(--color-accent-bg)",
                   borderBottom: "1px solid rgba(255,92,53,.1)",
                 }}
               >
                 <p
-                  className="text-xs font-semibold mb-1.5"
+                  className="text-xs font-semibold mb-2"
                   style={{ color: "var(--color-accent)" }}
                 >
                   Only{" "}
@@ -203,17 +189,19 @@ export default function CartDrawer({
             )}
             {freeShipping && (
               <div
-                className="px-5 py-2 text-xs font-semibold text-center"
+                className="px-5 py-2.5 text-xs font-semibold text-center"
                 style={{ background: "#D1FAE5", color: "#059669" }}
               >
-                You've unlocked free shipping!
+                You've unlocked free shipping
               </div>
             )}
 
-            {/* Items */}
             <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
               {cart.map((item, i) => (
-                <div key={i} className="flex gap-3">
+                <div
+                  key={i}
+                  className="card-premium flex gap-3 p-2.5 rounded-2xl"
+                >
                   <button
                     onClick={() => onSelectProduct?.(item.product.id)}
                     className="w-20 h-24 rounded-xl overflow-hidden shrink-0 border-none p-0 cursor-pointer"
@@ -229,7 +217,7 @@ export default function CartDrawer({
                       className="w-full h-full object-cover"
                     />
                   </button>
-                  <div className="flex-1 flex flex-col justify-between">
+                  <div className="flex-1 flex flex-col justify-between py-0.5">
                     <div>
                       <button
                         onClick={() => onSelectProduct?.(item.product.id)}
@@ -246,7 +234,7 @@ export default function CartDrawer({
                           {item.product.title}
                         </p>
                       </button>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1.5">
                         <span
                           className="w-3.5 h-3.5 rounded-full border"
                           style={{
@@ -254,19 +242,12 @@ export default function CartDrawer({
                             borderColor: "var(--color-border)",
                           }}
                         />
-                        <span
-                          className="text-xs px-2 py-0.5 rounded font-medium"
-                          style={{
-                            background: "var(--color-surface2)",
-                            color: "var(--color-ink3)",
-                            border: "1px solid var(--color-border)",
-                          }}
-                        >
+                        <span className="chip bg-gray-100 text-gray-500">
                           Size: {item.selectedSize}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-2">
                       <span
                         className="text-base font-black"
                         style={{
@@ -282,7 +263,7 @@ export default function CartDrawer({
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => onUpdateQty(i, -1)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
                           style={{
                             background: "var(--color-surface2)",
                             border: "1px solid var(--color-border)",
@@ -302,7 +283,7 @@ export default function CartDrawer({
                         </span>
                         <button
                           onClick={() => onUpdateQty(i, 1)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
                           style={{
                             background: "var(--color-surface2)",
                             border: "1px solid var(--color-border)",
@@ -313,7 +294,7 @@ export default function CartDrawer({
                         </button>
                         <button
                           onClick={() => onRemove(i)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center ml-1 transition-colors"
+                          className="w-7 h-7 rounded-full flex items-center justify-center ml-1 transition-colors"
                           style={{ color: "#EF4444" }}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.background = "#FEF2F2")
@@ -331,7 +312,6 @@ export default function CartDrawer({
               ))}
             </div>
 
-            {/* Footer */}
             <div
               className="p-5 flex flex-col gap-4"
               style={{ borderTop: "1px solid var(--color-border)" }}
@@ -376,12 +356,7 @@ export default function CartDrawer({
 
               <button
                 onClick={onCheckout}
-                className="w-full flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-                  boxShadow: "var(--shadow-accent)",
-                }}
+                className="pill-btn pill-btn-accent w-full justify-center"
               >
                 Checkout
                 <ArrowRight size={15} strokeWidth={2.5} />
@@ -391,7 +366,7 @@ export default function CartDrawer({
                 className="text-xs text-center"
                 style={{ color: "var(--color-ink4)" }}
               >
-                Secure payment powered by Stripe — Free shipping over $
+                Secure payment powered by Stripe, free shipping over $
                 {threshold}
               </p>
             </div>

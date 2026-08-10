@@ -4,47 +4,40 @@ export default function AboutSection() {
   return (
     <section
       id="section-about"
-      className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
+      className="bg-white border-t border-gray-200 mt-12 py-16 px-4 scroll-mt-28"
     >
       <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
-        <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
-          🎨 OUR STORY
-        </span>
-        <h3 className="text-3xl font-black text-gray-900 leading-tight">
+        <span className="eyebrow mb-4">Our story</span>
+        <h3 className="font-serif text-3xl sm:text-4xl text-gray-900 leading-tight">
           About InstaWear
         </h3>
-        <p className="text-sm text-gray-600 mt-4 leading-relaxed max-w-2xl font-sans">
+        <p className="text-sm text-gray-600 mt-5 leading-relaxed max-w-2xl">
           InstaWear was founded by a collective of pop culture fans, sports
           enthusiasts, and AI engineers. Our mission: let you wear the energy of
           global events in real time.
         </p>
-        <p className="text-sm text-gray-500 mt-2.5 leading-relaxed max-w-2xl font-sans">
-          Every piece is made to order just for you — we connect directly to
+        <p className="text-sm text-gray-500 mt-2.5 leading-relaxed max-w-2xl">
+          Every piece is made to order just for you, connected directly to
           Printful production hubs. Zero excess inventory, zero wasted stock. We
-          believe in reactive, circular fashion. This is the future of
-          print‑on‑demand.
+          believe in reactive, circular fashion.
         </p>
-        <div className="flex gap-4 sm:gap-8 md:gap-12 mt-8 text-center bg-gray-50/60 p-4 sm:p-6 rounded-2xl border border-gray-200">
+        <div className="grid grid-cols-3 gap-4 sm:gap-10 mt-10 text-center bg-gray-50/60 p-6 sm:p-8 rounded-3xl border border-gray-200 w-full max-w-2xl">
           <div>
-            <p className="text-3xl font-black text-(--color-accent) font-sans">
-              100%
-            </p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Certified Organic Cotton
+            <p className="stat-figure">100%</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-2">
+              Organic cotton
             </p>
           </div>
-          <div className="border-l border-gray-200"></div>
-          <div>
-            <p className="text-3xl font-black text-indigo-400 font-sans">0</p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Destroyed Inventory
+          <div className="border-l border-gray-200 flex flex-col items-center">
+            <p className="stat-figure">0</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-2">
+              Destroyed inventory
             </p>
           </div>
-          <div className="border-l border-gray-200"></div>
-          <div>
-            <p className="text-3xl font-black text-amber-500 font-sans">24h</p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Design → Print
+          <div className="border-l border-gray-200 flex flex-col items-center">
+            <p className="stat-figure">24h</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-2">
+              Design to print
             </p>
           </div>
         </div>

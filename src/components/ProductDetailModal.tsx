@@ -1,15 +1,7 @@
 // src/components/ProductDetailModal.tsx
 
 import { useState } from "react";
-import {
-  X,
-  Star,
-  Info,
-  Truck,
-  Heart,
-  ShieldCheck,
-  ArrowLeft,
-} from "lucide-react";
+import { X, Star, Info, Truck, Heart, ShieldCheck } from "lucide-react";
 import DOMPurify from "dompurify";
 import type { Product } from "../types";
 import ImageZoom from "./ImageZoom";
@@ -32,7 +24,6 @@ interface ProductDetailModalProps {
 
 // ─── Dynamic size guide (Printful) ──────────────────────────────────────
 function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
-  // … (inchangée, même code que dans l'original) …
   const tables = sizeGuide.size_tables || [];
   const availableSizes: string[] = sizeGuide.available_sizes || [];
   const mainTable =
@@ -57,12 +48,12 @@ function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
         <img
           src={mainTable.image_url}
           alt="Size guide"
-          className="w-full max-w-50 mb-2 rounded-lg border"
+          className="w-full max-w-50 mb-2 rounded-xl border border-gray-200"
         />
       )}
       <table className="w-full text-left mt-1 text-[10px]">
         <thead>
-          <tr className="border-b">
+          <tr className="border-b border-gray-200">
             <th className="py-1 font-semibold">Size</th>
             {measurements.map((m: any) => (
               <th key={m.type_label} className="py-1 font-semibold">
@@ -73,15 +64,15 @@ function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
         </thead>
         <tbody>
           {availableSizes.map((size: string) => (
-            <tr key={size} className="border-b">
+            <tr key={size} className="border-b border-gray-100">
               <td className="py-0.5 font-medium">{size}</td>
               {measurements.map((m: any) => {
                 const val = m.values?.find((v: any) => v.size === size);
-                if (!val) return <td key={m.type_label}>—</td>;
+                if (!val) return <td key={m.type_label}>-</td>;
                 const display =
                   val.min_value && val.max_value
                     ? `${val.min_value}-${val.max_value}`
-                    : val.value || "—";
+                    : val.value || "-";
                 return (
                   <td key={m.type_label}>
                     {display} {unit !== "none" ? unit : ""}
@@ -101,7 +92,7 @@ function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
             </summary>
             <table className="w-full text-left mt-1 text-[10px]">
               <thead>
-                <tr className="border-b">
+                <tr className="border-b border-gray-200">
                   <th className="py-1 font-semibold">Size</th>
                   {(table.measurements || []).map((m: any) => (
                     <th key={m.type_label} className="py-1 font-semibold">
@@ -112,15 +103,15 @@ function SizeGuideDisplay({ sizeGuide }: { sizeGuide: any }) {
               </thead>
               <tbody>
                 {availableSizes.map((size: string) => (
-                  <tr key={size} className="border-b">
+                  <tr key={size} className="border-b border-gray-100">
                     <td className="py-0.5 font-medium">{size}</td>
                     {(table.measurements || []).map((m: any) => {
                       const val = m.values?.find((v: any) => v.size === size);
-                      if (!val) return <td key={m.type_label}>—</td>;
+                      if (!val) return <td key={m.type_label}>-</td>;
                       const display =
                         val.min_value && val.max_value
                           ? `${val.min_value}-${val.max_value}`
-                          : val.value || "—";
+                          : val.value || "-";
                       return <td key={m.type_label}>{display}</td>;
                     })}
                   </tr>
@@ -204,7 +195,6 @@ export default function ProductDetailModal({
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
     currentVariantPrice != null ? currentVariantPrice : product.price;
-  const surcharge = displayPrice - product.price;
 
   const variantImages = hasVariants
     ? product.variants!.filter((v) => v.image && v.image.trim().length > 0)
@@ -212,12 +202,12 @@ export default function ProductDetailModal({
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-400 max-h-[95vh] overflow-y-auto shadow-2xl relative">
+      <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-400 max-h-[95vh] overflow-y-auto shadow-2xl relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-gray-900 w-9 h-9 rounded-full flex items-center justify-center transition-all z-10"
+          className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-gray-900 shadow-md transition-transform duration-200 hover:scale-105 z-10"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4.5 h-4.5" strokeWidth={1.75} />
         </button>
 
         {/* ── 3-COLUMN LAYOUT ────────────────────────────────────── */}
@@ -231,7 +221,7 @@ export default function ProductDetailModal({
                   <button
                     key={v.color}
                     onClick={() => setPickedColor(v.color)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border-2 transition-colors ${
                       pickedColor === v.color
                         ? "border-(--color-accent)"
                         : "border-gray-200"
@@ -251,7 +241,7 @@ export default function ProductDetailModal({
                   <button
                     key={idx}
                     onClick={() => setActiveGalleryIndex(idx)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border-2 transition-colors ${
                       activeGalleryIndex === idx
                         ? "border-(--color-accent)"
                         : "border-gray-200"
@@ -268,18 +258,19 @@ export default function ProductDetailModal({
             ) : null}
 
             {/* Image principale avec zoom */}
-            <div className="w-full aspect-3/4">
+            <div className="w-full aspect-3/4 rounded-3xl overflow-hidden shadow-lg">
               <ImageZoom src={displayImage} alt={product.title}>
                 {product.isBestSeller && (
-                  <span className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10">
-                    BEST SELLER
+                  <span className="chip uppercase tracking-wide bg-black/85 text-white gap-1 absolute top-3 left-3 z-10">
+                    <Star size={9} strokeWidth={0} className="fill-amber-300" />
+                    Best seller
                   </span>
                 )}
                 {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
                   <span
-                    className={`absolute top-3 right-3 bg-rose-500 text-gray-900 text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow z-10 ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
+                    className={`chip uppercase tracking-wide bg-rose-500 text-white absolute top-3 right-3 z-10 ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
                   >
-                    LIMITED time
+                    Limited time
                   </span>
                 )}
               </ImageZoom>
@@ -288,10 +279,10 @@ export default function ProductDetailModal({
 
           {/* ── COLONNE CENTRALE : Infos produit ─────────────────── */}
           <div className="lg:w-[25%]">
-            <span className="text-[10px] bg-gray-100 px-3 py-1 rounded text-gray-500 uppercase tracking-widest font-bold">
-              {product.brand} ORIGINAL
+            <span className="chip uppercase tracking-widest bg-gray-100 text-gray-500">
+              {product.brand}
             </span>
-            <h3 className="text-xl md:text-2xl font-black text-gray-900 mt-2 leading-tight">
+            <h3 className="text-2xl md:text-3xl font-black text-gray-900 mt-3 leading-tight tracking-tight">
               {product.title}
             </h3>
 
@@ -319,15 +310,17 @@ export default function ProductDetailModal({
             )}
 
             {/* Colors */}
-            <div className="mt-4">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            <div className="mt-5" id="variantColors">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
                 Color :{" "}
-                {pickedColor
-                  ? dispColorNames?.[dispColors.indexOf(pickedColor)] ||
-                    pickedColor
-                  : "Select"}
+                <span className="text-gray-900 normal-case font-semibold">
+                  {pickedColor
+                    ? dispColorNames?.[dispColors.indexOf(pickedColor)] ||
+                      pickedColor
+                    : "Select"}
+                </span>
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {dispColors.map((c, idx) => {
                   const isPicked =
                     pickedColor === c || (!pickedColor && idx === 0);
@@ -335,7 +328,7 @@ export default function ProductDetailModal({
                     <button
                       key={idx}
                       onClick={() => setPickedColor(c)}
-                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"}`}
+                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-(--color-accent) scale-110 shadow-md" : "border-gray-200"}`}
                       style={{ backgroundColor: c }}
                       title={dispColorNames?.[idx] || ""}
                     />
@@ -345,27 +338,30 @@ export default function ProductDetailModal({
             </div>
 
             {/* Sizes */}
-            <div className="mt-4">
-              <div className="flex justify-between items-center mb-2">
+            <div className="mt-5">
+              <div className="flex justify-between items-center mb-2.5">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Size : {pickedSize}
+                  Size :{" "}
+                  <span className="text-gray-900 normal-case font-semibold">
+                    {pickedSize}
+                  </span>
                 </label>
                 <button
                   onClick={() => setSizeGuideOpen(!sizeGuideOpen)}
-                  className="text-[10px] text-(--color-accent) hover:underline flex items-center gap-1"
+                  className="text-[10px] font-bold text-(--color-accent) hover:underline flex items-center gap-1"
                 >
-                  <Info className="w-3 h-3" /> Size guide
+                  <Info className="w-3 h-3" strokeWidth={2} /> Size guide
                   {(!product.sizeGuide ||
                     (!product.sizeGuide.size_tables &&
                       !product.sizeGuide.measurements)) && (
-                    <span className="text-[8px] text-(--color-ink4) ml-0.5">
-                      (Approx.)
+                    <span className="text-gray-400 ml-0.5 normal-case font-normal">
+                      (approx.)
                     </span>
                   )}
                 </button>
               </div>
               {sizeGuideOpen && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-[10px] text-gray-500 mb-3 max-h-60 overflow-y-auto">
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-[10px] text-gray-500 mb-3 max-h-60 overflow-y-auto">
                   {product.sizeGuide &&
                   (product.sizeGuide.size_tables ||
                     product.sizeGuide.measurements) ? (
@@ -415,12 +411,12 @@ export default function ProductDetailModal({
                   )}
                 </div>
               )}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {dispSizes.map((s) => (
                   <button
                     key={s}
                     onClick={() => setPickedSize(s)}
-                    className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 text-gray-600 bg-gray-50/60"}`}
+                    className={`min-w-11 h-9 rounded-full border text-xs font-bold transition-all uppercase px-3.5 ${pickedSize === s ? "border-(--color-accent) bg-(--color-accent-bg) text-(--color-accent)" : "border-gray-200 text-gray-600 bg-gray-50/60"}`}
                   >
                     {s}
                   </button>
@@ -429,7 +425,7 @@ export default function ProductDetailModal({
             </div>
 
             {/* Product details */}
-            <div className="mt-5 text-xs text-gray-600 leading-relaxed space-y-2 font-sans border-b border-gray-200 pb-5">
+            <div className="mt-6 text-xs text-gray-600 leading-relaxed space-y-2 font-sans border-t border-gray-100 pt-5">
               <p className="font-bold text-gray-500 uppercase tracking-wider">
                 Product details :
               </p>
@@ -450,32 +446,32 @@ export default function ProductDetailModal({
                 {/* Prix */}
                 {product.dealActive && !dealExpired && product.dealPrice ? (
                   <div>
-                    <span className="text-2xl font-black text-rose-500">
+                    <span className="text-3xl font-black text-rose-500">
                       {product.dealPrice.toFixed(2)} {currencySymbol}
                     </span>
-                    <span className="text-sm text-(--color-ink4) line-through ml-2">
+                    <span className="text-sm text-gray-400 line-through ml-2">
                       {product.price.toFixed(2)} {currencySymbol}
                     </span>
-                    <p className="text-xs text-rose-500 font-semibold mt-1">
+                    <p className="text-xs text-rose-500 font-semibold mt-1.5">
                       -
                       {Math.round(
                         (1 - product.dealPrice / product.price) * 100,
                       )}
-                      % Limited deal
+                      % limited deal
                     </p>
                   </div>
                 ) : (
                   <div>
-                    <span className="text-2xl font-black text-(--color-ink)">
+                    <span className="text-3xl font-black text-gray-900">
                       {displayPrice.toFixed(2)} {currencySymbol}
                     </span>
                     {product.originalPrice && (
-                      <span className="text-sm text-(--color-ink4) line-through ml-2">
+                      <span className="text-sm text-gray-400 line-through ml-2">
                         {product.originalPrice.toFixed(2)} {currencySymbol}
                       </span>
                     )}
                     {product.dealActive && !dealExpired && !dealFadingOut && (
-                      <p className="text-xs text-(--color-accent) font-semibold mt-1">
+                      <p className="text-xs text-(--color-accent) font-semibold mt-1.5">
                         Limited deal
                       </p>
                     )}
@@ -483,24 +479,21 @@ export default function ProductDetailModal({
                 )}
 
                 {/* Résumé sélection */}
-                <div className="text-xs text-(--color-ink3)">
-                  Color:{" "}
-                  <strong className="text-(--color-ink2)">
+                <div className="chip bg-gray-50 border border-gray-200 text-gray-600 normal-case tracking-normal font-medium justify-between">
+                  <span>
                     {pickedColor
                       ? dispColorNames?.[dispColors.indexOf(pickedColor)] ||
                         pickedColor
-                      : "—"}
-                  </strong>
-                  {" · "}
-                  Size:{" "}
-                  <strong className="text-(--color-ink2)">{pickedSize}</strong>
+                      : "-"}{" "}
+                    / {pickedSize}
+                  </span>
                   <button
                     onClick={() =>
                       document
                         .getElementById("variantColors")
-                        ?.scrollIntoView({ behavior: "smooth" })
+                        ?.scrollIntoView({ behavior: "smooth", block: "center" })
                     }
-                    className="ml-2 text-(--color-accent) hover:underline"
+                    className="text-(--color-accent) hover:underline font-bold"
                   >
                     Edit
                   </button>
@@ -508,7 +501,7 @@ export default function ProductDetailModal({
 
                 {/* Boutons d'action */}
                 {product.isActive ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2.5">
                     <button
                       onClick={() =>
                         onAddToCart(
@@ -517,7 +510,7 @@ export default function ProductDetailModal({
                           pickedSize,
                         )
                       }
-                      className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      className="pill-btn pill-btn-accent w-full"
                     >
                       Add to cart
                     </button>
@@ -529,13 +522,19 @@ export default function ProductDetailModal({
                           pickedSize,
                         )
                       }
-                      className="w-full bg-linear-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      className="pill-btn w-full text-slate-950"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, var(--color-gold), #f0c060)",
+                        boxShadow: "0 6px 20px rgba(201,134,10,0.3)",
+                        padding: "13px 26px",
+                      }}
                     >
                       Buy now
                     </button>
                     <button
                       onClick={() => onToggleFavorite(product.id)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                      className="pill-btn w-full font-semibold"
                       style={{
                         background: favorites.includes(product.id)
                           ? "#FEF2F2"
@@ -544,10 +543,12 @@ export default function ProductDetailModal({
                         color: favorites.includes(product.id)
                           ? "#EF4444"
                           : "var(--color-ink3)",
+                        padding: "13px 26px",
                       }}
                     >
                       <Heart
                         size={16}
+                        strokeWidth={2}
                         fill={
                           favorites.includes(product.id) ? "#EF4444" : "none"
                         }
@@ -564,7 +565,7 @@ export default function ProductDetailModal({
                     </p>
                     <button
                       disabled
-                      className="w-full bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase cursor-not-allowed"
+                      className="w-full bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-full uppercase cursor-not-allowed"
                     >
                       Add to cart
                     </button>
@@ -572,23 +573,23 @@ export default function ProductDetailModal({
                 )}
 
                 {/* Livraison */}
-                <div className="text-xs text-(--color-ink3) space-y-1">
-                  <p className="flex items-center gap-1 font-semibold text-(--color-accent)">
-                    <Truck size={14} /> Shipping
+                <div className="text-xs text-gray-500 space-y-1 border-t border-gray-100 pt-4">
+                  <p className="flex items-center gap-1.5 font-semibold text-(--color-accent)">
+                    <Truck size={14} strokeWidth={2} /> Shipping
                   </p>
-                  <p>FREE on orders over $35</p>
-                  <p className="text-(--color-ink4)">
+                  <p>Free on orders over $35</p>
+                  <p className="text-gray-400">
                     Printed within 24h, delivered by{" "}
-                    <strong className="text-(--color-ink2)">
+                    <strong className="text-gray-600">
                       {getDeliverEstimateString(4)}
                     </strong>
                   </p>
                 </div>
 
                 {/* Garantie */}
-                <div className="flex items-center gap-2 text-[11px] text-(--color-ink4)">
-                  <ShieldCheck size={14} className="text-(--color-accent)" />
-                  OEKO-TEX® certified
+                <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                  <ShieldCheck size={14} strokeWidth={1.75} className="text-(--color-accent)" />
+                  OEKO-TEX certified
                 </div>
               </div>
             </div>

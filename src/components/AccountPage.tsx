@@ -28,12 +28,9 @@ import {
   Box,
   XCircle,
   Trash2,
-  Star,
   Home,
   Edit3,
   Copy,
-  ExternalLink,
-  AlertCircle,
   Inbox,
   LogOut,
   Search,
@@ -127,6 +124,18 @@ function getVariantImage(product: any, selectedColor: string): string {
   return product?.image || PLACEHOLDER_IMG;
 }
 
+// Shared style tokens for form inputs across this page
+const inputClass =
+  "w-full rounded-2xl border px-3.5 py-2.5 text-[13.5px] outline-none transition-colors";
+const inputStyle: React.CSSProperties = {
+  background: "var(--color-surface2)",
+  borderColor: "var(--color-border)",
+  color: "var(--color-ink)",
+  fontFamily: "var(--font-sans)",
+};
+const labelClass =
+  "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]";
+
 // ─── Main component ───────────────────────────────────────────────────
 export default function AccountPage({
   onClose,
@@ -169,15 +178,12 @@ export default function AccountPage({
         return;
       }
 
-      // Affichage immédiat (aucune requête réseau nécessaire) : email +
-      // nom depuis la session Auth elle-même, pour éliminer le flash Guest.
       if (!cancelled) {
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
         setCustomerId(user.id);
       }
 
-      // Complément : nom exact + préférences email depuis la table customers
       const c = await customerApi.get(user.id);
       if (cancelled) return;
       if (c?.name) setCustomerName(c.name);
@@ -190,13 +196,10 @@ export default function AccountPage({
       if (!cancelled) setInitializing(false);
     };
 
-    // Résolution initiale : getSession() lit la session locale instantanément
-    // (pas d'appel réseau comme getUser()) → aucun flash au montage.
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => resolveIdentity(session?.user ?? null));
 
-    // Ré-résolution si la session change pendant que la page est ouverte
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         resolveIdentity(session?.user ?? null);
@@ -338,7 +341,6 @@ export default function AccountPage({
     await customerApi.updateEmailPreferences(customerId, prefs);
   };
 
-  // fonction de toggle newsletter
   const handleToggleNewsletter = async () => {
     if (!customerEmail) return;
     if (newsletterSubscribed) {
@@ -379,10 +381,7 @@ export default function AccountPage({
   const [hasMoreOrders, setHasMoreOrders] = useState(true);
   const [ordersPage, setOrdersPage] = useState(0);
 
-  const [searchOrders, setSearchOrders] = useState("");
-  const [searchResults, setSearchResults] = useState<Order[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [totalOrdersCount, setTotalOrdersCount] = useState(0); // total réel depuis la DB
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
 
   const handleLoadMoreOrders = useCallback(() => {
     if (loadingOrders || !hasMoreOrders) return;
@@ -415,7 +414,6 @@ export default function AccountPage({
     }
   }, [customerEmail]);
 
-  // Load all data on mount (for sidebar badges)
   useEffect(() => {
     if (!customerId) return;
     fetchOrders(0, false);
@@ -423,7 +421,6 @@ export default function AccountPage({
     fetchCart();
     fetchNotifications(0, false);
     fetchInteractions();
-    // Charger le nombre total réel d'orders
     if (customerId) {
       customerApi
         .getOrderCount(customerId)
@@ -432,13 +429,11 @@ export default function AccountPage({
     }
   }, [customerId]);
 
-  // Auto-refresh sidebar data every 30s (orders list excluded, too heavy)
   useEffect(() => {
     if (!customerId) return;
     const interval = setInterval(() => {
       fetchFavorites();
       fetchCart();
-      // Seul le compteur de notifications non lues est rafraîchi, pas toute la liste
       customerApi
         .getUnreadNotificationCount(customerId)
         .then(setUnreadNotifsCount)
@@ -455,7 +450,7 @@ export default function AccountPage({
       ? new Date(
           Math.min(...orders.map((o) => new Date(o.createdAt).getTime())),
         ).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-      : "—";
+      : "-";
 
   // ── Tab labels ────────────────────────────────────────────────────
   const NAV: {
@@ -535,10 +530,13 @@ export default function AccountPage({
       >
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors"
-          style={{ color: "var(--color-ink3)" }}
+          className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+          style={{
+            color: "var(--color-ink3)",
+            background: "var(--color-surface2)",
+          }}
         >
-          <ArrowLeft size={18} strokeWidth={2} />
+          <ArrowLeft size={17} strokeWidth={2} />
         </button>
         <span
           className="text-[15px] font-bold"
@@ -547,7 +545,7 @@ export default function AccountPage({
           My Account
         </span>
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-black text-white"
           style={{ background: "var(--color-accent)" }}
         >
           {customerId ? initials(customerEmail, customerName) : "?"}
@@ -558,7 +556,7 @@ export default function AccountPage({
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar (desktop ≥ sm) ────────────────────────────── */}
         <aside
-          className="hidden sm:flex w-64 flex-col shrink-0 overflow-y-auto"
+          className="hidden sm:flex w-68 flex-col shrink-0 overflow-y-auto"
           style={{
             borderRight: "1px solid var(--color-border)",
             background: "var(--color-surface)",
@@ -568,7 +566,7 @@ export default function AccountPage({
           <div className="p-6 pb-5">
             <button
               onClick={onClose}
-              className="mb-5 flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
+              className="mb-6 flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
               style={{ color: "var(--color-ink4)" }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.color = "var(--color-ink2)")
@@ -581,9 +579,9 @@ export default function AccountPage({
             </button>
 
             {/* Avatar */}
-            <div className="mb-4 flex flex-col items-start gap-3">
+            <div className="mb-5 flex flex-col items-start gap-3">
               <div
-                className="relative flex h-14 w-14 items-center justify-center rounded-[18px] text-xl font-black text-white"
+                className="relative flex h-15 w-15 items-center justify-center rounded-3xl text-xl font-black text-white"
                 style={{
                   background:
                     "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
@@ -591,7 +589,6 @@ export default function AccountPage({
                 }}
               >
                 {customerId ? initials(customerEmail, customerName) : "?"}
-                {/* Online dot */}
                 <span
                   className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2"
                   style={{
@@ -618,7 +615,7 @@ export default function AccountPage({
 
             {/* Stats mini */}
             <div
-              className="grid grid-cols-2 gap-2 rounded-[14px] p-3"
+              className="card-premium grid grid-cols-2 gap-3 rounded-2xl p-4"
               style={{ background: "var(--color-surface2)" }}
             >
               <div>
@@ -629,7 +626,7 @@ export default function AccountPage({
                   Orders
                 </p>
                 <p
-                  className="text-[18px] font-black tabular-nums"
+                  className="text-[19px] font-black tabular-nums"
                   style={{ color: "var(--color-ink)" }}
                 >
                   {totalOrdersCount}
@@ -643,7 +640,7 @@ export default function AccountPage({
                   Saved
                 </p>
                 <p
-                  className="text-[18px] font-black tabular-nums"
+                  className="text-[19px] font-black tabular-nums"
                   style={{ color: "var(--color-ink)" }}
                 >
                   {favorites.length}
@@ -687,7 +684,7 @@ export default function AccountPage({
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all duration-150 text-left"
+                className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[13.5px] font-semibold transition-all duration-150 text-left"
                 style={{
                   background:
                     tab === key ? "var(--color-accent-bg)" : "transparent",
@@ -745,10 +742,9 @@ export default function AccountPage({
               onClick={async () => {
                 await supabase.auth.signOut();
                 onClose();
-                // Force un vrai refresh pour nettoyer tous les états
                 window.location.href = "/";
               }}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
+              className="flex w-full items-center gap-2 rounded-2xl px-3.5 py-2.5 text-[13px] font-semibold transition-colors"
               style={{ color: "var(--color-ink4)" }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background =
@@ -771,10 +767,9 @@ export default function AccountPage({
         {/* ── Content ───────────────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
           <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-            {/* Section heading */}
-            <div className="mb-5 hidden sm:flex items-center justify-between">
+            <div className="mb-6 hidden sm:flex items-center justify-between">
               <h2
-                className="text-[20px] font-bold tracking-tight"
+                className="text-[21px] font-black tracking-tight"
                 style={{ color: "var(--color-ink)" }}
               >
                 {NAV.find((n) => n.key === tab)?.label}
@@ -931,7 +926,6 @@ function OrdersTab({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [searchDebouncing, setSearchDebouncing] = useState(false);
 
-  // Recherche serveur avec debounce (350ms)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!search.trim()) {
@@ -961,7 +955,6 @@ function OrdersTab({
     };
   }, [search, customerEmail, customerId]);
 
-  // IntersectionObserver pour scroll infini
   useEffect(() => {
     if (!loaderRef.current || !hasMore) return;
     const observer = new IntersectionObserver(
@@ -976,7 +969,6 @@ function OrdersTab({
     return () => observer.disconnect();
   }, [hasMore, loading, onLoadMore]);
 
-  // Filtrage + tri (côté client uniquement sur les données déjà chargées)
   const filtered = useMemo(() => {
     let list = [...orders];
     if (search.trim()) {
@@ -999,7 +991,6 @@ function OrdersTab({
     return list;
   }, [orders, search, filterStatus, sortOrder]);
 
-  // Appliquer les filtres locaux (status, sort) aux résultats de recherche serveur
   const filteredServerResults = useMemo(() => {
     let list = [...serverResults];
     if (filterStatus !== "all") {
@@ -1017,6 +1008,40 @@ function OrdersTab({
     setSelectedOrder(null);
     if (onRefresh) await onRefresh(0, false);
   }, [onRefresh]);
+
+  const openOrder = async (order: Order) => {
+    setLoadingDetail(true);
+    try {
+      const { data: refreshed, error } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("id", order.id)
+        .single();
+      if (!error && refreshed) {
+        const items = (refreshed.order_items || []).map((item: any) => ({
+          id: item.id,
+          orderId: item.order_id,
+          productId: item.product_id,
+          productTitle: item.product_title,
+          productImage: item.product_image,
+          selectedColor: item.selected_color,
+          selectedSize: item.selected_size,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+        }));
+        setSelectedOrder({
+          ...mapOrder(refreshed),
+          items,
+        } as Order);
+      } else {
+        setSelectedOrder(order);
+      }
+    } catch {
+      setSelectedOrder(order);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   if (loading && orders.length === 0) return <SkeletonList />;
   if (loadingDetail)
@@ -1048,12 +1073,107 @@ function OrdersTab({
       />
     );
 
+  const renderOrderRow = (order: Order) => {
+    const isActive =
+      order.status !== "delivered" && order.status !== "cancelled";
+    return (
+      <button
+        key={order.id}
+        onClick={() => openOrder(order)}
+        className="card-premium w-full text-left rounded-3xl p-4 transition-all duration-200 active:scale-[0.99]"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <p
+                className="truncate text-[13px] font-bold flex items-center"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {order.id}
+                <CopyID id={order.id} />
+              </p>
+              {isActive && (
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: "var(--color-accent)" }}
+                />
+              )}
+            </div>
+            <p className="text-[12px]" style={{ color: "var(--color-ink4)" }}>
+              {formatDate(order.createdAt)} · {order.items?.length ?? 0} item
+              {(order.items?.length ?? 0) !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              className="text-[15px] font-black tabular-nums"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {currencySymbol}
+              {order.totalAmount.toFixed(2)}
+            </span>
+            <StatusPill status={order.status} />
+          </div>
+        </div>
+        {order.items && order.items.length > 0 && (
+          <div className="mt-3 flex items-center gap-1.5">
+            {order.items.slice(0, 4).map((item, i) => (
+              <span
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (item.productId && onViewProduct) {
+                    onViewProduct(
+                      item.productId,
+                      item.selectedColor,
+                      item.selectedSize,
+                    );
+                  }
+                }}
+                className="h-9 w-9 rounded-xl overflow-hidden border-none p-0 cursor-pointer inline-block"
+                style={{ border: "1px solid var(--color-border)" }}
+              >
+                <img
+                  src={item.productImage || PLACEHOLDER_IMG}
+                  alt={item.productTitle || "item"}
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            ))}
+            {order.items.length > 4 && (
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-bold"
+                style={{
+                  background: "var(--color-surface2)",
+                  color: "var(--color-ink3)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                +{order.items.length - 4}
+              </div>
+            )}
+            <ChevronRight
+              size={16}
+              strokeWidth={1.75}
+              className="ml-auto"
+              style={{ color: "var(--color-ink4)" }}
+            />
+          </div>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* Barre de recherche + filtres */}
       <div className="flex flex-wrap items-center gap-2">
         <div
-          className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
+          className="flex items-center gap-2 flex-1 min-w-0 rounded-full border px-4 py-2.5"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -1066,7 +1186,7 @@ function OrdersTab({
           />
           <input
             type="text"
-            placeholder="Search by order ID…"
+            placeholder="Search by order ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-[13px]"
@@ -1088,7 +1208,7 @@ function OrdersTab({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-xl border px-3 py-2 text-[12.5px] font-medium outline-none cursor-pointer"
+          className="rounded-full border px-4 py-2.5 text-[12.5px] font-medium outline-none cursor-pointer"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -1107,7 +1227,7 @@ function OrdersTab({
           onClick={() =>
             setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
           }
-          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12.5px] font-medium transition-colors"
+          className="flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-[12.5px] font-medium transition-colors"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -1123,10 +1243,10 @@ function OrdersTab({
               setSearch("");
               setFilterStatus("all");
             }}
-            className="flex items-center gap-1 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors"
+            className="flex items-center gap-1 rounded-full px-4 py-2.5 text-[12px] font-semibold transition-colors"
             style={{
-              background: "var(--color-surface2)",
-              border: "1px solid var(--color-border)",
+              background: "var(--color-accent-bg)",
+              border: "1px solid rgba(255,92,53,.25)",
               color: "var(--color-accent)",
             }}
           >
@@ -1145,137 +1265,7 @@ function OrdersTab({
             sub="Try adjusting your search or filters."
           />
         ) : (
-          filteredServerResults.map((order) => {
-            const isActive =
-              order.status !== "delivered" && order.status !== "cancelled";
-            return (
-              <button
-                key={order.id}
-                onClick={async () => {
-                  setLoadingDetail(true);
-                  try {
-                    const { data: refreshed, error } = await supabase
-                      .from("orders")
-                      .select("*, order_items(*)")
-                      .eq("id", order.id)
-                      .single();
-                    if (!error && refreshed) {
-                      const items = (refreshed.order_items || []).map(
-                        (item: any) => ({
-                          id: item.id,
-                          orderId: item.order_id,
-                          productId: item.product_id,
-                          productTitle: item.product_title,
-                          productImage: item.product_image,
-                          selectedColor: item.selected_color,
-                          selectedSize: item.selected_size,
-                          quantity: item.quantity,
-                          unitPrice: item.unit_price,
-                        }),
-                      );
-                      setSelectedOrder({
-                        ...mapOrder(refreshed),
-                        items,
-                      } as Order);
-                    } else {
-                      setSelectedOrder(order);
-                    }
-                  } catch {
-                    setSelectedOrder(order);
-                  } finally {
-                    setLoadingDetail(false);
-                  }
-                }}
-                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
-                style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p
-                        className="truncate text-[13px] font-bold"
-                        style={{ color: "var(--color-ink)" }}
-                      >
-                        {order.id}
-                        <CopyID id={order.id} />
-                      </p>
-                      {isActive && (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ background: "var(--color-accent)" }}
-                        />
-                      )}
-                    </div>
-                    <p
-                      className="text-[12px]"
-                      style={{ color: "var(--color-ink4)" }}
-                    >
-                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className="text-[15px] font-black tabular-nums"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      {currencySymbol}
-                      {order.totalAmount.toFixed(2)}
-                    </span>
-                    <StatusPill status={order.status} />
-                  </div>
-                </div>
-                {order.items && order.items.length > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    {order.items.slice(0, 4).map((item, i) => (
-                      <span
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.productId && onViewProduct) {
-                            onViewProduct(
-                              item.productId,
-                              item.selectedColor,
-                              item.selectedSize,
-                            );
-                          }
-                        }}
-                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
-                        style={{ border: "1px solid var(--color-border)" }}
-                      >
-                        <img
-                          src={item.productImage || PLACEHOLDER_IMG}
-                          alt={item.productTitle || "item"}
-                          className="h-full w-full object-cover"
-                        />
-                      </span>
-                    ))}
-                    {order.items.length > 4 && (
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                        style={{
-                          background: "var(--color-surface2)",
-                          color: "var(--color-ink3)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                      >
-                        +{order.items.length - 4}
-                      </div>
-                    )}
-                    <ChevronRight
-                      size={16}
-                      strokeWidth={1.75}
-                      className="ml-auto"
-                      style={{ color: "var(--color-ink4)" }}
-                    />
-                  </div>
-                )}
-              </button>
-            );
-          })
+          filteredServerResults.map((order) => renderOrderRow(order))
         )
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -1284,141 +1274,9 @@ function OrdersTab({
           sub="Try adjusting your search or filters."
         />
       ) : (
-        <>
-          {filtered.map((order) => {
-            const isActive =
-              order.status !== "delivered" && order.status !== "cancelled";
-            return (
-              <button
-                key={order.id}
-                onClick={async () => {
-                  setLoadingDetail(true);
-                  try {
-                    const { data: refreshed, error } = await supabase
-                      .from("orders")
-                      .select("*, order_items(*)")
-                      .eq("id", order.id)
-                      .single();
-                    if (!error && refreshed) {
-                      const items = (refreshed.order_items || []).map(
-                        (item: any) => ({
-                          id: item.id,
-                          orderId: item.order_id,
-                          productId: item.product_id,
-                          productTitle: item.product_title,
-                          productImage: item.product_image,
-                          selectedColor: item.selected_color,
-                          selectedSize: item.selected_size,
-                          quantity: item.quantity,
-                          unitPrice: item.unit_price,
-                        }),
-                      );
-                      setSelectedOrder({
-                        ...mapOrder(refreshed),
-                        items,
-                      } as Order);
-                    } else {
-                      setSelectedOrder(order);
-                    }
-                  } catch {
-                    setSelectedOrder(order);
-                  } finally {
-                    setLoadingDetail(false);
-                  }
-                }}
-                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
-                style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p
-                        className="truncate text-[13px] font-bold"
-                        style={{ color: "var(--color-ink)" }}
-                      >
-                        {order.id}
-                        <CopyID id={order.id} />
-                      </p>
-                      {isActive && (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ background: "var(--color-accent)" }}
-                        />
-                      )}
-                    </div>
-                    <p
-                      className="text-[12px]"
-                      style={{ color: "var(--color-ink4)" }}
-                    >
-                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className="text-[15px] font-black tabular-nums"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      {currencySymbol}
-                      {order.totalAmount.toFixed(2)}
-                    </span>
-                    <StatusPill status={order.status} />
-                  </div>
-                </div>
-                {order.items && order.items.length > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    {order.items.slice(0, 4).map((item, i) => (
-                      <span
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.productId && onViewProduct) {
-                            onViewProduct(
-                              item.productId,
-                              item.selectedColor,
-                              item.selectedSize,
-                            );
-                          }
-                        }}
-                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
-                        style={{ border: "1px solid var(--color-border)" }}
-                      >
-                        <img
-                          src={item.productImage || PLACEHOLDER_IMG}
-                          alt={item.productTitle || "item"}
-                          className="h-full w-full object-cover"
-                        />
-                      </span>
-                    ))}
-                    {order.items.length > 4 && (
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                        style={{
-                          background: "var(--color-surface2)",
-                          color: "var(--color-ink3)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                      >
-                        +{order.items.length - 4}
-                      </div>
-                    )}
-                    <ChevronRight
-                      size={16}
-                      strokeWidth={1.75}
-                      className="ml-auto"
-                      style={{ color: "var(--color-ink4)" }}
-                    />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </>
+        <>{filtered.map((order) => renderOrderRow(order))}</>
       )}
-      {/* Loader pour scroll infini */}
+
       {hasMore && (
         <div ref={loaderRef} className="flex justify-center py-4">
           <Loader2
@@ -1458,15 +1316,14 @@ function OrderDetail({
         <ArrowLeft size={14} strokeWidth={2} /> All Orders
       </button>
 
-      {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
+      {/* Status timeline, composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
 
-      {/* Suivi des colis expédiés — visible uniquement pour les commandes
-          expédiées/livrées ayant au moins un colis enregistré par le webhook. */}
+      {/* Suivi des colis expédiés */}
       {(order.status === "shipped" || order.status === "delivered") &&
         order.trackingInfo?.length > 0 && (
           <div
-            className="rounded-2xl p-4"
+            className="rounded-3xl p-5"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
@@ -1478,7 +1335,7 @@ function OrderDetail({
 
       {/* Order info */}
       <div
-        className="rounded-2xl p-4"
+        className="rounded-3xl p-5"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
@@ -1493,7 +1350,7 @@ function OrderDetail({
               Order ID
             </p>
             <p
-              className="text-[15px] font-black"
+              className="text-[15px] font-black flex items-center"
               style={{ color: "var(--color-ink)", fontFamily: "monospace" }}
             >
               {order.id}
@@ -1522,7 +1379,7 @@ function OrderDetail({
                     );
                   }
                 }}
-                className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
+                className="h-14 w-14 shrink-0 rounded-2xl overflow-hidden border-none p-0 cursor-pointer"
                 style={{ border: "1px solid var(--color-border)" }}
               >
                 <img
@@ -1599,7 +1456,7 @@ function OrderDetail({
       {/* Shipping address */}
       {order.shippingAddress && (
         <div
-          className="rounded-2xl p-4"
+          className="rounded-3xl p-5"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -1664,11 +1521,10 @@ function FavoritesTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Remove all button */}
       <div className="flex justify-end">
         <button
           onClick={onRemoveAll}
-          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors"
           style={{
             background: "var(--color-surface2)",
             color: "var(--color-ink4)",
@@ -1692,7 +1548,7 @@ function FavoritesTab({
         {favorites.map((fav) => (
           <div
             key={fav.id}
-            className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-(--shadow-md)"
+            className="card-premium group relative flex flex-col overflow-hidden rounded-3xl"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
@@ -1709,13 +1565,12 @@ function FavoritesTab({
               />
             </div>
 
-            {/* Delete button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove(fav.productId);
               }}
-              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-rose-500 opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 hover:bg-white hover:shadow-sm"
+              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-rose-500 opacity-0 backdrop-blur-sm transition-all duration-200 group-hover:opacity-100 hover:bg-white hover:shadow-sm"
             >
               <Trash2 size={13} strokeWidth={2.5} />
             </button>
@@ -1738,13 +1593,12 @@ function FavoritesTab({
               )}
             </div>
 
-            {/* Hover — "View product" pill */}
             <button
               onClick={() => onViewProduct?.(fav.productId)}
               className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
             >
               <div
-                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-white"
+                className="flex items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold text-white"
                 style={{ background: "var(--color-accent)" }}
               >
                 <Eye size={12} strokeWidth={2} /> View
@@ -1804,11 +1658,10 @@ function CartTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Clear all button */}
       <div className="flex justify-end">
         <button
           onClick={onClear}
-          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors"
           style={{
             background: "var(--color-surface2)",
             color: "var(--color-ink4)",
@@ -1831,10 +1684,10 @@ function CartTab({
       {items.map((item) => (
         <div
           key={item.id}
-          className="flex items-center gap-3 rounded-2xl border p-3"
+          className="card-premium flex items-center gap-3 rounded-3xl p-3.5"
           style={{
             background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
+            border: "1px solid var(--color-border)",
           }}
         >
           <button
@@ -1847,7 +1700,7 @@ function CartTab({
                 );
               }
             }}
-            className="h-14 w-14 shrink-0 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer"
+            className="h-14 w-14 shrink-0 rounded-2xl overflow-hidden border-none p-0 cursor-pointer"
             style={{ border: "1px solid var(--color-border)" }}
           >
             <img
@@ -1886,7 +1739,7 @@ function CartTab({
                 </span>
               )}
             </p>
-            <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center justify-between mt-1.5">
               <span
                 className="text-[13px] font-bold tabular-nums"
                 style={{ color: "var(--color-ink)" }}
@@ -1899,7 +1752,7 @@ function CartTab({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => onUpdateQty(item.id, -1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full transition-colors"
                   style={{
                     background: "var(--color-surface2)",
                     border: "1px solid var(--color-border)",
@@ -1916,7 +1769,7 @@ function CartTab({
                 </span>
                 <button
                   onClick={() => onUpdateQty(item.id, 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full transition-colors"
                   style={{
                     background: "var(--color-surface2)",
                     border: "1px solid var(--color-border)",
@@ -1927,7 +1780,7 @@ function CartTab({
                 </button>
                 <button
                   onClick={() => onRemove(item.id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg ml-1 transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full ml-1 transition-colors"
                   style={{ color: "#EF4444" }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "#FEF2F2";
@@ -1944,12 +1797,11 @@ function CartTab({
         </div>
       ))}
 
-      {/* Total */}
       <div
-        className="flex justify-between rounded-2xl border p-4"
+        className="flex justify-between rounded-3xl border p-4"
         style={{
-          background: "var(--color-surface)",
-          borderColor: "var(--color-border)",
+          background: "var(--color-accent-bg)",
+          borderColor: "rgba(255,92,53,.2)",
         }}
       >
         <span
@@ -1970,27 +1822,16 @@ function CartTab({
   );
 }
 
-// Regex pour détecter un ID de commande (ORD-année-suite ou ORD-UUID)
 const ORDER_ID_REGEX =
   /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
 
-// Regex pour détecter une URL http(s) — rendue cliquable dans les
-// notifications (ex: lien de suivi du colis) en ouvrant un nouvel onglet.
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
 
-// Combine les deux : un seul passage, chaque match est soit un URL, soit
-// un ID de commande.
 const MESSAGE_TOKEN_REGEX = new RegExp(
   `(${ORDER_ID_REGEX.source.replace(/^\/|\/$/g, "")})|(${URL_REGEX.source.replace(/^\/|\/$/g, "")})`,
   "gi",
 );
 
-/**
- * Transforme un texte en ReactNode :
- * - URLs → lien cliquable (nouvel onglet) ;
- * - IDs de commande → version majuscule + bouton CopyID.
- * Le reste du texte est conservé tel quel.
- */
 function formatMessageText(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -2001,7 +1842,8 @@ function formatMessageText(text: string): React.ReactNode {
       parts.push(text.slice(lastIndex, match.index));
     }
     const token = match[0];
-    if (new RegExp(URL_REGEX.source).test(token)) {
+    if (URL_REGEX.test(token)) {
+      // ✅ Correct JSX anchor element
       parts.push(
         <a
           key={match.index}
@@ -2062,14 +1904,14 @@ function NotificationsTab({
       {notifications.map((notif) => (
         <div
           key={notif.id}
-          className="rounded-2xl border p-4 transition-all"
+          className="rounded-3xl border p-4 transition-all"
           style={{
             background: notif.is_read
               ? "var(--color-surface)"
               : "var(--color-accent-bg)",
             borderColor: notif.is_read
               ? "var(--color-border)"
-              : "var(--color-accent)" + "40",
+              : "rgba(255,92,53,.25)",
           }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -2141,12 +1983,10 @@ function SupportTab({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  // Upload state
   const [files, setFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Vue détail d'un ticket ──────────────────────────────────────
   const [selectedTicket, setSelectedTicket] = useState<Interaction | null>(
     null,
   );
@@ -2154,7 +1994,6 @@ function SupportTab({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState("");
 
-  // Polling des messages toutes les 10s (racine du composant, hors conditions)
   useEffect(() => {
     if (!selectedTicket) return;
     const interval = setInterval(async () => {
@@ -2196,15 +2035,14 @@ function SupportTab({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    const maxSize = 5 * 1024 * 1024; // 5 MB
+    const maxSize = 5 * 1024 * 1024;
     const filtered = selected.filter(
       (f) => validTypes.includes(f.type) && f.size <= maxSize,
     );
     setFiles((prev) => {
       const combined = [...prev, ...filtered];
-      return combined.slice(0, 3); // max 3 files
+      return combined.slice(0, 3);
     });
-    // Reset input value so the same file can be re-selected if removed
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -2219,7 +2057,6 @@ function SupportTab({
 
     let uploadedUrls: { url: string; name: string; size: number }[] = [];
     try {
-      // Upload files first
       for (const file of files) {
         const url = await storageApi.uploadTicketAttachment(file);
         uploadedUrls.push({
@@ -2278,7 +2115,6 @@ function SupportTab({
     }
   };
 
-  // ── Vue détail ──────────────────────────────────────────────────
   if (selectedTicket) {
     const ticketMeta = (selectedTicket as any).metadata || {};
     const attachments: any[] = ticketMeta.attachments || [];
@@ -2295,7 +2131,7 @@ function SupportTab({
           <ArrowLeft size={14} strokeWidth={2} /> All conversations
         </button>
         <div
-          className="rounded-2xl p-4"
+          className="rounded-3xl p-5"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -2307,9 +2143,9 @@ function SupportTab({
           >
             {selectedTicket.subject}
           </p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             <span
-              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+              className="chip"
               style={{
                 background:
                   selectedTicket.status === "open" ? "#fef3c7" : "#d1fae5",
@@ -2326,10 +2162,9 @@ function SupportTab({
             </span>
           </div>
 
-          {/* Attachments */}
           {attachments.length > 0 && (
             <div
-              className="mt-3 pt-3"
+              className="mt-4 pt-4"
               style={{ borderTop: "1px solid var(--color-border)" }}
             >
               <p
@@ -2345,7 +2180,7 @@ function SupportTab({
                     href={att.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-medium transition-colors hover:bg-(--color-surface2)"
+                    className="flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-medium transition-colors hover:bg-(--color-surface2)"
                     style={{
                       background: "var(--color-surface2)",
                       borderColor: "var(--color-border)",
@@ -2363,7 +2198,7 @@ function SupportTab({
         </div>
 
         <div
-          className="rounded-2xl p-4 flex flex-col gap-4"
+          className="rounded-3xl p-5 flex flex-col gap-4"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -2395,7 +2230,7 @@ function SupportTab({
                 }}
               >
                 <div
-                  className="max-w-[75%] rounded-xl px-3.5 py-2.5 text-[13px]"
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-[13px]"
                   style={{
                     background:
                       msg.from_field === "customer"
@@ -2403,7 +2238,7 @@ function SupportTab({
                         : "var(--color-surface2)",
                     border:
                       msg.from_field === "customer"
-                        ? "1px solid var(--color-accent-soft)"
+                        ? "1px solid rgba(255,92,53,.2)"
                         : "1px solid var(--color-border)",
                     color: "var(--color-ink)",
                   }}
@@ -2433,24 +2268,15 @@ function SupportTab({
           <textarea
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Write a reply…"
+            placeholder="Write a reply..."
             rows={3}
-            className="w-full resize-none rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none"
-            style={{
-              background: "var(--color-surface2)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-sans)",
-            }}
+            className={inputClass + " resize-none"}
+            style={inputStyle}
           />
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim()}
-            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
-            style={{
-              background: "var(--color-accent)",
-              boxShadow: "var(--shadow-accent)",
-            }}
+            className="pill-btn pill-btn-accent self-end disabled:opacity-50"
           >
             <Send size={14} strokeWidth={2} /> Send reply
           </button>
@@ -2459,7 +2285,6 @@ function SupportTab({
     );
   }
 
-  // ── Formulaire nouveau ticket enrichi ──────────────────────────
   if (showForm) {
     return (
       <div className="flex flex-col gap-4 animate-fade-up">
@@ -2471,14 +2296,14 @@ function SupportTab({
           <ArrowLeft size={14} strokeWidth={2} /> Back
         </button>
         <div
-          className="rounded-2xl p-5"
+          className="rounded-3xl p-6"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
           }}
         >
           <p
-            className="mb-4 text-[15px] font-bold"
+            className="mb-4 text-[16px] font-black"
             style={{ color: "var(--color-ink)" }}
           >
             New Support Request
@@ -2505,10 +2330,9 @@ function SupportTab({
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {/* Name */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Name
@@ -2517,19 +2341,13 @@ function SupportTab({
                   type="text"
                   value={customerName || "Guest"}
                   disabled
-                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass + " opacity-60"}
+                  style={inputStyle}
                 />
               </div>
-              {/* Email */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Response Email
@@ -2538,19 +2356,13 @@ function SupportTab({
                   type="email"
                   value={customerEmail}
                   disabled
-                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass + " opacity-60"}
+                  style={inputStyle}
                 />
               </div>
-              {/* Request Type */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Request Type <span className="text-(--color-accent)">*</span>
@@ -2558,23 +2370,17 @@ function SupportTab({
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as any)}
-                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none cursor-pointer"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass + " cursor-pointer"}
+                  style={inputStyle}
                 >
                   <option value="question">Question</option>
                   <option value="complaint">Complaint</option>
                   <option value="feedback">Feedback</option>
                 </select>
               </div>
-              {/* Related Order */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Related Order (optional)
@@ -2582,18 +2388,13 @@ function SupportTab({
                 <select
                   value={selectedOrderId}
                   onChange={(e) => setSelectedOrderId(e.target.value)}
-                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none cursor-pointer"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass + " cursor-pointer"}
+                  style={inputStyle}
                 >
                   <option value="">None</option>
                   {orders.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.id} —{" "}
+                      {o.id} -{" "}
                       {new Date(o.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -2604,10 +2405,9 @@ function SupportTab({
                   ))}
                 </select>
               </div>
-              {/* Subject */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Subject <span className="text-(--color-accent)">*</span>
@@ -2617,13 +2417,8 @@ function SupportTab({
                   placeholder="e.g. Wrong size received"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition-colors"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass}
+                  style={inputStyle}
                   onFocus={(e) =>
                     (e.currentTarget.style.borderColor = "var(--color-accent)")
                   }
@@ -2632,26 +2427,20 @@ function SupportTab({
                   }
                 />
               </div>
-              {/* Message */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Description <span className="text-(--color-accent)">*</span>
                 </label>
                 <textarea
-                  placeholder="Describe your issue or question…"
+                  placeholder="Describe your issue or question..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={4}
-                  className="w-full resize-none rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition-colors"
-                  style={{
-                    background: "var(--color-surface2)",
-                    borderColor: "var(--color-border)",
-                    color: "var(--color-ink)",
-                    fontFamily: "var(--font-sans)",
-                  }}
+                  className={inputClass + " resize-none"}
+                  style={inputStyle}
                   onFocus={(e) =>
                     (e.currentTarget.style.borderColor = "var(--color-accent)")
                   }
@@ -2660,21 +2449,19 @@ function SupportTab({
                   }
                 />
               </div>
-              {/* File upload */}
               <div>
                 <label
-                  className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={labelClass}
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Attachments (max 3, 5MB each — JPEG, PNG, WebP, GIF)
+                  Attachments (max 3, 5MB each, JPEG/PNG/WebP/GIF)
                 </label>
-                {/* Selected files preview */}
                 {files.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {files.map((file, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px]"
+                        className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px]"
                         style={{
                           background: "var(--color-surface2)",
                           borderColor: "var(--color-border)",
@@ -2693,10 +2480,9 @@ function SupportTab({
                     ))}
                   </div>
                 )}
-                {/* Drop zone */}
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-[13px] cursor-pointer transition-colors ${files.length >= 3 ? "opacity-50 pointer-events-none" : ""}`}
+                  className={`flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-[13px] cursor-pointer transition-colors ${files.length >= 3 ? "opacity-50 pointer-events-none" : ""}`}
                   style={{
                     borderColor: "var(--color-border)",
                     color: "var(--color-ink4)",
@@ -2744,7 +2530,7 @@ function SupportTab({
                   }}
                 >
                   <Upload size={18} strokeWidth={1.75} />
-                  <span>Choose files or drag & drop here</span>
+                  <span>Choose files or drag and drop here</span>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -2755,7 +2541,6 @@ function SupportTab({
                   style={{ display: "none" }}
                 />
               </div>
-              {/* Submit */}
               <button
                 onClick={handleCreate}
                 disabled={
@@ -2764,11 +2549,7 @@ function SupportTab({
                   !subject.trim() ||
                   !message.trim()
                 }
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  background: "var(--color-accent)",
-                  boxShadow: "var(--shadow-accent)",
-                }}
+                className="pill-btn pill-btn-accent w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending || uploadingFiles ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -2776,9 +2557,9 @@ function SupportTab({
                   <Send size={15} strokeWidth={2} />
                 )}
                 {uploadingFiles
-                  ? "Uploading files…"
+                  ? "Uploading files..."
                   : sending
-                    ? "Submitting…"
+                    ? "Submitting..."
                     : "Submit Request"}
               </button>
             </div>
@@ -2788,7 +2569,6 @@ function SupportTab({
     );
   }
 
-  // ── Liste des tickets ───────────────────────────────────────────
   if (loading) return <SkeletonList />;
 
   return (
@@ -2807,12 +2587,8 @@ function SupportTab({
         <>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 self-end rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.97]"
-            style={{
-              background: "var(--color-accent-bg)",
-              color: "var(--color-accent)",
-              border: "1px solid var(--color-accent)" + "30",
-            }}
+            className="pill-btn pill-btn-accent self-end"
+            style={{ padding: "10px 20px" }}
           >
             <Plus size={14} strokeWidth={2.5} /> New message
           </button>
@@ -2820,7 +2596,7 @@ function SupportTab({
             <button
               key={t.id}
               onClick={() => openTicket(t)}
-              className="w-full text-left rounded-2xl p-4 transition-all duration-200 hover:shadow-(--shadow-md)"
+              className="card-premium w-full text-left rounded-3xl p-4 transition-all duration-200"
               style={{
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-border)",
@@ -2845,7 +2621,7 @@ function SupportTab({
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   <span
-                    className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                    className="chip"
                     style={{
                       background: t.status === "open" ? "#fef3c7" : "#d1fae5",
                       color: t.status === "open" ? "#d97706" : "#065f46",
@@ -2873,7 +2649,7 @@ function SupportTab({
   );
 }
 
-// ─── ProfileTab (version enrichie) ─────────────────────────────────
+// ─── ProfileTab ─────────────────────────────────────────────────────
 function ProfileTab({
   customerEmail,
   customerName,
@@ -2903,7 +2679,6 @@ function ProfileTab({
   onClose: () => void;
   onToggleNewsletter: () => void;
 }) {
-  // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(customerName);
   const [dob, setDob] = useState("");
@@ -2927,19 +2702,15 @@ function ProfileTab({
   const [copied, setCopied] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  // ── Charger les données ─────────────────────────────────────────
   useEffect(() => {
     if (!customerId) return;
-    // Charger la date de naissance
     customerApi.get(customerId).then((c) => {
       if (c?.date_of_birth) setDob(c.date_of_birth);
     });
-    // Charger les adresses
     setLoadingAddresses(true);
     customerApi
       .getAddresses(customerId)
       .then((addrs) => {
-        // Placer l'adresse par défaut en tête au chargement initial
         const sorted = [...addrs].sort((a, b) =>
           a.is_default ? -1 : b.is_default ? 1 : 0,
         );
@@ -2948,7 +2719,6 @@ function ProfileTab({
       .finally(() => setLoadingAddresses(false));
   }, [customerId]);
 
-  // ── Handlers ────────────────────────────────────────────────────
   const handleSaveName = async () => {
     if (!customerId || !nameInput.trim()) return;
     await customerApi.updateProfile(customerId, { name: nameInput.trim() });
@@ -3067,19 +2837,26 @@ function ProfileTab({
     }
   };
 
+  const smallInput = "rounded-xl border px-2.5 py-1.5 text-sm";
+  const smallInputStyle: React.CSSProperties = {
+    borderColor: "var(--color-border)",
+    background: "var(--color-surface)",
+    color: "var(--color-ink)",
+  };
+
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
       {/* ── Identity card ─────────────────────────────────────────── */}
       <div
-        className="rounded-[18px] p-5"
+        className="rounded-3xl p-6"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
         }}
       >
-        <div className="mb-4 flex items-center gap-4">
+        <div className="mb-5 flex items-center gap-4">
           <div
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] text-2xl font-black text-white"
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl text-2xl font-black text-white"
             style={{
               background:
                 "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
@@ -3095,12 +2872,8 @@ function ProfileTab({
                   type="text"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  className="rounded-xl border px-3 py-1 text-sm"
-                  style={{
-                    borderColor: "var(--color-border)",
-                    background: "var(--color-surface2)",
-                    color: "var(--color-ink)",
-                  }}
+                  className={smallInput}
+                  style={smallInputStyle}
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
                 />
@@ -3136,7 +2909,6 @@ function ProfileTab({
           className="flex flex-col gap-3 pt-4"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          {/* Email */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
@@ -3154,7 +2926,7 @@ function ProfileTab({
             </div>
             <button
               onClick={copyEmail}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150 active:scale-90"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-150 active:scale-90"
               style={{
                 background: "var(--color-surface2)",
                 color: copied ? "var(--color-emerald)" : "var(--color-ink4)",
@@ -3168,7 +2940,6 @@ function ProfileTab({
             </button>
           </div>
 
-          {/* Date of birth */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
@@ -3182,12 +2953,8 @@ function ProfileTab({
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
                 onBlur={handleSaveDob}
-                className="rounded-lg border px-2 py-1 text-sm"
-                style={{
-                  borderColor: "var(--color-border)",
-                  background: "var(--color-surface2)",
-                  color: "var(--color-ink)",
-                }}
+                className={smallInput}
+                style={smallInputStyle}
               />
             </div>
           </div>
@@ -3196,13 +2963,13 @@ function ProfileTab({
 
       {/* ── Addresses ─────────────────────────────────────────────── */}
       <div
-        className="rounded-[18px] p-5"
+        className="rounded-3xl p-6"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
         }}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MapPin
               size={14}
@@ -3226,10 +2993,9 @@ function ProfileTab({
           )}
         </div>
 
-        {/* Add address form */}
         {showAddAddress && (
           <div
-            className="mb-4 rounded-xl p-3"
+            className="mb-4 rounded-2xl p-4"
             style={{
               background: "var(--color-surface2)",
               border: "1px solid var(--color-border)",
@@ -3242,11 +3008,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, full_name: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <input
@@ -3255,11 +3020,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, phone: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <input
@@ -3268,11 +3032,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, address: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <input
@@ -3281,11 +3044,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, city: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <input
@@ -3294,11 +3056,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, zip: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <select
@@ -3306,11 +3067,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, country: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               >
                 {COUNTRIES.map((c) => (
@@ -3325,11 +3085,10 @@ function ProfileTab({
                 onChange={(e) =>
                   setNewAddress({ ...newAddress, state_code: e.target.value })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
               <input
@@ -3341,15 +3100,14 @@ function ProfileTab({
                     tax_number: formatCPFCNPJ(e.target.value),
                   })
                 }
-                className="rounded-lg border px-2 py-1 text-sm"
+                className={smallInput}
                 style={{
-                  borderColor: "var(--color-border)",
+                  ...smallInputStyle,
                   background: "var(--color-surface)",
-                  color: "var(--color-ink)",
                 }}
               />
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowAddAddress(false)}
                 className="text-xs font-semibold text-(--color-ink4)"
@@ -3359,7 +3117,8 @@ function ProfileTab({
               <button
                 onClick={handleAddAddress}
                 disabled={savingAddress}
-                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold text-white"
+                className="pill-btn pill-btn-accent"
+                style={{ padding: "8px 18px", fontSize: 12 }}
               >
                 {savingAddress ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -3371,7 +3130,6 @@ function ProfileTab({
           </div>
         )}
 
-        {/* Address list */}
         {loadingAddresses ? (
           <SkeletonList />
         ) : addresses.length === 0 ? (
@@ -3386,12 +3144,12 @@ function ProfileTab({
             {addresses.map((addr) => (
               <div
                 key={addr.id}
-                className="flex items-start gap-3 rounded-xl p-3"
+                className="flex items-start gap-3 rounded-2xl p-3.5"
                 style={{
                   background: addr.is_default
                     ? "var(--color-accent-bg)"
                     : "var(--color-surface2)",
-                  border: `1px solid ${addr.is_default ? "var(--color-accent)" + "40" : "var(--color-border)"}`,
+                  border: `1px solid ${addr.is_default ? "rgba(255,92,53,.25)" : "var(--color-border)"}`,
                 }}
               >
                 <input
@@ -3403,7 +3161,6 @@ function ProfileTab({
                 />
 
                 {editingAddressId === addr.id ? (
-                  /* ── Mode édition ──────────────────────── */
                   <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
                     <input
                       value={editForm.full_name || ""}
@@ -3414,11 +3171,10 @@ function ProfileTab({
                         })
                       }
                       placeholder="Full name"
-                      className="rounded-lg border px-2 py-1 text-sm col-span-2"
+                      className={smallInput + " col-span-2"}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <input
@@ -3427,11 +3183,10 @@ function ProfileTab({
                         setEditForm({ ...editForm, phone: e.target.value })
                       }
                       placeholder="Phone"
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <input
@@ -3440,11 +3195,10 @@ function ProfileTab({
                         setEditForm({ ...editForm, address: e.target.value })
                       }
                       placeholder="Address"
-                      className="rounded-lg border px-2 py-1 text-sm col-span-2"
+                      className={smallInput + " col-span-2"}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <input
@@ -3453,11 +3207,10 @@ function ProfileTab({
                         setEditForm({ ...editForm, city: e.target.value })
                       }
                       placeholder="City"
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <input
@@ -3466,11 +3219,10 @@ function ProfileTab({
                         setEditForm({ ...editForm, zip: e.target.value })
                       }
                       placeholder="ZIP"
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <select
@@ -3478,11 +3230,10 @@ function ProfileTab({
                       onChange={(e) =>
                         setEditForm({ ...editForm, country: e.target.value })
                       }
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     >
                       {COUNTRIES.map((c) => (
@@ -3500,11 +3251,10 @@ function ProfileTab({
                         })
                       }
                       placeholder="State"
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
                     <input
@@ -3516,14 +3266,13 @@ function ProfileTab({
                         })
                       }
                       placeholder="Tax number"
-                      className="rounded-lg border px-2 py-1 text-sm"
+                      className={smallInput}
                       style={{
-                        borderColor: "var(--color-border)",
+                        ...smallInputStyle,
                         background: "var(--color-surface)",
-                        color: "var(--color-ink)",
                       }}
                     />
-                    <div className="col-span-2 flex gap-2 justify-end mt-1">
+                    <div className="col-span-2 flex gap-3 justify-end mt-1">
                       <button
                         onClick={handleCancelEdit}
                         className="text-xs font-semibold text-(--color-ink4)"
@@ -3532,14 +3281,13 @@ function ProfileTab({
                       </button>
                       <button
                         onClick={handleSaveEdit}
-                        className="text-xs font-bold bg-(--color-accent) text-white px-3 py-1 rounded-lg"
+                        className="text-xs font-bold bg-(--color-accent) text-white px-3.5 py-1.5 rounded-full"
                       >
                         Save
                       </button>
                     </div>
                   </div>
                 ) : (
-                  /* ── Mode affichage ──────────────────────── */
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
@@ -3550,7 +3298,7 @@ function ProfileTab({
                       </p>
                       {addr.is_default && (
                         <span
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          className="chip"
                           style={{
                             background: "var(--color-accent)",
                             color: "white",
@@ -3581,7 +3329,6 @@ function ProfileTab({
                   </div>
                 )}
 
-                {/* Boutons d'action */}
                 <div className="flex flex-col gap-1">
                   {editingAddressId !== addr.id && (
                     <button
@@ -3608,7 +3355,7 @@ function ProfileTab({
 
       {/* Preferences */}
       <div
-        className="rounded-[18px] p-5"
+        className="rounded-3xl p-6"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
@@ -3621,7 +3368,6 @@ function ProfileTab({
           Preferences
         </p>
         <div className="flex flex-col gap-2">
-          {/* Newsletter */}
           <div className="flex items-center justify-between">
             <span
               className="text-[13px]"
@@ -3657,7 +3403,7 @@ function ProfileTab({
               label: "Shipping update emails",
               key: "shipping_update" as const,
             },
-            { label: "Promotions & deals", key: "promotions" as const },
+            { label: "Promotions and deals", key: "promotions" as const },
           ].map(({ label, key }) => {
             const on = preferences[key];
             return (
@@ -3696,7 +3442,7 @@ function ProfileTab({
 
       {/* Danger zone */}
       <div
-        className="rounded-[18px] p-5"
+        className="rounded-3xl p-6"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
@@ -3709,18 +3455,19 @@ function ProfileTab({
           Account
         </p>
         <p
-          className="mb-3 text-[12.5px]"
+          className="mb-4 text-[12.5px]"
           style={{ color: "var(--color-ink4)" }}
         >
           To update your personal information, please contact support. Deleting
           your account is permanent and cannot be undone.
         </p>
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+          className="pill-btn w-full justify-center font-semibold"
           style={{
             background: "var(--color-surface2)",
             color: "var(--color-ink3)",
             border: "1px solid var(--color-border)",
+            padding: "12px 26px",
           }}
           onClick={async () => {
             await supabase.auth.signOut();
@@ -3732,11 +3479,12 @@ function ProfileTab({
         </button>
         <button
           disabled={deletingAccount || !customerId}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="pill-btn w-full justify-center mt-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: "#FEF2F2",
             color: "#EF4444",
             border: "1px solid #FECACA",
+            padding: "12px 26px",
           }}
           onClick={handleDeleteAccount}
         >
@@ -3745,7 +3493,7 @@ function ProfileTab({
           ) : (
             <Trash2 size={14} strokeWidth={1.75} />
           )}
-          {deletingAccount ? "Deleting…" : "Delete my account"}
+          {deletingAccount ? "Deleting..." : "Delete my account"}
         </button>
       </div>
     </div>
@@ -3766,7 +3514,7 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-center">
       <div
-        className="flex h-14 w-14 items-center justify-center rounded-[18px]"
+        className="flex h-15 w-15 items-center justify-center rounded-3xl"
         style={{
           background: "var(--color-surface2)",
           color: "var(--color-ink4)",
@@ -3791,11 +3539,7 @@ function EmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
-          style={{
-            background: "var(--color-accent)",
-            boxShadow: "var(--shadow-accent)",
-          }}
+          className="pill-btn pill-btn-accent mt-1"
         >
           {action.label}
         </button>
@@ -3810,7 +3554,7 @@ function SkeletonList() {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-2xl border p-4"
+          className="rounded-3xl border p-4"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -3821,11 +3565,11 @@ function SkeletonList() {
               <div className="skeleton h-3.5 w-[45%] rounded-full" />
               <div className="skeleton h-3 w-[30%] rounded-full" />
             </div>
-            <div className="skeleton h-8 w-16 rounded-[10px]" />
+            <div className="skeleton h-8 w-16 rounded-full" />
           </div>
           <div className="mt-3 flex gap-1.5">
             {Array.from({ length: 3 }).map((_, j) => (
-              <div key={j} className="skeleton h-9 w-9 rounded-lg" />
+              <div key={j} className="skeleton h-9 w-9 rounded-xl" />
             ))}
           </div>
         </div>
@@ -3840,7 +3584,7 @@ function SkeletonGrid() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-2xl border overflow-hidden"
+          className="rounded-3xl border overflow-hidden"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",

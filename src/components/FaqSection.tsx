@@ -1,7 +1,7 @@
 // src\components\FaqSection.tsx
 
 import { useState } from "react";
-import { HelpCircle, ChevronRight } from "lucide-react";
+import { HelpCircle, ChevronDown } from "lucide-react";
 import { FAQS } from "../data/faq";
 
 export default function FaqSection() {
@@ -10,48 +10,53 @@ export default function FaqSection() {
   return (
     <section
       id="section-faq"
-      className="section-container w-full px-4 scroll-mt-28"
+      className="section-container w-full px-4 scroll-mt-28 pb-8"
     >
       <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">
-          <HelpCircle className="w-6 h-6 text-(--color-accent)" />
-          Frequently Asked Questions
+        <span className="eyebrow mb-2">
+          <HelpCircle className="w-3 h-3" /> Need to know
+        </span>
+        <h2 className="font-serif text-3xl text-gray-900 mb-8">
+          Frequently asked questions
         </h2>
         <div className="flex flex-col gap-3">
-          {FAQS.map((faq, idx) => (
-            <div
-              key={faq.id}
-              className="rounded-xl overflow-hidden"
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-              }}
-            >
-              <button
-                onClick={() =>
-                  setOpenFaqIndex(openFaqIndex === idx ? null : idx)
-                }
-                className="w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-semibold text-sm transition-colors"
-                style={{ color: "var(--color-ink)" }}
+          {FAQS.map((faq, idx) => {
+            const isOpen = openFaqIndex === idx;
+            return (
+              <div
+                key={faq.id}
+                className="accordion-row rounded-2xl overflow-hidden"
+                style={{
+                  background: isOpen
+                    ? "var(--color-accent-bg)"
+                    : "var(--color-surface)",
+                  border: `1px solid ${isOpen ? "rgba(255,92,53,.25)" : "var(--color-border)"}`,
+                }}
               >
-                <span>{faq.question}</span>
-                <ChevronRight
-                  size={16}
-                  strokeWidth={2}
-                  className={`transition-transform duration-200 shrink-0 ${openFaqIndex === idx ? "rotate-90" : ""}`}
-                  style={{ color: "var(--color-accent)" }}
-                />
-              </button>
-              {openFaqIndex === idx && (
-                <div
-                  className="px-5 pb-4 text-sm leading-relaxed animate-fade-up"
-                  style={{ color: "var(--color-ink2)" }}
+                <button
+                  onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                  className="w-full text-left px-5 py-4 flex items-center justify-between gap-3 font-semibold text-sm transition-colors"
+                  style={{ color: "var(--color-ink)" }}
                 >
-                  {faq.answer}
-                </div>
-              )}
-            </div>
-          ))}
+                  <span>{faq.question}</span>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={2}
+                    className={`transition-transform duration-300 shrink-0 ${isOpen ? "rotate-180" : ""}`}
+                    style={{ color: "var(--color-accent)" }}
+                  />
+                </button>
+                {isOpen && (
+                  <div
+                    className="px-5 pb-4 text-sm leading-relaxed animate-fade-up"
+                    style={{ color: "var(--color-ink2)" }}
+                  >
+                    {faq.answer}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
