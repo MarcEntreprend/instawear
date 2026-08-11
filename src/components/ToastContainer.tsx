@@ -1,11 +1,11 @@
 // src/components/ToastContainer.tsx
 
 /**
- * ToastContainer – Notification queue system
- * Supports types: success, error, info, warning
- * Icons, progress bar, close button
+ * ToastContainer – Système de notification
+ * Types : success, error, info, warning
+ * Icônes, barre de progression CSS animée, bouton de fermeture
  */
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle, XCircle, AlertCircle, Info, X } from "lucide-react";
 
 export type ToastType = "success" | "error" | "info" | "warning";
@@ -14,7 +14,7 @@ export interface Toast {
   id: number;
   text: string;
   type: ToastType;
-  duration?: number; // ms, default 4500
+  duration?: number; // ms, défaut 4500
 }
 
 interface ToastContainerProps {
@@ -36,13 +36,6 @@ const COLOR_MAP: Record<ToastType, string> = {
   info: "var(--color-accent)",
 };
 
-const BG_MAP: Record<ToastType, string> = {
-  success: "var(--color-success-bg)",
-  error: "#fef2f2",
-  warning: "#fffbeb",
-  info: "var(--color-accent-bg)",
-};
-
 function ToastItem({
   toast,
   onRemove,
@@ -51,56 +44,95 @@ function ToastItem({
   onRemove: (id: number) => void;
 }) {
   const [exiting, setExiting] = useState(false);
+  const [progress, setProgress] = useState(100);
   const timerRef = useRef<number | null>(null);
+  const removeTimerRef = useRef<number | null>(null);
 
-  const handleRemove = useCallback(() => {
+  // ── Fonction de suppression propre ──
+  const handleRemove = () => {
+    // Annuler tous les timers en cours
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (removeTimerRef.current) {
+      clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = null;
+    }
+    // Déclencher l'animation de sortie
     setExiting(true);
-    setTimeout(() => onRemove(toast.id), 300);
-  }, [toast.id, onRemove]);
+    // Après l'animation, supprimer du DOM
+    removeTimerRef.current = window.setTimeout(() => {
+      onRemove(toast.id);
+    }, 300);
+  };
 
   useEffect(() => {
     const duration = toast.duration ?? 4500;
-    timerRef.current = window.setTimeout(handleRemove, duration);
+    // Timer pour la fermeture automatique
+    timerRef.current = window.setTimeout(() => {
+      handleRemove();
+    }, duration);
+
+    // Déclencher la barre de progression après le montage
+    // Petit délai pour que la transition soit prise en compte
+    const progressTimer = setTimeout(() => {
+      setProgress(0);
+    }, 50);
+
     return () => {
+      clearTimeout(progressTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
     };
-  }, [handleRemove, toast.duration]);
+  }, [toast.duration]);
 
   return (
     <div
-      className={`animate-fade-up flex items-start gap-3 p-4 rounded-xl shadow-lg border max-w-sm w-full transition-all duration-300 ${
-        exiting ? "opacity-0 translate-x-4" : "opacity-100"
+      className={`relative flex items-start gap-3 p-4 rounded-xl shadow-lg border backdrop-blur-sm transition-all duration-300 max-w-sm w-full ${
+        exiting
+          ? "opacity-0 translate-x-4 scale-95"
+          : "opacity-100 translate-x-0 scale-100"
       }`}
       style={{
         background: "var(--color-surface)",
         borderColor: "var(--color-border)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
+      {/* Icône */}
       <span
-        style={{ color: COLOR_MAP[toast.type], flexShrink: 0, marginTop: 1 }}
+        className="shrink-0 mt-0.5"
+        style={{ color: COLOR_MAP[toast.type] }}
       >
         {ICON_MAP[toast.type]}
       </span>
+
+      {/* Message */}
       <p
         className="flex-1 text-sm font-medium leading-snug"
         style={{ color: "var(--color-ink)" }}
       >
         {toast.text}
       </p>
+
+      {/* Bouton fermer */}
       <button
         onClick={handleRemove}
-        className="shrink-0 p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="shrink-0 p-0.5 rounded-full transition-colors hover:bg-(--color-surface2)"
         style={{ color: "var(--color-ink4)" }}
       >
         <X size={14} strokeWidth={2} />
       </button>
-      {/* Progress bar */}
+
+      {/* Barre de progression avec transition CSS sur la largeur */}
       <div
         className="absolute bottom-0 left-0 h-1 rounded-b-xl"
         style={{
-          width: "100%",
+          width: `${progress}%`,
           background: COLOR_MAP[toast.type],
-          opacity: 0.3,
+          opacity: 0.4,
+          transition: `width ${toast.duration ?? 4500}ms linear`,
         }}
       />
     </div>
