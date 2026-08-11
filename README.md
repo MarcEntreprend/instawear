@@ -301,6 +301,8 @@ instawear/
 
 ### Améliorations
 
+- [ ] garatir que les images des produits sont bien affichés : si c est le fallback icon qui s affiche due to anykind of problem, le user devrait refresh (friction, peut perdre les infos a l ecran, etc). du coup (maybe apres fallback - image reelle) forcer le code a ecouter si les images apparue a l ecran ou celles dans la périphérie du scroll (pas ttes les images du systeme / bdd) est bien chargée, et sinon, avoir un mecanisme / script qui fait ça.
+- [ ] ...
 - [ ] ...
 
 #### Sécurité (⚠️ avant production)
