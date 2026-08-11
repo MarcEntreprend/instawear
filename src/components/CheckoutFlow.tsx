@@ -1,15 +1,6 @@
 // src/components/CheckoutFlow.tsx
 
-/**
- * Unified checkout flow for InstaWear.
- * Replaces CheckoutModal.tsx + PaymentPage.tsx with a single 4-step
- * journey: Cart → Shipping → Payment → Confirmation.
- *
- * Stripe handles both the hosted Checkout and direct card payments.
- * Orders are saved to Supabase and forwarded to Printful via webhook.
- */
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   X,
   Check,
@@ -28,154 +19,50 @@ import {
   Loader2,
   Copy,
   Trash2,
-  CarrotIcon,
 } from "lucide-react";
+import { Button } from "./ui/Button";
 import type { CartItem } from "../types";
-import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { useShippingSettings } from "../hooks/useShippingSettings";
-import { orderApi, storeSettingsApi } from "../api/supabaseApi";
-import { supabase } from "../lib/supabaseClient";
-import { customerApi } from "../api/supabaseApi";
-import { PLACEHOLDER_IMG, LOGO_URL, CART_X_ICON } from "../constants/assets";
-import { formatCPFCNPJ } from "../utils/format";
-import { COUNTRIES } from "../data/countries";
-import { loadStripe } from "@stripe/stripe-js";
-import { validateUSZip } from "../utils/zipValidation";
-import {
-  Elements,
-  CardNumberElement,
-  CardExpiryElement,
-  CardCvcElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import CartIcon from "./CartIcon";
+import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
-// ─── Props ──────────────────────────────────────────────────────────────
-
-const stripePromise = loadStripe(
-  import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-);
 interface CheckoutFlowProps {
   cart: CartItem[];
-  detectedCountry?: string | null;
+  currencySymbol: string;
+  shippingCost: number;
+  freeShippingThreshold: number;
   onClose: () => void;
   onUpdateQty: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
-  onSuccess: () => void;
-  confirmModeOrderId?: string; // when set, display confirmation directly
+  onSubmitOrder: (payload: {
+    name: string;
+    phone: string;
+    email: string;
+    reception: "pickup" | "delivery";
+    address: string;
+    city: string;
+    zip: string;
+    country: string;
+    message: string;
+  }) => Promise<{ orderId: string }>;
+  confirmModeOrderId?: string;
 }
 
 type StepId = 1 | 2 | 3 | 4;
-
 const STEPS: { id: StepId; label: string }[] = [
   { id: 1, label: "Cart" },
   { id: 2, label: "Shipping" },
   { id: 3, label: "Payment" },
-  { id: 4, label: "Confirmation" },
+  { id: 4, label: "Done" },
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const STATE_REQUIRED_COUNTRIES = ["US", "CA", "BR", "AU"];
 
-// ─── Helpers ────────────────────────────────────────────────────────────
-
-function formatCardNumber(value: string): string {
-  const cleaned = value.replace(/\D/g, "").slice(0, 16);
-  return cleaned.replace(/(\d{4})(?=\d)/g, "$1 ");
-}
-
-function formatExpiry(value: string): string {
-  const cleaned = value.replace(/\D/g, "").slice(0, 4);
-  if (cleaned.length >= 3) return cleaned.slice(0, 2) + "/" + cleaned.slice(2);
-  return cleaned;
-}
-
-function cardPreviewNumber(formatted: string): string {
-  const digits = formatted.replace(/\D/g, "");
-  const groups: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    groups.push(digits.slice(i * 4, i * 4 + 4).padEnd(4, "\u2022"));
-  }
-  return groups.join("  ");
-}
-
-function isValidLuhn(rawDigits: string): boolean {
-  const digits = rawDigits.replace(/\D/g, "");
-  if (digits.length < 13) return false;
-  let sum = 0;
-  let alternate = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let n = parseInt(digits[i], 10);
-    if (alternate) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    alternate = !alternate;
-  }
-  return sum % 10 === 0;
-}
-
-function isExpiryValid(expiry: string): boolean {
-  const match = expiry.match(/^(\d{2})\/(\d{2})$/);
-  if (!match) return false;
-  const month = parseInt(match[1], 10);
-  const year = 2000 + parseInt(match[2], 10);
-  if (month < 1 || month > 12) return false;
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  if (year < currentYear) return false;
-  if (year === currentYear && month < currentMonth) return false;
-  return true;
-}
-
-function sendTelegramNotification(
-  orderId: string,
-  name: string,
-  phone: string,
-  email: string,
-  reception: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  cart: CartItem[],
-  total: number,
-  currencySymbol: string,
-) {
-  const telegramMsg =
-    `\u{1F6D2} *INSTAWEAR ORDER*\n\n` +
-    `\u{1F511} *Order #:* ${orderId}\n\n` +
-    `*Customer:* ${name}\n` +
-    `*Phone:* ${phone}\n` +
-    `*Email:* ${email}\n` +
-    `*Reception:* ${reception === "retrait" ? "Pickup" : "Delivery"}\n` +
-    (reception === "livraison"
-      ? `*Address:* ${address}, ${city} ${zip}, ${country}\n`
-      : "") +
-    `\n\u{1F4E6} *Items:*\n` +
-    cart
-      .map(
-        (item) =>
-          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) \u00D7${item.quantity} = ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}`,
-      )
-      .join("\n") +
-    `\n\n\u{1F4B0} *Total:* ${total.toFixed(2)} ${currencySymbol}`;
-
-  const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
-  window.open(telegramUrl, "_blank");
-}
-
-// Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
   selectedColor: string,
 ): string {
   if (product.variants?.length) {
-    const variant = product.variants.find((v) => v.color === selectedColor);
-    if (variant?.image) return variant.image;
+    const v = product.variants.find((x) => x.color === selectedColor);
+    if (v?.image) return v.image;
   }
   if (product.colorImages?.length && product.colors) {
     const idx = product.colors.indexOf(selectedColor);
@@ -184,74 +71,47 @@ function getVariantImage(
   return product.image || PLACEHOLDER_IMG;
 }
 
-async function generateOrderId(): Promise<string> {
-  const year = new Date().getFullYear();
-  // Suffixe aléatoire 6 chiffres (~900 000 combinaisons/an) : suffisant pour
-  // éviter les collisions sans requête en base (le SELECT serait bloqué par RLS
-  // pour les invités) et rend les IDs difficiles à deviner.
-  const seq = Math.floor(Math.random() * 900000) + 100000; // 100000-999999
-  return `ORD-${year}-${seq}`;
+function isValidLuhn(raw: string): boolean {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 13) return false;
+  let sum = 0,
+    alt = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = parseInt(digits[i], 10);
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
 }
 
-// ─── Reusable form field ────────────────────────────────────────────────
-interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  required?: boolean;
-  error?: string;
-  icon?: React.ComponentType<{
-    size?: number;
-    strokeWidth?: number;
-    className?: string;
-  }>;
-  onClearError?: () => void;
+function isExpiryValid(v: string): boolean {
+  const m = v.match(/^(\d{2})\/(\d{2})$/);
+  if (!m) return false;
+  const month = parseInt(m[1], 10),
+    year = 2000 + parseInt(m[2], 10);
+  if (month < 1 || month > 12) return false;
+  const now = new Date();
+  if (year < now.getFullYear()) return false;
+  if (year === now.getFullYear() && month < now.getMonth() + 1) return false;
+  return true;
 }
 
-function TextField({
-  label,
-  required,
-  error,
-  icon: Icon,
-  className,
-  onClearError,
-  ...inputProps
-}: TextFieldProps) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-        {label} {required && <span className="text-(--color-accent)">*</span>}
-      </label>
-      <div className="relative">
-        {Icon && (
-          <Icon
-            size={15}
-            strokeWidth={2}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-ink4) pointer-events-none"
-          />
-        )}
-        <input
-          {...inputProps}
-          onChange={(e) => {
-            inputProps.onChange?.(e);
-            if (onClearError) onClearError();
-          }}
-          className={`w-full ${Icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2.5 rounded-xl text-sm outline-none transition-colors duration-150 bg-(--color-surface) text-(--color-ink) placeholder:text-(--color-ink4) focus:ring-2 focus:ring-(--color-accent-soft) ${className || ""}`}
-          style={{
-            border: `1.5px solid ${error ? "#fca5a5" : "var(--color-border2)"}`,
-          }}
-        />
-      </div>
-      {error && (
-        <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1">
-          <AlertCircle size={11} strokeWidth={2.5} />
-          {error}
-        </p>
-      )}
-    </div>
-  );
+function formatCardNumber(v: string) {
+  return v
+    .replace(/\D/g, "")
+    .slice(0, 16)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+function formatExpiry(v: string) {
+  const c = v.replace(/\D/g, "").slice(0, 4);
+  return c.length >= 3 ? c.slice(0, 2) + "/" + c.slice(2) : c;
 }
 
-// ─── Stepper ────────────────────────────────────────────────────────────
-
+/* ── Stepper ─────────────────────────────────────────────────────── */
 function Stepper({
   step,
   onJump,
@@ -260,39 +120,38 @@ function Stepper({
   onJump: (s: StepId) => void;
 }) {
   return (
-    <div className="flex items-center w-full max-w-2xl mx-auto px-4">
+    <div className="flex items-center w-full max-w-xl mx-auto px-4">
       {STEPS.map((s, idx) => {
         const isDone = step > s.id;
         const isActive = step === s.id;
-        const clickable = isDone;
         return (
           <React.Fragment key={s.id}>
             <button
               type="button"
-              disabled={!clickable}
-              onClick={() => clickable && onJump(s.id)}
-              className={`flex flex-col items-center gap-1.5 shrink-0 ${clickable ? "cursor-pointer" : "cursor-default"}`}
+              disabled={!isDone}
+              onClick={() => isDone && onJump(s.id)}
+              className="flex flex-col items-center gap-1.5 shrink-0"
             >
               <span
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all"
                 style={{
-                  border: `2px solid ${isDone || isActive ? "var(--color-accent)" : "var(--color-border2)"}`,
                   background: isDone
-                    ? "var(--color-accent)"
+                    ? "var(--color-cta-bg)"
                     : isActive
                       ? "var(--color-accent-bg)"
-                      : "var(--color-surface)",
+                      : "var(--color-surface2)",
                   color: isDone
-                    ? "#ffffff"
+                    ? "var(--color-cta-ink)"
                     : isActive
                       ? "var(--color-accent)"
                       : "var(--color-ink4)",
+                  border: `2px solid ${isDone || isActive ? "var(--color-accent)" : "var(--color-border2)"}`,
                 }}
               >
-                {isDone ? <Check size={14} strokeWidth={2.5} /> : s.id}
+                {isDone ? <Check size={14} /> : s.id}
               </span>
               <span
-                className="text-[10px] font-bold uppercase tracking-wider hidden sm:block transition-colors"
+                className="text-[10px] font-black uppercase tracking-wider hidden sm:block"
                 style={{
                   color:
                     isActive || isDone
@@ -304,9 +163,12 @@ function Stepper({
               </span>
             </button>
             {idx < STEPS.length - 1 && (
-              <div className="flex-1 h-0.5 mx-1.5 sm:mx-2 rounded-full bg-(--color-border) relative overflow-hidden -mt-4 sm:-mt-5">
+              <div
+                className="flex-1 h-0.5 mx-2 rounded-full relative overflow-hidden -mt-4"
+                style={{ background: "var(--color-border)" }}
+              >
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
                   style={{
                     width: step > s.id ? "100%" : "0%",
                     background: "var(--color-accent)",
@@ -321,8 +183,7 @@ function Stepper({
   );
 }
 
-// ─── Order summary (sticky on desktop, collapsible on mobile) ─────────────
-
+/* ── Order summary panel ────────────────────────────────────────── */
 function OrderSummaryPanel({
   cart,
   cartTotal,
@@ -337,7 +198,7 @@ function OrderSummaryPanel({
   shippingCost: number;
   total: number;
   currencySymbol: string;
-  reception: "retrait" | "livraison";
+  reception: "pickup" | "delivery";
   threshold: number;
 }) {
   const [collapsed, setCollapsed] = useState(true);
@@ -345,115 +206,133 @@ function OrderSummaryPanel({
 
   return (
     <div className="lg:sticky lg:top-6">
-      <div className="bezel-outer">
-        <div className="bezel-inner p-5">
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="lg:hidden w-full flex items-center justify-between mb-1"
+      <div
+        className="rounded-3xl p-5"
+        style={{
+          background: "var(--color-surface2)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="lg:hidden w-full flex items-center justify-between mb-1"
+        >
+          <span
+            className="font-black text-sm"
+            style={{ color: "var(--color-ink)" }}
           >
-            <span className="font-black text-sm text-(--color-ink) flex items-center gap-2">
-              <CartIcon
-                size={16}
-                strokeWidth={2}
-                className="text-(--color-accent)"
-              />
-              Summary ({itemCount})
-            </span>
-            <span className="font-black text-sm text-(--color-ink)">
-              {total.toFixed(2)} {currencySymbol}
-            </span>
-          </button>
+            Summary ({itemCount})
+          </span>
+          <span
+            className="font-black text-sm"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {total.toFixed(2)} {currencySymbol}
+          </span>
+        </button>
 
-          <div className={collapsed ? "hidden lg:block" : "block"}>
-            <h3 className="font-black text-sm text-(--color-ink) mb-4 hidden lg:flex items-center gap-2">
-              <CartIcon
-                size={16}
-                strokeWidth={2}
-                className="text-(--color-accent)"
-              />
-              Order Summary
-            </h3>
+        <div className={collapsed ? "hidden lg:block" : "block"}>
+          <h3
+            className="font-display font-black text-sm mb-4 hidden lg:block"
+            style={{ color: "var(--color-ink)" }}
+          >
+            Order Summary
+          </h3>
 
-            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4">
-              {cart.map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-14 rounded-lg overflow-hidden shrink-0 relative"
-                    style={{ background: "var(--color-surface2)" }}
+          <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4">
+            {cart.map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div
+                  className="relative w-12 h-14 rounded-xl overflow-hidden shrink-0"
+                  style={{ background: "var(--color-surface)" }}
+                >
+                  <img
+                    src={getVariantImage(item.product, item.selectedColor)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  <span
+                    className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full text-white text-[9px] font-black flex items-center justify-center"
+                    style={{ background: "var(--color-accent)" }}
                   >
-                    <img
-                      src={getVariantImage(item.product, item.selectedColor)}
-                      alt={item.product.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <span
-                      className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full text-white text-[9px] font-black flex items-center justify-center"
-                      style={{ background: "var(--color-accent)" }}
-                    >
-                      {item.quantity}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-(--color-ink) line-clamp-1">
-                      {item.product.title}
-                    </p>
-                    <p className="text-[10px] text-(--color-ink3)">
-                      {item.selectedSize} \u00B7 {item.quantity} \u00D7{" "}
-                      {item.unitPrice.toFixed(2)} {currencySymbol}
-                    </p>
-                  </div>
-                  <span className="text-xs font-black text-(--color-ink) shrink-0">
-                    {(item.unitPrice * item.quantity).toFixed(2)}{" "}
-                    {currencySymbol}
+                    {item.quantity}
                   </span>
                 </div>
-              ))}
-            </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-xs font-bold line-clamp-1"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {item.product.title}
+                  </p>
+                  <p
+                    className="text-[10px]"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    {item.selectedSize} · {item.quantity} ×{" "}
+                    {item.unitPrice.toFixed(2)} {currencySymbol}
+                  </p>
+                </div>
+                <span
+                  className="text-xs font-black shrink-0"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {(item.unitPrice * item.quantity).toFixed(2)} {currencySymbol}
+                </span>
+              </div>
+            ))}
+          </div>
 
+          <div
+            className="flex flex-col gap-1.5 text-xs pt-3"
+            style={{ borderTop: "1px solid var(--color-border)" }}
+          >
             <div
-              className="flex flex-col gap-1.5 text-xs pt-3"
-              style={{ borderTop: "1px solid var(--color-border)" }}
+              className="flex justify-between"
+              style={{ color: "var(--color-ink3)" }}
             >
-              <div className="flex justify-between text-(--color-ink3)">
-                <span>Subtotal</span>
-                <span>
-                  {cartTotal.toFixed(2)} {currencySymbol}
-                </span>
-              </div>
-              <div
-                className="flex justify-between"
-                style={{
-                  color:
-                    shippingCost === 0
-                      ? "var(--color-success)"
-                      : "var(--color-ink3)",
-                }}
+              <span>Subtotal</span>
+              <span>
+                {cartTotal.toFixed(2)} {currencySymbol}
+              </span>
+            </div>
+            <div
+              className="flex justify-between"
+              style={{
+                color:
+                  shippingCost === 0
+                    ? "var(--color-success)"
+                    : "var(--color-ink3)",
+              }}
+            >
+              <span>Shipping{reception === "pickup" ? " (pickup)" : ""}</span>
+              <span>
+                {shippingCost === 0
+                  ? "Free"
+                  : `${shippingCost.toFixed(2)} ${currencySymbol}`}
+              </span>
+            </div>
+            {shippingCost > 0 && reception === "delivery" && (
+              <p
+                className="text-[10px] mt-0.5"
+                style={{ color: "var(--color-accent)" }}
               >
-                <span>
-                  Shipping{reception === "retrait" ? " (pickup)" : ""}
-                </span>
-                <span>
-                  {shippingCost === 0
-                    ? "Free"
-                    : `${shippingCost.toFixed(2)} ${currencySymbol}`}
-                </span>
-              </div>
-              {shippingCost > 0 && reception === "livraison" && (
-                <p className="text-[10px] text-(--color-accent) mt-0.5">
-                  {(threshold - cartTotal).toFixed(2)} {currencySymbol} away
-                  from free shipping
-                </p>
-              )}
-              <div
-                className="flex justify-between pt-2 mt-1 text-sm font-black text-(--color-ink)"
-                style={{ borderTop: "1px solid var(--color-border)" }}
-              >
-                <span>Total</span>
-                <span>
-                  {total.toFixed(2)} {currencySymbol}
-                </span>
-              </div>
+                {(threshold - cartTotal).toFixed(2)} {currencySymbol} away from
+                free shipping
+              </p>
+            )}
+            <div
+              className="flex justify-between pt-2 mt-1 text-sm font-black"
+              style={{
+                color: "var(--color-ink)",
+                borderTop: "1px solid var(--color-border)",
+              }}
+            >
+              <span>Total</span>
+              <span>
+                {total.toFixed(2)} {currencySymbol}
+              </span>
             </div>
           </div>
         </div>
@@ -462,8 +341,69 @@ function OrderSummaryPanel({
   );
 }
 
-// ─── Step 1 : Cart ────────────────────────────────────────────────────
+/* ── Reusable text field ────────────────────────────────────────── */
+interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  required?: boolean;
+  error?: string;
+  icon?: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  onClearError?: () => void;
+}
+function TextField({
+  label,
+  required,
+  error,
+  icon: Icon,
+  className,
+  onClearError,
+  ...rest
+}: TextFieldProps) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        className="text-[11px] font-black uppercase tracking-wider"
+        style={{ color: "var(--color-ink3)" }}
+      >
+        {label}{" "}
+        {required && <span style={{ color: "var(--color-accent)" }}>*</span>}
+      </label>
+      <div className="relative">
+        {Icon && <Icon size={15} strokeWidth={2} />}
+        {Icon && (
+          <span
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: "var(--color-ink4)" }}
+          >
+            <Icon size={15} strokeWidth={2} />
+          </span>
+        )}
+        <input
+          {...rest}
+          onChange={(e) => {
+            rest.onChange?.(e);
+            onClearError?.();
+          }}
+          className={`w-full ${Icon ? "pl-10" : "pl-4"} pr-4 py-3 rounded-2xl text-sm outline-none transition-colors ${className || ""}`}
+          style={{
+            background: "var(--color-surface)",
+            color: "var(--color-ink)",
+            border: `1.5px solid ${error ? "var(--color-negative)" : "var(--color-border2)"}`,
+          }}
+        />
+      </div>
+      {error && (
+        <p
+          className="text-[11px] font-bold flex items-center gap-1"
+          style={{ color: "var(--color-negative)" }}
+        >
+          <AlertCircle size={11} /> {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
+/* ── Step 1: Cart review ────────────────────────────────────────── */
 function CartReviewStep({
   cart,
   currencySymbol,
@@ -473,17 +413,20 @@ function CartReviewStep({
 }: {
   cart: CartItem[];
   currencySymbol: string;
-  onUpdateQty: (index: number, delta: number) => void;
-  onRemoveItem: (index: number) => void;
+  onUpdateQty: (i: number, d: number) => void;
+  onRemoveItem: (i: number) => void;
   onNext: () => void;
 }) {
   return (
     <div className="flex flex-col gap-5 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="font-display font-black text-2xl sm:text-3xl"
+          style={{ color: "var(--color-ink)" }}
+        >
           Your Cart
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-1">
+        <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
           Review your items before continuing.
         </p>
       </div>
@@ -504,28 +447,34 @@ function CartReviewStep({
             >
               <img
                 src={getVariantImage(item.product, item.selectedColor)}
-                alt={item.product.title}
+                alt=""
                 className="w-full h-full object-cover"
               />
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-(--color-ink4)">
+                <p
+                  className="text-[10px] font-black uppercase tracking-wider"
+                  style={{ color: "var(--color-ink4)" }}
+                >
                   {item.product.brand}
                 </p>
-                <h4 className="text-sm font-bold text-(--color-ink) line-clamp-1 mt-0.5">
+                <h4
+                  className="text-sm font-bold line-clamp-1 mt-0.5"
+                  style={{ color: "var(--color-ink)" }}
+                >
                   {item.product.title}
                 </h4>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span
-                    className="w-3.5 h-3.5 rounded-full border block"
+                    className="w-3.5 h-3.5 rounded-full border"
                     style={{
                       backgroundColor: item.selectedColor,
                       borderColor: "var(--color-border)",
                     }}
                   />
                   <span
-                    className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                     style={{
                       background: "var(--color-surface2)",
                       color: "var(--color-ink3)",
@@ -537,63 +486,65 @@ function CartReviewStep({
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div
-                  className="flex items-center gap-1 rounded-lg"
+                  className="flex items-center gap-1 rounded-full"
                   style={{ border: "1px solid var(--color-border)" }}
                 >
                   <button
-                    type="button"
                     onClick={() => onUpdateQty(idx, -1)}
-                    className="w-7 h-7 flex items-center justify-center text-(--color-ink2) hover:text-(--color-ink) font-black transition-colors"
+                    className="w-7 h-7 flex items-center justify-center font-black"
+                    style={{ color: "var(--color-ink2)" }}
                   >
                     −
                   </button>
-                  <span className="w-6 text-center text-xs font-bold text-(--color-ink)">
+                  <span
+                    className="w-6 text-center text-xs font-bold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     {item.quantity}
                   </span>
                   <button
-                    type="button"
                     onClick={() => onUpdateQty(idx, 1)}
-                    className="w-7 h-7 flex items-center justify-center text-(--color-ink2) hover:text-(--color-ink) font-black transition-colors"
+                    className="w-7 h-7 flex items-center justify-center font-black"
+                    style={{ color: "var(--color-ink2)" }}
                   >
                     +
                   </button>
                 </div>
-                <span className="text-sm font-black text-(--color-ink)">
+                <span
+                  className="text-sm font-black"
+                  style={{ color: "var(--color-ink)" }}
+                >
                   {(item.unitPrice * item.quantity).toFixed(2)} {currencySymbol}
                 </span>
               </div>
             </div>
             <button
-              type="button"
               onClick={() => onRemoveItem(idx)}
-              aria-label="Remove item"
-              className="self-start text-(--color-ink4) hover:text-rose-500 transition-colors p-1"
+              className="self-start p-1"
+              style={{ color: "var(--color-ink4)" }}
+              aria-label="Remove"
             >
-              <Trash2 size={15} strokeWidth={2} />
+              <Trash2 size={15} />
             </button>
           </div>
         ))}
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="accent"
+        size="lg"
+        fullWidthOnMobile
+        className="sm:self-end"
         onClick={onNext}
-        className="mt-2 w-full sm:w-auto sm:self-end flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-          boxShadow: "var(--shadow-accent)",
-        }}
+        iconRight={<ArrowRight size={15} />}
       >
         Continue to Shipping
-        <ArrowRight size={15} strokeWidth={2.5} />
-      </button>
+      </Button>
     </div>
   );
 }
 
-// ─── Step 2 : Shipping & Contact ──────────────────────────────────────
-
+/* ── Step 2: Shipping & Contact ─────────────────────────────────── */
 interface ContactStepProps {
   name: string;
   setName: (v: string) => void;
@@ -601,27 +552,16 @@ interface ContactStepProps {
   setPhone: (v: string) => void;
   email: string;
   setEmail: (v: string) => void;
-  reception: "retrait" | "livraison";
-  setReception: (v: "retrait" | "livraison") => void;
-  savedAddresses: any[];
-  selectedAddressId: string;
-  setSelectedAddressId: (v: string) => void;
+  reception: "pickup" | "delivery";
+  setReception: (v: "pickup" | "delivery") => void;
   address: string;
   setAddress: (v: string) => void;
   city: string;
   setCity: (v: string) => void;
   zip: string;
   setZip: (v: string) => void;
-  zipWarning: string | null;
-  setZipWarning: (v: string | null) => void;
-  zipValidatedRef: React.MutableRefObject<string | null>;
-  onJumpToShipping?: () => void;
   country: string;
   setCountry: (v: string) => void;
-  stateCode: string;
-  setStateCode: (v: string) => void;
-  taxNumber: string;
-  setTaxNumber: (v: string) => void;
   message: string;
   setMessage: (v: string) => void;
   errors: Record<string, string>;
@@ -629,7 +569,6 @@ interface ContactStepProps {
   onBack: () => void;
   onNext: () => void;
 }
-
 function ContactStep({
   name,
   setName,
@@ -639,25 +578,14 @@ function ContactStep({
   setEmail,
   reception,
   setReception,
-  savedAddresses,
-  selectedAddressId,
-  setSelectedAddressId,
   address,
   setAddress,
   city,
   setCity,
   zip,
   setZip,
-  zipWarning,
-  setZipWarning,
-  zipValidatedRef,
-  onJumpToShipping,
   country,
   setCountry,
-  stateCode,
-  setStateCode,
-  taxNumber,
-  setTaxNumber,
   message,
   setMessage,
   errors,
@@ -665,15 +593,24 @@ function ContactStep({
   onBack,
   onNext,
 }: ContactStepProps) {
-  const needsState = STATE_REQUIRED_COUNTRIES.includes(country);
+  const clear = (k: string) => {
+    if (errors[k]) {
+      const n = { ...errors };
+      delete n[k];
+      setErrors(n);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="font-display font-black text-2xl sm:text-3xl"
+          style={{ color: "var(--color-ink)" }}
+        >
           Shipping &amp; Contact
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-1">
+        <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
           Where and how would you like to receive your order?
         </p>
       </div>
@@ -681,22 +618,21 @@ function ContactStep({
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => setReception("livraison")}
-          className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-150"
+          onClick={() => setReception("delivery")}
+          className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all"
           style={{
-            border: `1.5px solid ${reception === "livraison" ? "var(--color-accent)" : "var(--color-border)"}`,
+            border: `1.5px solid ${reception === "delivery" ? "var(--color-accent)" : "var(--color-border)"}`,
             background:
-              reception === "livraison"
+              reception === "delivery"
                 ? "var(--color-accent-bg)"
                 : "var(--color-surface)",
           }}
         >
           <Truck
             size={18}
-            strokeWidth={2}
             style={{
               color:
-                reception === "livraison"
+                reception === "delivery"
                   ? "var(--color-accent)"
                   : "var(--color-ink3)",
             }}
@@ -706,34 +642,35 @@ function ContactStep({
               className="text-xs font-black"
               style={{
                 color:
-                  reception === "livraison"
+                  reception === "delivery"
                     ? "var(--color-accent)"
                     : "var(--color-ink)",
               }}
             >
               Delivery
             </p>
-            <p className="text-[10px] text-(--color-ink4)">To your address</p>
+            <p className="text-[10px]" style={{ color: "var(--color-ink4)" }}>
+              To your address
+            </p>
           </div>
         </button>
         <button
           type="button"
-          onClick={() => setReception("retrait")}
-          className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-150"
+          onClick={() => setReception("pickup")}
+          className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all"
           style={{
-            border: `1.5px solid ${reception === "retrait" ? "var(--color-accent)" : "var(--color-border)"}`,
+            border: `1.5px solid ${reception === "pickup" ? "var(--color-accent)" : "var(--color-border)"}`,
             background:
-              reception === "retrait"
+              reception === "pickup"
                 ? "var(--color-accent-bg)"
                 : "var(--color-surface)",
           }}
         >
           <Store
             size={18}
-            strokeWidth={2}
             style={{
               color:
-                reception === "retrait"
+                reception === "pickup"
                   ? "var(--color-accent)"
                   : "var(--color-ink3)",
             }}
@@ -743,352 +680,142 @@ function ContactStep({
               className="text-xs font-black"
               style={{
                 color:
-                  reception === "retrait"
+                  reception === "pickup"
                     ? "var(--color-accent)"
                     : "var(--color-ink)",
               }}
             >
               Pickup
             </p>
-            <p className="text-[10px] text-(--color-ink4)">On site, free</p>
+            <p className="text-[10px]" style={{ color: "var(--color-ink4)" }}>
+              On site, free
+            </p>
           </div>
         </button>
       </div>
 
-      {/* Saved addresses */}
-      {savedAddresses.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-            Saved Address
-          </label>
-          <select
-            value={selectedAddressId}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSelectedAddressId(id);
-              const addr = savedAddresses.find((a) => a.id === id);
-              if (addr) {
-                setName(addr.full_name || "");
-                setPhone(addr.phone || "");
-                setAddress(addr.address || "");
-                setCity(addr.city || "");
-                setZip(addr.zip || "");
-                setCountry(addr.country || "US");
-                setStateCode(addr.state_code || "");
-                setTaxNumber(addr.tax_number || "");
-              }
-            }}
-            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
-            style={{ border: "1.5px solid var(--color-border2)" }}
-          >
-            <option value="">— Choose an address —</option>
-            {savedAddresses.map((addr) => (
-              <option key={addr.id} value={addr.id}>
-                {addr.full_name}, {addr.address}, {addr.city}, {addr.zip}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TextField
           label="Full Name"
-          id="name"
           required
           icon={User}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="John Doe"
-          autoComplete="name"
           error={errors.name}
-          onClearError={() => {
-            if (errors.name) {
-              const next = { ...errors };
-              delete next.name;
-              setErrors(next);
-            }
-          }}
+          onClearError={() => clear("name")}
         />
         <TextField
           label="Phone"
-          id="phone"
           required
           icon={Phone}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="+1 (212) 555-1234"
-          autoComplete="tel"
           error={errors.phone}
-          onClearError={() => {
-            if (errors.phone) {
-              const next = { ...errors };
-              delete next.phone;
-              setErrors(next);
-            }
-          }}
+          onClearError={() => clear("phone")}
         />
       </div>
 
       <TextField
         label="Email"
-        id="email"
         required
         icon={Mail}
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="john@example.com"
-        autoComplete="email"
         error={errors.email}
-        onClearError={() => {
-          if (errors.email) {
-            const next = { ...errors };
-            delete next.email;
-            setErrors(next);
-          }
-        }}
+        onClearError={() => clear("email")}
       />
 
-      {reception === "livraison" && (
+      {reception === "delivery" && (
         <div className="flex flex-col gap-4 pt-1 animate-fade-up">
           <TextField
             label="Address"
-            id="address"
             required
             icon={MapPin}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="132 Main Street"
-            autoComplete="address-line1"
             error={errors.address}
-            onClearError={() => {
-              if (errors.address) {
-                const next = { ...errors };
-                delete next.address;
-                setErrors(next);
-              }
-            }}
+            onClearError={() => clear("address")}
           />
           <div className="grid grid-cols-2 gap-4">
             <TextField
               label="City"
-              id="city"
               required
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="New York"
-              autoComplete="address-level2"
               error={errors.city}
-              onClearError={() => {
-                if (errors.city) {
-                  const next = { ...errors };
-                  delete next.city;
-                  setErrors(next);
-                }
-              }}
+              onClearError={() => clear("city")}
             />
             <TextField
               label="ZIP Code"
-              id="zip"
               required
               value={zip}
-              onChange={(e) => {
-                const val = e.target.value;
-                setZip(val);
-                if (errors.zip) {
-                  const next = { ...errors };
-                  delete next.zip;
-                  setErrors(next);
-                }
-                setZipWarning(null);
-                // Déclenche la validation si 5 chiffres saisis
-                if (
-                  country === "US" &&
-                  val.trim().length >= 5 &&
-                  /^\d{5}(-\d{4})?$/.test(val.trim())
-                ) {
-                  const trimmed = val.trim().slice(0, 5);
-                  if (zipValidatedRef.current !== trimmed) {
-                    zipValidatedRef.current = trimmed;
-                    validateUSZip(trimmed, stateCode.trim()).then(
-                      ({ valid, suggestedState, message }) => {
-                        if (!valid || message) {
-                          setZipWarning(message || null);
-                        }
-                      },
-                    );
-                  }
-                }
-              }}
-              onBlur={() => {
-                // Validation au blur si pas encore faite
-                if (
-                  country === "US" &&
-                  zip.trim().length >= 5 &&
-                  /^\d{5}(-\d{4})?$/.test(zip.trim()) &&
-                  !zipWarning
-                ) {
-                  const trimmed = zip.trim().slice(0, 5);
-                  if (zipValidatedRef.current !== trimmed) {
-                    zipValidatedRef.current = trimmed;
-                    validateUSZip(trimmed, stateCode.trim()).then(
-                      ({ valid, suggestedState, message }) => {
-                        if (!valid || message) {
-                          setZipWarning(message || null);
-                        }
-                      },
-                    );
-                  }
-                }
-              }}
+              onChange={(e) => setZip(e.target.value)}
               placeholder="10001"
-              autoComplete="postal-code"
               error={errors.zip}
-              onClearError={() => {
-                if (errors.zip) {
-                  const next = { ...errors };
-                  delete next.zip;
-                  setErrors(next);
-                }
-              }}
+              onClearError={() => clear("zip")}
             />
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              Country <span className="text-(--color-accent)">*</span>
-            </label>
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
-              style={{ border: "1.5px solid var(--color-border2)" }}
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag} {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {needsState && (
-            <TextField
-              label={country === "BR" ? "State (UF)" : "State / Province"}
-              id="stateCode"
-              required
-              value={stateCode}
-              onChange={(e) => setStateCode(e.target.value.toUpperCase())}
-              placeholder={country === "BR" ? "SP" : "NY"}
-              maxLength={2}
-              autoComplete="address-level1"
-              error={errors.stateCode}
-              onClearError={() => {
-                if (errors.stateCode) {
-                  const next = { ...errors };
-                  delete next.stateCode;
-                  setErrors(next);
-                }
-              }}
-            />
-          )}
-
-          {country === "BR" && (
-            <TextField
-              label="CPF or CNPJ"
-              id="taxNumber"
-              required
-              value={taxNumber}
-              onChange={(e) => setTaxNumber(formatCPFCNPJ(e.target.value))}
-              placeholder="000.000.000-00"
-              autoComplete="off"
-              error={errors.taxNumber}
-              onClearError={() => {
-                if (errors.taxNumber) {
-                  const next = { ...errors };
-                  delete next.taxNumber;
-                  setErrors(next);
-                }
-              }}
-            />
-          )}
+          <TextField
+            label="Country"
+            required
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            placeholder="US"
+            error={errors.country}
+            onClearError={() => clear("country")}
+          />
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
+        <label
+          className="text-[11px] font-black uppercase tracking-wider"
+          style={{ color: "var(--color-ink3)" }}
+        >
           Message (optional)
         </label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={3}
-          className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none resize-none bg-(--color-surface) text-(--color-ink) placeholder:text-(--color-ink4)"
-          style={{ border: "1.5px solid var(--color-border2)" }}
-          placeholder="Delivery instructions, personalization..."
+          className="w-full px-4 py-3 rounded-2xl text-sm outline-none resize-none"
+          style={{
+            background: "var(--color-surface)",
+            color: "var(--color-ink)",
+            border: "1.5px solid var(--color-border2)",
+          }}
+          placeholder="Delivery instructions, personalization…"
         />
       </div>
 
       <div className="flex items-center justify-between mt-1 gap-3">
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={onBack}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2)"
-          style={{ border: "1px solid var(--color-border)" }}
+          icon={<ArrowLeft size={14} />}
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
-        </button>
-        <button
-          type="button"
+          Back
+        </Button>
+        <Button
+          variant="accent"
+          size="lg"
           onClick={onNext}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-            boxShadow: "var(--shadow-accent)",
-          }}
+          iconRight={<ArrowRight size={15} />}
         >
-          Continue to Payment <ArrowRight size={15} strokeWidth={2.5} />
-        </button>
-        {zipWarning && (
-          <div
-            className="flex flex-wrap items-start gap-2 p-3 rounded-xl text-xs font-medium animate-fade-up w-full"
-            style={{
-              background: "#fef9c3",
-              color: "#92400e",
-              border: "1px solid #facc15",
-            }}
-          >
-            <AlertCircle
-              size={13}
-              strokeWidth={2}
-              className="shrink-0 mt-0.5"
-            />
-            <span className="flex-1">{zipWarning}</span>
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById("zip");
-                if (el) {
-                  el.scrollIntoView({ behavior: "smooth", block: "center" });
-                  el.focus();
-                }
-              }}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-opacity shrink-0"
-              style={{ background: "var(--color-accent)" }}
-            >
-              Fix it
-            </button>
-          </div>
-        )}
+          Continue to Payment
+        </Button>
       </div>
     </div>
   );
 }
 
-// ─── Step 3 : Payment ──────────────────────────────────────────────────
-
+/* ── Step 3: Payment ────────────────────────────────────────────── */
 interface PaymentStepProps {
   cardNumber: string;
   setCardNumber: (v: string) => void;
@@ -1098,8 +825,6 @@ interface PaymentStepProps {
   setCardExpiry: (v: string) => void;
   cardCvv: string;
   setCardCvv: (v: string) => void;
-  saveCard: boolean;
-  setSaveCard: (v: boolean) => void;
   errors: Record<string, string>;
   setErrors: (e: Record<string, string>) => void;
   paymentError: string | null;
@@ -1108,365 +833,7 @@ interface PaymentStepProps {
   currencySymbol: string;
   onBack: () => void;
   onPay: () => void;
-  onStripePay: () => void;
-  // Nouvelles props pour le formulaire carte direct
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  reception: "retrait" | "livraison";
-  address: string;
-  city: string;
-  zip: string;
-  zipWarning?: string | null;
-  setZipWarning?: (v: string | null) => void;
-  onJumpToShipping?: () => void;
-  country: string;
-  stateCode: string;
-  taxNumber: string;
-  message: string;
-  cart: CartItem[];
-  shippingCost: number;
-  currencyCode: string;
-  onStripeCardSuccess: (orderId: string) => void;
-  onStripeCardError: (msg: string) => void;
 }
-
-// ─── Stripe direct card form ───────────────────────────────────────────
-function StripeCardForm({
-  total,
-  currencySymbol,
-  currencyCode,
-  onBack,
-  onSuccess,
-  onError,
-  orderId,
-  contactName,
-  contactEmail,
-  contactPhone,
-  reception,
-  address,
-  city,
-  zip,
-  country,
-  stateCode,
-  taxNumber,
-  message,
-  cart,
-  shippingCost,
-}: {
-  total: number;
-  currencySymbol: string;
-  currencyCode: string;
-  onBack: () => void;
-  onSuccess: (orderId: string) => void;
-  onError: (msg: string) => void;
-  orderId: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  reception: "retrait" | "livraison";
-  address: string;
-  city: string;
-  zip: string;
-  country: string;
-  stateCode: string;
-  taxNumber: string;
-  message: string;
-  cart: CartItem[];
-  shippingCost: number;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [processing, setProcessing] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Style cohérent avec le thème (clair/sombre) via variables CSS
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-
-  const elementOptions = {
-    style: {
-      base: {
-        fontSize: "16px",
-        color: isDark ? "#e5e5e5" : "#1a1a1a",
-        "::placeholder": {
-          color: isDark ? "#6b7280" : "#9ca3af",
-        },
-        iconColor: isDark ? "#6b7280" : "#9ca3af",
-        fontWeight: "400",
-      },
-      invalid: {
-        color: "#ef4444",
-        iconColor: "#ef4444",
-      },
-    },
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!stripe || !elements) return;
-    setProcessing(true);
-    setErrorMsg(null);
-
-    // 1. Create PaymentIntent via Edge Function
-    const piRes = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          action: "payment-intent",
-          currency: currencyCode,
-          orderId,
-          items: cart.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            selectedColor: item.selectedColor,
-            selectedSize: item.selectedSize,
-          })),
-        }),
-      },
-    );
-    const piData = await piRes.json();
-    if (!piRes.ok || !piData.clientSecret) {
-      setProcessing(false);
-      setErrorMsg(piData.error || "Payment creation failed.");
-      onError(piData.error);
-      return;
-    }
-
-    const cardNumberElement = elements.getElement(CardNumberElement);
-    if (!cardNumberElement) {
-      setProcessing(false);
-      return;
-    }
-
-    // 2. Confirm payment with Stripe
-    const { error, paymentIntent } = await stripe.confirmCardPayment(
-      piData.clientSecret,
-      {
-        payment_method: {
-          card: cardNumberElement,
-        },
-      },
-    );
-
-    if (error) {
-      setProcessing(false);
-      setErrorMsg(error.message || "Payment failed.");
-      onError(error.message || "");
-      return;
-    }
-
-    if (paymentIntent && paymentIntent.status === "succeeded") {
-      // Sauvegarder l'adresse de livraison pour le client
-      let clientId: string | null = null;
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.id) {
-          const { data: existing } = await supabase
-            .from("customers")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle();
-          clientId = existing?.id || user.id;
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-      if (clientId) {
-        customerApi
-          .saveAddressIfNew(clientId, {
-            full_name: contactName,
-            phone: contactPhone,
-            address,
-            city,
-            zip,
-            country,
-            state_code: stateCode,
-            tax_number: taxNumber,
-          })
-          .then((addressId) => {
-            if (addressId) customerApi.setDefaultAddress(clientId, addressId);
-          })
-          .catch(console.warn);
-      }
-
-      // 3. Save order in Supabase
-      try {
-        await orderApi.create({
-          id: orderId,
-          clientId: null,
-          clientName: contactName,
-          clientEmail: contactEmail || null,
-          createdAt: new Date().toISOString(),
-          status: "pending",
-          totalAmount: total,
-          shippingCost,
-          shippingAddress: {
-            fullName: contactName,
-            address: reception === "livraison" ? address : "Pickup",
-            city: reception === "livraison" ? city : "",
-            zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "FR",
-            state_code: reception === "livraison" ? stateCode : "",
-            tax_number: reception === "livraison" ? taxNumber : "",
-            phone: contactPhone,
-          },
-          notes: message,
-          items: cart.map((item, idx) => ({
-            id: `item-${orderId}-${idx}`,
-            orderId,
-            productId: item.product.id,
-            productTitle: item.product.title,
-            productImage: getVariantImage(item.product, item.selectedColor),
-            selectedColor: item.selectedColor || "#000000",
-            selectedSize: item.selectedSize || "M",
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-        } as any);
-        sendTelegramNotification(
-          orderId,
-          contactName,
-          contactPhone,
-          contactEmail,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          cart,
-          total,
-          currencySymbol,
-        );
-
-        onSuccess(orderId);
-      } catch (e: any) {
-        setProcessing(false);
-        setErrorMsg("Payment succeeded but order creation failed.");
-        onError(e.message);
-      }
-    } else {
-      setProcessing(false);
-      setErrorMsg("Payment was not completed.");
-    }
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-6 animate-fade-up"
-    >
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-(--color-ink4) hover:text-(--color-ink) transition-colors"
-          >
-            <ArrowLeft size={16} strokeWidth={2.5} />
-          </button>
-          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-            Pay by Card
-          </h2>
-        </div>
-        <p className="text-sm text-(--color-ink3) mt-1 flex items-center gap-1.5">
-          <Lock
-            size={12}
-            strokeWidth={2.5}
-            style={{ color: "var(--color-success)" }}
-          />
-          Secured by Stripe
-        </p>
-      </div>
-
-      {/* Separate fields */}
-      <div className="flex flex-col gap-4 max-w-sm">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-            Card Number <span className="text-(--color-accent)">*</span>
-          </label>
-          <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-            <CardNumberElement options={elementOptions} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              Expiry <span className="text-(--color-accent)">*</span>
-            </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-              <CardExpiryElement options={elementOptions} />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-              CVV <span className="text-(--color-accent)">*</span>
-            </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-              <CardCvcElement options={elementOptions} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {errorMsg && (
-        <div
-          className="flex items-start gap-2 p-3.5 rounded-xl text-xs font-medium max-w-sm"
-          style={{
-            background: "var(--notif-negative-bg)",
-            color: "var(--notif-negative)",
-            border: "1px solid var(--notif-negative)",
-          }}
-        >
-          <AlertCircle size={15} strokeWidth={2} className="shrink-0 mt-0.5" />
-          {errorMsg}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between mt-1 gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={processing}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
-          style={{ border: "1px solid var(--color-border)" }}
-        >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
-        </button>
-        <button
-          type="submit"
-          disabled={processing || !stripe}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-            boxShadow: "var(--shadow-accent)",
-          }}
-        >
-          {processing ? (
-            <>
-              <Loader2 size={15} strokeWidth={2.5} className="animate-spin" />
-              Processing…
-            </>
-          ) : (
-            <>
-              <Lock size={13} strokeWidth={2.5} />
-              Pay {total.toFixed(2)} {currencySymbol}
-            </>
-          )}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function PaymentStep({
   cardNumber,
   setCardNumber,
@@ -1476,8 +843,6 @@ function PaymentStep({
   setCardExpiry,
   cardCvv,
   setCardCvv,
-  saveCard,
-  setSaveCard,
   errors,
   setErrors,
   paymentError,
@@ -1486,236 +851,150 @@ function PaymentStep({
   currencySymbol,
   onBack,
   onPay,
-  onStripePay,
-  contactName,
-  contactEmail,
-  contactPhone,
-  reception,
-  address,
-  city,
-  zip,
-  zipWarning,
-  setZipWarning,
-  onJumpToShipping,
-  country,
-  stateCode,
-  taxNumber,
-  message,
-  cart,
-  shippingCost,
-  currencyCode,
-  onStripeCardSuccess,
-  onStripeCardError,
 }: PaymentStepProps) {
-  const [showCardForm, setShowCardForm] = useState(false);
-  const [localOrderId, setLocalOrderId] = useState<string>("");
+  const clear = (k: string) => {
+    if (errors[k]) {
+      const n = { ...errors };
+      delete n[k];
+      setErrors(n);
+    }
+  };
+  const previewDigits = cardNumber.replace(/\D/g, "").padEnd(16, "•");
+  const previewGroups = [0, 1, 2, 3].map((i) =>
+    previewDigits.slice(i * 4, i * 4 + 4),
+  );
 
-  useEffect(() => {
-    generateOrderId().then(setLocalOrderId);
-  }, []);
+  return (
+    <div className="flex flex-col gap-6 animate-fade-up">
+      <div>
+        <h2
+          className="font-display font-black text-2xl sm:text-3xl"
+          style={{ color: "var(--color-ink)" }}
+        >
+          Payment
+        </h2>
+        <p
+          className="text-sm mt-1 flex items-center gap-1.5"
+          style={{ color: "var(--color-ink3)" }}
+        >
+          <Lock size={12} style={{ color: "var(--color-success)" }} /> Secured
+          checkout
+        </p>
+      </div>
 
-  // Step 1: payment method selection
-  if (!showCardForm) {
-    return (
-      <div className="flex flex-col gap-6 animate-fade-up">
-        <div>
-          <h2 className="text-2xl font-black text-(--color-ink) font-serif">
-            Payment
-          </h2>
-          <p className="text-sm text-(--color-ink3) mt-1">
-            Choose your payment method.
-          </p>
-          {zipWarning && (
-            <div
-              className="flex flex-wrap items-start gap-2 p-3 rounded-xl text-xs font-medium animate-fade-up w-full"
-              style={{
-                background: "#fef9c3",
-                color: "#92400e",
-                border: "1px solid #facc15",
-              }}
-            >
-              <AlertCircle
-                size={13}
-                strokeWidth={2}
-                className="shrink-0 mt-0.5"
-              />
-              <span className="flex-1">{zipWarning}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setZipWarning?.(null);
-                  onJumpToShipping?.();
-                  setTimeout(() => {
-                    const el = document.getElementById("zip");
-                    if (el) {
-                      el.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                      el.focus();
-                    }
-                  }, 300);
-                }}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white hover:opacity-90 transition-opacity shrink-0"
-                style={{ background: "var(--color-accent)" }}
-              >
-                Fix it
-              </button>
-            </div>
-          )}
+      {/* Live card preview */}
+      <div
+        className="relative w-full max-w-sm aspect-[1.6/1] rounded-[22px] p-5 flex flex-col justify-between text-white overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, var(--color-ink), #2b211c)",
+        }}
+      >
+        <div
+          className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-20"
+          style={{ background: "var(--color-accent)" }}
+        />
+        <div className="flex items-center justify-between relative z-10">
+          <span className="font-display font-black text-sm">InstaWear</span>
+          <CreditCard size={20} />
         </div>
-
-        <div className="flex flex-col gap-4">
-          {/* Stripe Checkout option */}
-          <button
-            type="button"
-            onClick={onStripePay}
-            disabled={processing}
-            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:hover:translate-y-0"
-            style={{
-              background: "var(--color-surface)",
-              border: "1.5px solid var(--color-border2)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            {processing ? (
-              <>
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "#635BFF" }}
-                >
-                  <Loader2 size={24} className="animate-spin text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-(--color-ink)">
-                    Redirecting to Stripe…
-                  </p>
-                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                    You will be redirected to the secure payment page
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "#635BFF" }}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l4.59-4.58L17 11l-6 6z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-(--color-ink)">
-                    Stripe Checkout
-                  </p>
-                  <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                    Credit card, Apple Pay, Google Pay — secure
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-(--color-ink)">
-                    {total.toFixed(2)} {currencySymbol}
-                  </p>
-                  <ArrowRight
-                    size={15}
-                    strokeWidth={2.5}
-                    className="ml-auto mt-1 text-(--color-accent)"
-                  />
-                </div>
-              </>
-            )}
-          </button>
-
-          {/* Direct card option */}
-          <button
-            type="button"
-            onClick={() => setShowCardForm(true)}
-            className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-            style={{
-              background: "var(--color-surface)",
-              border: "1.5px solid var(--color-border2)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-ink), #2b211c)",
-              }}
-            >
-              <CreditCard
-                size={20}
-                strokeWidth={1.75}
-                style={{ color: "white" }}
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-(--color-ink)">
-                Pay by Card
-              </p>
-              <p className="text-[11px] text-(--color-ink4) mt-0.5">
-                Enter your card details securely
-              </p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-sm font-black text-(--color-ink)">
-                {total.toFixed(2)} {currencySymbol}
-              </p>
-              <ArrowRight
-                size={15}
-                strokeWidth={2.5}
-                className="ml-auto mt-1 text-(--color-accent)"
-              />
-            </div>
-          </button>
+        <div className="font-mono text-lg tracking-widest relative z-10">
+          {previewGroups.join(" ")}
         </div>
+        <div className="flex items-center justify-between text-xs relative z-10">
+          <span className="uppercase opacity-80">
+            {cardHolder || "CARD HOLDER"}
+          </span>
+          <span className="opacity-80">{cardExpiry || "MM/YY"}</span>
+        </div>
+      </div>
 
-        <button
-          type="button"
+      <div className="flex flex-col gap-4 max-w-sm">
+        <TextField
+          label="Card Number"
+          required
+          icon={CreditCard}
+          value={cardNumber}
+          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+          placeholder="4242 4242 4242 4242"
+          inputMode="numeric"
+          error={errors.cardNumber}
+          onClearError={() => clear("cardNumber")}
+        />
+        <TextField
+          label="Cardholder Name"
+          required
+          icon={User}
+          value={cardHolder}
+          onChange={(e) => setCardHolder(e.target.value)}
+          placeholder="John Doe"
+          error={errors.cardHolder}
+          onClearError={() => clear("cardHolder")}
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <TextField
+            label="Expiry"
+            required
+            value={cardExpiry}
+            onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
+            placeholder="MM/YY"
+            inputMode="numeric"
+            error={errors.cardExpiry}
+            onClearError={() => clear("cardExpiry")}
+          />
+          <TextField
+            label="CVV"
+            required
+            value={cardCvv}
+            onChange={(e) =>
+              setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            placeholder="123"
+            inputMode="numeric"
+            error={errors.cardCvv}
+            onClearError={() => clear("cardCvv")}
+          />
+        </div>
+      </div>
+
+      {paymentError && (
+        <div
+          className="flex items-start gap-2 p-3.5 rounded-2xl text-xs font-medium max-w-sm"
+          style={{
+            background: "var(--color-negative-bg)",
+            color: "var(--color-negative)",
+            border: "1px solid var(--color-negative)",
+          }}
+        >
+          <AlertCircle size={15} className="shrink-0 mt-0.5" /> {paymentError}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mt-1 gap-3">
+        <Button
+          variant="outline"
           onClick={onBack}
           disabled={processing}
-          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-bold text-(--color-ink2) transition-colors hover:bg-(--color-surface2) disabled:opacity-40"
-          style={{ border: "1px solid var(--color-border)" }}
+          icon={<ArrowLeft size={14} />}
         >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Back
-        </button>
+          Back
+        </Button>
+        <Button
+          variant="accent"
+          size="lg"
+          onClick={onPay}
+          loading={processing}
+          icon={!processing ? <Lock size={13} /> : undefined}
+        >
+          {processing
+            ? "Processing…"
+            : `Pay ${total.toFixed(2)} ${currencySymbol}`}
+        </Button>
       </div>
-    );
-  }
-
-  // Step 2: Stripe card form
-  return (
-    <Elements stripe={stripePromise}>
-      <StripeCardForm
-        orderId={localOrderId}
-        total={total}
-        currencySymbol={currencySymbol}
-        currencyCode={currencyCode}
-        contactName={contactName}
-        contactEmail={contactEmail}
-        contactPhone={contactPhone}
-        reception={reception}
-        address={address}
-        city={city}
-        zip={zip}
-        country={country}
-        stateCode={stateCode}
-        taxNumber={taxNumber}
-        message={message}
-        cart={cart}
-        shippingCost={shippingCost}
-        onBack={() => setShowCardForm(false)}
-        onSuccess={(orderId) => onStripeCardSuccess(orderId)}
-        onError={(msg) => onStripeCardError(msg)}
-      />
-    </Elements>
+    </div>
   );
 }
 
-// ─── Step 4 : Confirmation ──────────────────────────────────────────────
-
+/* ── Step 4: Confirmation ───────────────────────────────────────── */
 function ConfirmationStep({
   orderId,
   email,
@@ -1730,61 +1009,63 @@ function ConfirmationStep({
   onClose: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center text-center gap-5 py-6 sm:py-10 animate-scale-in">
+    <div className="flex flex-col items-center text-center gap-5 py-8 sm:py-12 animate-scale-in">
       <div
         className="w-16 h-16 rounded-full flex items-center justify-center"
         style={{ background: "var(--color-success-bg)" }}
       >
-        <CheckCircle2
-          size={32}
-          strokeWidth={2}
-          style={{ color: "var(--color-success)" }}
-        />
+        <CheckCircle2 size={32} style={{ color: "var(--color-success)" }} />
       </div>
       <div>
-        <h2 className="text-2xl font-black text-(--color-ink) font-serif">
+        <h2
+          className="font-display font-black text-2xl sm:text-3xl"
+          style={{ color: "var(--color-ink)" }}
+        >
           Order Confirmed
         </h2>
-        <p className="text-sm text-(--color-ink3) mt-2 leading-relaxed max-w-sm">
-          Your payment has been accepted. The order is being sent to our print
+        <p
+          className="text-sm mt-2 leading-relaxed max-w-sm"
+          style={{ color: "var(--color-ink3)" }}
+        >
+          Your payment has been accepted. Your order is being sent to our print
           shop.
         </p>
       </div>
 
       <div
-        className="w-full rounded-2xl p-5"
+        className="w-full rounded-3xl p-5"
         style={{ background: "var(--color-surface2)" }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-widest text-(--color-ink3) mb-2">
+        <p
+          className="text-[10px] font-black uppercase tracking-widest mb-2"
+          style={{ color: "var(--color-ink3)" }}
+        >
           Order Reference
         </p>
         <div className="flex items-center justify-center gap-3">
-          <span className="font-mono font-black text-xl tracking-wider text-(--color-accent)">
+          <span
+            className="font-mono font-black text-xl tracking-wider"
+            style={{ color: "var(--color-accent)" }}
+          >
             {orderId}
           </span>
           <button
-            type="button"
             onClick={onCopy}
-            aria-label="Copy reference"
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
             style={{
               background: copied
                 ? "var(--color-success)"
                 : "var(--color-surface)",
-              color: copied ? "#ffffff" : "var(--color-ink2)",
+              color: copied ? "#fff" : "var(--color-ink2)",
               border: "1px solid var(--color-border)",
             }}
           >
-            {copied ? (
-              <Check size={14} strokeWidth={2.5} />
-            ) : (
-              <Copy size={14} strokeWidth={2} />
-            )}
+            {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
         </div>
         {copied && (
           <p
-            className="text-[11px] mt-1.5 font-semibold"
+            className="text-[11px] mt-1.5 font-bold"
             style={{ color: "var(--color-success)" }}
           >
             Reference copied
@@ -1792,101 +1073,74 @@ function ConfirmationStep({
         )}
       </div>
 
-      <div className="w-full flex flex-col gap-2 text-left text-xs text-(--color-ink3) leading-relaxed">
-        {email && (
-          <p className="flex items-start gap-2">
-            <Mail
-              size={13}
-              strokeWidth={2}
-              className="shrink-0 mt-0.5 text-(--color-accent)"
-            />
-            A confirmation has been sent to{" "}
-            <strong className="text-(--color-ink2)">{email}</strong>.
-          </p>
-        )}
-        <p className="flex items-start gap-2">
-          <CheckCircle2
+      {email && (
+        <p
+          className="text-xs flex items-start gap-2 text-left"
+          style={{ color: "var(--color-ink3)" }}
+        >
+          <Mail
             size={13}
-            strokeWidth={2}
-            className="shrink-0 mt-0.5 text-(--color-accent)"
+            className="shrink-0 mt-0.5"
+            style={{ color: "var(--color-accent)" }}
           />
-          Our team has been notified automatically of your order.
+          A confirmation has been sent to{" "}
+          <strong style={{ color: "var(--color-ink2)" }}>{email}</strong>.
         </p>
-      </div>
+      )}
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-2 w-full flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-          boxShadow: "var(--shadow-accent)",
-        }}
-      >
+      <Button variant="cta" size="lg" onClick={onClose} className="w-full mt-2">
         Back to Shop
-      </button>
+      </Button>
     </div>
   );
 }
 
-// ─── Empty cart guard ───────────────────────────────────────────────────
-
+/* ── Empty cart guard ───────────────────────────────────────────── */
 function EmptyCartGuard({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-6"
+      className="fixed inset-0 z-70 flex items-center justify-center p-6"
       style={{ background: "var(--color-bg)" }}
     >
       <div className="text-center max-w-xs">
-        <img
-          src={CART_X_ICON}
-          alt="Cart"
-          className="w-10 h-10 mx-auto mb-3"
-          style={{ opacity: 0.5 }}
-        />
-        <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
-        <p className="text-xs text-(--color-ink3) mb-5">
+        <p className="font-bold mb-1" style={{ color: "var(--color-ink)" }}>
+          Your cart is empty
+        </p>
+        <p className="text-xs mb-5" style={{ color: "var(--color-ink3)" }}>
           Add some items before checking out.
         </p>
-        <button
-          onClick={onClose}
-          className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
-          style={{ background: "var(--color-accent)" }}
-        >
+        <Button variant="cta" onClick={onClose}>
           Back to Shop
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
-// ─── Main component ─────────────────────────────────────────────────────
-
+/* ── Main component ─────────────────────────────────────────────── */
 export default function CheckoutFlow({
   cart,
-  detectedCountry,
+  currencySymbol,
+  shippingCost: baseShippingCost,
+  freeShippingThreshold,
   onClose,
   onUpdateQty,
   onRemoveItem,
-  onSuccess,
+  onSubmitOrder,
   confirmModeOrderId,
 }: CheckoutFlowProps) {
-  const currencySymbol = useCurrencySymbol();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // ── Stripe confirmation mode ─────────────────────────────────
   if (confirmModeOrderId) {
     const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
+    const copy = () => {
       navigator.clipboard.writeText(confirmModeOrderId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     };
-
     return (
       <div
-        className="fixed inset-0 z-60 flex items-center justify-center p-4"
+        className="fixed inset-0 z-70 flex items-center justify-center p-4"
         style={{ background: "var(--color-bg)" }}
       >
         <div className="max-w-xl w-full mx-auto px-4 sm:px-6 py-10">
@@ -1894,7 +1148,7 @@ export default function CheckoutFlow({
             orderId={confirmModeOrderId}
             email=""
             copied={copied}
-            onCopy={handleCopy}
+            onCopy={copy}
             onClose={onClose}
           />
         </div>
@@ -1904,88 +1158,27 @@ export default function CheckoutFlow({
 
   const [step, setStep] = useState<StepId>(1);
 
-  // Contact & shipping
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [reception, setReception] = useState<"retrait" | "livraison">(
-    "livraison",
-  );
+  const [reception, setReception] = useState<"pickup" | "delivery">("delivery");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
   const [country, setCountry] = useState("US");
-  const [stateCode, setStateCode] = useState("");
-  const [taxNumber, setTaxNumber] = useState("");
   const [message, setMessage] = useState("");
-  const [zipWarning, setZipWarning] = useState<string | null>(null);
-  const zipValidatedRef = useRef<string | null>(null);
 
-  // Payment
   const [cardNumber, setCardNumber] = useState("");
   const [cardHolder, setCardHolder] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
-  const [saveCard, setSaveCard] = useState(true);
 
-  // Flow
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [orderId, setOrderId] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const [shippingSettings, setShippingSettings] = useState({
-    threshold: 35,
-    cost: 4.99,
-  });
-
-  const [currencyCode, setCurrencyCode] = useState("usd");
-
-  // ── Adresses sauvegardées du client ──────────────────────────
-  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user?.email) return;
-      supabase
-        .from("customers")
-        .select("id")
-        .eq("email", user.email)
-        .single()
-        .then(({ data: customers }) => {
-          if (customers) {
-            customerApi.getAddresses(customers.id).then((addrs) => {
-              setSavedAddresses(addrs);
-            });
-          }
-        });
-    });
-  }, []);
-
-  // Load default country + shipping thresholds from store_settings + location
-  useEffect(() => {
-    storeSettingsApi
-      .get()
-      .then((s) => {
-        if (detectedCountry && !country) {
-          setCountry(detectedCountry);
-        } else {
-          setCountry(s.country || "US");
-        }
-        setShippingSettings({
-          threshold: s.freeShippingThreshold ?? 35,
-          cost: s.shippingCost ?? 4.99,
-        });
-        setCurrencyCode((s.currency || "usd").toLowerCase());
-      })
-      .catch(() => {
-        if (detectedCountry) setCountry(detectedCountry);
-      });
-  }, [detectedCountry]);
-
-  // Scroll to top on step change
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
@@ -1994,57 +1187,25 @@ export default function CheckoutFlow({
     () => cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
     [cart],
   );
-
-  // Use country-specific shipping rates based on user location
-  const { cost: countryShippingCost, threshold: countryThreshold } =
-    useShippingSettings(country);
   const shippingCost =
-    reception === "retrait" || cartTotal >= countryThreshold
+    reception === "pickup" || cartTotal >= freeShippingThreshold
       ? 0
-      : countryShippingCost;
+      : baseShippingCost;
   const total = cartTotal + shippingCost;
 
   const validateContact = (): boolean => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Full name is required.";
     if (!phone.trim()) e.phone = "Phone number is required.";
-    if (!email.trim()) e.email = "Email is required for order confirmation.";
+    if (!email.trim()) e.email = "Email is required.";
     else if (!EMAIL_REGEX.test(email)) e.email = "Invalid email format.";
-
-    if (reception === "livraison") {
+    if (reception === "delivery") {
       if (!address.trim()) e.address = "Address is required.";
       if (!city.trim()) e.city = "City is required.";
       if (!zip.trim()) e.zip = "ZIP code is required.";
-      if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
-        e.stateCode = "This field is required.";
-      if (
-        country === "US" &&
-        zip.trim() &&
-        !/^\d{5}(-\d{4})?$/.test(zip.trim())
-      ) {
-        e.zip = "US ZIP code must be 5 digits (e.g. 10001).";
-      }
-      if (country === "BR" && !taxNumber.trim())
-        e.taxNumber = "CPF/CNPJ is required.";
+      if (!country.trim()) e.country = "Country is required.";
     }
     setErrors(e);
-
-    // Auto-scroll to the first invalid field
-    if (Object.keys(e).length > 0) {
-      setTimeout(() => {
-        const firstError = Object.keys(e)[0];
-        const input = document.querySelector(
-          `[name="${firstError}"], [id="${firstError}"]`,
-        );
-        if (input) {
-          (input as HTMLElement).scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-      }, 50);
-    }
-
     return Object.keys(e).length === 0;
   };
 
@@ -2068,254 +1229,31 @@ export default function CheckoutFlow({
     setPaymentError(null);
     setStep((s) => (s > 1 ? ((s - 1) as StepId) : s));
   };
-
   const jumpTo = (s: StepId) => {
     setErrors({});
     setPaymentError(null);
     setStep(s);
   };
 
-  const handleStripePay = async () => {
-    if (!validateContact()) return;
-    setProcessing(true);
-    setPaymentError(null);
-
-    const newOrderId = await generateOrderId();
-    const createdAt = new Date().toISOString();
-
-    try {
-      let clientId: string | null = null;
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.id) {
-          const { data: existing } = await supabase
-            .from("customers")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle();
-          clientId = existing?.id || user.id;
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-
-      await orderApi.create({
-        id: newOrderId,
-        clientId,
-        clientName: name,
-        clientEmail: email || null,
-        createdAt,
-        status: "pending",
-        totalAmount: total,
-        shippingCost,
-        shippingAddress: {
-          fullName: name,
-          address: reception === "livraison" ? address : "Pickup",
-          city: reception === "livraison" ? city : "",
-          zip: reception === "livraison" ? zip : "",
-          country: reception === "livraison" ? country : "US",
-          state_code: reception === "livraison" ? stateCode : "",
-          tax_number: reception === "livraison" ? taxNumber : "",
-          phone,
-        },
-        notes: message,
-        items: cart.map((item, idx) => ({
-          id: `item-${newOrderId}-${idx}`,
-          orderId: newOrderId,
-          productId: item.product.id,
-          productTitle: item.product.title,
-          productImage: getVariantImage(item.product, item.selectedColor),
-          selectedColor: item.selectedColor || "#000000",
-          selectedSize: item.selectedSize || "M",
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-      } as any);
-
-      // Sauvegarder l'adresse de livraison pour le client
-      if (clientId) {
-        customerApi
-          .saveAddressIfNew(clientId, {
-            full_name: name,
-            phone,
-            address,
-            city,
-            zip,
-            country,
-            state_code: stateCode,
-            tax_number: taxNumber,
-          })
-          .then((addressId) => {
-            if (addressId) customerApi.setDefaultAddress(clientId, addressId);
-          })
-          .catch(console.warn);
-      }
-
-      // Redirect to Stripe Checkout
-      const stripeRes = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            orderId: newOrderId,
-            lineItems: [
-              ...cart.map((item) => ({
-                name: item.product.title,
-                image: getVariantImage(item.product, item.selectedColor),
-                unitAmount: Math.round(item.unitPrice * 100),
-                quantity: item.quantity,
-                currency: currencyCode, // devise dynamique
-              })),
-              // Ajouter les frais de port comme un item séparé si > 0
-              ...(shippingCost > 0
-                ? [
-                    {
-                      name: "Shipping",
-                      image: window.location.origin + "/truck-icon.svg",
-                      unitAmount: Math.round(shippingCost * 100),
-                      quantity: 1,
-                      currency: currencyCode,
-                    },
-                  ]
-                : []),
-            ],
-            customerEmail: email,
-            successUrl: `${window.location.origin}/?order=success&id=${newOrderId}`,
-            cancelUrl: `${window.location.origin}/?order=cancelled`,
-          }),
-        },
-      );
-
-      if (!stripeRes.ok) {
-        const err = await stripeRes.json();
-        throw new Error(err.error || "Stripe error");
-      }
-
-      const { url } = await stripeRes.json();
-      window.location.href = url;
-    } catch (err: any) {
-      console.error(err);
-      // Supprimer la commande créée pour éviter les doublons
-      await supabase.from("orders").delete().eq("id", newOrderId);
-      setPaymentError(
-        err?.message || "An error occurred while creating the payment.",
-      );
-      setProcessing(false);
-    }
-  };
-
   const handlePay = async () => {
     if (!validatePayment()) return;
     setProcessing(true);
     setPaymentError(null);
-
-    const newOrderId = await generateOrderId();
-    const createdAt = new Date().toISOString();
-
     try {
-      const work = (async () => {
-        let clientId: string | null = null;
-        try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user?.id) {
-            const { data: existing } = await supabase
-              .from("customers")
-              .select("id")
-              .eq("id", user.id)
-              .maybeSingle();
-            clientId = existing?.id || user.id;
-          }
-        } catch (e) {
-          console.warn("Could not link user to order", e);
-        }
-
-        await orderApi.create({
-          id: newOrderId,
-          clientId,
-          clientName: name,
-          clientEmail: email || null,
-          createdAt,
-          status: "pending",
-          totalAmount: total,
-          shippingCost,
-          shippingAddress: {
-            fullName: name,
-            address: reception === "livraison" ? address : "Pickup",
-            city: reception === "livraison" ? city : "",
-            zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "us",
-            state_code: reception === "livraison" ? stateCode : "",
-            tax_number: reception === "livraison" ? taxNumber : "",
-            phone,
-          },
-          notes: message,
-          items: cart.map((item, idx) => ({
-            id: `item-${newOrderId}-${idx}`,
-            orderId: newOrderId,
-            productId: item.product.id,
-            productTitle: item.product.title,
-            productImage: getVariantImage(item.product, item.selectedColor),
-            selectedColor: item.selectedColor || "#000000",
-            selectedSize: item.selectedSize || "M",
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-        } as any);
-
-        // Sauvegarder l'adresse de livraison pour le client
-        if (clientId) {
-          customerApi
-            .saveAddressIfNew(clientId, {
-              full_name: name,
-              phone,
-              address,
-              city,
-              zip,
-              country,
-              state_code: stateCode,
-              tax_number: taxNumber,
-            })
-            .then((addressId) => {
-              if (addressId) customerApi.setDefaultAddress(clientId, addressId);
-            })
-            .catch(console.warn);
-        }
-
-        // Send recap via Telegram
-        sendTelegramNotification(
-          newOrderId,
-          name,
-          phone,
-          email,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          cart,
-          total,
-          currencySymbol,
-        );
-      })();
-
-      // Délai minimum pour un retour visuel crédible, pendant que le
-      // travail réel (Supabase + Printful) s'exécute en parallèle.
-      const minDelay = new Promise((resolve) => setTimeout(resolve, 1100));
-      await Promise.all([work, minDelay]);
-
-      setOrderId(newOrderId);
+      const result = await onSubmitOrder({
+        name,
+        phone,
+        email,
+        reception,
+        address,
+        city,
+        zip,
+        country,
+        message,
+      });
+      setOrderId(result.orderId);
       setStep(4);
-      onSuccess();
     } catch (err: any) {
-      console.error("Order creation error", err);
       setPaymentError(
         err?.message ||
           "An error occurred while processing the payment. Please try again.",
@@ -2325,19 +1263,18 @@ export default function CheckoutFlow({
     }
   };
 
-  const handleCopyOrderId = () => {
+  const handleCopy = () => {
     navigator.clipboard.writeText(orderId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2200);
   };
 
-  if (cart.length === 0 && step !== 4) {
+  if (cart.length === 0 && step !== 4)
     return <EmptyCartGuard onClose={onClose} />;
-  }
 
   return (
     <div
-      className="fixed inset-0 z-60 flex flex-col"
+      className="fixed inset-0 z-70 flex flex-col"
       style={{ background: "var(--color-bg)" }}
     >
       <div className="grain-overlay" />
@@ -2351,23 +1288,36 @@ export default function CheckoutFlow({
           <img
             src={LOGO_URL}
             alt="InstaWear"
-            className="h-7 w-7 rounded-lg object-cover"
+            className="h-7 w-7 rounded-xl object-cover"
           />
-          <span className="font-black text-sm sm:text-base text-(--color-ink)">
+          <span
+            className="font-display font-black text-sm sm:text-base"
+            style={{ color: "var(--color-ink)" }}
+          >
             InstaWear
           </span>
-          <span className="text-(--color-ink4) hidden sm:inline">/</span>
-          <span className="text-xs sm:text-sm font-bold text-(--color-ink2) hidden sm:inline">
+          <span
+            className="hidden sm:inline"
+            style={{ color: "var(--color-ink4)" }}
+          >
+            /
+          </span>
+          <span
+            className="text-xs sm:text-sm font-bold hidden sm:inline"
+            style={{ color: "var(--color-ink2)" }}
+          >
             Secure Checkout
           </span>
         </div>
         <button
           onClick={onClose}
-          aria-label="Close"
-          className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--color-surface2) text-(--color-ink3) hover:text-(--color-ink)"
-          style={{ border: "1px solid var(--color-border)" }}
+          className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+          style={{
+            border: "1px solid var(--color-border)",
+            color: "var(--color-ink3)",
+          }}
         >
-          <X size={17} strokeWidth={2} />
+          <X size={17} />
         </button>
       </header>
 
@@ -2390,7 +1340,7 @@ export default function CheckoutFlow({
               orderId={orderId}
               email={email}
               copied={copied}
-              onCopy={handleCopyOrderId}
+              onCopy={handleCopy}
               onClose={onClose}
             />
           </div>
@@ -2416,25 +1366,14 @@ export default function CheckoutFlow({
                   setEmail={setEmail}
                   reception={reception}
                   setReception={setReception}
-                  savedAddresses={savedAddresses}
-                  selectedAddressId={selectedAddressId}
-                  setSelectedAddressId={setSelectedAddressId}
                   address={address}
                   setAddress={setAddress}
                   city={city}
                   setCity={setCity}
                   zip={zip}
                   setZip={setZip}
-                  zipWarning={zipWarning}
-                  setZipWarning={setZipWarning}
-                  zipValidatedRef={zipValidatedRef}
-                  onJumpToShipping={() => setStep(2)}
                   country={country}
                   setCountry={setCountry}
-                  stateCode={stateCode}
-                  setStateCode={setStateCode}
-                  taxNumber={taxNumber}
-                  setTaxNumber={setTaxNumber}
                   message={message}
                   setMessage={setMessage}
                   errors={errors}
@@ -2455,8 +1394,6 @@ export default function CheckoutFlow({
                   setCardExpiry={setCardExpiry}
                   cardCvv={cardCvv}
                   setCardCvv={setCardCvv}
-                  saveCard={saveCard}
-                  setSaveCard={setSaveCard}
                   errors={errors}
                   setErrors={setErrors}
                   paymentError={paymentError}
@@ -2465,32 +1402,6 @@ export default function CheckoutFlow({
                   currencySymbol={currencySymbol}
                   onBack={goBack}
                   onPay={handlePay}
-                  onStripePay={handleStripePay}
-                  contactName={name}
-                  contactEmail={email}
-                  contactPhone={phone}
-                  reception={reception}
-                  address={address}
-                  city={city}
-                  zip={zip}
-                  zipWarning={zipWarning}
-                  setZipWarning={setZipWarning}
-                  onJumpToShipping={() => setStep(2)}
-                  country={country}
-                  stateCode={stateCode}
-                  taxNumber={taxNumber}
-                  message={message}
-                  cart={cart}
-                  shippingCost={shippingCost}
-                  currencyCode={currencyCode}
-                  onStripeCardSuccess={(newOrderId: string) => {
-                    setOrderId(newOrderId);
-                    setStep(4);
-                    onSuccess();
-                  }}
-                  onStripeCardError={(msg: string) => {
-                    setPaymentError(msg);
-                  }}
                 />
               )}
             </div>
@@ -2502,7 +1413,7 @@ export default function CheckoutFlow({
               total={total}
               currencySymbol={currencySymbol}
               reception={reception}
-              threshold={countryThreshold}
+              threshold={freeShippingThreshold}
             />
           </div>
         )}

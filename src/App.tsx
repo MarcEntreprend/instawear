@@ -1,1094 +1,132 @@
-//src/App.tsx — frontstore
+// src/App.tsx — démo de câblage de la Home avec le nouveau design system
 
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Header from "./components/Header";
-import AuthModal from "./components/AuthModal";
-import AccountPage from "./components/AccountPage";
-import CheckoutFlow from "./components/CheckoutFlow";
-import OrderTrackingModal from "./components/OrderTrackingModal";
-import ProfileModal from "./components/ProfileModal";
-import ToastContainer, { type Toast } from "./components/ToastContainer";
-import AdminDashboardNew from "./admin/AdminDashboardNew";
-import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
-import { useTabBadge } from "./hooks/useTabBadge";
-import { Product, CartItem } from "./types";
-import { supabase } from "./lib/supabaseClient";
-import {
-  productApi,
-  heroPromotionsApi,
-  customerApi,
-  orderApi,
-} from "./api/supabaseApi";
-import ProductDetailModal from "./components/ProductDetailModal";
-import HeroCarousel from "./components/HeroCarousel";
-import CartDrawer from "./components/CartDrawer";
-import Footer from "./components/Footer";
-import type { HeroPromotion, Favourite } from "./admin/adminTypes";
-import CatalogSection from "./components/CatalogSection";
-import { PLACEHOLDER_IMG } from "./constants/assets";
+import HeroSection from "./components/HeroSection";
 import DealsSection from "./components/DealsSection";
+import CatalogSection from "./components/CatalogSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
-import NotFound from "./components/NotFound";
+import Footer from "./components/Footer";
+import type { Product, CartItem } from "./types";
 
-// ── Product delivery info visibility switch ──
-const SHOW_PRODUCT_DELIVERY_INFO = false; // set to true to show delivery info on cards
+// TODO: remplacer par tes vraies données Supabase (productApi.list(), etc.)
+const MOCK_PRODUCTS: Product[] = [];
 
 export default function App() {
-  // Store States
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [networkError, setNetworkError] = useState(false);
-
-  // Auth, Admin & Profile States
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authInitialMode, setAuthInitialMode] = useState<
-    "login" | "signup" | "resetPassword"
-  >("login");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isUser, setIsUser] = useState(false);
-  const [userName, setUserName] = useState("");
-
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showAccountPage, setShowAccountPage] = useState(false);
-  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-
-  // Selection/Filtering States
+  const [products] = useState<Product[]>(MOCK_PRODUCTS);
+  const [loadingProducts] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedEventType, setSelectedEventType] = useState<string | null>(
-    null,
-  );
+  const [darkMode, setDarkMode] = useState(false);
 
-  // Layout View States
-  const [activeTab, setActiveTab] = useState<"store" | "admin">("store");
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  const [selectedProductInitialColor, setSelectedProductInitialColor] =
-    useState<string | null>(null);
-  const [selectedProductInitialSize, setSelectedProductInitialSize] = useState<
-    string | null
-  >(null);
-
-  // Cart Drawer State
-  const [cartOpen, setCartOpen] = useState(false);
-
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [stripeConfirmOrderId, setStripeConfirmOrderId] = useState<
-    string | null
-  >(null);
-  const [trackingOpen, setTrackingOpen] = useState(false);
-
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-
-  const currencySymbol = useCurrencySymbol();
-
-  // Dark mode
-  const [darkMode, setDarkMode] = useState(() => {
-    try {
-      return localStorage.getItem("theme") === "dark";
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
+  React.useEffect(() => {
     document.documentElement.setAttribute(
       "data-theme",
       darkMode ? "dark" : "light",
     );
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
-  // Promotions
-  const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
-  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        if (!p.isActive) return false;
+        const matchSearch = p.title
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+        const matchCat = selectedCategory
+          ? p.category === selectedCategory
+          : true;
+        return matchSearch && matchCat;
+      }),
+    [products, searchTerm, selectedCategory],
+  );
 
-  const [cart, setCart] = useState<CartItem[]>([]);
-  useTabBadge(cart, isAdmin);
-
-  const [cartLoaded, setCartLoaded] = useState(false);
-
-  // Local caches to avoid 406 errors on admin_users and customers
-  // const [adminEmails, setAdminEmails] = useState<string[]>([]);f
-  const [allCustomers, setAllCustomers] = useState<
-    { id: string; email: string }[]
-  >([]);
-  const [cacheReady, setCacheReady] = useState(false);
-
-  // Charger le panier de l'utilisateur connecté depuis Supabase
-  useEffect(() => {
-    const loadCart = async () => {
-      // ⛔ Ne pas recharger le panier depuis Supabase pendant un retour Stripe
-      if (window.location.search.includes("order=success")) {
-        setCartLoaded(true); // évite aussi la synchro
-        return;
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.email) {
-        // Recherche locale pour éviter l'erreur 406
-        const customer = allCustomers.find((c) => c.email === user.email);
-        if (customer) {
-          const cartItems = await customerApi.getCart(customer.id);
-          setCart(
-            cartItems
-              .map((item) => {
-                const product = products.find((p) => p.id === item.productId);
-                if (!product || !product.isActive) return null;
-                let unitPrice =
-                  product.price +
-                  (product.sizeSurcharge?.[item.selectedSize] ?? 0);
-                if (product.variants?.length) {
-                  const variant = product.variants.find(
-                    (v) => v.color === item.selectedColor,
-                  );
-                  if (variant?.sizes?.[item.selectedSize]?.price != null) {
-                    unitPrice = variant.sizes[item.selectedSize].price;
-                  }
-                }
-                return {
-                  product,
-                  selectedColor: item.selectedColor,
-                  selectedSize: item.selectedSize,
-                  quantity: item.quantity,
-                  unitPrice,
-                };
-              })
-              .filter((ci): ci is CartItem => ci !== null),
-          );
-          setCartLoaded(true);
-        }
-      }
-    };
-    loadCart();
-  }, [isAdmin, isUser, products]);
-
-  // Save cart to Supabase
-  useEffect(() => {
-    if (!cartLoaded) return;
-    const syncCart = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.email) return;
-      // Recherche locale pour éviter l'erreur 406
-      const customer = allCustomers.find((c) => c.email === user.email);
-      if (!customer) return;
-      // Remplacement complet : on vide puis on réinsère
-      await customerApi.clearCart(customer.id);
-      for (const item of cart) {
-        await customerApi.addCartItem(customer.id, {
-          productId: item.product.id,
-          selectedColor: item.selectedColor,
-          selectedSize: item.selectedSize,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        });
-      }
-    };
-    syncCart();
-  }, [cart, isAdmin, isUser]);
-
-  const [dealExpired, setDealExpired] = useState(false);
-  const [dealFadingOut, setDealFadingOut] = useState(false);
-
-  // afficher AdminDashboardNew en plein écran lorsqu'il est actif
-  const [showNewAdmin, setShowNewAdmin] = useState(false);
-
-  const [showNotFound, setShowNotFound] = useState(false); // not found
-
-  useEffect(() => {
-    if (showNewAdmin) {
-      setShowProfileModal(false);
-      setShowFavoritesOnly(false);
-    }
-  }, [showNewAdmin]);
-
-  // Force back to store if a non‑admin tries to access admin
-  useEffect(() => {
-    if (activeTab === "admin" && !isAdmin) {
-      setActiveTab("store");
-    }
-  }, [activeTab, isAdmin]);
-
-  // Ouvre la modale en mode reset si on arrive depuis un lien de réinitialisation
-  useEffect(() => {
-    if (
-      new URLSearchParams(window.location.search).get("resetPassword") ===
-      "true"
-    ) {
-      setAuthInitialMode("resetPassword");
-      setShowAuthModal(true);
-    }
-  }, []);
-
-  // Favorites
-  const [favorites, setFavorites] = useState<string[]>([]);
-  // Charger les favoris de l'utilisateur connecté
-  useEffect(() => {
-    const loadFavorites = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.email) {
-        // Recherche locale pour éviter l'erreur 406
-        const customer = allCustomers.find((c) => c.email === user.email);
-        if (customer) {
-          const favs = await customerApi.getFavourites(customer.id);
-          setFavorites(favs.map((f: Favourite) => f.productId));
-        }
-      }
-    };
-    loadFavorites();
-  }, [isAdmin, isUser, allCustomers]);
-
-  // Toast system
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  let toastIdCounter = useRef(0);
-  const isInitialMount = useRef(true);
-
-  //
-  useEffect(() => {
-    const loadCaches = async () => {
-      try {
-        const { customerApi } = await import("./api/supabaseApi");
-        const customers = await customerApi.list();
-        setAllCustomers(customers.map((c) => ({ id: c.id, email: c.email })));
-        setCacheReady(true);
-      } catch (e) {
-        // silent
-      }
-    };
-    loadCaches();
-  }, []);
-
-  const checkAdminEmail = async (_email: string) => {
-    try {
-      const { data } = await supabase.rpc("is_admin");
-      return !!data;
-    } catch {
-      return false;
-    }
-  };
-
-  // Promotions
-  useEffect(() => {
-    fetchProducts();
-    // fetchSettings();
-    heroPromotionsApi
-      .list()
-      .then(setHeroPromotions)
-      .catch(() => setHeroPromotions([]))
-      .finally(() => setPromotionsLoading(false));
-  }, []);
-
-  // Refresh catalog when admin modifies a product
-  useEffect(() => {
-    const handler = () => {
-      fetchProducts();
-    };
-    window.addEventListener("storefront:invalidate", handler);
-    return () => window.removeEventListener("storefront:invalidate", handler);
-  }, []);
-
-  // Listen to Supabase session changes (authentication)
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user?.email) {
-        // Vérifier localement puis côté serveur si l'utilisateur est admin
-        const isAdminUser = await checkAdminEmail(session.user.email);
-        if (isAdminUser) {
-          setIsAdmin(true);
-          setIsUser(false);
-        } else {
-          setIsUser(true);
-          setIsAdmin(false);
-        }
-      } else {
-        // Aucune session : vider les données locales
-        setIsAdmin(false);
-        setIsUser(false);
-        setCart([]);
-        setFavorites([]);
-        setCartLoaded(false);
-        setShowFavoritesOnly(false);
-      }
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session?.user?.email) {
-          // Vérifier localement puis côté serveur si l'utilisateur est admin
-          checkAdminEmail(session.user.email).then((isAdminUser) => {
-            if (isAdminUser) {
-              setIsAdmin(true);
-              setIsUser(false);
-            } else {
-              setIsUser(true);
-              setIsAdmin(false);
-            }
-          });
-        } else {
-          setIsAdmin(false);
-          setIsUser(false);
-          setCart([]);
-          setFavorites([]);
-          setCartLoaded(false);
-          setShowFavoritesOnly(false);
-        }
-      },
+  const toggleFavorite = (id: string) =>
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
     );
 
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, [cacheReady]);
-
-  // Close profile and reset when switching to admin
-  useEffect(() => {
-    if (activeTab === "admin") {
-      setShowProfileModal(false);
-      setShowFavoritesOnly(false);
-    }
-  }, [activeTab]);
-
-  // Compte à rebours basé sur le deal le plus proche
-  const dealEndTime = useMemo(() => {
-    const activeDeals = products.filter((p) => p.dealActive && p.dealEndsAt);
-    if (activeDeals.length === 0) return null;
-    // Prend la date la plus proche
-    const timestamps = activeDeals.map((p) =>
-      new Date(p.dealEndsAt!).getTime(),
-    );
-    return Math.min(...timestamps);
-  }, [products]);
-
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [countdownString, setCountdownString] = useState("");
-
-  useEffect(() => {
-    if (!dealEndTime) {
-      setTimeLeft(null);
-      setCountdownString("");
-      // Ne pas réinitialiser dealExpired si déjà true (évite le flash)
-      return;
-    }
-
-    const tick = () => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((dealEndTime - now) / 1000));
-      setTimeLeft(remaining);
-      const h = Math.floor(remaining / 3600);
-      const m = Math.floor((remaining % 3600) / 60);
-      const s = remaining % 60;
-      setCountdownString(
-        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
-      );
-      if (remaining <= 0 && !dealExpired) {
-        setDealFadingOut(true);
-        setTimeout(() => {
-          setDealExpired(true);
-          setDealFadingOut(false);
-        }, 900);
-      }
-    };
-
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [dealEndTime]);
-
-  const showToast = (
-    text: string,
-    type: "success" | "info" | "error" | "warning" = "success",
-    duration?: number,
-  ) => {
-    const id = ++toastIdCounter.current;
-    setToasts((prev) => [...prev, { id, text, type, duration }]);
-  };
-
-  const removeToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  // Fetch products from Supabase
-  const fetchProducts = async () => {
-    setLoadingProducts(true);
-    setNetworkError(false);
-    try {
-      const data = await productApi.list();
-      setProducts(data);
-    } catch (err) {
-      console.warn("Error loading products from Supabase:", err);
-      setProducts([]);
-      setNetworkError(true);
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  // Filter products by all selection constraints
-  const filteredProducts = products.filter((product) => {
-    // Exclure les produits inactifs du catalogue
-    if (!product.isActive) return false;
-
-    const matchesSearch =
-      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.tags.some((t) =>
-        t.toLowerCase().includes(searchTerm.toLowerCase()),
-      ) ||
-      product.style.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory && selectedCategory !== "deals"
-        ? product.category === selectedCategory
-        : true;
-    const matchesEventType = selectedEventType
-      ? product.eventType === selectedEventType
-      : true;
-
-    const matchesFavorites = showFavoritesOnly
-      ? favorites.includes(product.id)
-      : true;
-
-    const matchesDeals =
-      selectedCategory === "deals" ? product.dealActive === true : true;
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesEventType &&
-      matchesFavorites &&
-      matchesDeals
-    );
-  });
-
-  // Shopping cart managers
   const addToCart = (product: Product, color: string, size: string) => {
-    const targetColor = color || product.colors[0];
-    const targetSize = size || product.sizes[0];
-    const basePrice =
-      product.dealActive && !dealExpired && product.dealPrice
-        ? product.dealPrice
-        : product.price;
-    let unitPrice = basePrice + (product.sizeSurcharge?.[targetSize] ?? 0);
-
-    if (product.variants?.length) {
-      const variant = product.variants.find((v) => v.color === targetColor);
-      if (variant?.sizes?.[targetSize]?.price != null) {
-        const variantPrice = variant.sizes[targetSize].price;
-        // Appliquer le même ratio de réduction
-        if (
-          product.dealActive &&
-          !dealExpired &&
-          product.dealPrice &&
-          product.price > 0
-        ) {
-          const discountRatio = product.dealPrice / product.price;
-          unitPrice = variantPrice * discountRatio;
-        } else {
-          unitPrice = variantPrice;
-        }
-      }
-    }
-
-    const existingIndex = cart.findIndex(
-      (item) =>
-        item.product.id === product.id &&
-        item.selectedColor === targetColor &&
-        item.selectedSize === targetSize,
-    );
-
-    if (existingIndex > -1) {
-      const updatedCart = [...cart];
-      updatedCart[existingIndex].quantity += 1;
-      setCart(updatedCart);
-    } else {
-      setCart([
-        ...cart,
-        {
-          product,
-          selectedColor: targetColor,
-          selectedSize: targetSize,
-          quantity: 1,
-          unitPrice,
-        },
-      ]);
-    }
-
-    showToast(`🛒 "${product.title}" added to cart!`, "success");
+    setCart((prev) => [
+      ...prev,
+      {
+        product,
+        selectedColor: color,
+        selectedSize: size,
+        quantity: 1,
+        unitPrice: product.price,
+      },
+    ]);
   };
 
-  const removeFromCart = (index: number) => {
-    const updated = cart.filter((_, i) => i !== index);
-    setCart(updated);
+  const scrollTo = (section: string) => {
+    document
+      .getElementById(`section-${section}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const updateCartQty = (index: number, delta: number) => {
-    const updated = [...cart];
-    updated[index].quantity += delta;
-    if (updated[index].quantity <= 0) {
-      removeFromCart(index);
-    } else {
-      setCart(updated);
-    }
-  };
-
-  // Helper date generators for delivery estimates
-  const getDeliverEstimateString = (daysOffset: number) => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-    };
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + daysOffset);
-    return targetDate.toLocaleDateString("en-US", options);
-  };
-
-  // Hero Carousel banners content
-  const heroBanners = React.useMemo(() => {
-    return [...heroPromotions]
-      .filter((promo) => {
-        if (promo.isActive === false) return false;
-        const product = products.find((p) => p.id === promo.productId);
-        if (!product || product.isActive === false) return false;
-        return true;
-      })
-      .sort((a, b) => a.order - b.order)
-      .map((promo) => {
-        const product = products.find((p) => p.id === promo.productId);
-        return {
-          title: promo.title || product?.title || promo.headline || "Promotion",
-          headline: promo.headline || product?.title || "",
-          sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || "from-white via-indigo-50 to-white",
-          image: promo.image || product?.image || PLACEHOLDER_IMG,
-          tag: promo.tag || "⚡ PROMOTION",
-          productId: promo.productId,
-          showTag: promo.showTag !== false,
-          showTitle: promo.showTitle !== false,
-        };
-      });
-  }, [heroPromotions, products]);
-
-  const scrollToSection = (
-    section:
-      | "catalog"
-      | "about"
-      | "testimonials"
-      | "faq"
-      | "contact"
-      | "filters",
-  ) => {
-    const idMap: Record<string, string> = {
-      catalog: "section-catalog",
-      about: "section-about",
-      faq: "section-faq",
-      filters: "section-filters",
-    };
-    const id = idMap[section];
-    if (!id) return;
-
-    const tryScroll = (attempts: number) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else if (attempts < 20) {
-        // Jusqu'à 1 seconde (20 × 50ms)
-        setTimeout(() => tryScroll(attempts + 1), 50);
-      }
-    };
-
-    tryScroll(0);
-  };
-
-  // Stripe Checkout return handling (success / cancel)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const orderStatus = params.get("order");
-    const orderId = params.get("id");
-
-    if (!orderStatus || !orderId) return;
-
-    const handleReturn = async () => {
-      if (orderStatus === "success") {
-        try {
-          // Récupère le statut via la RPC publique (aucune donnée sensible exposée)
-          const order = await orderApi.get(orderId);
-
-          if (!order) {
-            showToast("Order not found.", "error");
-            return;
-          }
-
-          const successStatuses = [
-            "paid",
-            "pending",
-            "in_production",
-            "shipped",
-            "delivered",
-          ];
-          if (!successStatuses.includes(order.status)) {
-            showToast(
-              "Payment not confirmed. Please contact support.",
-              "error",
-            );
-            return;
-          }
-
-          // Vider le panier localement
-          setCart([]);
-          setCartLoaded(false);
-
-          // Vider le panier dans Supabase (indépendant du cache)
-          const {
-            data: { user: currentUser },
-          } = await supabase.auth.getUser();
-          if (currentUser?.email) {
-            const { data: customerData } = await supabase
-              .from("customers")
-              .select("id")
-              .eq("email", currentUser.email)
-              .maybeSingle();
-            if (customerData) {
-              await customerApi.clearCart(customerData.id);
-            }
-          }
-
-          // Afficher l'écran de confirmation
-          setStripeConfirmOrderId(orderId);
-        } catch (e) {
-          console.error("Error verifying Stripe order", e);
-          showToast("Error verifying payment.", "error");
-        }
-      } else if (orderStatus === "cancelled") {
-        showToast("Payment cancelled. Your cart is saved.", "info");
-      }
-
-      // Clean URL parameters without reloading
-      const url = new URL(window.location.href);
-      url.searchParams.delete("order");
-      url.searchParams.delete("id");
-      window.history.replaceState({}, "", url.toString());
-    };
-
-    handleReturn();
-  }, []);
-
-  // Detect user country via IP (free, no API key, CORS-friendly)
-  useEffect(() => {
-    fetch("https://api.country.is/")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.country) {
-          setDetectedCountry(data.country);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Auto-scroll to filters or catalog when a filter changes
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    const hasActiveFilter =
-      searchTerm.trim() || selectedCategory || selectedEventType;
-
-    const targetId = hasActiveFilter ? "section-filters" : "section-catalog";
-
-    const tryScroll = (attempts: number) => {
-      const el = document.getElementById(targetId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else if (attempts < 20) {
-        setTimeout(() => tryScroll(attempts + 1), 50);
-      }
-    };
-
-    const timer = setTimeout(() => tryScroll(0), 100);
-    return () => clearTimeout(timer);
-  }, [searchTerm, selectedCategory, selectedEventType]);
-
-  // Détecter les URLs inconnues pour afficher la page 404
-  useEffect(() => {
-    const checkRoute = () => {
-      const path = window.location.pathname;
-      // Routes connues
-      const knownPaths = ["/", "/unsubscribe", "/index.html"];
-      // Chemins statiques (fichiers dans /public)
-      const isStaticFile =
-        path.startsWith("/flags/") ||
-        path.startsWith("/InstaWear-") ||
-        path === "/globe-off.svg" ||
-        path === "/unsubscribe.html";
-
-      if (!knownPaths.includes(path) && !isStaticFile && path !== "/") {
-        setShowNotFound(true);
-      } else {
-        setShowNotFound(false);
-      }
-    };
-
-    checkRoute();
-    window.addEventListener("popstate", checkRoute);
-    return () => window.removeEventListener("popstate", checkRoute);
-  }, []);
-
-  const handleOpenFavorites = () => {
-    setShowFavoritesOnly(true);
-    setActiveTab("store");
-    setTimeout(() => {
-      const el = document.getElementById("section-catalog");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  };
-
-  const toggleFavorite = async (productId: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user?.email) {
-      // Pas connecté : on bascule juste en local (perdu au rechargement)
-      setFavorites((prev) =>
-        prev.includes(productId)
-          ? prev.filter((id) => id !== productId)
-          : [...prev, productId],
-      );
-      return;
-    }
-
-    // Recherche locale pour éviter l'erreur 406
-    const customer = allCustomers.find((c) => c.email === user.email);
-    const clientId = customer?.id;
-    if (!clientId) return;
-
-    const isFav = favorites.includes(productId);
-    try {
-      if (isFav) {
-        await customerApi.removeFavourite(clientId, productId);
-        setFavorites((prev) => prev.filter((id) => id !== productId));
-      } else {
-        await customerApi.addFavourite(clientId, productId);
-        setFavorites((prev) => [...prev, productId]);
-      }
-    } catch (e) {
-      console.warn("Error saving favorite", e);
-    }
-  };
-
-  // Exclude inactive products from suggestions
-  const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
-      {/* App Header */}
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "var(--color-bg)" }}
+    >
+      <div className="grain-overlay" />
       <Header
         cart={cart}
-        detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
-        onOpenCart={() => setCartOpen(true)}
-        onOpenFavorites={handleOpenFavorites}
-        onSearch={(term) => {
-          setSearchTerm(term);
-          setActiveTab("store");
-        }}
+        onOpenCart={() => {}}
+        onOpenFavorites={() => {}}
+        onOpenAuth={() => {}}
+        isLoggedIn={false}
+        onOpenAccount={() => {}}
+        onSearch={setSearchTerm}
         currentSearchTerm={searchTerm}
-        onSelectCategory={(cat) => {
-          setShowFavoritesOnly(false);
-          setSelectedCategory(cat);
-          setActiveTab("store");
-        }}
-        onSelectEventType={(type) => {
-          setShowFavoritesOnly(false);
-          setSelectedEventType(type);
-          setActiveTab("store");
-        }}
-        currentEventType={selectedEventType}
+        onSelectCategory={setSelectedCategory}
+        onSelectEventType={() => {}}
         currentCategory={selectedCategory}
-        onOpenAuth={() => setShowAuthModal(true)}
-        isAdminLoggedIn={isAdmin}
-        isUserLoggedIn={isUser}
-        onOpenProfile={() => {
-          if (activeTab === "store") setShowProfileModal(true);
-        }}
-        onLogout={async () => {
-          await supabase.auth.signOut();
-          setIsAdmin(false);
-          setIsUser(false);
-          setUserName("");
-          setCart([]);
-          setFavorites([]);
-          setCartLoaded(false);
-          setShowFavoritesOnly(false);
-          setActiveTab("store");
-        }}
-        onOpenAccount={() => setShowAccountPage(true)}
-        onScrollToSection={scrollToSection}
-        onOpenTracking={() => setTrackingOpen(true)}
-        searchSuggestions={productTitles}
+        currentEventType={null}
+        onScrollToSection={scrollTo}
         products={products}
         darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode((prev) => !prev)}
-        // onSelectProduct={(product) => setSelectedProduct(product)}
+        onToggleDarkMode={() => setDarkMode((d) => !d)}
       />
 
-      {/* Toast system */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <main className="flex-1 flex flex-col gap-14 pb-10">
+        <HeroSection onShopNow={() => scrollTo("catalog")} />
 
-      {/* Client Customer Main Storefront View */}
-      {activeTab === "store" && !stripeConfirmOrderId && (
-        <main
-          className="flex-1 flex flex-col gap-8 pb-16"
-          id="view-customer-storefront"
-        >
-          {/* Dynamic Hero Carousel Banner */}
-          <HeroCarousel
-            banners={heroBanners}
-            loading={promotionsLoading}
-            onBannerAction={(banner) => {
-              if (banner.productId) {
-                const target = products.find((p) => p.id === banner.productId);
-                if (target) {
-                  setSelectedProduct(target);
-                }
-              }
-            }}
-          />
+        <DealsSection
+          products={products}
+          countdownString="04:12:36"
+          dealExpired={false}
+          currencySymbol="$"
+          onSelectEventType={() => scrollTo("catalog")}
+          onSelectProduct={() => {}}
+        />
 
-          <DealsSection
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
-            currencySymbol={currencySymbol}
-            products={products}
-            onSelectEventType={setSelectedEventType}
-            onSelectProduct={(product) => setSelectedProduct(product)}
-          />
-
-          <CatalogSection
-            filteredProducts={filteredProducts}
-            loadingProducts={loadingProducts}
-            networkError={networkError}
-            favorites={favorites}
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
-            currencySymbol={currencySymbol}
-            showDeliveryInfo={SHOW_PRODUCT_DELIVERY_INFO}
-            getDeliverEstimateString={getDeliverEstimateString}
-            onToggleFavorite={toggleFavorite}
-            onAddToCart={addToCart}
-            onSelectProduct={(product) => setSelectedProduct(product)}
-            onClearFilters={() => {
-              setSearchTerm("");
-              setSelectedCategory(null);
-              setSelectedEventType(null);
-            }}
-            searchTerm={searchTerm}
-            selectedCategory={selectedCategory}
-            selectedEventType={selectedEventType}
-            setSearchTerm={setSearchTerm}
-            setSelectedCategory={setSelectedCategory}
-            setSelectedEventType={setSelectedEventType}
-          />
-
-          <AboutSection />
-          <ReassuranceBar />
-          <FaqSection />
-        </main>
-      )}
-
-      {/* Admin Creator Dashboard Screen 2 */}
-      {activeTab === "admin" && (
-        <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
-      )}
-
-      {/* Product Detailed Sheet Modal */}
-      {selectedProduct && (
-        <ProductDetailModal
-          product={selectedProduct}
-          currencySymbol={currencySymbol}
+        <CatalogSection
+          filteredProducts={filteredProducts}
+          loadingProducts={loadingProducts}
           favorites={favorites}
-          onClose={() => {
-            setSelectedProduct(null);
-            setSelectedProductInitialColor(null);
-            setSelectedProductInitialSize(null);
-          }}
-          initialColor={selectedProductInitialColor || undefined}
-          initialSize={selectedProductInitialSize || undefined}
+          currencySymbol="$"
           onToggleFavorite={toggleFavorite}
-          onAddToCart={(p, c, s) => {
-            addToCart(p, c, s);
-          }}
-          onBuyNow={(p, c, s) => {
-            addToCart(p, c, s);
-            setCheckoutOpen(true);
-            setSelectedProduct(null);
-          }}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
-          getDeliverEstimateString={getDeliverEstimateString}
+          onAddToCart={addToCart}
+          onSelectProduct={() => {}}
+          searchTerm={searchTerm}
+          selectedCategory={selectedCategory}
+          setSearchTerm={setSearchTerm}
+          setSelectedCategory={setSelectedCategory}
         />
-      )}
 
-      {/* Slide-over Shopping Cart drawer */}
-      {cartOpen && (
-        <CartDrawer
-          cart={cart}
-          onClose={() => setCartOpen(false)}
-          onUpdateQty={updateCartQty}
-          onRemove={removeFromCart}
-          onCheckout={() => {
-            setCartOpen(false);
-            setCheckoutOpen(true);
-          }}
-          onSelectProduct={(productId: string) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProduct(product);
-            }
-          }}
-        />
-      )}
+        <AboutSection />
+        <ReassuranceBar />
+        <FaqSection />
+      </main>
 
-      {/* Global Brand Footer */}
-      <Footer
-        isAdmin={isAdmin}
-        onSelectEventType={setSelectedEventType}
-        onNavigate={setActiveTab}
-        onOpenAdmin={() => setShowNewAdmin(true)}
-      />
-
-      {showAuthModal && (
-        <AuthModal
-          initialMode={authInitialMode}
-          onClose={() => setShowAuthModal(false)}
-          onLoginSuccess={(isAdminLogin, name) => {
-            if (isAdminLogin) {
-              setIsAdmin(true);
-              setActiveTab("admin");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            } else {
-              setIsUser(true);
-              setUserName(name || "");
-            }
-            setShowAuthModal(false);
-          }}
-          onSignUpSuccess={(name) => {
-            setIsUser(true);
-            setUserName(name);
-            setShowAuthModal(false);
-            showToast(`Welcome, ${name}! Your account has been created.`);
-          }}
-        />
-      )}
-
-      {showProfileModal && activeTab === "store" && (
-        <ProfileModal
-          isAdmin={isAdmin}
-          userName={userName}
-          allCustomers={allCustomers}
-          onClose={() => setShowProfileModal(false)}
-          onLogout={async () => {
-            await supabase.auth.signOut();
-            setIsAdmin(false);
-            setIsUser(false);
-            setUserName("");
-            setCart([]);
-            setFavorites([]);
-            setCartLoaded(false);
-            setShowFavoritesOnly(false);
-            setActiveTab("store");
-          }}
-        />
-      )}
-
-      {showAccountPage && (
-        <AccountPage
-          onClose={() => setShowAccountPage(false)}
-          onViewProduct={(productId, initialColor, initialSize) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
-            }
-          }}
-        />
-      )}
-
-      {/*  rendu du nouveau Admin en dehors du flux normal */}
-      {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
-      {showNewAdmin && isAdmin && (
-        <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
-      )}
-
-      {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
-      {checkoutOpen && (
-        <CheckoutFlow
-          cart={cart}
-          detectedCountry={detectedCountry}
-          onUpdateQty={updateCartQty}
-          onRemoveItem={removeFromCart}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => {
-            setCart([]);
-            showToast(
-              "🎉 Order confirmed! A confirmation email has been sent.",
-              "success",
-            );
-          }}
-        />
-      )}
-
-      {/* Confirmation mode after Stripe return */}
-      {stripeConfirmOrderId && (
-        <CheckoutFlow
-          cart={[]}
-          detectedCountry={detectedCountry}
-          onUpdateQty={() => {}}
-          onRemoveItem={() => {}}
-          onClose={() => setStripeConfirmOrderId(null)}
-          onSuccess={() => {}}
-          confirmModeOrderId={stripeConfirmOrderId}
-        />
-      )}
-
-      {/* Order Tracking Modal */}
-      {trackingOpen && (
-        <OrderTrackingModal
-          onClose={() => setTrackingOpen(false)}
-          onSelectProduct={(productId, initialColor, initialSize) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
-            }
-          }}
-        />
-      )}
-
-      {showNotFound && (
-        <NotFound
-          onBack={() => {
-            window.location.href = "/";
-          }}
-        />
-      )}
+      <Footer isAdmin={false} />
     </div>
   );
 }

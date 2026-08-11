@@ -1,192 +1,125 @@
 // src/components/Footer.tsx
 
-import { useState } from "react";
-import { Send, Loader2, Instagram, Twitter, Facebook } from "lucide-react";
-import { newsletterApi } from "../api/supabaseApi";
-import { LOGO_URL } from "../constants/assets";
+import React, { useState } from "react";
+import { Send, Instagram, Twitter, Facebook, Loader2 } from "lucide-react";
 
 interface FooterProps {
-  isAdmin: boolean;
-  onSelectEventType: (type: string) => void;
-  onNavigate: (tab: "store" | "admin") => void;
-  onOpenAdmin?: () => void;
+  isAdmin?: boolean;
+  onNavigateAdmin?: () => void;
 }
 
 export default function Footer({
-  isAdmin,
-  onSelectEventType,
-  onNavigate,
-  onOpenAdmin,
+  isAdmin = false,
+  onNavigateAdmin,
 }: FooterProps) {
   const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-  const [valid, setValid] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
 
-  const [subscribing, setSubscribing] = useState(false);
-  const [message, setMessage] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !valid) return;
-    setSubscribing(true);
-    try {
-      const result = await newsletterApi.subscribe(email);
-      if (result.success) {
-        setSubscribed(true);
-        setMessage(result.message);
-        setTimeout(() => {
-          setSubscribed(false);
-          setEmail("");
-          setValid(false);
-          setMessage("");
-        }, 5000);
-      } else {
-        setMessage(result.message);
-        setTimeout(() => setMessage(""), 3000);
-      }
-    } catch {
-      setMessage("Something went wrong. Please try again.");
-    } finally {
-      setSubscribing(false);
-    }
+    if (!email) return;
+    setSending(true);
+    setTimeout(() => {
+      setSending(false);
+      setDone(true);
+      setTimeout(() => {
+        setDone(false);
+        setEmail("");
+      }, 3000);
+    }, 900);
   };
 
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 py-12 px-4 mt-auto">
-      <div
-        className={`section-container grid grid-cols-1 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"} gap-8`}
-      >
-        <div className="space-y-4">
-          <div className="flex items-center gap-1.5">
-            <img
-              src={LOGO_URL}
-              alt="InstaWear Logo"
-              className="w-8 h-8 rounded-lg object-cover"
-            />
-            <span className="font-black text-lg text-gray-900">InstaWear</span>
-          </div>
-          <p className="text-xs text-gray-500 leading-relaxed font-sans">
-            The first autonomous print‑on‑demand marketplace built for global
-            events.
+    <footer
+      className="mt-16"
+      style={{
+        background: "var(--color-cta-bg)",
+        color: "var(--color-cta-ink)",
+      }}
+    >
+      <div className="section-container py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="md:col-span-2 flex flex-col gap-4">
+          <span className="font-display font-black text-2xl">
+            Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+          </span>
+          <p className="text-sm opacity-70 max-w-xs leading-relaxed">
+            The autonomous print-on-demand marketplace built for global culture
+            and events.
           </p>
-          <div className="flex items-center gap-3">
-            <a
-              href="#"
-              className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-            >
-              <Twitter className="w-4 h-4" />
-            </a>
-            <a
-              href="#"
-              className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-            >
-              <Instagram className="w-4 h-4" />
-            </a>
-            <a
-              href="#"
-              className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-(--color-accent) transition-colors"
-            >
-              <Facebook className="w-4 h-4" />
-            </a>
+          <div className="flex items-center gap-3 mt-1">
+            {[Twitter, Instagram, Facebook].map((Icon, i) => (
+              <a
+                key={i}
+                href="#"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                style={{ background: "rgba(255,255,255,0.1)" }}
+              >
+                <Icon size={15} />
+              </a>
+            ))}
           </div>
         </div>
 
         <div>
-          <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-            Events
+          <h4 className="text-xs font-black uppercase tracking-widest opacity-60 mb-4">
+            Shop
           </h4>
-          <ul className="space-y-2.5 text-xs text-gray-500">
-            {[
-              { label: "Champions League Finals", type: "sport" },
-              { label: "Rio Carnival Neon", type: "culture" },
-              { label: "Bavarian Oktoberfest", type: "culture" },
-              { label: "Halloween Glow", type: "saisonnier" },
-            ].map((ev) => (
-              <li key={ev.type + ev.label}>
+          <ul className="flex flex-col gap-2.5 text-sm opacity-80">
+            <li>New Arrivals</li>
+            <li>Best Sellers</li>
+            <li>Deals</li>
+            {isAdmin && (
+              <li>
                 <button
-                  onClick={() => {
-                    onSelectEventType(ev.type);
-                    onNavigate("store");
-                  }}
-                  className="hover:text-(--color-accent) transition-colors"
+                  onClick={onNavigateAdmin}
+                  className="hover:opacity-100 opacity-80"
                 >
-                  {ev.label}
+                  Admin Dashboard
                 </button>
               </li>
-            ))}
+            )}
           </ul>
         </div>
 
-        {isAdmin && (
-          <div>
-            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">
-              Creator Hub
-            </h4>
-            <ul className="space-y-2.5 text-xs text-gray-500">
-              {[
-                "POD Design Form",
-                "Printful API Setup",
-                "Zero Budget Guide",
-                "Gemini AI Generator",
-              ].map((item) => (
-                <li key={item}>
-                  <button
-                    onClick={() => {
-                      onNavigate("admin");
-                    }}
-                    className="hover:text-(--color-accent) transition-colors"
-                  >
-                    {item}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">
+        <div>
+          <h4 className="text-xs font-black uppercase tracking-widest opacity-60 mb-4">
             Newsletter
           </h4>
-          <p className="text-xs text-gray-500 leading-relaxed font-sans">
-            Subscribe to get early alerts on limited drops for every upcoming
-            event!
+          <p className="text-sm opacity-70 mb-3">
+            Get 10% off your first order.
           </p>
-          {message && (
-            <div
-              className={`p-2.5 border rounded text-xs ${subscribed ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "bg-amber-500/10 border-amber-500/30 text-amber-600"}`}
+          {done ? (
+            <p
+              className="text-sm font-bold"
+              style={{ color: "var(--color-accent2)" }}
             >
-              {message}
-            </div>
-          )}
-          {!message && (
-            <form onSubmit={handleSubmit} className="flex items-center gap-1">
+              You're subscribed! 🎉
+            </p>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
               <input
                 type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setValid(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value));
-                }}
-                className="bg-white border border-gray-200 rounded p-2 text-xs text-gray-900 flex-1 focus:border-cyan-400 focus:outline-none"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-full text-xs outline-none"
+                style={{
+                  background: "rgba(255,255,255,0.1)",
+                  color: "inherit",
+                }}
               />
               <button
                 type="submit"
-                disabled={subscribing || !valid}
-                className="p-2 rounded transition-all duration-200"
-                style={{
-                  background: valid ? "var(--color-accent)" : "transparent",
-                  color: valid ? "white" : "var(--color-accent)",
-                  border: `1.5px solid var(--color-accent)`,
-                  opacity: subscribing ? 0.6 : 1,
-                }}
+                disabled={sending}
+                className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center"
+                style={{ background: "var(--color-accent)" }}
               >
-                {subscribing ? (
+                {sending ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
-                  <Send className="w-3.5 h-3.5" />
+                  <Send size={14} />
                 )}
               </button>
             </form>
@@ -194,32 +127,15 @@ export default function Footer({
         </div>
       </div>
 
-      <div className="section-container mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-gray-500 font-sans">
-        <p>
-          © 2026 InstaWear Inc. All rights reserved. Powered by Cloud Run,
-          Next.js commerce & the Printful API.
-        </p>
+      <div
+        className="section-container py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs opacity-50"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        <p>© 2026 InstaWear Inc. All rights reserved.</p>
         <div className="flex gap-4">
-          <a href="#" className="hover:underline">
-            Legal Notice
-          </a>
-          <span>•</span>
-          <a href="#" className="hover:underline">
-            Print Policy
-          </a>
-          <span>•</span>
-          <a href="#" className="hover:underline">
-            Creator Terms
-          </a>
-          <span>•</span>
-          {isAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="hover:text-(--color-accent) transition-colors bg-transparent border-none cursor-pointer text-[11px] text-gray-500"
-            >
-              Admin Menu (Beta)
-            </button>
-          )}
+          <a href="#">Legal</a>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
         </div>
       </div>
     </footer>

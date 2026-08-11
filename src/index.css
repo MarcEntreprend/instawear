@@ -1,413 +1,247 @@
-/* src\index.css */
+/* src/index.css */
 
 @import "tailwindcss";
 
-/* ── Design Tokens ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — "Kinetic Editorial"
+   Orange incendiaire + Indigo électrique, sur base ink/blanc.
+   Boutons CTA en "ink" (noir en light, blanc cassé en dark) pour
+   coller à l'esthétique Sparkel (gros pills noirs).
+   ══════════════════════════════════════════════════════════════════ */
 :root {
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-serif: "DM Serif Display", Georgia, serif;
+  --font-display: "Clash Display", "Plus Jakarta Sans", sans-serif;
 
-  /* Palette: Soft Structuralism - warm whites + coral accent */
-  --color-bg: #fafaf8;
+  /* Surfaces */
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-surface2: #f4f3f0;
-  --color-border: #e8e6e1;
-  --color-border2: #d5d2cc;
+  --color-surface2: #f5f5f3;
+  --color-surface3: #eeeeec;
+  --color-border: #e7e6e2;
+  --color-border2: #d6d4ce;
 
-  --color-ink: #1a1916;
-  --color-ink2: #3d3b38;
-  --color-ink3: #7a7872;
-  --color-ink4: #b5b3af;
+  /* Ink (texte) */
+  --color-ink: #0b0b0a;
+  --color-ink2: #43423e;
+  --color-ink3: #7a7972;
+  --color-ink4: #adaba3;
 
-  --color-accent: #ff5c35;
-  --color-accent2: #ff8b6b;
-  --color-accent-bg: #fff2ef;
+  /* Accent — Orange */
+  --color-accent: #ff5a1f;
+  --color-accent2: #ff8a5b;
+  --color-accent-bg: #fff1ea;
+  --color-accent-hover: #e04c15;
 
-  --color-gold: #e8a020;
-  --color-emerald: #1a8c5c;
+  /* Secondaire — Indigo électrique */
+  --color-indigo: #6e52ff;
+  --color-indigo2: #9c8bff;
+  --color-indigo-bg: #efebff;
 
-  /* Shadows: warm-tinted, not generic black */
+  /* CTA (boutons pleins, "pill" noirs) */
+  --color-cta-bg: #0b0b0a;
+  --color-cta-bg-hover: #262622;
+  --color-cta-ink: #ffffff;
+
+  /* États */
+  --color-success: #16a34a;
+  --color-success-bg: #dcfce7;
+  --color-negative: #ef4444;
+  --color-negative-bg: #fef2f2;
+  --color-gold: #f0b429;
+  --color-gold-bg: #fef6df;
+
+  /* Ombres — teintées chaud, jamais noir plat */
   --shadow-sm:
-    0 1px 3px rgba(26, 25, 22, 0.06), 0 1px 2px rgba(26, 25, 22, 0.04);
+    0 1px 2px rgba(11, 11, 10, 0.05), 0 1px 3px rgba(11, 11, 10, 0.04);
   --shadow-md:
-    0 4px 16px rgba(26, 25, 22, 0.08), 0 2px 4px rgba(26, 25, 22, 0.04);
+    0 4px 16px rgba(11, 11, 10, 0.07), 0 2px 6px rgba(11, 11, 10, 0.05);
   --shadow-lg:
-    0 8px 40px rgba(26, 25, 22, 0.1), 0 4px 12px rgba(26, 25, 22, 0.05);
+    0 12px 40px rgba(11, 11, 10, 0.1), 0 4px 12px rgba(11, 11, 10, 0.06);
   --shadow-xl:
-    0 20px 60px rgba(26, 25, 22, 0.12), 0 8px 20px rgba(26, 25, 22, 0.06);
+    0 24px 70px rgba(11, 11, 10, 0.14), 0 8px 24px rgba(11, 11, 10, 0.07);
   --shadow-accent:
-    0 8px 32px rgba(255, 92, 53, 0.2), 0 2px 8px rgba(255, 92, 53, 0.12);
+    0 10px 30px rgba(255, 90, 31, 0.28), 0 2px 8px rgba(255, 90, 31, 0.16);
+  --shadow-indigo:
+    0 10px 30px rgba(110, 82, 255, 0.28), 0 2px 8px rgba(110, 82, 255, 0.16);
 
-  /* Bezier curves */
+  /* Easings */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --radius-pill: 999px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 }
 
-/* ════════════════════════════════════════════════════════════════
-   DARK MODE — "Ethereal Coral"
-   Activé via [data-theme="dark"] sur <html> (déjà posé par App.tsx)
-   Repose entièrement sur les CSS variables déjà utilisées partout
-   dans Header.tsx / App.tsx → aucun changement de composant requis.
-   ════════════════════════════════════════════════════════════════ */
-
+/* ══════════════════════════════ DARK MODE ══════════════════════════ */
 [data-theme="dark"] {
-  /* ── Surfaces : noir profond chaud, pas un gris neutre ── */
-  --color-bg: #121110;
-  --color-surface: #1c1b19;
-  --color-surface2: #252422;
+  --color-bg: #0a0a0b;
+  --color-surface: #141416;
+  --color-surface2: #1c1c1f;
+  --color-surface3: #232326;
   --color-border: rgba(255, 255, 255, 0.09);
-  --color-border2: rgba(255, 255, 255, 0.15);
+  --color-border2: rgba(255, 255, 255, 0.16);
 
-  --color-ink: #e8e6e1;
-  --color-ink2: #b8b5ae;
-  --color-ink3: #807d76;
-  --color-ink4: #5a5753;
+  --color-ink: #f4f4f2;
+  --color-ink2: #c6c5c0;
+  --color-ink3: #8c8b86;
+  --color-ink4: #5a5a56;
 
-  /* ── Accent : le corail devient lumineux, pas juste plus clair ── */
-  --color-accent: #ff6b45;
-  --color-accent2: #ffa07d;
-  --color-accent-bg: rgba(255, 107, 69, 0.12);
-  --color-accent-hover: #ff8159;
-  --color-accent-soft: rgba(255, 107, 69, 0.16);
-  --color-accent-soft2: rgba(255, 107, 69, 0.08);
+  --color-accent: #ff6b35;
+  --color-accent2: #ff9a6b;
+  --color-accent-bg: rgba(255, 107, 53, 0.14);
+  --color-accent-hover: #ff8154;
 
-  --color-gold: #f0b13d;
-  --color-gold-bg: rgba(240, 177, 61, 0.1);
-  --color-emerald: #2fb87a;
+  --color-indigo: #8b72ff;
+  --color-indigo2: #b3a3ff;
+  --color-indigo-bg: rgba(139, 114, 255, 0.16);
+
+  --color-cta-bg: #f4f4f2;
+  --color-cta-bg-hover: #ffffff;
+  --color-cta-ink: #0a0a0a;
+
   --color-success: #4ade80;
-  --color-success-bg: rgba(74, 222, 128, 0.15);
-  --color-ink5: #2a2826;
+  --color-success-bg: rgba(74, 222, 128, 0.14);
+  --color-negative: #f87171;
+  --color-negative-bg: rgba(248, 113, 113, 0.14);
+  --color-gold: #f5c451;
+  --color-gold-bg: rgba(245, 196, 81, 0.14);
 
-  /* ── Ombres : teinte chaude + glow d'accent, jamais de noir plat ── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 24px 70px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-accent:
-    0 8px 32px rgba(255, 107, 69, 0.32), 0 2px 10px rgba(255, 107, 69, 0.18);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 24px 70px rgba(0, 0, 0, 0.6);
+  --shadow-accent: 0 10px 32px rgba(255, 107, 53, 0.32);
+  --shadow-indigo: 0 10px 32px rgba(139, 114, 255, 0.32);
 }
 
-[data-theme="dark"] {
-  /* … autres variables … */
-  --color-header-scrolled: rgba(28, 27, 25, 0.92); /* noir chaud translucide */
-}
-
-/* ── Fond global : mesh radial très subtil (glow ambiant, pas un dégradé criard) ── */
 [data-theme="dark"] body {
-  background-color: var(--color-bg);
   background-image:
     radial-gradient(
-      ellipse 70% 50% at 15% -10%,
-      rgba(255, 107, 69, 0.07),
+      ellipse 60% 45% at 10% -5%,
+      rgba(255, 107, 53, 0.08),
       transparent 60%
     ),
     radial-gradient(
-      ellipse 60% 40% at 100% 10%,
-      rgba(255, 160, 125, 0.045),
+      ellipse 55% 40% at 100% 0%,
+      rgba(139, 114, 255, 0.07),
       transparent 60%
     );
   background-attachment: fixed;
 }
 
-/* ── Grain overlay plus présent en sombre (sinon invisible sur noir) ── */
-[data-theme="dark"] .grain-overlay {
-  opacity: 0.035;
-}
-
-/* ── Glass panels : verre dépoli sombre, hairline blanche fine ── */
-[data-theme="dark"] .glass {
-  background: rgba(20, 19, 18, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    var(--shadow-md);
-}
-
-/* ── Double-bezel : l'inner highlight blanc plein devient une lueur fine ── */
-[data-theme="dark"] .bezel-outer {
-  background: var(--color-surface2);
-  border: 1px solid var(--color-border);
-}
-[data-theme="dark"] .bezel-inner {
-  background: var(--color-surface);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-/* ── Sticky header : le voile au scroll passe en noir translucide ── */
-[data-theme="dark"] header[style*="position: sticky"],
-[data-theme="dark"] header {
-  color-scheme: dark;
-}
-
-/* ── Heart button flottant sur images produit ── */
-[data-theme="dark"] .btn-heart {
-  background: rgba(20, 19, 18, 0.78);
-  border-color: var(--color-border);
-}
-[data-theme="dark"] .btn-heart:hover {
-  background: rgba(28, 26, 24, 0.92);
-}
-
-/* ── Inputs / range / scrollbar : cohérence sombre ── */
-[data-theme="dark"] ::-webkit-scrollbar-track {
-  background: var(--color-bg);
-}
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-}
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
-}
-[data-theme="dark"] input[type="range"] {
-  background: var(--color-border2);
-}
-
-/* ── Anneau de focus : légèrement plus doux sur fond noir ── */
-[data-theme="dark"] :focus-visible {
-  outline-color: var(--color-accent2);
-}
-
-/* ── Skeleton loader : shimmer adapté au sombre ── */
-[data-theme="dark"] .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--color-surface2) 25%,
-    rgba(255, 255, 255, 0.06) 50%,
-    var(--color-surface2) 75%
-  );
-  background-size: 200% 100%;
-}
-
-/* ── Cartes produit / sections en dur dans App.tsx (bg-white, border-gray-200…)
-     Ces classes Tailwind statiques ne lisent pas les variables : on les
-     neutralise proprement en dark mode pour qu'elles suivent le thème. ── */
-[data-theme="dark"] .bg-white,
-[data-theme="dark"] .bg-gray-50,
-[data-theme="dark"] .bg-white\/60,
-[data-theme="dark"] .bg-white\/40,
-[data-theme="dark"] .bg-white\/20,
-[data-theme="dark"] .bg-gray-50\/60,
-[data-theme="dark"] .bg-gray-50\/40,
-[data-theme="dark"] .bg-gray-50\/20 {
-  background-color: var(--color-surface) !important;
-}
-
-[data-theme="dark"] .border-gray-200,
-[data-theme="dark"] .border-gray-200\/60 {
-  border-color: var(--color-border) !important;
-}
-
-[data-theme="dark"] .text-gray-900 {
-  color: var(--color-ink) !important;
-}
-[data-theme="dark"] .text-gray-600,
-[data-theme="dark"] .text-gray-500 {
-  color: var(--color-ink3) !important;
-}
-
-[data-theme="dark"] .bg-gray-100 {
-  background-color: var(--color-surface2) !important;
-}
-
-/* Carte produit & bento : remonter légèrement les surfaces imbriquées
-   pour garder une hiérarchie de profondeur visible sur fond noir */
-[data-theme="dark"] .bg-gray-50\/60.border.border-gray-200.rounded-2xl,
-[data-theme="dark"] [class*="bg-gray-50"][class*="rounded-2xl"] {
-  background-color: var(--color-surface2) !important;
-}
-
-/* Images produit en sombre : aucun voile, juste un fond de fallback discret */
-[data-theme="dark"] img {
-  filter: none;
-}
-
-/* Pilule "Aperçu rapide" en sombre */
-[data-theme="dark"] [class*="bg-white/90"] {
-  background-color: rgba(20, 19, 18, 0.88) !important;
-}
-[data-theme="dark"] [class*="bg-white/90"] span,
-[data-theme="dark"]
-  [class*="text-gray-900"][class*="font-bold"][class*="text-xs"] {
-  color: var(--color-ink) !important;
-}
-[data-theme="dark"] [class*="bg-white/90"] .text-\(--color-accent\) {
-  color: var(--color-accent) !important;
-}
-[data-theme="dark"] [class*="border-gray-200"][class*="shadow-xl"] {
-  border-color: var(--color-border) !important;
-}
-
-/* Footer */
-[data-theme="dark"] footer.bg-gray-50 {
-  background-color: var(--color-bg) !important;
-}
-
-/* Modals (product sheet, cart drawer) : fond translucide sombre au lieu du voile clair */
-[data-theme="dark"] .bg-gray-50\/80.backdrop-blur-md {
-  background-color: rgba(10, 9, 8, 0.82) !important;
-}
-
-/* Sidebar admin en mode sombre */
-[data-theme="dark"] .admin-sidebar-desktop {
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-}
-
-[data-theme="dark"] .admin-sidebar-desktop button,
-[data-theme="dark"] .admin-sidebar-desktop a {
-  color: var(--color-ink2);
-}
-
-[data-theme="dark"] .admin-sidebar-desktop .active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-/* Suggestions de recherche en mode sombre */
-[data-theme="dark"] .search-rainbow + div,
-[data-theme="dark"] div[class*="absolute top-full"] {
-  background-color: var(--color-surface) !important;
-  border-color: var(--color-border) !important;
-}
-
-[data-theme="dark"] div[class*="absolute top-full"] button {
-  color: var(--color-ink2) !important;
-  border-bottom-color: var(--color-border) !important;
-}
-
-[data-theme="dark"] div[class*="absolute top-full"] button:hover {
-  background-color: var(--color-surface2) !important;
-  color: var(--color-ink) !important;
-}
-
-[data-theme="dark"] div[class*="absolute top-full"] strong {
-  color: var(--color-accent) !important;
-}
-
-[data-theme="dark"]
-  div[class*="absolute top-full"]
-  span[class*="rounded-full"] {
-  background-color: var(--color-surface2) !important;
-  border-color: var(--color-border) !important;
-  color: var(--color-ink3) !important;
-}
-
-/* Toast notification en mode sombre */
-[data-theme="dark"] .fixed.bottom-6.right-6 {
-  background-color: var(--color-surface) !important;
-  border-left-color: var(--color-accent) !important;
-}
-[data-theme="dark"] .fixed.bottom-6.right-6 .text-gray-900 {
-  color: var(--color-ink) !important;
-}
-[data-theme="dark"] .fixed.bottom-6.right-6 .text-gray-600 {
-  color: var(--color-ink2) !important;
-}
-
-/* ── Toggle thème animé ─────────────────────────────────────── */
-.theme-toggle-icon {
-  transition:
-    transform 0.4s var(--ease-spring),
-    opacity 0.3s ease;
-}
-
-.theme-toggle-icon.enter {
-  animation: themeIconEnter 0.4s var(--ease-spring) forwards;
-}
-
-.theme-toggle-icon.exit {
-  animation: themeIconExit 0.3s ease forwards;
-}
-
-@keyframes themeIconEnter {
-  0% {
-    opacity: 0;
-    transform: rotate(-90deg) scale(0.6);
-  }
-  100% {
-    opacity: 1;
-    transform: rotate(0deg) scale(1);
-  }
-}
-
-@keyframes themeIconExit {
-  0% {
-    opacity: 1;
-    transform: rotate(0deg) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: rotate(90deg) scale(0.6);
-  }
-}
-
-/* ── Base ───────────────────────────────────────────────────── */
+/* ══════════════════════════════ BASE ══════════════════════════════ */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
-
 html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
-
 body {
   font-family: var(--font-sans);
   background-color: var(--color-bg);
   color: var(--color-ink);
-  line-height: 1.6;
   margin: 0;
+  line-height: 1.5;
 }
-
 ::selection {
   background: var(--color-accent);
   color: #fff;
 }
-
-/* ── Typography ─────────────────────────────────────────────── */
-.font-serif {
-  font-family: var(--font-serif) !important;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  letter-spacing: -0.02em;
 }
-.font-sans {
-  font-family: var(--font-sans) !important;
+p {
+  text-wrap: pretty;
 }
 
-/* ── Scrollbar (subtle) ─────────────────────────────────────── */
+.font-display {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.03em;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: var(--color-bg);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border2);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink4);
+  border-radius: 4px;
 }
 
-/* ── Utility classes ────────────────────────────────────────── */
-.grain-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  pointer-events: none;
-  opacity: 0.018;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-size: 128px;
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
-/* ── Animations ─────────────────────────────────────────────── */
+.section-container {
+  max-width: 1360px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+@media (min-width: 768px) {
+  .section-container {
+    padding-inline: 40px;
+  }
+}
+@media (min-width: 1280px) {
+  .section-container {
+    padding-inline: 64px;
+  }
+}
+
+/* ══════════════════════════════ UTILITIES ══════════════════════════ */
+.glass {
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--color-border);
+}
+
+.card-lift {
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out);
+}
+.card-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+.pill {
+  border-radius: var(--radius-pill);
+}
+
+.bezel-outer {
+  background: var(--color-surface2);
+  border: 1px solid var(--color-border);
+  padding: 6px;
+  border-radius: var(--radius-xl);
+}
+.bezel-inner {
+  background: var(--color-surface);
+  border-radius: 22px;
+  overflow: hidden;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -422,472 +256,6 @@ body {
     opacity: 1;
   }
 }
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes pulse-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-@keyframes ticker {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-@keyframes shimmer {
-  from {
-    background-position: -200% 0;
-  }
-  to {
-    background-position: 200% 0;
-  }
-}
-
-.animate-fade-up {
-  animation: fadeUp 0.6s var(--ease-out) both;
-}
-.animate-fade-in {
-  animation: fadeIn 0.4s ease both;
-}
-.animate-slide-right {
-  animation: slideInRight 0.4s var(--ease-smooth) both;
-}
-.animate-slide-left {
-  animation: slideInLeft 0.4s var(--ease-smooth) both;
-}
-.animate-ticker {
-  animation: ticker 28s linear infinite;
-}
-
-/* Stagger helpers */
-.delay-1 {
-  animation-delay: 0.1s;
-}
-.delay-2 {
-  animation-delay: 0.2s;
-}
-.delay-3 {
-  animation-delay: 0.3s;
-}
-.delay-4 {
-  animation-delay: 0.4s;
-}
-.delay-5 {
-  animation-delay: 0.5s;
-}
-
-/* Skeleton loader */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--color-surface2) 25%,
-    var(--color-border) 50%,
-    var(--color-surface2) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-/* Product card hover lift */
-
-/* card lift v2 */
-/* .card-lift {
-  transition:
-    transform 0.3s var(--ease-out),
-    box-shadow 0.3s var(--ease-out);
-}
-.card-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-} */
-
-/* Fusion v2+ v3 : ajout de will-change et easing plus fluide, sans changer les valeurs de transformation */
-.card-lift {
-  transition:
-    transform 0.35s var(--ease-out-expo),
-    box-shadow 0.35s var(--ease-out-expo);
-  will-change: transform;
-}
-.card-lift:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-xl);
-}
-
-/* Double-bezel shell */
-.bezel-outer {
-  background: var(--color-surface2);
-  border: 1px solid var(--color-border);
-  padding: 6px;
-  border-radius: 20px;
-}
-.bezel-inner {
-  background: var(--color-surface);
-  border-radius: 15px;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9);
-  overflow: hidden;
-}
-
-/* Ticker scrolling band */
-.ticker-wrap {
-  overflow: hidden;
-}
-.ticker-inner {
-  display: flex;
-  width: max-content;
-}
-
-/* Pill badge */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1.6;
-}
-
-/* Frosted glass panel (web approximation) */
-.glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    var(--shadow-md);
-}
-
-/* Focus ring */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Scrollbar hidden utility */
-.scrollbar-none {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
-
-/* ── Range input ────────────────────────────────────────────── */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-border);
-  outline: none;
-  cursor: pointer;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: transform 0.2s var(--ease-spring);
-}
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
-
-/* ── Confetti Button ────────────────────────────────────────── */
-.confetti-button {
-  cursor: pointer;
-  position: relative;
-  --confetti-color: var(--color-accent);
-  --text-color: 255 255 255;
-}
-.confetti-button::before,
-.confetti-button::after {
-  position: absolute;
-  content: "";
-  display: none;
-  width: 140%;
-  max-width: 160px;
-  height: 100%;
-  left: -20%;
-  z-index: 1;
-  pointer-events: none;
-  transition: all ease-in-out 0.8s;
-  background-repeat: no-repeat;
-}
-.confetti-button::before {
-  content: attr(data-confetti-text);
-  top: -85%;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  transform: rotate(-8deg);
-  color: var(--color-ink);
-  background-image:
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(
-      circle,
-      transparent 20%,
-      var(--confetti-color) 20%,
-      transparent 30%
-    ),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(
-      circle,
-      transparent 10%,
-      var(--confetti-color) 15%,
-      transparent 20%
-    ),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%);
-  background-size:
-    10% 10%,
-    20% 20%,
-    15% 15%,
-    20% 20%,
-    18% 18%,
-    10% 10%,
-    15% 15%,
-    10% 10%,
-    18% 18%;
-  background-position:
-    5% 10%,
-    20% 80%,
-    40% 30%,
-    60% 70%,
-    80% 20%,
-    15% 60%,
-    70% 50%,
-    90% 15%,
-    50% 85%;
-}
-.confetti-button::after {
-  bottom: -75%;
-  background-image:
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(
-      circle,
-      transparent 10%,
-      var(--confetti-color) 15%,
-      transparent 20%
-    ),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%),
-    radial-gradient(circle, var(--confetti-color) 20%, transparent 20%);
-  background-size:
-    15% 15%,
-    20% 20%,
-    18% 18%,
-    20% 20%,
-    15% 15%,
-    10% 10%,
-    20% 20%;
-  background-position:
-    10% 15%,
-    30% 70%,
-    50% 40%,
-    70% 80%,
-    90% 10%,
-    25% 55%,
-    80% 35%;
-}
-.confetti-button:active::before,
-.confetti-button:active::after,
-.confetti-button.active::before,
-.confetti-button.active::after {
-  display: block;
-  animation: confettiFadeIn 0.6s ease-out forwards;
-}
-
-@keyframes confettiFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(10px) scale(0.8);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* ── Live dot ───────────────────────────────────────────────── */
-.live-dot {
-  position: relative;
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-}
-.live-dot::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 2px solid #ef4444;
-  animation: pulse-ring 1.5s ease-out infinite;
-}
-
-/* ── Responsive text-wrap ───────────────────────────────────── */
-h1,
-h2,
-h3 {
-  text-wrap: balance;
-}
-p {
-  text-wrap: pretty;
-}
-
-/* Heart button */
-.btn-heart {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    transform 0.2s var(--ease-spring),
-    background 0.2s;
-  z-index: 2;
-}
-.btn-heart:hover {
-  transform: scale(1.12);
-  background: white;
-}
-.btn-heart.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-.btn-heart.active svg {
-  color: white;
-  fill: white;
-}
-
-/* WhatsApp / Telegram floating buttons */
-.float-btn {
-  position: fixed;
-  right: 24px;
-  z-index: 40;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
-  transition:
-    transform 0.25s var(--ease-spring),
-    box-shadow 0.25s;
-}
-.float-btn:hover {
-  transform: scale(1.1) translateY(-2px);
-  box-shadow: var(--shadow-xl);
-}
-
-/* les ajouts de la V3 qui n’existent pas dans la V2 */
-
-/* Variables de bordure arrondie (utilisées par ProductModal et d’autres) des boutons, images, cercle de logo...*/
-/* :root {
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-  --radius-2xl: 36px;
-  --radius-pill: 9999px;
-} */
-
-/* Classe de centrage .section-container (utilisée dans App.tsx) */
-.section-container {
-  max-width: 1280px;
-  margin-inline: auto;
-  padding-inline: 16px; /* aligné sur le px-4 du header */
-}
-
-@media (min-width: 768px) {
-  .section-container {
-    padding-inline: 40px;
-  }
-}
-
-@media (min-width: 1280px) {
-  .section-container {
-    padding-inline: 60px;
-  }
-}
-
-/* 🟡 Ajouts recommandés (utiles pour l’avenir, sans conflit)
-Ces variables et classes ne sont pas encore utilisées dans les composants fusionnés, 
-mais elles complètent proprement le système de design et peuvent servir plus tard. Aucune ne modifie un style existant. */
-
-:root {
-  /* Couleurs supplémentaires (gardent la palette V2) */
-  --color-accent-hover: #e64a2e; /* version foncée de l’accent */
-  --color-accent-soft: rgba(255, 92, 53, 0.1);
-  --color-accent-soft2: rgba(255, 92, 53, 0.06);
-  --color-success: #1f7a4c;
-  --color-success-bg: #edfaf3;
-  --color-gold-bg: #fdf5e0; /* fond doré léger */
-  --color-ink5: #d4ccc0; /* une teinte encore plus claire */
-
-  /* Z-index scale (si tu veux éviter les chiffres magiques) */
-  --z-base: 0;
-  --z-raised: 10;
-  --z-sticky: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-toast: 50;
-  --z-grain: 60;
-}
-
-/* Classes d’animation supplémentaires (sans toucher aux existantes) */
 @keyframes scaleIn {
   from {
     opacity: 0;
@@ -898,262 +266,130 @@ mais elles complètent proprement le système de design et peuvent servir plus t
     transform: scale(1);
   }
 }
-@keyframes spin {
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes spin360 {
   to {
     transform: rotate(360deg);
   }
 }
+@keyframes softPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s var(--ease-out) both;
+}
+.animate-fade-in {
+  animation: fadeIn 0.45s ease both;
+}
 .animate-scale-in {
   animation: scaleIn 0.4s var(--ease-spring) both;
 }
-.animate-spin {
-  animation: spin 0.8s linear infinite;
+.animate-slide-right {
+  animation: slideRight 0.45s var(--ease-smooth) both;
+}
+.animate-marquee {
+  animation: marquee 24s linear infinite;
+}
+.animate-spin-slow {
+  animation: spin360 6s linear infinite;
+}
+.animate-soft-pulse {
+  animation: softPulse 2s ease-in-out infinite;
 }
 
-/* Délais supplémentaires (en plus des delay-1 à delay-5) */
-.delay-100 {
-  animation-delay: 0.1s;
+.delay-1 {
+  animation-delay: 0.08s;
 }
-.delay-150 {
-  animation-delay: 0.15s;
+.delay-2 {
+  animation-delay: 0.16s;
 }
-.delay-200 {
-  animation-delay: 0.2s;
+.delay-3 {
+  animation-delay: 0.24s;
 }
-.delay-250 {
-  animation-delay: 0.25s;
+.delay-4 {
+  animation-delay: 0.32s;
 }
-.delay-300 {
-  animation-delay: 0.3s;
-}
-.delay-400 {
+.delay-5 {
   animation-delay: 0.4s;
 }
-.delay-500 {
-  animation-delay: 0.5s;
-}
 
-/* animations des étoiles */
-/* Étoiles de la barre de recherche */
-.search-star {
-  transform-origin: center;
-  animation: starPulse 2s ease-in-out infinite;
-}
-.search-star-1 {
-  animation-delay: 0s;
-}
-.search-star-2 {
-  animation-delay: 0.6s;
-}
-.search-star-3 {
-  animation-delay: 1.2s;
-}
-
-@keyframes starPulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.9) rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2) rotate(15deg);
-  }
-}
-
-/* Contour arc-en-ciel animé pour la barre de recherche */
-.search-rainbow {
-  position: relative;
-}
-.search-rainbow::before {
-  --borderWidth: 2px;
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--borderWidth));
-  border-radius: 14px;
+.skeleton {
   background: linear-gradient(
     90deg,
-    #ffaa56,
-    #fb8714,
-    #ee602d,
-    #ed4a43,
-    #ec4945,
-    #ef4444,
-    #e61e5f,
-    #c70d77,
-    #971188,
-    #781794,
-    #611e8d,
-    #530487,
-    #781794,
-    #971188,
-    #c70d77,
-    #e61e5f,
-    #ef4444,
-    #ec4945,
-    #ed4a43,
-    #fb8714,
-    #ffaa56
+    var(--color-surface2) 25%,
+    var(--color-surface3) 50%,
+    var(--color-surface2) 75%
   );
   background-size: 200% 100%;
-  z-index: -1;
-  animation: rainbowBorder 3s linear infinite;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  padding: var(--borderWidth);
+  animation: shimmer 1.5s infinite;
 }
-
-@keyframes rainbowBorder {
-  0% {
-    background-position: 0% 0%;
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
   }
-  100% {
-    background-position: 200% 0%;
+  to {
+    background-position: 200% 0;
   }
 }
-/* Désactiver l'outline focus sur l'input de recherche */
-.search-input:focus-visible {
-  outline: none;
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
-/* ── Carousel text outline (lisibilité sur tout fond) ── */
-.text-glow-white {
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-}
-.text-glow-white-strong {
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
-}
-.btn-glow-white {
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
-}
-.btn-glow-white:hover {
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-}
-
-/* Animation de fondu pour la disparition des offres */
-.deal-fade-out {
-  animation: fadeOutScale 0.6s var(--ease-smooth) forwards;
-  transform-origin: top;
+/* Bouton "confetti" texture ambient pour le hero */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px;
 }
 
-@keyframes fadeOutScale {
+.z-70 {
+  z-index: 70;
+}
+
+/* Hover scale pour miniatures / thumbnails */
+.hover-thumb {
+  transition:
+    transform 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out);
+}
+
+/* Card preview shine (checkout) — reflet subtil au survol */
+@keyframes cardShine {
   0% {
-    opacity: 1;
-    transform: scaleY(1);
+    transform: translateX(-100%) rotate(20deg);
   }
   100% {
-    opacity: 0;
-    transform: scaleY(0);
+    transform: translateX(200%) rotate(20deg);
   }
 }
-
-/* ------------------------- */
-
-/* Cercle multicolore pour les produits avec +4 couleurs */
-.color-wheel {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: conic-gradient(
-    #ef4444 0% 16.66%,
-    #f97316 16.66% 33.33%,
-    #e8a020 33.33% 50%,
-    #22c55e 50% 66.66%,
-    #3b82f6 66.66% 83.33%,
-    #8b5cf6 83.33% 100%
-  );
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-/* ── Couleurs par catégorie de notification ────────────────────── */
-:root {
-  --notif-cat-orders: #3b82f6;
-  --notif-cat-orders-bg: #eff6ff;
-  --notif-cat-products: #22c55e;
-  --notif-cat-products-bg: #f0fdf4;
-  --notif-cat-customers: #f59e0b;
-  --notif-cat-customers-bg: #fffbeb;
-  --notif-cat-bonus: #a855f7;
-  --notif-cat-bonus-bg: #faf5ff;
-  --notif-cat-api: #6366f1;
-  --notif-cat-api-bg: #eef2ff;
-  --notif-cat-security: #ef4444;
-  --notif-cat-security-bg: #fef2f2;
-  --notif-cat-finance: #10b981;
-  --notif-cat-finance-bg: #ecfdf5;
-  --notif-negative: #ef4444;
-  --notif-negative-bg: #fef2f2;
-  --notif-cat-interactions: #8b5cf6;
-  --notif-cat-interactions-bg: #f5f3ff;
-}
-
-[data-theme="dark"] {
-  --notif-cat-orders: #60a5fa;
-  --notif-cat-orders-bg: rgba(59, 130, 246, 0.12);
-  --notif-cat-products: #4ade80;
-  --notif-cat-products-bg: rgba(34, 197, 94, 0.12);
-  --notif-cat-customers: #fbbf24;
-  --notif-cat-customers-bg: rgba(245, 158, 11, 0.12);
-  --notif-cat-bonus: #c084fc;
-  --notif-cat-bonus-bg: rgba(168, 85, 247, 0.12);
-  --notif-cat-api: #818cf8;
-  --notif-cat-api-bg: rgba(99, 102, 241, 0.12);
-  --notif-cat-security: #f87171;
-  --notif-cat-security-bg: rgba(239, 68, 68, 0.12);
-  --notif-cat-finance: #34d399;
-  --notif-cat-finance-bg: rgba(16, 185, 129, 0.12);
-  --notif-negative: #f87171;
-  --notif-negative-bg: rgba(239, 68, 68, 0.12);
-  --notif-cat-interactions: #a78bfa;
-  --notif-cat-interactions-bg: rgba(139, 92, 246, 0.12);
-}
-
-/* Animation pr le bell (Notification) */
-@keyframes bell-shake {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  15% {
-    transform: rotate(8deg);
-  }
-  30% {
-    transform: rotate(-8deg);
-  }
-  45% {
-    transform: rotate(6deg);
-  }
-  60% {
-    transform: rotate(-6deg);
-  }
-  75% {
-    transform: rotate(3deg);
-  }
-  90% {
-    transform: rotate(-3deg);
-  }
-}
-
-/* animation pulse-ring (notification) */
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 92, 53, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(255, 92, 53, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 92, 53, 0);
-  }
-}
-
-/* ------------------------- */
-
-/* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
-/* * {
-  outline: 1px solid red !important;
-} */
