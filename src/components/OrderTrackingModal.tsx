@@ -1,4 +1,4 @@
-//src/components/OrderTrackingModal.tsx
+// src/components/OrderTrackingModal.tsx
 
 import React, { useState } from "react";
 import { X, Search, Truck, RefreshCw } from "lucide-react";
@@ -20,8 +20,6 @@ interface TrackedOrder {
   shippingCost: number;
   address: string | null;
   message: string | null;
-  // Un élément par colis (voir TrackingInfo dans adminTypes.ts). orderApi.get()
-  // renvoie déjà ce tableau normalisé via mapOrder() dans supabaseApi.ts.
   shipments: TrackingInfo[];
   items: {
     productId: string;
@@ -59,12 +57,8 @@ export default function OrderTrackingModal({
     if (!code) return;
 
     try {
-      // orderApi est déjà importé en haut du fichier
       const found = await orderApi.get(code);
       if (found) {
-        // Convertir l'objet Order (Supabase) en TrackedOrder (format du composant).
-        // found.trackingInfo est déjà un tableau normalisé par mapOrder()
-        // dans supabaseApi.ts — aucune normalisation supplémentaire ici.
         const tracked: TrackedOrder = {
           id: found.id,
           clientName: found.clientName || found.shippingAddress?.fullName || "",
@@ -111,82 +105,59 @@ export default function OrderTrackingModal({
   return (
     <div style={overlay}>
       <div style={panel}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <h2
-            style={{ fontWeight: 700, fontSize: 18, color: "var(--color-ink)" }}
+            className="font-display font-black text-xl"
+            style={{ color: "var(--color-ink)" }}
           >
             Track Your Order
           </h2>
           <button
             onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
             style={{
               background: "var(--color-surface2)",
               border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "4px 8px",
-              cursor: "pointer",
               color: "var(--color-ink2)",
             }}
           >
-            <X size={16} />
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 
         {/* Search field */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <div className="flex gap-2 mb-4">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your order reference (e.g. ORD-2026-3104)"
+            className="flex-1 rounded-xl border px-3.5 py-2.5 text-sm font-mono outline-none"
             style={{
-              flex: 1,
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "1.5px solid var(--color-border2)",
+              borderColor: "var(--color-border2)",
               background: "var(--color-surface)",
-              fontSize: 14,
-              fontFamily: "monospace",
               color: "var(--color-ink)",
-              outline: "none",
             }}
           />
           <button
             onClick={handleSearch}
+            className="pill flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
             style={{
-              padding: "10px 16px",
-              borderRadius: 12,
-              border: "none",
               background: "var(--color-accent)",
-              color: "white",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
+              boxShadow: "var(--shadow-accent)",
             }}
           >
-            <Search size={16} />
+            <Search size={15} strokeWidth={2} />
             Track
           </button>
         </div>
 
         {error && (
           <p
-            style={{
-              color: "#ef4444",
-              fontSize: 13,
-              textAlign: "center",
-              marginBottom: 12,
-            }}
+            className="mb-3 text-center text-sm font-semibold"
+            style={{ color: "var(--color-negative)" }}
           >
             {error}
           </p>
@@ -194,37 +165,24 @@ export default function OrderTrackingModal({
 
         {order && (
           <div
+            className="rounded-xl p-4"
             style={{
               background: "var(--color-surface2)",
-              borderRadius: 14,
-              padding: 18,
+              border: "1px solid var(--color-border)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
+            {/* Order header */}
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <p
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "var(--color-ink3)",
-                    textTransform: "uppercase",
-                  }}
+                  className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--color-ink4)" }}
                 >
                   Order
                 </p>
                 <p
-                  style={{
-                    fontFamily: "monospace",
-                    fontWeight: 800,
-                    fontSize: 16,
-                    color: "var(--color-accent)",
-                  }}
+                  className="flex items-center gap-1 font-mono text-base font-black"
+                  style={{ color: "var(--color-accent)" }}
                 >
                   {order.id}
                   <CopyID id={order.id} />
@@ -232,15 +190,10 @@ export default function OrderTrackingModal({
               </div>
             </div>
 
+            {/* Customer info */}
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                fontSize: 13,
-                color: "var(--color-ink2)",
-                marginBottom: 12,
-              }}
+              className="mb-3 grid grid-cols-2 gap-2 text-sm"
+              style={{ color: "var(--color-ink2)" }}
             >
               <div>
                 <span style={{ color: "var(--color-ink4)" }}>Customer:</span>{" "}
@@ -257,40 +210,33 @@ export default function OrderTrackingModal({
                 })}
               </div>
               {order.address && (
-                <div style={{ gridColumn: "1 / -1" }}>
+                <div className="col-span-full">
                   <span style={{ color: "var(--color-ink4)" }}>Address:</span>{" "}
                   {order.address}
                 </div>
               )}
             </div>
 
-            {/* Barre de progression partagée — identique à AccountPage.tsx et à l'email d'expédition */}
-            <div style={{ marginBottom: 14 }}>
+            {/* Status stepper */}
+            <div className="mb-3">
               <OrderStatusStepper status={order.status} />
             </div>
 
+            {/* Shipments */}
             {order.status === "shipped" && order.shipments.length > 0 && (
               <div
-                style={{
-                  borderTop: "1px solid var(--color-border)",
-                  paddingTop: 10,
-                  marginBottom: 10,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                }}
+                className="mb-3 flex flex-col gap-3 pt-3"
+                style={{ borderTop: "1px solid var(--color-border)" }}
               >
                 <p
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "var(--color-ink)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
+                  className="flex items-center gap-1.5 text-sm font-bold"
+                  style={{ color: "var(--color-ink)" }}
                 >
-                  <Truck size={14} color="var(--color-accent)" />
+                  <Truck
+                    size={14}
+                    strokeWidth={2}
+                    style={{ color: "var(--color-accent)" }}
+                  />
                   {order.shipments.length > 1
                     ? `Tracking (${order.shipments.length} packages)`
                     : "Tracking"}
@@ -299,46 +245,27 @@ export default function OrderTrackingModal({
                 {order.shipments.map((shipment, i) => (
                   <div
                     key={i}
+                    className="rounded-lg p-3"
                     style={{
-                      background: "var(--color-surface2)",
-                      borderRadius: 12,
-                      padding: 12,
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 6,
-                      }}
-                    >
+                    <div className="mb-1.5 flex items-center justify-between">
                       <span
-                        style={{
-                          fontSize: 11.5,
-                          fontWeight: 700,
-                          color: "var(--color-ink3)",
-                        }}
+                        className="text-[11px] font-bold"
+                        style={{ color: "var(--color-ink3)" }}
                       >
                         {order.shipments.length > 1
                           ? `Package ${i + 1} of ${order.shipments.length}`
                           : "Package"}
                       </span>
-                      {/* Badge réexpédition — basé uniquement sur le champ
-                          reshipment renvoyé par Printful (signal réel, pas
-                          une heuristique maison). */}
                       {shipment.reshipment && (
                         <span
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            color: "#92400e",
                             background: "#fef3c7",
-                            borderRadius: 999,
-                            padding: "2px 8px",
+                            color: "#92400e",
                           }}
                         >
                           <RefreshCw size={10} strokeWidth={2.5} />
@@ -347,13 +274,8 @@ export default function OrderTrackingModal({
                       )}
                     </div>
                     <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 6,
-                        fontSize: 12.5,
-                        color: "var(--color-ink2)",
-                      }}
+                      className="grid grid-cols-2 gap-1 text-xs"
+                      style={{ color: "var(--color-ink2)" }}
                     >
                       {shipment.carrier && (
                         <div>
@@ -379,7 +301,7 @@ export default function OrderTrackingModal({
                         </div>
                       )}
                       {shipment.trackingNumber && (
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className="col-span-full">
                           <span style={{ color: "var(--color-ink4)" }}>
                             Tracking #:
                           </span>{" "}
@@ -388,23 +310,20 @@ export default function OrderTrackingModal({
                               href={shipment.trackingUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{
-                                color: "var(--color-accent)",
-                                fontWeight: 600,
-                                textDecoration: "underline",
-                              }}
+                              className="font-semibold underline"
+                              style={{ color: "var(--color-accent)" }}
                             >
                               {shipment.trackingNumber}
                             </a>
                           ) : (
-                            <span style={{ fontFamily: "monospace" }}>
+                            <span className="font-mono">
                               {shipment.trackingNumber}
                             </span>
                           )}
                         </div>
                       )}
                       {shipment.estimatedMinDate && (
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className="col-span-full">
                           <span style={{ color: "var(--color-ink4)" }}>
                             Estimated delivery:
                           </span>{" "}
@@ -446,20 +365,14 @@ export default function OrderTrackingModal({
               </div>
             )}
 
+            {/* Items */}
             <div
-              style={{
-                borderTop: "1px solid var(--color-border)",
-                paddingTop: 10,
-                marginBottom: 10,
-              }}
+              className="mb-3 pt-3"
+              style={{ borderTop: "1px solid var(--color-border)" }}
             >
               <p
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "var(--color-ink)",
-                  marginBottom: 8,
-                }}
+                className="mb-2 text-sm font-bold"
+                style={{ color: "var(--color-ink)" }}
               >
                 Items
               </p>
@@ -473,54 +386,24 @@ export default function OrderTrackingModal({
                       item.selectedSize,
                     )
                   }
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    textAlign: "left",
-                    background: "none",
-                    border: "none",
-                    padding: "4px 0",
-                    cursor: "pointer",
-                    fontSize: 12.5,
-                    color: "var(--color-ink2)",
-                    marginBottom: 4,
-                    borderRadius: 8,
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--color-surface)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "none")
-                  }
+                  className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-(--color-surface)"
+                  style={{ color: "var(--color-ink2)" }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      flex: 1,
-                    }}
-                  >
+                  <div className="flex items-center gap-2.5">
                     <img
                       src={item.productImage || PLACEHOLDER_IMG}
                       alt={item.title}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 6,
-                        objectFit: "cover",
-                        border: "1px solid var(--color-border)",
-                        flexShrink: 0,
-                      }}
+                      className="h-9 w-9 rounded-lg border object-cover"
+                      style={{ borderColor: "var(--color-border)" }}
                     />
                     <span>
                       {item.title} ({item.selectedSize}) × {item.quantity}
                     </span>
                   </div>
-                  <span style={{ fontWeight: 600, marginLeft: 8 }}>
+                  <span
+                    className="font-semibold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
                     {(item.unitPrice * item.quantity).toFixed(2)}{" "}
                     {currencySymbol}
                   </span>
@@ -528,14 +411,12 @@ export default function OrderTrackingModal({
               ))}
             </div>
 
+            {/* Total */}
             <div
+              className="flex items-center justify-between pt-3 text-sm font-bold"
               style={{
                 borderTop: "1px solid var(--color-border)",
-                paddingTop: 10,
-                display: "flex",
-                justifyContent: "space-between",
-                fontWeight: 700,
-                fontSize: 14,
+                color: "var(--color-ink)",
               }}
             >
               <span>Total</span>
@@ -557,17 +438,18 @@ const overlay: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(26,20,10,0.5)",
-  backdropFilter: "blur(4px)",
+  background: "rgba(11,11,10,0.55)",
+  backdropFilter: "blur(6px)",
 };
 
 const panel: React.CSSProperties = {
   background: "var(--color-surface)",
-  borderRadius: 20,
+  borderRadius: 24,
   maxWidth: 500,
   width: "90%",
   maxHeight: "85vh",
   overflowY: "auto",
   padding: 28,
   boxShadow: "var(--shadow-xl)",
+  border: "1px solid var(--color-border)",
 };

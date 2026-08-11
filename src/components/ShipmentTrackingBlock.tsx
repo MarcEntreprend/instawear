@@ -1,10 +1,5 @@
 // src/components/ShipmentTrackingBlock.tsx
 
-// Bloc de suivi des colis expédiés — partagé entre AccountPage, le modal
-// admin de OrdersPage et la page admin « Expédiées / Livrées ».
-// Affiche pour chaque colis : fenêtre d'arrivée estimée, transporteur,
-// date d'expédition et numéro de suivi cliquable.
-
 import React from "react";
 import { Truck, RefreshCw } from "lucide-react";
 import type { TrackingInfo } from "../admin/adminTypes";
@@ -13,7 +8,6 @@ interface ShipmentTrackingBlockProps {
   shipments: TrackingInfo[];
 }
 
-// Formate "YYYY-MM-DD" en "13 août 2026" (locale fr).
 function formatDateFr(dateStr: string | null): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr + "T00:00:00");
@@ -31,25 +25,16 @@ export default function ShipmentTrackingBlock({
   if (!shipments || shipments.length === 0) return null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
-    >
+    <div className="flex flex-col gap-3">
       <p
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          color: "var(--color-ink)",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          margin: 0,
-        }}
+        className="flex items-center gap-1.5 text-sm font-bold"
+        style={{ color: "var(--color-ink)" }}
       >
-        <Truck size={14} color="var(--color-accent)" />
+        <Truck
+          size={14}
+          strokeWidth={2}
+          style={{ color: "var(--color-accent)" }}
+        />
         {shipments.length > 1
           ? `Suivi (${shipments.length} colis)`
           : "Suivi du colis"}
@@ -73,26 +58,16 @@ export default function ShipmentTrackingBlock({
         return (
           <div
             key={i}
+            className="rounded-lg p-3"
             style={{
               background: "var(--color-surface2)",
-              borderRadius: 12,
-              padding: 12,
+              border: "1px solid var(--color-border)",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 6,
-              }}
-            >
+            <div className="mb-1.5 flex items-center justify-between">
               <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: "var(--color-ink3)",
-                }}
+                className="text-[11px] font-bold"
+                style={{ color: "var(--color-ink3)" }}
               >
                 {shipments.length > 1
                   ? `Colis ${i + 1} sur ${shipments.length}`
@@ -100,16 +75,10 @@ export default function ShipmentTrackingBlock({
               </span>
               {shipment?.reshipment && (
                 <span
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    color: "#92400e",
                     background: "#fef3c7",
-                    borderRadius: 999,
-                    padding: "2px 8px",
+                    color: "#92400e",
                   }}
                 >
                   <RefreshCw size={10} strokeWidth={2.5} />
@@ -118,20 +87,17 @@ export default function ShipmentTrackingBlock({
               )}
             </div>
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 6,
-                fontSize: 12.5,
-                color: "var(--color-ink2)",
-              }}
+              className="grid grid-cols-2 gap-1 text-xs"
+              style={{ color: "var(--color-ink2)" }}
             >
               {estimateLabel && (
-                <div style={{ gridColumn: "1 / -1" }}>
+                <div className="col-span-full">
                   <span style={{ color: "var(--color-ink4)" }}>
                     Arrivée estimée :
                   </span>{" "}
-                  <strong>{estimateLabel}</strong>
+                  <strong style={{ color: "var(--color-ink)" }}>
+                    {estimateLabel}
+                  </strong>
                 </div>
               )}
               {carrier && (
@@ -151,24 +117,23 @@ export default function ShipmentTrackingBlock({
                 </div>
               )}
               {trackingNumber && (
-                <div style={{ gridColumn: "1 / -1" }}>
+                <div className="col-span-full">
                   <span style={{ color: "var(--color-ink4)" }}>Suivi n° :</span>{" "}
                   {trackingUrl ? (
                     <a
                       href={trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{
-                        color: "var(--color-accent)",
-                        fontWeight: 600,
-                        textDecoration: "underline",
-                        wordBreak: "break-all",
-                      }}
+                      className="font-semibold underline"
+                      style={{ color: "var(--color-accent)" }}
                     >
                       {trackingNumber}
                     </a>
                   ) : (
-                    <span style={{ fontFamily: "monospace" }}>
+                    <span
+                      className="font-mono"
+                      style={{ color: "var(--color-ink2)" }}
+                    >
                       {trackingNumber}
                     </span>
                   )}

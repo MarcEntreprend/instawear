@@ -776,6 +776,7 @@ export default function App() {
       {/* Header */}
       <Header
         cart={cart}
+        onOpenTracking={() => setTrackingOpen(true)}
         favoriteCount={favorites.length}
         onOpenCart={() => setCartOpen(true)}
         onOpenFavorites={handleOpenFavorites}

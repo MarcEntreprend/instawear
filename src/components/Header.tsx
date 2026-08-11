@@ -10,6 +10,7 @@ import {
   X,
   Sun,
   Moon,
+  Package,
 } from "lucide-react";
 import { IconButton } from "./ui/Button";
 import { CartItem, Product, NavLink } from "../types";
@@ -29,9 +30,11 @@ interface HeaderProps {
   currentCategory: string | null;
   currentEventType: string | null;
   onScrollToSection: (section: NavLink["section"]) => void;
+  onOpenTracking: () => void;
   products: Product[];
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  detectedCountry?: string | null; // 👈 nouveau
 }
 
 const NAV_LINKS: NavLink[] = [
@@ -61,8 +64,10 @@ export default function Header({
   onSelectCategory,
   currentCategory,
   onScrollToSection,
+  onOpenTracking,
   darkMode,
   onToggleDarkMode,
+  detectedCountry,
 }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -87,21 +92,47 @@ export default function Header({
         }}
       >
         <div className="section-container flex items-center justify-between gap-4 py-4">
-          {/* Logo */}
+          {/* Logo avec image + drapeau */}
           <button
             onClick={() => onScrollToSection("catalog")}
-            className="flex items-center gap-2 shrink-0"
+            className="flex items-center gap-2 shrink-0 group"
             aria-label="InstaWear — Accueil"
           >
-            <span
-              className="w-9 h-9 rounded-2xl flex items-center justify-center font-black text-base text-white -rotate-6"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-accent), var(--color-indigo))",
-              }}
-            >
-              I
-            </span>
+            <div className="relative shrink-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-base text-gray-900 transition-transform duration-200 group-hover:scale-105 relative overflow-hidden"
+                style={{
+                  background: "var(--color-accent)",
+                  boxShadow: "var(--shadow-accent)",
+                }}
+              >
+                <img
+                  src="/InstaWear-logo.png"
+                  alt="InstaWear"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    const el = e.currentTarget as HTMLImageElement;
+                    el.style.display = "none";
+                    (el.nextElementSibling as HTMLElement).style.display =
+                      "flex";
+                  }}
+                />
+                <span className="hidden absolute inset-0 items-center justify-center text-white">
+                  I
+                </span>
+              </div>
+              {/* Drapeau */}
+              <img
+                src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
+                alt={detectedCountry || "US"}
+                className="absolute -top-0.5 -right-0.5 w-4 h-3 rounded-sm object-cover border border-white"
+                style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }}
+                title={`Shipping to ${detectedCountry || "US"}`}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
             <span
               className="font-display font-black text-xl hidden sm:block"
               style={{ color: "var(--color-ink)" }}
@@ -128,6 +159,20 @@ export default function Header({
                 {link.label}
               </button>
             ))}
+            <button
+              onClick={onOpenTracking}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-150"
+              style={{ color: "var(--color-ink2)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-surface2)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <Package size={16} strokeWidth={1.8} />
+              My Order
+            </button>
           </nav>
 
           {/* Actions */}
@@ -174,7 +219,7 @@ export default function Header({
 
             <button
               onClick={onOpenCart}
-              className="flex items-center gap-2 pl-3.5 pr-2 py-2 rounded-full font-bold text-xs uppercase tracking-wide transition-all duration-200 hover:-translate-y-0.5"
+              className="pill flex items-center gap-2 pl-3.5 pr-2 py-2 rounded-full font-bold text-xs uppercase tracking-wide transition-all duration-200 hover:-translate-y-0.5"
               style={{
                 background: "var(--color-cta-bg)",
                 color: "var(--color-cta-ink)",
@@ -216,7 +261,7 @@ export default function Header({
                   onSearch(val);
                   setSearchOpen(false);
                 }}
-                className="flex items-center gap-3 px-5 py-3 rounded-2xl"
+                className="flex items-center gap-3 px-5 py-3 rounded-xl"
                 style={{
                   background: "var(--color-surface2)",
                   border: "1.5px solid var(--color-border2)",
@@ -310,12 +355,23 @@ export default function Header({
                   onScrollToSection(link.section);
                   setMobileOpen(false);
                 }}
-                className="text-left px-4 py-3.5 rounded-2xl font-bold text-lg"
+                className="text-left px-4 py-3.5 rounded-xl font-bold text-lg"
                 style={{ color: "var(--color-ink)" }}
               >
                 {link.label}
               </button>
             ))}
+            <button
+              onClick={() => {
+                onOpenTracking();
+                setMobileOpen(false);
+              }}
+              className="flex items-center gap-2.5 text-left px-4 py-3.5 rounded-xl font-bold text-lg"
+              style={{ color: "var(--color-ink)" }}
+            >
+              <Package size={19} strokeWidth={1.8} />
+              My Order
+            </button>
             <div
               className="h-px my-2"
               style={{ background: "var(--color-border)" }}
@@ -325,7 +381,7 @@ export default function Header({
                 isLoggedIn ? onOpenAccount() : onOpenAuth();
                 setMobileOpen(false);
               }}
-              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-2xl font-bold text-base"
+              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold text-base"
               style={{ color: "var(--color-ink)" }}
             >
               <User size={18} />{" "}
@@ -336,7 +392,7 @@ export default function Header({
                 onOpenFavorites();
                 setMobileOpen(false);
               }}
-              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-2xl font-bold text-base"
+              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold text-base"
               style={{ color: "var(--color-ink)" }}
             >
               <Heart size={18} /> Favorites
