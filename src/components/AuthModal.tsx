@@ -1,28 +1,86 @@
-/**
- * AuthModal.tsx - Supabase Auth authentication (replaces the old localStorage system)
- * Modes: login, signup, resetPassword (3-step password reset flow)
- */
-import React, { useState, useEffect, useCallback } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { X, ArrowLeft, Mail, Lock, CheckCircle2 } from "lucide-react";
+// src/components/AuthModal.tsx
 
-interface AuthModalProps {
-  onClose: () => void;
-  onLoginSuccess: (isAdmin: boolean, name?: string) => void;
-  onSignUpSuccess: (name: string) => void;
-}
+import React, { useState, useEffect, useCallback } from "react";
+import { X, ArrowLeft, Mail, Lock, User, CheckCircle2 } from "lucide-react";
+import { Button } from "./ui/Button";
 
 type Mode = "login" | "signup" | "resetPassword";
 type ResetStep = "email" | "sent" | "newPassword";
 
 const RESEND_COOLDOWN_SEC = 30;
 
+interface AuthModalProps {
+  initialMode?: Mode;
+  onClose: () => void;
+  onLogin: (
+    email: string,
+    password: string,
+  ) => Promise<{ isAdmin: boolean; name?: string }>;
+  onSignUp: (name: string, email: string, password: string) => Promise<void>;
+  onSendResetEmail: (email: string) => Promise<void>;
+  onResetPassword: (newPassword: string) => Promise<void>;
+  /** true si une session de récupération Supabase est déjà active (lien cliqué) */
+  isRecoverySession?: boolean;
+}
+
+function TextInput({
+  label,
+  icon: Icon,
+  error,
+  ...rest
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  icon?: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  error?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        className="text-[11px] font-black uppercase tracking-wider"
+        style={{ color: "var(--color-ink3)" }}
+      >
+        {label}
+      </label>
+      <div className="relative">
+        {Icon && (
+          <span
+            className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: "var(--color-ink4)" }}
+          >
+            <Icon size={16} strokeWidth={2} />
+          </span>
+        )}
+        <input
+          {...rest}
+          className={`w-full ${Icon ? "pl-11" : "pl-4"} pr-4 py-3.5 rounded-2xl text-sm outline-none transition-colors`}
+          style={{
+            background: "var(--color-surface2)",
+            color: "var(--color-ink)",
+            border: `1.5px solid ${error ? "var(--color-negative)" : "var(--color-border2)"}`,
+          }}
+        />
+      </div>
+      {error && (
+        <p
+          className="text-[11px] font-bold"
+          style={{ color: "var(--color-negative)" }}
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AuthModal({
-  onClose,
-  onLoginSuccess,
-  onSignUpSuccess,
   initialMode = "login",
-}: AuthModalProps & { initialMode?: Mode }) {
+  onClose,
+  onLogin,
+  onSignUp,
+  onSendResetEmail,
+  onResetPassword,
+  isRecoverySession = false,
+}: AuthModalProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,16 +88,15 @@ export default function AuthModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Password reset state
-  const [resetStep, setResetStep] = useState<ResetStep>("email");
+  const [resetStep, setResetStep] = useState<ResetStep>(
+    isRecoverySession ? "newPassword" : "email",
+  );
   const [resetEmail, setResetEmail] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [timer, setTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
 
-  // Countdown timer (pour le renvoi de l'email de reset)
   useEffect(() => {
     if (timer <= 0) {
       setCanResend(true);
@@ -50,46 +107,13 @@ export default function AuthModal({
     return () => clearInterval(id);
   }, [timer]);
 
-  // Écoute l'événement de récupération de mot de passe (lien envoyé par email)
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "PASSWORD_RECOVERY") {
-          setMode("resetPassword");
-          setResetStep("newPassword");
-          if (session?.user?.email) setResetEmail(session.user.email);
-        }
-      },
-    );
-
-    // Si on arrive depuis un lien de reset (?resetPassword=true), une session
-    // de récupération peut déjà être établie → aller directement à l'étape finale.
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("resetPassword") === "true") {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session?.user) {
-          setMode("resetPassword");
-          setResetStep("newPassword");
-          setResetEmail(data.session.user.email || resetEmail);
-        }
-      });
-    }
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Reset all fields when switching modes
   useEffect(() => {
     setError("");
     setEmail("");
     setPassword("");
     setName("");
-    setResetStep("email");
+    if (!isRecoverySession) setResetStep("email");
     setResetEmail("");
-    setCode("");
     setNewPassword("");
     setConfirmPassword("");
     setTimer(0);
@@ -101,8 +125,7 @@ export default function AuthModal({
     setCanResend(false);
   }, []);
 
-  // Step 1: envoyer l'email de réinitialisation via Supabase Auth
-  const handleSendResetEmail = async () => {
+  const handleSendReset = async () => {
     setError("");
     if (!resetEmail.trim()) {
       setError("Please enter your email address.");
@@ -110,23 +133,18 @@ export default function AuthModal({
     }
     setLoading(true);
     try {
-      const { error: sendError } = await supabase.auth.resetPasswordForEmail(
-        resetEmail.trim(),
-        { redirectTo: `${window.location.origin}/?resetPassword=true` },
-      );
-      if (sendError) throw sendError;
+      await onSendResetEmail(resetEmail.trim());
       startTimer();
       setResetStep("sent");
     } catch (err: any) {
       setError(
-        err.message || "Unable to send the reset email. Please try again.",
+        err?.message || "Unable to send the reset email. Please try again.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: définir le nouveau mot de passe (session de récupération Supabase)
   const handleResetPassword = async () => {
     setError("");
     if (!newPassword) {
@@ -141,373 +159,319 @@ export default function AuthModal({
       setError("Passwords do not match.");
       return;
     }
-
     setLoading(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-      if (updateError) throw updateError;
-
-      // Succès : retour au login avec un message
-      setError("");
+      await onResetPassword(newPassword);
       setMode("login");
-      setResetStep("email");
-      alert("Password updated successfully! Sign in with your new password.");
-
-      // Notification (uniquement si utilisateur connecté)
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      if (currentUser) {
-        import("../api/supabaseApi").then(({ notificationApi }) => {
-          notificationApi
-            .create({
-              title: "Password reset",
-              description: `${resetEmail} reset their password`,
-              category: "customers",
-              priority: "medium",
-              metadata: {
-                customerName: resetEmail,
-                linkTo: "/admin/customers",
-                source: "Client",
-              },
-              action_label: "View customer",
-            })
-            .catch(() => {});
-        });
-      }
     } catch (err: any) {
-      setError(err.message || "Password reset failed.");
+      setError(err?.message || "Password reset failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Main handler (login / signup)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       if (mode === "signup") {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (signUpError) throw signUpError;
-
-        if (data.user) {
-          const { error: insertError } = await supabase
-            .from("customers")
-            .upsert(
-              {
-                id: data.user.id,
-                email,
-                name,
-                registration_date: new Date().toISOString(),
-                last_login_date: new Date().toISOString(),
-              },
-              { onConflict: "id" },
-            );
-          if (insertError)
-            console.warn("Customer creation error:", insertError);
-          else {
-            // Create a "New customer" notification (uniquement si utilisateur connecté)
-            const {
-              data: { user: currentUser },
-            } = await supabase.auth.getUser();
-            if (currentUser) {
-              import("../api/supabaseApi").then(({ notificationApi }) => {
-                notificationApi
-                  .create({
-                    title: "New customer registered",
-                    description: `${name || email} signed up on the store`,
-                    category: "customers",
-                    priority: "low",
-                    metadata: {
-                      customerId: data.user?.id ?? undefined,
-                      customerName: name || email,
-                      linkTo: "/admin/customers",
-                      source: "Client",
-                    },
-                    action_label: "View profile",
-                  })
-                  .catch((e) =>
-                    console.warn(
-                      "Failed to create new customer notification",
-                      e,
-                    ),
-                  );
-              });
-            }
-          }
-        }
-
-        onSignUpSuccess(name || email);
+        await onSignUp(name, email, password);
       } else {
-        const { data, error: signInError } =
-          await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-        if (signInError) throw signInError;
-        if (!data.user) throw new Error("No user found");
-
-        const { data: isAdminUser } = await supabase.rpc("is_admin");
-        const isAdmin = !!isAdminUser;
-
-        // Update last_login_date in customers (silent update, no upsert)
-        supabase
-          .from("customers")
-          .update({ last_login_date: new Date().toISOString() })
-          .eq("id", data.user.id)
-          .then(({ error }) => {
-            if (error) console.warn("Error updating last_login_date:", error);
-          });
-
-        onLoginSuccess(isAdmin, name || email);
+        await onLogin(email, password);
       }
     } catch (err: any) {
-      let message =
-        err?.message ||
-        err?.error_description ||
-        err?.msg ||
-        (typeof err === "string" ? err : null) ||
-        "Authentication error";
-      if (!message || message === "{}") {
-        message = "Sign-in error. Please check your credentials.";
-      }
-      setError(message);
-      console.error("Auth error details:", err);
+      setError(
+        err?.message || "Authentication error. Please check your credentials.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Login/signup form
   const renderAuthForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {mode === "signup" && (
-        <div>
-          <label className="block text-xs font-bold mb-1">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 border rounded-lg text-sm"
-            required
-          />
-        </div>
+        <TextInput
+          label="Name"
+          icon={User}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
       )}
-      <div>
-        <label className="block text-xs font-bold mb-1">Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 border rounded-lg text-sm"
-          required
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-bold mb-1">Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-2 border rounded-lg text-sm"
-          required
-        />
-      </div>
-      <button
+      <TextInput
+        label="Email"
+        icon={Mail}
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <TextInput
+        label="Password"
+        icon={Lock}
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <Button
         type="submit"
-        disabled={loading}
-        className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+        variant="cta"
+        size="lg"
+        loading={loading}
+        className="w-full mt-1"
       >
-        {loading ? "Loading..." : mode === "login" ? "Sign in" : "Sign up"}
-      </button>
+        {mode === "login" ? "Sign In" : "Create Account"}
+      </Button>
     </form>
   );
 
-  // Reset password flow (3 steps)
   const renderResetPassword = () => {
     switch (resetStep) {
       case "email":
         return (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setMode("login")}
-                className="text-gray-400 hover:text-gray-600"
+                style={{ color: "var(--color-ink4)" }}
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Forgot password</h2>
+              <h2
+                className="font-display font-black text-lg"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Forgot Password
+              </h2>
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm" style={{ color: "var(--color-ink3)" }}>
               Enter your email to receive a password reset link.
             </p>
-            <div>
-              <label className="block text-xs font-bold mb-1">Email</label>
-              <input
-                type="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-                placeholder="you@email.com"
-                required
-              />
-            </div>
-            <button
-              onClick={handleSendResetEmail}
-              disabled={loading}
-              className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+            <TextInput
+              label="Email"
+              icon={Mail}
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="you@email.com"
+              required
+            />
+            <Button
+              onClick={handleSendReset}
+              variant="cta"
+              size="lg"
+              loading={loading}
+              className="w-full"
             >
-              {loading ? "Sending..." : "Send reset link"}
-            </button>
+              Send Reset Link
+            </Button>
           </div>
         );
-
       case "sent":
         return (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setResetStep("email")}
-                className="text-gray-400 hover:text-gray-600"
+                style={{ color: "var(--color-ink4)" }}
               >
                 <ArrowLeft size={18} />
               </button>
-              <h2 className="text-lg font-bold">Check your email</h2>
+              <h2
+                className="font-display font-black text-lg"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Check Your Email
+              </h2>
             </div>
-            <p className="text-sm text-gray-500">
-              A password reset link was sent to <strong>{resetEmail}</strong>.
-              Click the link in the email to choose a new password.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center"
+                style={{ background: "var(--color-success-bg)" }}
+              >
+                <CheckCircle2
+                  size={26}
+                  style={{ color: "var(--color-success)" }}
+                />
+              </div>
+              <p className="text-sm" style={{ color: "var(--color-ink3)" }}>
+                A password reset link was sent to{" "}
+                <strong style={{ color: "var(--color-ink)" }}>
+                  {resetEmail}
+                </strong>
+                .
+              </p>
+            </div>
             {timer > 0 && (
-              <p className="text-xs text-gray-400 text-center">
+              <p
+                className="text-xs text-center"
+                style={{ color: "var(--color-ink4)" }}
+              >
                 Resend link in {timer}s
               </p>
             )}
-            <button
+            <Button
+              variant="outline"
               onClick={() => {
                 setError("");
-                handleSendResetEmail();
+                handleSendReset();
               }}
               disabled={!canResend || loading}
-              className="w-full border border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full"
             >
-              Resend link
-            </button>
+              Resend Link
+            </Button>
             <button
               onClick={() => setMode("login")}
-              className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
+              className="text-center text-xs font-bold"
+              style={{ color: "var(--color-ink4)" }}
             >
               Back to sign in
             </button>
           </div>
         );
-
       case "newPassword":
         return (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <button
-                onClick={() => setResetStep("email")}
-                className="text-gray-400 hover:text-gray-600"
+          <div className="flex flex-col gap-4">
+            {!isRecoverySession && (
+              <div className="flex items-center gap-2 mb-1">
+                <button
+                  onClick={() => setResetStep("email")}
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <h2
+                  className="font-display font-black text-lg"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  New Password
+                </h2>
+              </div>
+            )}
+            {isRecoverySession && (
+              <h2
+                className="font-display font-black text-lg mb-1"
+                style={{ color: "var(--color-ink)" }}
               >
-                <ArrowLeft size={18} />
-              </button>
-              <h2 className="text-lg font-bold">New password</h2>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1">
-                New password
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1">
-                Confirm password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
+                Set a New Password
+              </h2>
+            )}
+            <TextInput
+              label="New Password"
+              icon={Lock}
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+            <TextInput
+              label="Confirm Password"
+              icon={Lock}
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+            <Button
               onClick={handleResetPassword}
-              disabled={loading}
-              className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+              variant="cta"
+              size="lg"
+              loading={loading}
+              className="w-full"
             >
-              {loading ? "Updating..." : "Reset password"}
-            </button>
+              Reset Password
+            </Button>
           </div>
         );
     }
   };
 
-  // Main render
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative">
+    <div
+      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
+      style={{ background: "rgba(11,11,10,.55)", backdropFilter: "blur(6px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="relative w-full sm:max-w-md rounded-t-4xl sm:rounded-4xl p-7 sm:p-8 animate-fade-up"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          boxShadow: "var(--shadow-xl)",
+        }}
+      >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+          style={{ color: "var(--color-ink3)" }}
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
-        {/* Title (hidden in reset mode) */}
         {mode !== "resetPassword" && (
-          <h2 className="text-xl font-bold mb-4">
-            {mode === "login" ? "Sign in" : "Sign up"}
-          </h2>
+          <div className="mb-6">
+            <span
+              className="inline-block px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white mb-3"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--color-accent), var(--color-indigo))",
+              }}
+            >
+              InstaWear
+            </span>
+            <h2
+              className="font-display font-black text-2xl"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {mode === "login" ? "Welcome Back" : "Create Your Account"}
+            </h2>
+            <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>
+              {mode === "login"
+                ? "Sign in to track orders and save favorites."
+                : "Join to unlock faster checkout and order tracking."}
+            </p>
+          </div>
         )}
 
-        {/* Error message */}
         {error && (
-          <p className="text-red-500 text-sm mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div
+            className="mb-4 px-4 py-3 rounded-2xl text-sm font-medium"
+            style={{
+              background: "var(--color-negative-bg)",
+              color: "var(--color-negative)",
+            }}
+          >
             {error}
-          </p>
+          </div>
         )}
 
-        {/* Content per mode */}
         {mode === "resetPassword" ? renderResetPassword() : renderAuthForm()}
 
-        {/* Bottom links (login/signup only) */}
         {mode !== "resetPassword" && (
-          <div className="mt-3 flex justify-between text-sm">
+          <div className="mt-5 flex items-center justify-between text-sm">
             <button
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-              }}
-              className="text-orange-500 hover:underline"
+              onClick={() => setMode(mode === "login" ? "signup" : "login")}
+              className="font-bold"
+              style={{ color: "var(--color-accent)" }}
             >
               {mode === "login"
                 ? "Create an account"
-                : "Already have an account? Sign in"}
+                : "Already have an account?"}
             </button>
             {mode === "login" && (
               <button
                 onClick={() => {
                   setMode("resetPassword");
-                  setResetEmail(email); // Pre-fill with email from login form
+                  setResetEmail(email);
                 }}
-                className="text-gray-500 hover:text-orange-500 hover:underline"
+                className="text-xs font-semibold"
+                style={{ color: "var(--color-ink4)" }}
               >
                 Forgot password?
               </button>

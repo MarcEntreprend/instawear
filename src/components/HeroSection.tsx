@@ -53,7 +53,6 @@ export default function HeroSection({
             >
               Shop Now
             </Button>
-            aspect-3/4
             <button
               onClick={onWatchTrending}
               className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-wider px-2 py-2 group"
