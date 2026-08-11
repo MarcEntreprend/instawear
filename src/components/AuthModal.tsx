@@ -1,8 +1,10 @@
 // src/components/AuthModal.tsx
+// Fusion : style visuel (ui/Button, TextInput) + logique Supabase intégrée
 
 import React, { useState, useEffect, useCallback } from "react";
 import { X, ArrowLeft, Mail, Lock, User, CheckCircle2 } from "lucide-react";
 import { Button } from "./ui/Button";
+import { supabase } from "../lib/supabaseClient";
 
 type Mode = "login" | "signup" | "resetPassword";
 type ResetStep = "email" | "sent" | "newPassword";
@@ -12,15 +14,8 @@ const RESEND_COOLDOWN_SEC = 30;
 interface AuthModalProps {
   initialMode?: Mode;
   onClose: () => void;
-  onLogin: (
-    email: string,
-    password: string,
-  ) => Promise<{ isAdmin: boolean; name?: string }>;
-  onSignUp: (name: string, email: string, password: string) => Promise<void>;
-  onSendResetEmail: (email: string) => Promise<void>;
-  onResetPassword: (newPassword: string) => Promise<void>;
-  /** true si une session de récupération Supabase est déjà active (lien cliqué) */
-  isRecoverySession?: boolean;
+  onLoginSuccess: (isAdmin: boolean, name?: string) => void;
+  onSignUpSuccess: (name: string) => void;
 }
 
 function TextInput({
@@ -75,11 +70,8 @@ function TextInput({
 export default function AuthModal({
   initialMode = "login",
   onClose,
-  onLogin,
-  onSignUp,
-  onSendResetEmail,
-  onResetPassword,
-  isRecoverySession = false,
+  onLoginSuccess,
+  onSignUpSuccess,
 }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
@@ -88,15 +80,14 @@ export default function AuthModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [resetStep, setResetStep] = useState<ResetStep>(
-    isRecoverySession ? "newPassword" : "email",
-  );
+  const [resetStep, setResetStep] = useState<ResetStep>("email");
   const [resetEmail, setResetEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [timer, setTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
 
+  // ── Compte à rebours pour le renvoi du mail ──
   useEffect(() => {
     if (timer <= 0) {
       setCanResend(true);
@@ -107,17 +98,48 @@ export default function AuthModal({
     return () => clearInterval(id);
   }, [timer]);
 
+  // ── Détection du lien de réinitialisation (PASSWORD_RECOVERY) ──
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setMode("resetPassword");
+          setResetStep("newPassword");
+          if (session?.user?.email) setResetEmail(session.user.email);
+        }
+      },
+    );
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("resetPassword") === "true") {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session?.user) {
+          setMode("resetPassword");
+          setResetStep("newPassword");
+          setResetEmail(data.session.user.email || resetEmail);
+        }
+      });
+    }
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  // ── Reset des champs lors du changement de mode ──
   useEffect(() => {
     setError("");
     setEmail("");
     setPassword("");
     setName("");
-    if (!isRecoverySession) setResetStep("email");
-    setResetEmail("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setTimer(0);
-    setCanResend(false);
+    if (mode !== "resetPassword") {
+      setResetStep("email");
+      setResetEmail("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimer(0);
+      setCanResend(false);
+    }
   }, [mode]);
 
   const startTimer = useCallback(() => {
@@ -125,6 +147,7 @@ export default function AuthModal({
     setCanResend(false);
   }, []);
 
+  // ── Envoi de l'email de réinitialisation ──
   const handleSendReset = async () => {
     setError("");
     if (!resetEmail.trim()) {
@@ -133,7 +156,11 @@ export default function AuthModal({
     }
     setLoading(true);
     try {
-      await onSendResetEmail(resetEmail.trim());
+      const { error: sendError } = await supabase.auth.resetPasswordForEmail(
+        resetEmail.trim(),
+        { redirectTo: `${window.location.origin}/?resetPassword=true` },
+      );
+      if (sendError) throw sendError;
       startTimer();
       setResetStep("sent");
     } catch (err: any) {
@@ -145,6 +172,7 @@ export default function AuthModal({
     }
   };
 
+  // ── Réinitialisation du mot de passe (étape newPassword) ──
   const handleResetPassword = async () => {
     setError("");
     if (!newPassword) {
@@ -159,10 +187,41 @@ export default function AuthModal({
       setError("Passwords do not match.");
       return;
     }
+
     setLoading(true);
     try {
-      await onResetPassword(newPassword);
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) throw updateError;
+
+      // Succès : retour au login
       setMode("login");
+      setResetStep("email");
+      // Notification facultative (uniquement si user connecté)
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (currentUser) {
+        import("../api/supabaseApi")
+          .then(({ notificationApi }) => {
+            notificationApi
+              .create({
+                title: "Password reset",
+                description: `${resetEmail} reset their password`,
+                category: "customers",
+                priority: "medium",
+                metadata: {
+                  customerName: resetEmail,
+                  linkTo: "/admin/customers",
+                  source: "Client",
+                },
+                action_label: "View customer",
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }
     } catch (err: any) {
       setError(err?.message || "Password reset failed.");
     } finally {
@@ -170,25 +229,105 @@ export default function AuthModal({
     }
   };
 
+  // ── Soumission du formulaire (login / signup) ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       if (mode === "signup") {
-        await onSignUp(name, email, password);
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: name } },
+        });
+        if (signUpError) throw signUpError;
+
+        if (data.user) {
+          const { error: insertError } = await supabase
+            .from("customers")
+            .upsert(
+              {
+                id: data.user.id,
+                email,
+                name,
+                registration_date: new Date().toISOString(),
+                last_login_date: new Date().toISOString(),
+              },
+              { onConflict: "id" },
+            );
+          if (insertError)
+            console.warn("Customer creation error:", insertError);
+          else {
+            // Notification "New customer"
+            const {
+              data: { user: currentUser },
+            } = await supabase.auth.getUser();
+            if (currentUser) {
+              import("../api/supabaseApi")
+                .then(({ notificationApi }) => {
+                  notificationApi
+                    .create({
+                      title: "New customer registered",
+                      description: `${name || email} signed up on the store`,
+                      category: "customers",
+                      priority: "low",
+                      metadata: {
+                        customerId: data.user?.id ?? undefined,
+                        customerName: name || email,
+                        linkTo: "/admin/customers",
+                        source: "Client",
+                      },
+                      action_label: "View profile",
+                    })
+                    .catch(() => {});
+                })
+                .catch(() => {});
+            }
+          }
+        }
+        onSignUpSuccess(name || email);
       } else {
-        await onLogin(email, password);
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+        if (signInError) throw signInError;
+        if (!data.user) throw new Error("No user found");
+
+        const { data: isAdminUser } = await supabase.rpc("is_admin");
+        const isAdmin = !!isAdminUser;
+
+        // Mise à jour de last_login_date
+        supabase
+          .from("customers")
+          .update({ last_login_date: new Date().toISOString() })
+          .eq("id", data.user.id)
+          .then(({ error }) => {
+            if (error) console.warn("Error updating last_login_date:", error);
+          });
+
+        onLoginSuccess(isAdmin, name || email);
       }
     } catch (err: any) {
-      setError(
-        err?.message || "Authentication error. Please check your credentials.",
-      );
+      let message =
+        err?.message ||
+        err?.error_description ||
+        err?.msg ||
+        (typeof err === "string" ? err : null) ||
+        "Authentication error";
+      if (!message || message === "{}") {
+        message = "Sign-in error. Please check your credentials.";
+      }
+      setError(message);
+      console.error("Auth error details:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Rendu du formulaire de login/signup ──
   const renderAuthForm = () => (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {mode === "signup" && (
@@ -228,6 +367,7 @@ export default function AuthModal({
     </form>
   );
 
+  // ── Rendu de la récupération de mot de passe (3 étapes) ──
   const renderResetPassword = () => {
     switch (resetStep) {
       case "email":
@@ -336,30 +476,12 @@ export default function AuthModal({
       case "newPassword":
         return (
           <div className="flex flex-col gap-4">
-            {!isRecoverySession && (
-              <div className="flex items-center gap-2 mb-1">
-                <button
-                  onClick={() => setResetStep("email")}
-                  style={{ color: "var(--color-ink4)" }}
-                >
-                  <ArrowLeft size={18} />
-                </button>
-                <h2
-                  className="font-display font-black text-lg"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  New Password
-                </h2>
-              </div>
-            )}
-            {isRecoverySession && (
-              <h2
-                className="font-display font-black text-lg mb-1"
-                style={{ color: "var(--color-ink)" }}
-              >
-                Set a New Password
-              </h2>
-            )}
+            <h2
+              className="font-display font-black text-lg mb-1"
+              style={{ color: "var(--color-ink)" }}
+            >
+              New Password
+            </h2>
             <TextInput
               label="New Password"
               icon={Lock}
@@ -392,10 +514,14 @@ export default function AuthModal({
     }
   };
 
+  // ── Render principal ──
   return (
     <div
       className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
-      style={{ background: "rgba(11,11,10,.55)", backdropFilter: "blur(6px)" }}
+      style={{
+        background: "rgba(11,11,10,.55)",
+        backdropFilter: "blur(6px)",
+      }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div

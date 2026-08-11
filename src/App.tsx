@@ -1,4 +1,4 @@
-// src/App.tsx — version stabilisée avec les appels corrigés (props alignées)
+// src/App.tsx — fusion : design de la démo (HeroSection) + logique Supabase/Stripe
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Header from "./components/Header";
@@ -25,7 +25,7 @@ import { PLACEHOLDER_IMG } from "./constants/assets";
 import ProductDetailModal from "./components/ProductDetailModal";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
-import HeroCarousel from "./components/HeroCarousel";
+import HeroSection from "./components/HeroSection"; // ← remplace HeroCarousel
 import CatalogSection from "./components/CatalogSection";
 import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
@@ -84,7 +84,7 @@ export default function App() {
   const [cartLoaded, setCartLoaded] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // ── Promotions ──────────────────────────────────────────────────────
+  // ── Promotions (encore utilisées pour DealsSection, mais plus pour le hero) ──
   const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
 
@@ -630,33 +630,6 @@ export default function App() {
     return targetDate.toLocaleDateString("en-US", options);
   };
 
-  // ── Hero banners ──────────────────────────────────────────────────
-  const heroBanners = useMemo(() => {
-    return heroPromotions
-      .filter((promo) => {
-        if (promo.isActive === false) return false;
-        const product = products.find((p) => p.id === promo.productId);
-        if (!product || product.isActive === false) return false;
-        return true;
-      })
-      .sort((a, b) => a.order - b.order)
-      .map((promo) => {
-        const product = products.find((p) => p.id === promo.productId);
-        return {
-          title: promo.title || product?.title || promo.headline || "Promotion",
-          headline: promo.headline || product?.title || "",
-          sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || "from-white via-indigo-50 to-white",
-          image: promo.image || product?.image || PLACEHOLDER_IMG,
-          tag: promo.tag || "⚡ PROMOTION",
-          productId: promo.productId,
-          showTag: promo.showTag !== false,
-          showTitle: promo.showTitle !== false,
-        };
-      });
-  }, [heroPromotions, products]);
-
   // ── Filtered products ──────────────────────────────────────────────
   const filteredProducts = products.filter((product) => {
     if (!product.isActive) return false;
@@ -701,7 +674,6 @@ export default function App() {
       password,
     });
     if (error) throw new Error(error.message);
-    // Après login, on récupère le rôle admin
     const isAdminUser = await checkAdminEmail(email);
     return { isAdmin: isAdminUser, name: data.user?.user_metadata?.full_name };
   };
@@ -741,9 +713,7 @@ export default function App() {
     country: string;
     message: string;
   }): Promise<{ orderId: string }> => {
-    // Générer un ID de commande
     const orderId = `ORD-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000) + 100000}`;
-    // Créer la commande dans Supabase
     const { error } = await supabase.from("orders").insert({
       id: orderId,
       client_name: payload.name,
@@ -778,7 +748,6 @@ export default function App() {
       })),
     });
     if (error) throw new Error(error.message);
-    // Vider le panier
     setCart([]);
     return { orderId };
   };
@@ -804,7 +773,7 @@ export default function App() {
     >
       <div className="grain-overlay" />
 
-      {/* Header – sans onOpenTracking */}
+      {/* Header */}
       <Header
         cart={cart}
         favoriteCount={favorites.length}
@@ -841,17 +810,9 @@ export default function App() {
 
       {/* Main content */}
       {activeTab === "store" && !stripeConfirmOrderId && (
-        <main className="flex-1 flex flex-col gap-8 pb-16">
-          <HeroCarousel
-            banners={heroBanners}
-            loading={promotionsLoading}
-            onBannerAction={(banner) => {
-              if (banner.productId) {
-                const target = products.find((p) => p.id === banner.productId);
-                if (target) setSelectedProduct(target);
-              }
-            }}
-          />
+        <main className="flex-1 flex flex-col gap-14 pb-10">
+          {/* HeroSection – style de la démo */}
+          <HeroSection onShopNow={() => scrollToSection("catalog")} />
 
           <DealsSection
             dealExpired={dealExpired}
@@ -932,18 +893,31 @@ export default function App() {
         />
       )}
 
-      {/* Footer – sans onOpenAdmin */}
+      {/* Footer */}
       <Footer isAdmin={isAdmin} onNavigateAdmin={() => setActiveTab("admin")} />
 
-      {/* AuthModal – avec les bons callbacks */}
+      {/* AuthModal */}
       {showAuthModal && (
         <AuthModal
           initialMode={authInitialMode}
           onClose={() => setShowAuthModal(false)}
-          onLogin={handleLogin}
-          onSignUp={handleSignUp}
-          onSendResetEmail={handleSendResetEmail}
-          onResetPassword={handleResetPassword}
+          onLoginSuccess={(isAdmin: boolean, name?: string) => {
+            if (isAdmin) {
+              setIsAdmin(true);
+              setActiveTab("admin");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+              setIsUser(true);
+              setUserName(name || "");
+            }
+            setShowAuthModal(false);
+          }}
+          onSignUpSuccess={(name: string) => {
+            setIsUser(true);
+            setUserName(name);
+            setShowAuthModal(false);
+            showToast(`Welcome, ${name}! Your account has been created.`);
+          }}
         />
       )}
 
@@ -986,7 +960,7 @@ export default function App() {
         <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
       )}
 
-      {/* CheckoutFlow – avec onSubmitOrder */}
+      {/* CheckoutFlow */}
       {checkoutOpen && (
         <CheckoutFlow
           cart={cart}
@@ -1000,7 +974,6 @@ export default function App() {
         />
       )}
 
-      {/* Mode confirmation Stripe */}
       {stripeConfirmOrderId && (
         <CheckoutFlow
           cart={[]}
