@@ -28,17 +28,15 @@ import {
   Box,
   XCircle,
   Trash2,
-  Star,
   Home,
   Edit3,
   Copy,
-  ExternalLink,
-  AlertCircle,
   Inbox,
   LogOut,
   Search,
   X,
   Upload,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -114,7 +112,6 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-//  Resolves the best image for a specific product color
 function getVariantImage(product: any, selectedColor: string): string {
   if (product?.variants?.length) {
     const v = product.variants.find((v: any) => v.color === selectedColor);
@@ -146,13 +143,6 @@ export default function AccountPage({
     promotions: false,
   });
 
-  // Résout l'identité directement depuis la session Supabase Auth.
-  // IMPORTANT : on n'utilise plus allCustomers (cache global chargé une
-  // seule fois dans App.tsx) car il peut être en retard sur la session
-  // réelle (ex: juste après un signup, ou pendant que le cache charge
-  // encore) → c'était la cause du flash "Guest". customers.id == auth.uid()
-  // pour tout client (voir AuthModal.tsx : id: data.user.id à l'inscription),
-  // donc on peut requêter directement par cet ID, sans recherche par email.
   useEffect(() => {
     let cancelled = false;
 
@@ -168,35 +158,25 @@ export default function AccountPage({
         }
         return;
       }
-
-      // Affichage immédiat (aucune requête réseau nécessaire) : email +
-      // nom depuis la session Auth elle-même, pour éliminer le flash Guest.
       if (!cancelled) {
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
         setCustomerId(user.id);
       }
-
-      // Complément : nom exact + préférences email depuis la table customers
       const c = await customerApi.get(user.id);
       if (cancelled) return;
       if (c?.name) setCustomerName(c.name);
       if (c?.emailPreferences) setCustomerPreferences(c.emailPreferences);
-
       newsletterApi.isSubscribed(user.email).then((subscribed) => {
         if (!cancelled) setNewsletterSubscribed(subscribed);
       });
-
       if (!cancelled) setInitializing(false);
     };
 
-    // Résolution initiale : getSession() lit la session locale instantanément
-    // (pas d'appel réseau comme getUser()) → aucun flash au montage.
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => resolveIdentity(session?.user ?? null));
 
-    // Ré-résolution si la session change pendant que la page est ouverte
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         resolveIdentity(session?.user ?? null);
@@ -338,7 +318,6 @@ export default function AccountPage({
     await customerApi.updateEmailPreferences(customerId, prefs);
   };
 
-  // fonction de toggle newsletter
   const handleToggleNewsletter = async () => {
     if (!customerEmail) return;
     if (newsletterSubscribed) {
@@ -382,7 +361,7 @@ export default function AccountPage({
   const [searchOrders, setSearchOrders] = useState("");
   const [searchResults, setSearchResults] = useState<Order[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [totalOrdersCount, setTotalOrdersCount] = useState(0); // total réel depuis la DB
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
 
   const handleLoadMoreOrders = useCallback(() => {
     if (loadingOrders || !hasMoreOrders) return;
@@ -415,7 +394,6 @@ export default function AccountPage({
     }
   }, [customerEmail]);
 
-  // Load all data on mount (for sidebar badges)
   useEffect(() => {
     if (!customerId) return;
     fetchOrders(0, false);
@@ -423,7 +401,6 @@ export default function AccountPage({
     fetchCart();
     fetchNotifications(0, false);
     fetchInteractions();
-    // Charger le nombre total réel d'orders
     if (customerId) {
       customerApi
         .getOrderCount(customerId)
@@ -432,13 +409,11 @@ export default function AccountPage({
     }
   }, [customerId]);
 
-  // Auto-refresh sidebar data every 30s (orders list excluded, too heavy)
   useEffect(() => {
     if (!customerId) return;
     const interval = setInterval(() => {
       fetchFavorites();
       fetchCart();
-      // Seul le compteur de notifications non lues est rafraîchi, pas toute la liste
       customerApi
         .getUnreadNotificationCount(customerId)
         .then(setUnreadNotifsCount)
@@ -448,7 +423,7 @@ export default function AccountPage({
     return () => clearInterval(interval);
   }, [customerId, fetchFavorites, fetchCart, fetchInteractions]);
 
-  // ── Stats (computed) ──────────────────────────────────────────────
+  // ── Stats ──────────────────────────────────────────────────────
   const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
   const memberSince =
     orders.length > 0
@@ -535,7 +510,7 @@ export default function AccountPage({
       >
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
           style={{ color: "var(--color-ink3)" }}
         >
           <ArrowLeft size={18} strokeWidth={2} />
@@ -591,7 +566,6 @@ export default function AccountPage({
                 }}
               >
                 {customerId ? initials(customerEmail, customerName) : "?"}
-                {/* Online dot */}
                 <span
                   className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2"
                   style={{
@@ -745,7 +719,6 @@ export default function AccountPage({
               onClick={async () => {
                 await supabase.auth.signOut();
                 onClose();
-                // Force un vrai refresh pour nettoyer tous les états
                 window.location.href = "/";
               }}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
@@ -771,10 +744,9 @@ export default function AccountPage({
         {/* ── Content ───────────────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
           <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-            {/* Section heading */}
             <div className="mb-5 hidden sm:flex items-center justify-between">
               <h2
-                className="text-[20px] font-bold tracking-tight"
+                className="font-display text-[22px] font-black tracking-tight"
                 style={{ color: "var(--color-ink)" }}
               >
                 {NAV.find((n) => n.key === tab)?.label}
@@ -931,7 +903,6 @@ function OrdersTab({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [searchDebouncing, setSearchDebouncing] = useState(false);
 
-  // Recherche serveur avec debounce (350ms)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!search.trim()) {
@@ -961,7 +932,6 @@ function OrdersTab({
     };
   }, [search, customerEmail, customerId]);
 
-  // IntersectionObserver pour scroll infini
   useEffect(() => {
     if (!loaderRef.current || !hasMore) return;
     const observer = new IntersectionObserver(
@@ -976,7 +946,6 @@ function OrdersTab({
     return () => observer.disconnect();
   }, [hasMore, loading, onLoadMore]);
 
-  // Filtrage + tri (côté client uniquement sur les données déjà chargées)
   const filtered = useMemo(() => {
     let list = [...orders];
     if (search.trim()) {
@@ -999,7 +968,6 @@ function OrdersTab({
     return list;
   }, [orders, search, filterStatus, sortOrder]);
 
-  // Appliquer les filtres locaux (status, sort) aux résultats de recherche serveur
   const filteredServerResults = useMemo(() => {
     let list = [...serverResults];
     if (filterStatus !== "all") {
@@ -1048,9 +1016,136 @@ function OrdersTab({
       />
     );
 
+  const renderOrderRow = (order: Order) => {
+    const isActive =
+      order.status !== "delivered" && order.status !== "cancelled";
+    return (
+      <button
+        key={order.id}
+        onClick={async () => {
+          setLoadingDetail(true);
+          try {
+            const { data: refreshed, error } = await supabase
+              .from("orders")
+              .select("*, order_items(*)")
+              .eq("id", order.id)
+              .single();
+            if (!error && refreshed) {
+              const items = (refreshed.order_items || []).map((item: any) => ({
+                id: item.id,
+                orderId: item.order_id,
+                productId: item.product_id,
+                productTitle: item.product_title,
+                productImage: item.product_image,
+                selectedColor: item.selected_color,
+                selectedSize: item.selected_size,
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+              }));
+              setSelectedOrder({
+                ...mapOrder(refreshed),
+                items,
+              } as Order);
+            } else {
+              setSelectedOrder(order);
+            }
+          } catch {
+            setSelectedOrder(order);
+          } finally {
+            setLoadingDetail(false);
+          }
+        }}
+        className="card-lift w-full text-left rounded-xl border p-4 transition-all duration-200 active:scale-[0.99]"
+        style={{
+          background: "var(--color-surface)",
+          borderColor: "var(--color-border)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <p
+                className="truncate text-[13px] font-bold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {order.id}
+                <CopyID id={order.id} />
+              </p>
+              {isActive && (
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: "var(--color-accent)" }}
+                />
+              )}
+            </div>
+            <p className="text-[12px]" style={{ color: "var(--color-ink4)" }}>
+              {formatDate(order.createdAt)} · {order.items?.length ?? 0} item
+              {(order.items?.length ?? 0) !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              className="text-[15px] font-black tabular-nums"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {currencySymbol}
+              {order.totalAmount.toFixed(2)}
+            </span>
+            <StatusPill status={order.status} />
+          </div>
+        </div>
+        {order.items && order.items.length > 0 && (
+          <div className="mt-3 flex items-center gap-1.5">
+            {order.items.slice(0, 4).map((item, i) => (
+              <span
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (item.productId && onViewProduct) {
+                    onViewProduct(
+                      item.productId,
+                      item.selectedColor,
+                      item.selectedSize,
+                    );
+                  }
+                }}
+                className="h-9 w-9 rounded-[10px] overflow-hidden border-none p-0 cursor-pointer inline-block"
+                style={{ border: "1px solid var(--color-border)" }}
+              >
+                <img
+                  src={item.productImage || PLACEHOLDER_IMG}
+                  alt={item.productTitle || "item"}
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            ))}
+            {order.items.length > 4 && (
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-[10px] text-[11px] font-bold"
+                style={{
+                  background: "var(--color-surface2)",
+                  color: "var(--color-ink3)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                +{order.items.length - 4}
+              </div>
+            )}
+            <ChevronRight
+              size={16}
+              strokeWidth={1.75}
+              className="ml-auto"
+              style={{ color: "var(--color-ink4)" }}
+            />
+          </div>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Barre de recherche + filtres */}
+      {/* Search & filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div
           className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
@@ -1145,137 +1240,7 @@ function OrdersTab({
             sub="Try adjusting your search or filters."
           />
         ) : (
-          filteredServerResults.map((order) => {
-            const isActive =
-              order.status !== "delivered" && order.status !== "cancelled";
-            return (
-              <button
-                key={order.id}
-                onClick={async () => {
-                  setLoadingDetail(true);
-                  try {
-                    const { data: refreshed, error } = await supabase
-                      .from("orders")
-                      .select("*, order_items(*)")
-                      .eq("id", order.id)
-                      .single();
-                    if (!error && refreshed) {
-                      const items = (refreshed.order_items || []).map(
-                        (item: any) => ({
-                          id: item.id,
-                          orderId: item.order_id,
-                          productId: item.product_id,
-                          productTitle: item.product_title,
-                          productImage: item.product_image,
-                          selectedColor: item.selected_color,
-                          selectedSize: item.selected_size,
-                          quantity: item.quantity,
-                          unitPrice: item.unit_price,
-                        }),
-                      );
-                      setSelectedOrder({
-                        ...mapOrder(refreshed),
-                        items,
-                      } as Order);
-                    } else {
-                      setSelectedOrder(order);
-                    }
-                  } catch {
-                    setSelectedOrder(order);
-                  } finally {
-                    setLoadingDetail(false);
-                  }
-                }}
-                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
-                style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p
-                        className="truncate text-[13px] font-bold"
-                        style={{ color: "var(--color-ink)" }}
-                      >
-                        {order.id}
-                        <CopyID id={order.id} />
-                      </p>
-                      {isActive && (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ background: "var(--color-accent)" }}
-                        />
-                      )}
-                    </div>
-                    <p
-                      className="text-[12px]"
-                      style={{ color: "var(--color-ink4)" }}
-                    >
-                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className="text-[15px] font-black tabular-nums"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      {currencySymbol}
-                      {order.totalAmount.toFixed(2)}
-                    </span>
-                    <StatusPill status={order.status} />
-                  </div>
-                </div>
-                {order.items && order.items.length > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    {order.items.slice(0, 4).map((item, i) => (
-                      <span
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.productId && onViewProduct) {
-                            onViewProduct(
-                              item.productId,
-                              item.selectedColor,
-                              item.selectedSize,
-                            );
-                          }
-                        }}
-                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
-                        style={{ border: "1px solid var(--color-border)" }}
-                      >
-                        <img
-                          src={item.productImage || PLACEHOLDER_IMG}
-                          alt={item.productTitle || "item"}
-                          className="h-full w-full object-cover"
-                        />
-                      </span>
-                    ))}
-                    {order.items.length > 4 && (
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                        style={{
-                          background: "var(--color-surface2)",
-                          color: "var(--color-ink3)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                      >
-                        +{order.items.length - 4}
-                      </div>
-                    )}
-                    <ChevronRight
-                      size={16}
-                      strokeWidth={1.75}
-                      className="ml-auto"
-                      style={{ color: "var(--color-ink4)" }}
-                    />
-                  </div>
-                )}
-              </button>
-            );
-          })
+          filteredServerResults.map((order) => renderOrderRow(order))
         )
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -1284,141 +1249,9 @@ function OrdersTab({
           sub="Try adjusting your search or filters."
         />
       ) : (
-        <>
-          {filtered.map((order) => {
-            const isActive =
-              order.status !== "delivered" && order.status !== "cancelled";
-            return (
-              <button
-                key={order.id}
-                onClick={async () => {
-                  setLoadingDetail(true);
-                  try {
-                    const { data: refreshed, error } = await supabase
-                      .from("orders")
-                      .select("*, order_items(*)")
-                      .eq("id", order.id)
-                      .single();
-                    if (!error && refreshed) {
-                      const items = (refreshed.order_items || []).map(
-                        (item: any) => ({
-                          id: item.id,
-                          orderId: item.order_id,
-                          productId: item.product_id,
-                          productTitle: item.product_title,
-                          productImage: item.product_image,
-                          selectedColor: item.selected_color,
-                          selectedSize: item.selected_size,
-                          quantity: item.quantity,
-                          unitPrice: item.unit_price,
-                        }),
-                      );
-                      setSelectedOrder({
-                        ...mapOrder(refreshed),
-                        items,
-                      } as Order);
-                    } else {
-                      setSelectedOrder(order);
-                    }
-                  } catch {
-                    setSelectedOrder(order);
-                  } finally {
-                    setLoadingDetail(false);
-                  }
-                }}
-                className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
-                style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p
-                        className="truncate text-[13px] font-bold"
-                        style={{ color: "var(--color-ink)" }}
-                      >
-                        {order.id}
-                        <CopyID id={order.id} />
-                      </p>
-                      {isActive && (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ background: "var(--color-accent)" }}
-                        />
-                      )}
-                    </div>
-                    <p
-                      className="text-[12px]"
-                      style={{ color: "var(--color-ink4)" }}
-                    >
-                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
-                      item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className="text-[15px] font-black tabular-nums"
-                      style={{ color: "var(--color-ink)" }}
-                    >
-                      {currencySymbol}
-                      {order.totalAmount.toFixed(2)}
-                    </span>
-                    <StatusPill status={order.status} />
-                  </div>
-                </div>
-                {order.items && order.items.length > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    {order.items.slice(0, 4).map((item, i) => (
-                      <span
-                        key={i}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.productId && onViewProduct) {
-                            onViewProduct(
-                              item.productId,
-                              item.selectedColor,
-                              item.selectedSize,
-                            );
-                          }
-                        }}
-                        className="h-9 w-9 rounded-lg overflow-hidden border-none p-0 cursor-pointer inline-block"
-                        style={{ border: "1px solid var(--color-border)" }}
-                      >
-                        <img
-                          src={item.productImage || PLACEHOLDER_IMG}
-                          alt={item.productTitle || "item"}
-                          className="h-full w-full object-cover"
-                        />
-                      </span>
-                    ))}
-                    {order.items.length > 4 && (
-                      <div
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-bold"
-                        style={{
-                          background: "var(--color-surface2)",
-                          color: "var(--color-ink3)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                      >
-                        +{order.items.length - 4}
-                      </div>
-                    )}
-                    <ChevronRight
-                      size={16}
-                      strokeWidth={1.75}
-                      className="ml-auto"
-                      style={{ color: "var(--color-ink4)" }}
-                    />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </>
+        filtered.map((order) => renderOrderRow(order))
       )}
-      {/* Loader pour scroll infini */}
+
       {hasMore && (
         <div ref={loaderRef} className="flex justify-center py-4">
           <Loader2
@@ -1458,15 +1291,12 @@ function OrderDetail({
         <ArrowLeft size={14} strokeWidth={2} /> All Orders
       </button>
 
-      {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
 
-      {/* Suivi des colis expédiés — visible uniquement pour les commandes
-          expédiées/livrées ayant au moins un colis enregistré par le webhook. */}
       {(order.status === "shipped" || order.status === "delivered") &&
         order.trackingInfo?.length > 0 && (
           <div
-            className="rounded-2xl p-4"
+            className="rounded-xl p-4"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
@@ -1476,9 +1306,8 @@ function OrderDetail({
           </div>
         )}
 
-      {/* Order info */}
       <div
-        className="rounded-2xl p-4"
+        className="rounded-xl p-4"
         style={{
           background: "var(--color-surface)",
           border: "1px solid var(--color-border)",
@@ -1505,7 +1334,6 @@ function OrderDetail({
           </p>
         </div>
 
-        {/* Items */}
         <div
           className="flex flex-col gap-3 pt-3"
           style={{ borderTop: "1px solid var(--color-border)" }}
@@ -1565,7 +1393,6 @@ function OrderDetail({
           ))}
         </div>
 
-        {/* Totals */}
         <div
           className="mt-4 flex flex-col gap-1.5 pt-3"
           style={{ borderTop: "1px solid var(--color-border)" }}
@@ -1596,10 +1423,9 @@ function OrderDetail({
         </div>
       </div>
 
-      {/* Shipping address */}
       {order.shippingAddress && (
         <div
-          className="rounded-2xl p-4"
+          className="rounded-xl p-4"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -1664,19 +1490,20 @@ function FavoritesTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Remove all button */}
       <div className="flex justify-end">
         <button
           onClick={onRemoveAll}
-          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
           style={{
             background: "var(--color-surface2)",
             color: "var(--color-ink4)",
             border: "1px solid var(--color-border)",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#FEF2F2";
-            (e.currentTarget as HTMLElement).style.color = "#EF4444";
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--color-negative-bg)";
+            (e.currentTarget as HTMLElement).style.color =
+              "var(--color-negative)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background =
@@ -1692,7 +1519,7 @@ function FavoritesTab({
         {favorites.map((fav) => (
           <div
             key={fav.id}
-            className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-(--shadow-md)"
+            className="card-lift group relative flex flex-col overflow-hidden rounded-xl"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
@@ -1709,7 +1536,6 @@ function FavoritesTab({
               />
             </div>
 
-            {/* Delete button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1738,7 +1564,6 @@ function FavoritesTab({
               )}
             </div>
 
-            {/* Hover — "View product" pill */}
             <button
               onClick={() => onViewProduct?.(fav.productId)}
               className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
@@ -1804,19 +1629,20 @@ function CartTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Clear all button */}
       <div className="flex justify-end">
         <button
           onClick={onClear}
-          className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
           style={{
             background: "var(--color-surface2)",
             color: "var(--color-ink4)",
             border: "1px solid var(--color-border)",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#FEF2F2";
-            (e.currentTarget as HTMLElement).style.color = "#EF4444";
+            (e.currentTarget as HTMLElement).style.background =
+              "var(--color-negative-bg)";
+            (e.currentTarget as HTMLElement).style.color =
+              "var(--color-negative)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background =
@@ -1831,7 +1657,7 @@ function CartTab({
       {items.map((item) => (
         <div
           key={item.id}
-          className="flex items-center gap-3 rounded-2xl border p-3"
+          className="flex items-center gap-3 rounded-xl border p-3"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -1928,9 +1754,10 @@ function CartTab({
                 <button
                   onClick={() => onRemove(item.id)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg ml-1 transition-colors"
-                  style={{ color: "#EF4444" }}
+                  style={{ color: "var(--color-negative)" }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#FEF2F2";
+                    e.currentTarget.style.background =
+                      "var(--color-negative-bg)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
@@ -1944,9 +1771,8 @@ function CartTab({
         </div>
       ))}
 
-      {/* Total */}
       <div
-        className="flex justify-between rounded-2xl border p-4"
+        className="flex justify-between rounded-xl border p-4"
         style={{
           background: "var(--color-surface)",
           borderColor: "var(--color-border)",
@@ -1970,27 +1796,14 @@ function CartTab({
   );
 }
 
-// Regex pour détecter un ID de commande (ORD-année-suite ou ORD-UUID)
 const ORDER_ID_REGEX =
   /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
-
-// Regex pour détecter une URL http(s) — rendue cliquable dans les
-// notifications (ex: lien de suivi du colis) en ouvrant un nouvel onglet.
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
-
-// Combine les deux : un seul passage, chaque match est soit un URL, soit
-// un ID de commande.
 const MESSAGE_TOKEN_REGEX = new RegExp(
   `(${ORDER_ID_REGEX.source.replace(/^\/|\/$/g, "")})|(${URL_REGEX.source.replace(/^\/|\/$/g, "")})`,
   "gi",
 );
 
-/**
- * Transforme un texte en ReactNode :
- * - URLs → lien cliquable (nouvel onglet) ;
- * - IDs de commande → version majuscule + bouton CopyID.
- * Le reste du texte est conservé tel quel.
- */
 function formatMessageText(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -2001,7 +1814,7 @@ function formatMessageText(text: string): React.ReactNode {
       parts.push(text.slice(lastIndex, match.index));
     }
     const token = match[0];
-    if (new RegExp(URL_REGEX.source).test(token)) {
+    if (URL_REGEX.test(token)) {
       parts.push(
         <a
           key={match.index}
@@ -2033,7 +1846,6 @@ function formatMessageText(text: string): React.ReactNode {
   if (lastIndex < text.length) {
     parts.push(text.slice(lastIndex));
   }
-
   return parts.length > 0 ? parts : text;
 }
 
@@ -2062,7 +1874,7 @@ function NotificationsTab({
       {notifications.map((notif) => (
         <div
           key={notif.id}
-          className="rounded-2xl border p-4 transition-all"
+          className="rounded-xl border p-4 transition-all"
           style={{
             background: notif.is_read
               ? "var(--color-surface)"
@@ -2141,12 +1953,10 @@ function SupportTab({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  // Upload state
   const [files, setFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Vue détail d'un ticket ──────────────────────────────────────
   const [selectedTicket, setSelectedTicket] = useState<Interaction | null>(
     null,
   );
@@ -2154,7 +1964,6 @@ function SupportTab({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState("");
 
-  // Polling des messages toutes les 10s (racine du composant, hors conditions)
   useEffect(() => {
     if (!selectedTicket) return;
     const interval = setInterval(async () => {
@@ -2196,15 +2005,14 @@ function SupportTab({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    const maxSize = 5 * 1024 * 1024; // 5 MB
+    const maxSize = 5 * 1024 * 1024;
     const filtered = selected.filter(
       (f) => validTypes.includes(f.type) && f.size <= maxSize,
     );
     setFiles((prev) => {
       const combined = [...prev, ...filtered];
-      return combined.slice(0, 3); // max 3 files
+      return combined.slice(0, 3);
     });
-    // Reset input value so the same file can be re-selected if removed
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -2219,7 +2027,6 @@ function SupportTab({
 
     let uploadedUrls: { url: string; name: string; size: number }[] = [];
     try {
-      // Upload files first
       for (const file of files) {
         const url = await storageApi.uploadTicketAttachment(file);
         uploadedUrls.push({
@@ -2278,7 +2085,6 @@ function SupportTab({
     }
   };
 
-  // ── Vue détail ──────────────────────────────────────────────────
   if (selectedTicket) {
     const ticketMeta = (selectedTicket as any).metadata || {};
     const attachments: any[] = ticketMeta.attachments || [];
@@ -2295,7 +2101,7 @@ function SupportTab({
           <ArrowLeft size={14} strokeWidth={2} /> All conversations
         </button>
         <div
-          className="rounded-2xl p-4"
+          className="rounded-xl p-4"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -2326,7 +2132,6 @@ function SupportTab({
             </span>
           </div>
 
-          {/* Attachments */}
           {attachments.length > 0 && (
             <div
               className="mt-3 pt-3"
@@ -2363,7 +2168,7 @@ function SupportTab({
         </div>
 
         <div
-          className="rounded-2xl p-4 flex flex-col gap-4"
+          className="rounded-xl p-4 flex flex-col gap-4"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -2446,7 +2251,7 @@ function SupportTab({
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim()}
-            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
+            className="pill self-end flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
             style={{
               background: "var(--color-accent)",
               boxShadow: "var(--shadow-accent)",
@@ -2459,7 +2264,6 @@ function SupportTab({
     );
   }
 
-  // ── Formulaire nouveau ticket enrichi ──────────────────────────
   if (showForm) {
     return (
       <div className="flex flex-col gap-4 animate-fade-up">
@@ -2471,7 +2275,7 @@ function SupportTab({
           <ArrowLeft size={14} strokeWidth={2} /> Back
         </button>
         <div
-          className="rounded-2xl p-5"
+          className="rounded-xl p-5"
           style={{
             background: "var(--color-surface)",
             border: "1px solid var(--color-border)",
@@ -2505,7 +2309,6 @@ function SupportTab({
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {/* Name */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2526,7 +2329,6 @@ function SupportTab({
                   }}
                 />
               </div>
-              {/* Email */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2547,7 +2349,6 @@ function SupportTab({
                   }}
                 />
               </div>
-              {/* Request Type */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2571,7 +2372,6 @@ function SupportTab({
                   <option value="feedback">Feedback</option>
                 </select>
               </div>
-              {/* Related Order */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2604,7 +2404,6 @@ function SupportTab({
                   ))}
                 </select>
               </div>
-              {/* Subject */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2632,7 +2431,6 @@ function SupportTab({
                   }
                 />
               </div>
-              {/* Message */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2660,7 +2458,6 @@ function SupportTab({
                   }
                 />
               </div>
-              {/* File upload */}
               <div>
                 <label
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
@@ -2668,7 +2465,6 @@ function SupportTab({
                 >
                   Attachments (max 3, 5MB each — JPEG, PNG, WebP, GIF)
                 </label>
-                {/* Selected files preview */}
                 {files.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {files.map((file, i) => (
@@ -2693,7 +2489,6 @@ function SupportTab({
                     ))}
                   </div>
                 )}
-                {/* Drop zone */}
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-[13px] cursor-pointer transition-colors ${files.length >= 3 ? "opacity-50 pointer-events-none" : ""}`}
@@ -2755,7 +2550,6 @@ function SupportTab({
                   style={{ display: "none" }}
                 />
               </div>
-              {/* Submit */}
               <button
                 onClick={handleCreate}
                 disabled={
@@ -2764,7 +2558,7 @@ function SupportTab({
                   !subject.trim() ||
                   !message.trim()
                 }
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="pill w-full flex items-center justify-center gap-2 rounded-full py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",
@@ -2788,7 +2582,6 @@ function SupportTab({
     );
   }
 
-  // ── Liste des tickets ───────────────────────────────────────────
   if (loading) return <SkeletonList />;
 
   return (
@@ -2807,7 +2600,7 @@ function SupportTab({
         <>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 self-end rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.97]"
+            className="flex items-center gap-2 self-end rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition-all duration-150 active:scale-[0.97]"
             style={{
               background: "var(--color-accent-bg)",
               color: "var(--color-accent)",
@@ -2820,7 +2613,7 @@ function SupportTab({
             <button
               key={t.id}
               onClick={() => openTicket(t)}
-              className="w-full text-left rounded-2xl p-4 transition-all duration-200 hover:shadow-(--shadow-md)"
+              className="card-lift w-full text-left rounded-xl p-4 transition-all duration-200"
               style={{
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-border)",
@@ -2873,7 +2666,7 @@ function SupportTab({
   );
 }
 
-// ─── ProfileTab (version enrichie) ─────────────────────────────────
+// ─── ProfileTab ─────────────────────────────────────────────────────
 function ProfileTab({
   customerEmail,
   customerName,
@@ -2903,7 +2696,6 @@ function ProfileTab({
   onClose: () => void;
   onToggleNewsletter: () => void;
 }) {
-  // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(customerName);
   const [dob, setDob] = useState("");
@@ -2927,19 +2719,15 @@ function ProfileTab({
   const [copied, setCopied] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  // ── Charger les données ─────────────────────────────────────────
   useEffect(() => {
     if (!customerId) return;
-    // Charger la date de naissance
     customerApi.get(customerId).then((c) => {
       if (c?.date_of_birth) setDob(c.date_of_birth);
     });
-    // Charger les adresses
     setLoadingAddresses(true);
     customerApi
       .getAddresses(customerId)
       .then((addrs) => {
-        // Placer l'adresse par défaut en tête au chargement initial
         const sorted = [...addrs].sort((a, b) =>
           a.is_default ? -1 : b.is_default ? 1 : 0,
         );
@@ -2948,7 +2736,6 @@ function ProfileTab({
       .finally(() => setLoadingAddresses(false));
   }, [customerId]);
 
-  // ── Handlers ────────────────────────────────────────────────────
   const handleSaveName = async () => {
     if (!customerId || !nameInput.trim()) return;
     await customerApi.updateProfile(customerId, { name: nameInput.trim() });
@@ -3136,7 +2923,6 @@ function ProfileTab({
           className="flex flex-col gap-3 pt-4"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          {/* Email */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
@@ -3168,7 +2954,6 @@ function ProfileTab({
             </button>
           </div>
 
-          {/* Date of birth */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p
@@ -3226,7 +3011,6 @@ function ProfileTab({
           )}
         </div>
 
-        {/* Add address form */}
         {showAddAddress && (
           <div
             className="mb-4 rounded-xl p-3"
@@ -3371,7 +3155,6 @@ function ProfileTab({
           </div>
         )}
 
-        {/* Address list */}
         {loadingAddresses ? (
           <SkeletonList />
         ) : addresses.length === 0 ? (
@@ -3403,7 +3186,6 @@ function ProfileTab({
                 />
 
                 {editingAddressId === addr.id ? (
-                  /* ── Mode édition ──────────────────────── */
                   <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
                     <input
                       value={editForm.full_name || ""}
@@ -3539,7 +3321,6 @@ function ProfileTab({
                     </div>
                   </div>
                 ) : (
-                  /* ── Mode affichage ──────────────────────── */
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
@@ -3581,7 +3362,6 @@ function ProfileTab({
                   </div>
                 )}
 
-                {/* Boutons d'action */}
                 <div className="flex flex-col gap-1">
                   {editingAddressId !== addr.id && (
                     <button
@@ -3621,7 +3401,6 @@ function ProfileTab({
           Preferences
         </p>
         <div className="flex flex-col gap-2">
-          {/* Newsletter */}
           <div className="flex items-center justify-between">
             <span
               className="text-[13px]"
@@ -3716,10 +3495,10 @@ function ProfileTab({
           your account is permanent and cannot be undone.
         </p>
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+          className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
           style={{
-            background: "var(--color-surface2)",
-            color: "var(--color-ink3)",
+            background: "var(--color-cta-bg)",
+            color: "var(--color-cta-ink)",
             border: "1px solid var(--color-border)",
           }}
           onClick={async () => {
@@ -3732,11 +3511,11 @@ function ProfileTab({
         </button>
         <button
           disabled={deletingAccount || !customerId}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            background: "#FEF2F2",
-            color: "#EF4444",
-            border: "1px solid #FECACA",
+            background: "var(--color-negative-bg)",
+            color: "var(--color-negative)",
+            border: "1px solid var(--color-negative)" + "40",
           }}
           onClick={handleDeleteAccount}
         >
@@ -3791,7 +3570,7 @@ function EmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+          className="pill mt-1 rounded-full px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
           style={{
             background: "var(--color-accent)",
             boxShadow: "var(--shadow-accent)",
@@ -3810,7 +3589,7 @@ function SkeletonList() {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-2xl border p-4"
+          className="rounded-xl border p-4"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
@@ -3825,7 +3604,7 @@ function SkeletonList() {
           </div>
           <div className="mt-3 flex gap-1.5">
             {Array.from({ length: 3 }).map((_, j) => (
-              <div key={j} className="skeleton h-9 w-9 rounded-lg" />
+              <div key={j} className="skeleton h-9 w-9 rounded-[10px]" />
             ))}
           </div>
         </div>
@@ -3840,7 +3619,7 @@ function SkeletonGrid() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-2xl border overflow-hidden"
+          className="rounded-xl border overflow-hidden"
           style={{
             background: "var(--color-surface)",
             borderColor: "var(--color-border)",
