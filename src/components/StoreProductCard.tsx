@@ -22,9 +22,12 @@ export default function StoreProductCard({
   onAddToCart,
   onSelectProduct,
 }: StoreProductCardProps) {
-  const colors = product.variants?.length
+  const variantColors = product.variants?.length
     ? product.variants.map((v) => v.color)
     : product.colors;
+  const variantColorNames = product.variants?.length
+    ? product.variants.map((v) => v.color_name)
+    : product.colorNames;
 
   return (
     <div
@@ -36,7 +39,7 @@ export default function StoreProductCard({
     >
       <div
         onClick={() => onSelectProduct(product)}
-        className="relative aspect-4/5 cursor-pointer overflow-hidden"
+        className="relative aspect-square cursor-pointer overflow-hidden"
         style={{ background: "var(--color-surface2)" }}
       >
         <img
@@ -86,16 +89,36 @@ export default function StoreProductCard({
           />
         </button>
 
-        {/* Color dots */}
-        {colors.length > 0 && (
-          <div className="absolute bottom-3 left-3 flex items-center gap-1 px-1.5 py-1 rounded-full bg-white/85 backdrop-blur">
-            {colors.slice(0, 3).map((c, i) => (
-              <span
-                key={i}
-                className="w-3 h-3 rounded-full border border-white"
-                style={{ backgroundColor: c }}
-              />
-            ))}
+        {/* Color dots - règle : ≤3 affichage individuel, ≥4 → 3 premières + cercle multicolore */}
+        {variantColors.length > 0 && (
+          <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-white/85 backdrop-blur-sm border border-white/40 shadow-sm max-w-fit">
+            {variantColors.length <= 3 ? (
+              // Cas 1 : 3 couleurs ou moins → affichage individuel
+              variantColors.map((c, idx) => (
+                <span
+                  key={idx}
+                  className="w-3 h-3 rounded-full border border-white/60 block"
+                  style={{ backgroundColor: c }}
+                  title={variantColorNames?.[idx] || c}
+                />
+              ))
+            ) : (
+              // Cas 2 : 4 couleurs ou plus → 3 premières + cercle multicolore
+              <>
+                {variantColors.slice(0, 3).map((c, idx) => (
+                  <span
+                    key={idx}
+                    className="w-3 h-3 rounded-full border border-white/60 block"
+                    style={{ backgroundColor: c }}
+                    title={variantColorNames?.[idx] || c}
+                  />
+                ))}
+                <span
+                  className="color-wheel"
+                  title={`+${variantColors.length - 3} colors`}
+                />
+              </>
+            )}
           </div>
         )}
 
