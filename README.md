@@ -144,135 +144,173 @@ npx tsc --noEmit
 
 ## Structure arborescente
 
-```text
-instawear/
+```
+instawear_gem/
+├── .impeccable
 ├── .vscode/
-│   └── settings.json
+│ └── settings.json
 ├── assets/
-│   └── .aistudio/
-│       └── .gitignore
+│ └── .aistudio/
+│ └── .gitignore
 ├── data/
-│   ├── assets.json
-│   ├── products.json
-│   └── settings.json
+│ ├── assets.json
+│ ├── products.json
+│ └── settings.json
 ├── dist/
+│ ├── assets/
+│ │ ├── emailTemplates-hykaDCoE.js
+│ │ ├── index-DnFt14NM.js
+│ │ └── index-PYHhISLj.css
+│ ├── flags/
+│ │ ├── be.svg
+│ │ ├── br.svg
+│ │ ├── ca.svg
+│ │ ├── ch.svg
+│ │ ├── fr.svg
+│ │ ├── gb.svg
+│ │ ├── jp.svg
+│ │ └── us.svg
+│ ├── cart-check.svg
+│ ├── cart-plus.svg
+│ ├── cart-x.svg
+│ ├── globe-off.svg
+│ ├── index.html
+│ ├── InstaWear-logo-settings.png
+│ ├── InstaWear-logo-wh-middle-no-BG.png
+│ ├── InstaWear-logo.png
+│ ├── Instawear-missing-item.svg
+│ ├── server.cjs
+│ ├── server.cjs.map
+│ ├── truck-icon.svg
+│ └── unsubscribe.html
 ├── node_modules/
 ├── public/
-│   ├── flags/
-│   │   ├── be.svg
-│   │   ├── br.svg
-│   │   ├── ca.svg
-│   │   ├── ch.svg
-│   │   ├── fr.svg
-│   │   ├── gb.svg
-│   │   ├── jp.svg
-│   │   └── us.svg
-│   ├── globe-off.svg
-│   ├── InstaWear-logo-settings.png
-│   ├── InstaWear-logo-wh-middle-no-BG.png
-│   ├── InstaWear-logo.png
-│   ├── Instawear-missing-item.svg
-│   └── unsubscribe.html
+│ ├── flags/
+│ ├── cart-check.svg
+│ ├── cart-plus.svg
+│ ├── cart-x.svg
+│ ├── globe-off.svg
+│ ├── InstaWear-logo-settings.png
+│ ├── InstaWear-logo-wh-middle-no-BG.png
+│ ├── InstaWear-logo.png
+│ ├── Instawear-missing-item.svg
+│ ├── truck-icon.svg
+│ └── unsubscribe.html
 ├── src/
-│   ├── admin/
-│   │   ├── emailMarketing/
-│   │   │   ├── constants.tsx
-│   │   │   ├── emailTemplates.tsx
-│   │   │   ├── helpers.ts
-│   │   │   ├── useToast.ts
-│   │   │   └── VariablesModal.tsx
-│   │   ├── AdminDashboardNew.tsx
-│   │   ├── adminHooks.ts
-│   │   ├── AdminSidebar.tsx
-│   │   ├── adminStyles.ts
-│   │   ├── adminTypes.ts
-│   │   ├── AdminUsersPage.tsx
-│   │   ├── CustomersPage.tsx
-│   │   ├── EmailMarketingPage.tsx
-│   │   ├── HelpPage.tsx
-│   │   ├── IntegrationsPage.tsx
-│   │   ├── InteractionsPage.tsx
-│   │   ├── NotificationsPage.tsx
-│   │   ├── OrdersPage.tsx
-│   │   ├── PrintfulProductForm.tsx
-│   │   ├── ProductFormPanel.tsx
-│   │   ├── ProductQuickViewModal.tsx
-│   │   ├── ProductsPage.tsx
-│   │   ├── PromotionsPage.tsx
-│   │   ├── ReportInfoModal.tsx
-│   │   ├── ReportsPage.tsx
-│   │   ├── SettingsPage.tsx
-│   │   └── useAdminHighlight.ts
-│   ├── api/
-│   │   ├── storageApi.ts
-│   │   └── supabaseApi.ts
-│   ├── components/
-│   │   ├── AboutSection.tsx
-│   │   ├── AccountPage.tsx
-│   │   ├── AuthModal.tsx
-│   │   ├── CartDrawer.tsx
-│   │   ├── CatalogSection.tsx
-│   │   ├── CheckoutFlow.tsx
-│   │   ├── CopyID.tsx
-│   │   ├── DealsSection.tsx
-│   │   ├── FaqSection.tsx
-│   │   ├── Footer.tsx
-│   │   ├── Header.tsx
-│   │   ├── HeroCarousel.tsx
-│   │   ├── ImageZoom.tsx
-│   │   ├── NotFound.tsx
-│   │   ├── OrderModal.tsx
-│   │   ├── OrderStatusStepper.tsx
-│   │   ├── OrderTrackingModal.tsx
-│   │   ├── ProductDetailModal.tsx
-│   │   ├── ProductModal.tsx
-│   │   ├── ProfileModal.tsx
-│   │   ├── ReassuranceBar.tsx
-│   │   ├── StoreProductCard.tsx
-│   │   ├── TagInput.tsx
-│   │   └── ToastContainer.tsx
-│   ├── constants/
-│   │   ├── assets.ts
-│   │   └── orderStatus.tsx
-│   ├── data/
-│   │   ├── countries.ts
-│   │   ├── faq.ts
-│   │   └── shippingRates.ts
-│   ├── hooks/
-│   │   ├── useCurrencySymbol.ts
-│   │   ├── useLocalStorage.ts
-│   │   ├── useShippingSettings.ts
-│   │   └── useTabBadge.ts
-│   ├── lib/
-│   │   └── supabaseClient.ts
-│   ├── utils/
-│   │   ├── emailTemplates.ts
-│   │   └── format.ts
-│   ├── App.tsx
-│   ├── index.css
-│   ├── main.tsx
-│   ├── types.ts
-│   └── vite-env.d.ts
+│ ├── admin/
+│ │ ├── emailMarketing/
+│ │ │ ├── constants.tsx
+│ │ │ ├── emailTemplates.tsx
+│ │ │ ├── helpers.ts
+│ │ │ ├── useToast.ts
+│ │ │ └── VariablesModal.tsx
+│ │ ├── AdminDashboardNew.tsx
+│ │ ├── adminHooks.ts
+│ │ ├── AdminSidebar.tsx
+│ │ ├── adminStyles.ts
+│ │ ├── adminTypes.ts
+│ │ ├── AdminUsersPage.tsx
+│ │ ├── CustomersPage.tsx
+│ │ ├── EmailMarketingPage.tsx
+│ │ ├── HelpPage.tsx
+│ │ ├── IntegrationsPage.tsx
+│ │ ├── InteractionsPage.tsx
+│ │ ├── NotificationsPage.tsx
+│ │ ├── OrdersPage.tsx
+│ │ ├── PrintfulProductForm.tsx
+│ │ ├── ProductFormPanel.tsx
+│ │ ├── ProductQuickViewModal.tsx
+│ │ ├── ProductsPage.tsx
+│ │ ├── PromotionsPage.tsx
+│ │ ├── ReportInfoModal.tsx
+│ │ ├── ReportsPage.tsx
+│ │ ├── SettingsPage.tsx
+│ │ ├── ShippedDeliveredPage.tsx
+│ │ └── useAdminHighlight.ts
+│ ├── api/
+│ │ ├── storageApi.ts
+│ │ └── supabaseApi.ts
+│ ├── components/
+│ │ ├── ui/
+│ │ │ └── Button.tsx
+│ │ ├── AboutSection.tsx
+│ │ ├── AccountPage.tsx
+│ │ ├── AuthModal.tsx
+│ │ ├── CartDrawer.tsx
+│ │ ├── CartIcon.tsx
+│ │ ├── CatalogSection.tsx
+│ │ ├── CheckoutFlow.tsx
+│ │ ├── CopyID.tsx
+│ │ ├── DealsSection.tsx
+│ │ ├── FaqSection.tsx
+│ │ ├── Footer.tsx
+│ │ ├── Header.tsx
+│ │ ├── HeroCarousel.tsx
+│ │ ├── HeroSection.tsx
+│ │ ├── ImageZoom.tsx
+│ │ ├── NotFound.tsx
+│ │ ├── OrderModal.tsx
+│ │ ├── OrderStatusStepper.tsx
+│ │ ├── OrderTrackingModal.tsx
+│ │ ├── ProductDetailModal.tsx
+│ │ ├── ProfileModal.tsx
+│ │ ├── ReassuranceBar.tsx
+│ │ ├── ShipmentTrackingBlock.tsx
+│ │ ├── StoreProductCard.tsx
+│ │ ├── TagInput.tsx
+│ │ └── ToastContainer.tsx
+│ ├── constants/
+│ │ ├── assets.ts
+│ │ └── orderStatus.tsx
+│ ├── data/
+│ │ ├── countries.ts
+│ │ ├── faq.ts
+│ │ └── shippingRates.ts
+│ ├── hooks/
+│ │ ├── useCurrencySymbol.ts
+│ │ ├── useLocalStorage.ts
+│ │ ├── useShippingSettings.ts
+│ │ └── useTabBadge.ts
+│ ├── lib/
+│ │ └── supabaseClient.ts
+│ ├── utils/
+│ │ ├── emailTemplates.ts
+│ │ ├── format.ts
+│ │ └── zipValidation.ts
+│ ├── App.tsx
+│ ├── index.css
+│ ├── main.tsx
+│ ├── types.ts
+│ └── vite-env.d.ts
 ├── supabase/
-│   ├── .temp/
-│   ├── functions/
-│   │   ├── create-printful-order/
-│   │   │   └── index.ts
-│   │   ├── printful-webhook/
-│   │   │   └── index.ts
-│   │   ├── reset-password/
-│   │   │   └── index.ts
-│   │   ├── send-email/
-│   │   │   └── index.ts
-│   │   ├── stripe-checkout/
-│   │   │   └── index.ts
-│   │   ├── stripe-webhook/
-│   │   │   └── index.ts
-│   │   └── sync-printful/
-│   │       ├── .npmrc
-│   │       ├── deno.json
-│   │       └── index.ts
-│   └── config.toml
+│ ├── .temp/
+│ │ ├── cli-latest
+│ │ ├── gotrue-version
+│ │ ├── linked-project.json
+│ │ ├── pooler-url
+│ │ ├── postgres-version
+│ │ ├── project-ref
+│ │ ├── rest-version
+│ │ ├── storage-migration
+│ │ └── storage-version
+│ ├── functions/
+│ │ ├── create-printful-order/
+│ │ │ └── index.ts
+│ │ ├── delete-account/
+│ │ │ └── index.ts
+│ │ ├── printful-webhook/
+│ │ │ └── index.ts
+│ │ ├── send-email/
+│ │ │ └── index.ts
+│ │ ├── stripe-checkout/
+│ │ │ └── index.ts
+│ │ ├── stripe-webhook/
+│ │ │ └── index.ts
+│ │ └── sync-printful/
+│ │ ├── .npmrc
+│ │ ├── deno.json
+│ │ └── index.ts
+│ └── config.toml
 ├── .env
 ├── .env.example
 ├── .env.local
@@ -284,6 +322,7 @@ instawear/
 ├── metadata.json
 ├── package-lock.json
 ├── package.json
+├── PRODUCT.md
 ├── README.md
 ├── server.ts
 ├── tsconfig.json
@@ -420,3 +459,7 @@ instawear/
 | Footer                 |       2 | Newsletter, liens                                                                                                 |
 | Codes morts            |       1 | `DealsSection.tsx` : phrase obsolète                                                                              |
 | **Total**              |  **28** |                                                                                                                   |
+
+```
+
+```
