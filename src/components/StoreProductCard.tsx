@@ -73,12 +73,13 @@ export default function StoreProductCard({
             e.stopPropagation();
             onToggleFavorite(product.id);
           }}
-          className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110"
+          className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-[0.90]"
           style={{
             background: isFavorite
               ? "var(--color-accent)"
               : "rgba(255,255,255,0.92)",
             color: isFavorite ? "#fff" : "var(--color-ink2)",
+            border: "1px solid var(--color-border)",
           }}
           aria-label="Toggle favorite"
         >
@@ -129,7 +130,7 @@ export default function StoreProductCard({
               e.stopPropagation();
               onAddToCart(product, product.colors?.[0] || "#000", "M");
             }}
-            className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-250"
+            className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 active:scale-[0.90]"
             style={{ background: "var(--color-cta-bg)" }}
             aria-label="Quick add to cart"
           >
