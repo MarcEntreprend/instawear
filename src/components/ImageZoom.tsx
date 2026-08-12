@@ -21,7 +21,6 @@ export default function ImageZoom({
   const lensRef = useRef<HTMLDivElement>(null);
   const zoomPanelRef = useRef<HTMLDivElement>(null);
 
-  // State pour contrôler l'apparition/disparition au survol
   const [isHovered, setIsHovered] = useState(false);
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -29,31 +28,30 @@ export default function ImageZoom({
       return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    // Calcul en pourcentage (0 à 100%)
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    // MISE À JOUR SYNCHRONE DU DOM (Contourne React pour une instantanéité parfaite)
+    // Mise à jour de la loupe
     lensRef.current.style.left = `${x}%`;
     lensRef.current.style.top = `${y}%`;
+
+    // Mise à jour du contenu zoomé (le panneau reste fixe)
     zoomPanelRef.current.style.backgroundPosition = `${x}% ${y}%`;
   };
 
   return (
-    <div className="relative w-full aspect-square" ref={containerRef}>
-      {/* Badges (enfants) */}
-      {children}
-
-      {/* Image (overflow hidden pour ne pas dépasser) */}
-      <div
-        className="w-full h-full rounded-2xl overflow-hidden border border-gray-200 bg-gray-50"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseMove={handleMove}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+    <div
+      ref={containerRef}
+      className="relative w-full h-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseMove={handleMove}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Image et enfants */}
+      <div className="w-full h-full rounded-2xl overflow-hidden border border-gray-200 bg-gray-50">
         <img src={src} alt={alt} className="w-full h-full object-contain" />
 
-        {/* Lentille (Suivi synchrone via ref) */}
+        {/* Loupe */}
         <div
           ref={lensRef}
           className="absolute border-2 border-(--color-accent) bg-white/20 pointer-events-none"
@@ -67,10 +65,13 @@ export default function ImageZoom({
         />
       </div>
 
-      {/* Panneau zoom externe (Suivi synchrone via ref) */}
+      {/* Badges enfants */}
+      {children}
+
+      {/* Panneau zoom – fixe à droite de l’image */}
       <div
         ref={zoomPanelRef}
-        className="absolute top-0 left-[calc(100%+16px)] w-75 h-75 border border-(--color-border) rounded-xl shadow-xl bg-no-repeat bg-white z-20 hidden sm:block"
+        className="absolute top-0 left-[calc(100%+16px)] w-72 h-72 border border-(--color-border) rounded-xl shadow-xl bg-no-repeat bg-white z-20 hidden sm:block"
         style={{
           backgroundImage: `url(${src})`,
           backgroundSize: `${zoomFactor * 100}%`,

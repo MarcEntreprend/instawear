@@ -125,40 +125,47 @@ export default function ProductDetailModal({
           {/* Gallery */}
           <div className="relative">
             <div
-              className="relative aspect-4/5 overflow-hidden"
+              className="relative aspect-4/5 overflow-visible"
               style={{ background: "var(--color-surface2)" }}
             >
-              <img
-                src={displayImage}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
-              {product.isBestSeller && (
-                <span
-                  className="absolute top-4 left-4 px-2.5 py-1 rounded-full text-[10px] font-black uppercase text-white"
-                  style={{ background: "var(--color-gold)" }}
-                >
-                  Best Seller
-                </span>
-              )}
-              {canPrev && !hasColorImage && (
-                <>
-                  <button
-                    onClick={goPrev}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(255,255,255,.9)" }}
+              <ImageZoom src={displayImage} alt={product.title}>
+                {/* Badges */}
+                {product.isBestSeller && (
+                  <span
+                    className="absolute top-4 left-4 px-2.5 py-1 rounded-full text-[10px] font-black uppercase text-white"
+                    style={{ background: "var(--color-gold)" }}
                   >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button
-                    onClick={goNext}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(255,255,255,.9)" }}
+                    Best Seller
+                  </span>
+                )}
+                {product.isLimitedTime && (
+                  <span
+                    className="absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-black uppercase text-white animate-pulse"
+                    style={{ background: "var(--color-accent)" }}
                   >
-                    <ChevronRight size={16} />
-                  </button>
-                </>
-              )}
+                    Limited
+                  </span>
+                )}
+                {/* Flèches de navigation (si pas d’image de couleur) */}
+                {canPrev && !hasColorImage && (
+                  <>
+                    <button
+                      onClick={goPrev}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center z-10"
+                      style={{ background: "rgba(255,255,255,.9)" }}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      onClick={goNext}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center z-10"
+                      style={{ background: "rgba(255,255,255,.9)" }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </>
+                )}
+              </ImageZoom>
             </div>
 
             {thumbs.length > 1 && (
