@@ -51,24 +51,31 @@ export default function CartDrawer({
 
   return (
     <>
+      {/* Overlay — même style que le menu mobile */}
       <div
         className="fixed inset-0 z-40 animate-fade-in"
-        style={{ background: "rgba(11,11,10,.5)", backdropFilter: "blur(4px)" }}
+        style={{ background: "rgba(15,13,10,.5)" }}
         onClick={onClose}
       />
-      max-w-105
+
+      {/* Panneau — même smooth que le menu mobile */}
       <div
-        className="fixed inset-y-0 right-0 z-40 w-full max-w-105 flex flex-col animate-slide-right"
+        className="fixed inset-y-0 right-0 z-40 w-full max-w-105 flex flex-col animate-drawer-right"
         style={{
           background: "var(--color-bg)",
           borderLeft: "1px solid var(--color-border)",
           boxShadow: "var(--shadow-xl)",
         }}
       >
-        {/* Header */}
+        {/* Header — même padding responsive + X que le menu mobile */}
         <div
-          className="flex items-center justify-between px-6 py-5"
-          style={{ borderBottom: "1px solid var(--color-border)" }}
+          className="flex items-center justify-between h-16 shrink-0"
+          style={{
+            borderBottom: "1px solid var(--color-border)",
+            paddingLeft: "clamp(20px, 5vw, 64px)",
+            paddingRight: "clamp(20px, 5vw, 64px)",
+            paddingTop: "6px",
+          }}
         >
           <div className="flex items-center gap-2.5">
             <ShoppingBag size={19} style={{ color: "var(--color-accent)" }} />
@@ -87,18 +94,13 @@ export default function CartDrawer({
               </span>
             )}
           </div>
+          {/* Même bouton X que le menu mobile */}
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-            style={{ color: "var(--color-ink3)" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--color-surface2)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
-            }
+            className="btn-icon relative"
+            aria-label="Fermer le panier"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

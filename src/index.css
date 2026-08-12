@@ -303,7 +303,7 @@ p {
   animation: fadeUp 0.7s var(--ease-out) both;
 }
 .animate-fade-in {
-  animation: fadeIn 0.45s ease both;
+  animation: fadeIn 0.5s var(--ease-out) both;
 }
 .animate-scale-in {
   animation: scaleIn 0.4s var(--ease-spring) both;
@@ -410,9 +410,144 @@ p {
   flex-shrink: 0;
 }
 
+/* Icônes d'action – comportement Beta */
+.btn-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink);
+  transition: all 0.3s var(--ease-spring);
+  position: relative;
+}
+.btn-icon:hover {
+  border-color: var(--color-ink);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.btn-icon:active {
+  transform: scale(0.94);
+}
+
+/* Badge pour compteur (favoris, panier) */
+.icon-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-bg);
+}
+
+.btn-icon.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+/* ---------- Boutons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 999px;
+  padding: 0.75rem 1.5rem;
+  transition:
+    transform 0.35s var(--ease-spring),
+    box-shadow 0.35s var(--ease-smooth),
+    background-color 0.25s var(--ease-smooth),
+    color 0.25s var(--ease-smooth),
+    border-color 0.25s var(--ease-smooth);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border2);
+}
+.btn-secondary:hover {
+  border-color: var(--color-ink);
+  background: var(--color-surface2);
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes slideRightFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-drawer-right {
+  animation: slideRightFromRight 0.6s var(--ease-out) both;
+}
+.animate-slide-left {
+  animation: slideLeft 0.6s var(--ease-out) both;
+}
+
+/* ---------- Chips / badges ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-ink2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all 0.3s var(--ease-spring);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+  transform: translateY(-1px);
+}
+.chip[data-active="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-bg);
+}
+
 /* ------------------------- */
 
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
-* {
+/* * {
   outline: 1px solid red !important;
-}
+} */

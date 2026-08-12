@@ -11,9 +11,15 @@ import {
   Sun,
   Moon,
   Package,
+  PartyPopper,
+  Trophy,
+  Music,
+  Snowflake,
+  Gift,
+  Sparkles,
+  LogOut,
 } from "lucide-react";
-import { IconButton } from "./ui/Button";
-import { CartItem, Product, NavLink } from "../types";
+import type { CartItem, Product, NavLink } from "../types";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -22,26 +28,37 @@ interface HeaderProps {
   onOpenFavorites: () => void;
   onOpenAuth: () => void;
   isLoggedIn: boolean;
+  isAdmin?: boolean;
+  onLogout?: () => void;
   onOpenAccount: () => void;
   onSearch: (term: string) => void;
   currentSearchTerm: string;
   onSelectCategory: (cat: string | null) => void;
-  onSelectEventType: (type: string | null) => void;
+  onSelectEventType?: (type: string | null) => void;
   currentCategory: string | null;
-  currentEventType: string | null;
+  currentEventType?: string | null;
   onScrollToSection: (section: NavLink["section"]) => void;
   onOpenTracking: () => void;
   products: Product[];
   darkMode: boolean;
   onToggleDarkMode: () => void;
-  detectedCountry?: string | null; // 👈 nouveau
+  detectedCountry?: string | null;
 }
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Home", section: "catalog", eventType: null, category: null },
-  { label: "About", section: "about", eventType: null, category: null },
   { label: "Collection", section: "catalog", eventType: null, category: null },
+  { label: "About", section: "about", eventType: null, category: null },
   { label: "FAQ", section: "faq", eventType: null, category: null },
+  { label: "Contact", section: "contact", eventType: null, category: null },
+];
+
+const EVENT_BUTTONS = [
+  { label: "Festivals", icon: PartyPopper },
+  { label: "Sport", icon: Trophy },
+  { label: "Concerts", icon: Music },
+  { label: "Saisonnier", icon: Snowflake },
+  { label: "Anniversaires", icon: Gift },
+  { label: "Nouveautés", icon: Sparkles },
 ];
 
 const PILLS = [
@@ -58,6 +75,8 @@ export default function Header({
   onOpenFavorites,
   onOpenAuth,
   isLoggedIn,
+  isAdmin = false,
+  onLogout,
   onOpenAccount,
   onSearch,
   currentSearchTerm,
@@ -91,8 +110,9 @@ export default function Header({
           boxShadow: scrolled ? "var(--shadow-sm)" : "none",
         }}
       >
+        {/* ── Ligne principale ── */}
         <div className="section-container flex items-center justify-between gap-4 py-4">
-          {/* Logo avec image + drapeau */}
+          {/* Logo + drapeau */}
           <button
             onClick={() => onScrollToSection("catalog")}
             className="flex items-center gap-2 shrink-0 group"
@@ -121,7 +141,6 @@ export default function Header({
                   I
                 </span>
               </div>
-              {/* Drapeau */}
               <img
                 src={`/flags/${(detectedCountry || "us").toLowerCase()}.svg`}
                 alt={detectedCountry || "US"}
@@ -177,75 +196,70 @@ export default function Header({
 
           {/* Actions */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <IconButton
+            <button
               onClick={() => setSearchOpen((s) => !s)}
-              active={searchOpen}
+              className={`btn-icon relative ${searchOpen ? "active" : ""}`}
               aria-label="Search"
             >
               <Search size={19} strokeWidth={1.8} />
-            </IconButton>
+            </button>
 
-            <IconButton onClick={onToggleDarkMode} aria-label="Toggle theme">
+            <button
+              onClick={onToggleDarkMode}
+              className="btn-icon relative"
+              aria-label="Toggle theme"
+            >
               {darkMode ? (
                 <Sun size={18} strokeWidth={1.8} />
               ) : (
                 <Moon size={18} strokeWidth={1.8} />
               )}
-            </IconButton>
+            </button>
 
-            <IconButton
+            <button
               onClick={onOpenFavorites}
+              className="btn-icon relative hidden sm:flex"
               aria-label="Favorites"
-              className="hidden sm:flex"
             >
               <Heart size={19} strokeWidth={1.8} />
               {favoriteCount > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-black text-white"
-                  style={{ background: "var(--color-accent)" }}
-                >
-                  {favoriteCount}
-                </span>
+                <span className="icon-count">{favoriteCount}</span>
               )}
-            </IconButton>
+            </button>
 
-            <IconButton
+            <button
               onClick={isLoggedIn ? onOpenAccount : onOpenAuth}
+              className={`btn-icon relative hidden sm:flex ${isLoggedIn ? "active" : ""}`}
               aria-label="Account"
-              className="hidden sm:flex"
             >
               <User size={19} strokeWidth={1.8} />
-            </IconButton>
+            </button>
 
             <button
               onClick={onOpenCart}
-              className="pill flex items-center gap-2 pl-3.5 pr-2 py-2 rounded-full font-bold text-xs uppercase tracking-wide transition-all duration-200 hover:-translate-y-0.5"
+              className="btn-icon relative"
               style={{
                 background: "var(--color-cta-bg)",
                 color: "var(--color-cta-ink)",
+                borderColor: "var(--color-cta-bg)",
               }}
               aria-label={`Cart — ${totalQty} item(s)`}
             >
-              <ShoppingBag size={16} strokeWidth={2} />
-              <span
-                className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black"
-                style={{ background: "rgba(255,255,255,0.2)" }}
-              >
-                {totalQty}
-              </span>
+              <ShoppingBag size={18} strokeWidth={2} />
+              <span className="icon-count">{totalQty}</span>
             </button>
 
-            <IconButton
+            <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden"
+              className="btn-icon relative lg:hidden"
               aria-label="Menu"
             >
               <Menu size={20} strokeWidth={1.8} />
-            </IconButton>
+            </button>
           </div>
         </div>
 
-        {/* Search bar dropdown */}
+        {/* ── Barre de recherche ── */}
         {searchOpen && (
           <div
             className="border-t animate-fade-up"
@@ -293,7 +307,7 @@ export default function Header({
           </div>
         )}
 
-        {/* Pills sub-nav */}
+        {/* ── Pills catégories ── */}
         <div
           className="border-t"
           style={{ borderColor: "var(--color-border)" }}
@@ -320,83 +334,200 @@ export default function Header({
             })}
           </div>
         </div>
+
+        {/* ── Barre événements desktop (style Beta) ── */}
+        <div
+          className="hidden lg:block"
+          style={{ borderTop: "1px solid var(--color-border)" }}
+        >
+          <div className="section-container overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-2 py-2.5">
+              {EVENT_BUTTONS.map(({ label, icon: Icon }) => (
+                <button key={label} className="chip">
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </header>
 
-      {/* Mobile menu */}
+      {/* ── Menu mobile (glissière gauche style Beta) ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 animate-fade-in"
-            style={{
-              background: "rgba(11,11,10,.5)",
-              backdropFilter: "blur(4px)",
-            }}
+            style={{ background: "rgba(15,13,10,.5)" }}
             onClick={() => setMobileOpen(false)}
           />
           <div
-            className="absolute top-0 right-0 h-full w-[82%] max-w-sm p-6 flex flex-col gap-2 animate-slide-right"
-            style={{ background: "var(--color-surface)" }}
+            className="absolute top-0 right-0 h-full w-[84%] max-w-sm flex flex-col animate-drawer-right"
+            style={{
+              background: "var(--color-surface)",
+              boxShadow: "var(--shadow-xl)",
+            }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <span
-                className="font-display font-black text-lg"
-                style={{ color: "var(--color-ink)" }}
-              >
-                Menu
-              </span>
-              <IconButton onClick={() => setMobileOpen(false)}>
-                <X size={20} />
-              </IconButton>
-            </div>
-            {NAV_LINKS.map((link) => (
+            {/* Entête du drawer */}
+            <div
+              className="flex items-center justify-between h-16 shrink-0"
+              style={{
+                borderBottom: "1px solid var(--color-border)",
+                paddingLeft: "clamp(20px, 5vw, 64px)",
+                paddingRight: "clamp(20px, 5vw, 64px)",
+                paddingTop: "6px",
+              }}
+            >
               <button
-                key={link.label}
                 onClick={() => {
-                  onScrollToSection(link.section);
+                  onScrollToSection("catalog");
                   setMobileOpen(false);
                 }}
-                className="text-left px-4 py-3.5 rounded-xl font-bold text-lg"
-                style={{ color: "var(--color-ink)" }}
+                className="flex items-center gap-2"
               >
-                {link.label}
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm text-white relative overflow-hidden"
+                  style={{
+                    background: "var(--color-accent)",
+                    boxShadow: "var(--shadow-accent)",
+                  }}
+                >
+                  <img
+                    src="/InstaWear-logo.png"
+                    alt="InstaWear"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      const el = e.currentTarget as HTMLImageElement;
+                      el.style.display = "none";
+                      (el.nextElementSibling as HTMLElement).style.display =
+                        "flex";
+                    }}
+                  />
+                  <span className="hidden absolute inset-0 items-center justify-center text-white">
+                    I
+                  </span>
+                </div>
+                <span
+                  className="font-display font-black text-lg"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  Insta
+                  <span style={{ color: "var(--color-accent)" }}>Wear</span>
+                </span>
               </button>
-            ))}
-            <button
-              onClick={() => {
-                onOpenTracking();
-                setMobileOpen(false);
-              }}
-              className="flex items-center gap-2.5 text-left px-4 py-3.5 rounded-xl font-bold text-lg"
-              style={{ color: "var(--color-ink)" }}
-            >
-              <Package size={19} strokeWidth={1.8} />
-              My Order
-            </button>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="btn-icon relative"
+                aria-label="Fermer le menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Navigation principale */}
+            <nav className="flex-1 overflow-y-auto px-5 py-6 flex flex-col gap-1">
+              {NAV_LINKS.map((link) => (
+                <button
+                  key={link.label}
+                  onClick={() => {
+                    onScrollToSection(link.section);
+                    setMobileOpen(false);
+                  }}
+                  className="text-left py-3 text-base font-semibold border-b"
+                  style={{
+                    color: "var(--color-ink)",
+                    borderColor: "var(--color-border)",
+                  }}
+                >
+                  {link.label}
+                </button>
+              ))}
+
+              <button
+                onClick={() => {
+                  onOpenTracking();
+                  setMobileOpen(false);
+                }}
+                className="flex items-center gap-2.5 text-left py-3 text-base font-semibold border-b"
+                style={{
+                  color: "var(--color-ink)",
+                  borderColor: "var(--color-border)",
+                }}
+              >
+                <Package size={19} strokeWidth={1.8} />
+                My Order
+              </button>
+
+              {/* Section Événements */}
+              <div className="pt-5">
+                <span
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "var(--color-ink3)" }}
+                >
+                  Événements
+                </span>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {EVENT_BUTTONS.map(({ label, icon: Icon }) => (
+                    <button
+                      key={label}
+                      className="chip"
+                      onClick={() => {
+                        // Action à définir plus tard
+                      }}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </nav>
+
+            {/* Pied du drawer */}
             <div
-              className="h-px my-2"
-              style={{ background: "var(--color-border)" }}
-            />
-            <button
-              onClick={() => {
-                isLoggedIn ? onOpenAccount() : onOpenAuth();
-                setMobileOpen(false);
-              }}
-              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold text-base"
-              style={{ color: "var(--color-ink)" }}
+              className="px-5 py-4 flex items-center gap-3 shrink-0"
+              style={{ borderTop: "1px solid var(--color-border)" }}
             >
-              <User size={18} />{" "}
-              {isLoggedIn ? "My account" : "Sign in / Sign up"}
-            </button>
-            <button
-              onClick={() => {
-                onOpenFavorites();
-                setMobileOpen(false);
-              }}
-              className="flex items-center gap-3 text-left px-4 py-3.5 rounded-xl font-bold text-base"
-              style={{ color: "var(--color-ink)" }}
-            >
-              <Heart size={18} /> Favorites
-            </button>
+              {isAdmin ? (
+                <button
+                  onClick={() => {
+                    onLogout?.();
+                    setMobileOpen(false);
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  <LogOut size={16} /> Sign out
+                </button>
+              ) : isLoggedIn ? (
+                <button
+                  onClick={() => {
+                    onOpenAccount();
+                    setMobileOpen(false);
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  <User size={16} /> My account
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    onOpenAuth();
+                    setMobileOpen(false);
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  <User size={16} /> Sign in / Sign up
+                </button>
+              )}
+
+              <button
+                onClick={onToggleDarkMode}
+                className="btn-icon relative"
+                aria-label="Changer de thème"
+              >
+                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            </div>
           </div>
         </div>
       )}
