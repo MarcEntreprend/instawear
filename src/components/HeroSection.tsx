@@ -14,77 +14,81 @@ export default function HeroSection({
   onWatchTrending,
 }: HeroSectionProps) {
   return (
-    <section className="section-container pt-6 sm:pt-10">
+    <section className="section-container pt-6 sm:pt-10 w-full max-w-full overflow-hidden">
       <div
-        className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] grid grid-cols-1 lg:grid-cols-2 items-center gap-8 px-6 sm:px-12 py-12 sm:py-16"
+        className="relative isolate overflow-hidden rounded-3xl sm:rounded-[36px] px-5 sm:px-12 py-10 sm:py-16 w-full max-w-full"
         style={{
           background:
             "linear-gradient(120deg, var(--color-accent) 0%, #ff7a3d 45%, var(--color-indigo) 130%)",
         }}
       >
-        {/* Decorative ring */}
+        {/* Decorative ring — desktop only, already hidden on mobile */}
         <div
-          className="absolute -right-24 -top-24 w-96 h-96 rounded-full opacity-30 hidden sm:block"
+          className="absolute -right-24 -top-24 w-96 h-96 rounded-full opacity-30 hidden sm:block pointer-events-none"
           style={{ border: "2px solid rgba(255,255,255,0.6)" }}
         />
         <Sparkles
-          className="absolute top-8 right-10 text-white/70 hidden sm:block"
+          className="absolute top-8 right-10 text-white/70 hidden sm:block pointer-events-none"
           size={22}
         />
 
-        <div className="relative z-10 flex flex-col gap-5 animate-fade-up">
-          <span className="inline-flex w-fit items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest text-white/90 bg-white/15 backdrop-blur">
-            🔥 Trendy Fashion Zone
-          </span>
-          <h1 className="font-display font-black text-white text-4xl sm:text-6xl leading-[1.02]">
-            Wear the energy of every event
-          </h1>
-          <p className="text-white/85 text-sm sm:text-base max-w-md leading-relaxed">
-            Curated print-on-demand fashion — hoodies, tees & accessories
-            printed the moment culture happens.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 mt-2">
-            <Button
-              variant="cta"
-              size="lg"
-              fullWidthOnMobile
-              onClick={onShopNow}
-              iconRight={<ArrowRight size={16} />}
-            >
-              Shop Now
-            </Button>
-            <button
-              onClick={onWatchTrending}
-              className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-wider px-2 py-2 group"
-            >
-              <span className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 group-hover:bg-white/30 transition-colors">
-                <Play size={13} fill="white" />
-              </span>
-              Watch Trending
-            </button>
+        <div className="relative z-10 flex flex-col lg:grid lg:grid-cols-2 lg:items-center gap-8 w-full min-w-0">
+          {/* IMAGE — en haut sur mobile, à droite sur desktop */}
+          <div className="order-1 lg:order-2 flex justify-center lg:justify-end animate-fade-up delay-2 min-w-0 w-full">
+            <div className="relative w-40 sm:w-52 lg:w-72 aspect-3/4 rounded-[20px] lg:rounded-[28px] overflow-hidden shadow-2xl rotate-2 shrink-0">
+              <img
+                src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80"
+                alt="Featured look"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="relative z-10 flex justify-center lg:justify-end animate-fade-up delay-2">
-          <div className="relative w-56 sm:w-72 aspect-3/4 rounded-[28px] overflow-hidden shadow-2xl rotate-2">
-            <img
-              src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80"
-              alt="Featured look"
-              className="w-full h-full object-cover"
-            />
+          {/* TEXTE + CTA — en dessous sur mobile, à gauche sur desktop */}
+          <div className="order-2 lg:order-1 flex flex-col gap-4 sm:gap-5 animate-fade-up min-w-0 w-full">
+            <span className="inline-flex w-fit items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest text-white/90 bg-white/15 backdrop-blur">
+              🔥 Trendy Fashion Zone
+            </span>
+            <h1 className="font-display font-black text-white text-[32px] sm:text-5xl lg:text-6xl leading-[1.05] wrap-break-word">
+              Wear the energy of every event
+            </h1>
+            <p className="text-white/85 text-sm sm:text-base max-w-md leading-relaxed">
+              Curated print-on-demand fashion — hoodies, tees & accessories
+              printed the moment culture happens.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 mt-2 w-full min-w-0">
+              <Button
+                variant="cta"
+                size="lg"
+                fullWidthOnMobile
+                onClick={onShopNow}
+                iconRight={<ArrowRight size={16} />}
+              >
+                Shop Now
+              </Button>
+              <button
+                onClick={onWatchTrending}
+                className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-wider px-2 py-2 group shrink-0"
+              >
+                <span className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 group-hover:bg-white/30 transition-colors shrink-0">
+                  <Play size={13} fill="white" />
+                </span>
+                Watch Trending
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Marquee strip */}
       <div
-        className="mt-6 overflow-hidden rounded-full"
+        className="mt-6 overflow-hidden rounded-full w-full max-w-full"
         style={{
           background: "var(--color-surface2)",
           border: "1px solid var(--color-border)",
         }}
       >
-        <div className="flex animate-marquee whitespace-nowrap py-3">
+        <div className="flex animate-marquee whitespace-nowrap py-3 w-max">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex items-center gap-8 pr-8">
               {[
