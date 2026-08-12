@@ -409,3 +409,10 @@ p {
   border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
+
+/* ------------------------- */
+
+/* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
+* {
+  outline: 1px solid red !important;
+}

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import type { Product } from "../types";
+import ImageZoom from "./ImageZoom";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 
 interface ProductDetailModalProps {
