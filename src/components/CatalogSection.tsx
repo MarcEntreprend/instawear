@@ -207,7 +207,10 @@ export default function CatalogSection({
   };
 
   return (
-    <section id="section-catalog" className="section-container scroll-mt-28">
+    <section
+      id="section-catalog"
+      className="section-container max-w-7xl w-full mx-auto scroll-mt-28"
+    >
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>
           <span

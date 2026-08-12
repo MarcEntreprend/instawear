@@ -140,7 +140,7 @@ Dans l'Edge Function, remplacez `Deno.env.get("STRIPE_SECRET_KEY_TEST")` par une
 npx tsc --noEmit
 ```
 
----
+## 0
 
 ## Structure arborescente
 
