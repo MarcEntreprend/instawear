@@ -29,6 +29,7 @@ import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
+import { rankProducts } from "./utils/productRanking";
 import CatalogSection from "./components/CatalogSection";
 import { PLACEHOLDER_IMG } from "./constants/assets";
 import DealsSection from "./components/DealsSection";
@@ -436,40 +437,20 @@ export default function App() {
   };
 
   // Filter products by all selection constraints
-  const filteredProducts = products.filter((product) => {
-    // Exclure les produits inactifs du catalogue
-    if (!product.isActive) return false;
-
-    const matchesSearch =
-      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.tags.some((t) =>
-        t.toLowerCase().includes(searchTerm.toLowerCase()),
-      ) ||
-      product.style.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory && selectedCategory !== "deals"
-        ? product.category === selectedCategory
-        : true;
-    const matchesEventType = selectedEventType
-      ? product.eventType === selectedEventType
-      : true;
-
-    const matchesFavorites = showFavoritesOnly
-      ? favorites.includes(product.id)
-      : true;
-
-    const matchesDeals =
-      selectedCategory === "deals" ? product.dealActive === true : true;
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesEventType &&
-      matchesFavorites &&
-      matchesDeals
-    );
-  });
+  const filteredProducts = rankProducts(
+    products.filter((product) => {
+      if (showFavoritesOnly && !favorites.includes(product.id)) return false;
+      if (selectedCategory === "deals" && !product.dealActive) return false;
+      return true;
+    }),
+    {
+      search: searchTerm,
+      category: selectedCategory === "deals" ? null : selectedCategory,
+      eventType: selectedEventType,
+      style: null,
+      inStockOnly: false,
+    },
+  );
 
   // Shopping cart managers
   const addToCart = (product: Product, color: string, size: string) => {

@@ -247,7 +247,10 @@ instawear/
 │   │   └── supabaseClient.ts
 │   ├── utils/
 │   │   ├── emailTemplates.ts
-│   │   └── format.ts
+│   │   ├── format.ts
+│   │   ├── productRanking.ts
+│   │   ├── emailTemplates.ts
+│   │   └── zipValidation.ts
 │   ├── App.tsx
 │   ├── index.css
 │   ├── main.tsx
