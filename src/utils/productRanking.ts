@@ -132,6 +132,8 @@ export interface FilterState {
   eventType: string | null;
   style: string | null;
   inStockOnly: boolean;
+  /** true = garder les produits inactifs dans le résultat (vue favoris : grisé). */
+  keepInactive?: boolean;
 }
 
 export function rankProducts(
@@ -141,7 +143,7 @@ export function rankProducts(
 ): Product[] {
   // 1. Filtrer (y compris isActive)
   const filtered = products.filter((p) => {
-    if (!p.isActive) return false;
+    if (!p.isActive && !filters.keepInactive) return false;
 
     // Filtre stock
     if (filters.inStockOnly && !(p.inStock ?? true)) return false;

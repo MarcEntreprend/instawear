@@ -3,6 +3,7 @@
 import { Heart, Star, Clock, Eye, Plus, CheckCircle } from "lucide-react";
 import type { Product } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useProductAvailability } from "../hooks/useProductAvailability";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 
 interface StoreProductCardProps {
@@ -38,6 +39,9 @@ export default function StoreProductCard({
   const variantColorNames = product.variants?.length
     ? product.variants.map((v) => v.color_name)
     : product.colorNames;
+
+  const availability = useProductAvailability(product);
+  const unavailable = availability !== "available";
 
   // Fonction pour tronquer le titre à 2 lignes
   const truncateTitle = (title: string, maxLines: number = 2): string => {
@@ -136,7 +140,7 @@ export default function StoreProductCard({
             e.stopPropagation();
             onToggleFavorite(product.id);
           }}
-          disabled={!product.isActive}
+          disabled={unavailable}
           className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-110"
           style={{
             background: isFavorite
@@ -145,8 +149,8 @@ export default function StoreProductCard({
             backdropFilter: "blur(8px)",
             border: `1px solid ${isFavorite ? "transparent" : "var(--color-border)"}`,
             zIndex: 5,
-            opacity: product.isActive ? 1 : 0.4,
-            cursor: product.isActive ? "pointer" : "not-allowed",
+            opacity: unavailable ? 0.4 : 1,
+            cursor: unavailable ? "not-allowed" : "pointer",
           }}
           aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
         >
@@ -206,7 +210,7 @@ export default function StoreProductCard({
             )}
 
             {/* Bouton Add to cart au survol */}
-            {product.isActive && (
+            {!unavailable && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -291,10 +295,12 @@ export default function StoreProductCard({
           )}
         </div>
 
-        {!product.isActive && (
+        {unavailable && (
           <div className="text-center mt-1">
             <p className="text-[10px] text-rose-500 font-medium mb-1">
-              This item is currently unavailable.
+              {availability === "out_of_stock"
+                ? "This item is currently out of stock."
+                : "This item is currently unavailable."}
             </p>
             <button
               disabled

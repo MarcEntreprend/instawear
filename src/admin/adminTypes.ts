@@ -111,7 +111,10 @@ export type OrderStatus =
   | "in_production"
   | "shipped"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "on_hold"
+  | "refunded"
+  | "returned";
 
 export interface ShippingAddress {
   fullName: string;

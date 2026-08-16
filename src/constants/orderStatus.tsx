@@ -1,7 +1,16 @@
 // src/constants/orderStatus.tsx
 
 import React from "react";
-import { CheckCircle2, Clock, Box, Truck, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Box,
+  Truck,
+  XCircle,
+  PauseCircle,
+  Undo2,
+  RotateCcw,
+} from "lucide-react";
 
 // Source unique de vérité pour le statut de commande — utilisée par
 // AccountPage.tsx (historique client), OrderStatusStepper.tsx (composant
@@ -57,6 +66,27 @@ export const ORDER_STATUS: Record<
     icon: <XCircle size={12} strokeWidth={2} />,
     color: "#991b1b",
     bg: "#fee2e2",
+    step: -1,
+  },
+  on_hold: {
+    label: "On Hold",
+    icon: <PauseCircle size={12} strokeWidth={2} />,
+    color: "#b45309",
+    bg: "#fef3c7",
+    step: 2,
+  },
+  refunded: {
+    label: "Refunded",
+    icon: <RotateCcw size={12} strokeWidth={2} />,
+    color: "#4c1d95",
+    bg: "#ede9fe",
+    step: -1,
+  },
+  returned: {
+    label: "Returned",
+    icon: <Undo2 size={12} strokeWidth={2} />,
+    color: "#9f1239",
+    bg: "#ffe4e6",
     step: -1,
   },
 };

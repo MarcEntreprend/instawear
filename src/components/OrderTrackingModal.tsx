@@ -1,6 +1,6 @@
 //src/components/OrderTrackingModal.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Search, Truck, RefreshCw } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import CopyID from "./CopyID";
@@ -41,16 +41,28 @@ interface OrderTrackingModalProps {
     initialColor?: string,
     initialSize?: string,
   ) => void;
+  initialCode?: string;
 }
 
 export default function OrderTrackingModal({
   onClose,
   onSelectProduct,
+  initialCode,
 }: OrderTrackingModalProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialCode || "");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [error, setError] = useState("");
   const currencySymbol = useCurrencySymbol();
+
+  // Si le modal est ouvert avec une référence passée en paramètre d'URL
+  // (?track=ORD-...), on lance la recherche automatiquement au montage.
+  useEffect(() => {
+    if (initialCode) {
+      setInput(initialCode);
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode]);
 
   const handleSearch = async () => {
     setError("");

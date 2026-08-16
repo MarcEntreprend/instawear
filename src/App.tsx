@@ -85,6 +85,9 @@ export default function App() {
     string | null
   >(null);
   const [trackingOpen, setTrackingOpen] = useState(false);
+  const [trackingInitialCode, setTrackingInitialCode] = useState<string | null>(
+    null,
+  );
 
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -449,6 +452,7 @@ export default function App() {
       eventType: selectedEventType,
       style: null,
       inStockOnly: false,
+      keepInactive: showFavoritesOnly,
     },
   );
 
@@ -664,6 +668,19 @@ export default function App() {
     };
 
     handleReturn();
+  }, []);
+
+  // Ouverture directe du suivi via ?track=ORD-... (liens « View order details »
+  // envoyés dans les emails). Le modal effectue la recherche automatiquement.
+  useEffect(() => {
+    const trackId = new URLSearchParams(window.location.search).get("track");
+    if (trackId) {
+      setTrackingInitialCode(trackId.trim());
+      setTrackingOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("track");
+      window.history.replaceState({}, "", url.toString());
+    }
   }, []);
 
   // Detect user country via IP (free, no API key, CORS-friendly)
@@ -1052,6 +1069,7 @@ export default function App() {
       {trackingOpen && (
         <OrderTrackingModal
           onClose={() => setTrackingOpen(false)}
+          initialCode={trackingInitialCode || undefined}
           onSelectProduct={(productId, initialColor, initialSize) => {
             const product = products.find((p) => p.id === productId);
             if (product) {
