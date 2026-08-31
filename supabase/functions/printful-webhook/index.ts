@@ -340,6 +340,12 @@ export default {
     }
 
     try {
+      if (await isRateLimited(req, rateLimitKey(req, "printful-webhook"))) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json", "Retry-After": "60" },
+          status: 429,
+        });
+      }
       // ── 1. Lire et valider la structure du payload ────────────────
       const rawBody = await req.text();
       let payload: any;

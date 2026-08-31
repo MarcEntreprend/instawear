@@ -129,9 +129,11 @@ export default {
     }
 
     try {
-      if (rateLimited(req)) {
-        return new Response(JSON.stringify({ error: "Trop de requêtes." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const path = "stripe-checkout";
+      const key = rateLimitKey(req, path);
+      if (await isRateLimited(req, key)) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
           status: 429,
         });
       }

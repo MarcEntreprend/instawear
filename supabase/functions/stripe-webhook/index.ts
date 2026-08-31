@@ -199,6 +199,12 @@ export default {
     }
 
     try {
+      if (await isRateLimited(req, rateLimitKey(req, "stripe-webhook"))) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json", "Retry-After": "60" },
+          status: 429,
+        });
+      }
       // Même fallback de clé que stripe-checkout (TEST d'abord, sinon PROD).
       const stripe = new Stripe(
         Deno.env.get("STRIPE_SECRET_KEY_TEST") ||

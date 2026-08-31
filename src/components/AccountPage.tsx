@@ -940,7 +940,11 @@ function OrdersTab({
       setSearchDebouncing(false);
       return;
     }
-    if (!customerId) return;
+    if (!customerId) {
+      // attendre que customerId soit résolu (session + onAuthStateChange)
+      setSearchDebouncing(true);
+      return;
+    }
 
     setSearchDebouncing(true);
     debounceRef.current = setTimeout(async () => {

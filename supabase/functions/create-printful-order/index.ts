@@ -35,7 +35,7 @@ export default {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (await isRateLimited(req, rateLimitKey(req, quotaFor('create-printful-order')))) {
+    if (await isRateLimited(req, rateLimitKey(req, "create-printful-order"))) {
       return new Response(JSON.stringify({ error: 'Trop de requêtes.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
         status: 429,

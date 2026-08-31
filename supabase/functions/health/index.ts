@@ -4,6 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 
 export default {
   async fetch(req: Request): Promise<Response> {
@@ -16,6 +17,12 @@ export default {
       });
     }
     try {
+      if (await isRateLimited(req, rateLimitKey(req, "health"))) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          status: 429,
+          headers: { "Content-Type": "application/json", "Retry-After": "60" },
+        });
+      }
       const auth = req.headers.get("Authorization") || "";
       const token = auth.replace("Bearer ", "");
       const apikey = req.headers.get("apikey") || "";
