@@ -323,7 +323,7 @@ Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l
 
 ### 🏷️ Produits
 
-- [ ] **Standardiser `useProductAvailability`** — hook réutilisable
+- [ ] **Standardiser `useProductAvailability`** — (\*hook réutilisable ?) un produit
 - [ ] **Visibilité de produits / via admin** — logique actif/inactif absente de certaines pages
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
 - [ ] **Comments and review ?** also showing in the user's dashboard.
@@ -342,7 +342,7 @@ Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l
 
 ### 📧 Emails transactionnels
 
-- [ ] `order_failed` vs `order_canceled` : quel cas n'est pas encore couvert (car chacun a un webhook, donc doit avoir un mail)
+- [ ] `order_failed` vs `order_canceled` : quel cas n'est pas encore couvert ? quelle différence ?(car chacun a un webhook, donc doit avoir un mail)
 
 ### 📨 Emails / Resend
 

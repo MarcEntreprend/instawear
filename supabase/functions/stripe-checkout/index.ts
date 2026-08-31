@@ -164,7 +164,16 @@ export default {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
-      const body = await req.json().catch(() => ({}));
+      // P-A (1+7) payload size limit (100KB) + validation
+      const rawBody = await req.text();
+      if (rawBody.length > 100 * 1024) {
+        return new Response(JSON.stringify({ error: "Payload trop volumineux" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 413,
+        });
+      }
+      let body: any = {};
+      try { body = rawBody ? JSON.parse(rawBody) : {}; } catch { body = {}; }
       const {
         action,
         orderId,
@@ -173,6 +182,15 @@ export default {
         successUrl,
         cancelUrl,
       } = body;
+
+      // P-A (7) validation orderId/email si présents
+      const bodyOrderId = (body as any).orderId;
+      if (bodyOrderId && !/^ORD-[0-9]{4}-[0-9]{6}$/.test(String(bodyOrderId).trim())) {
+        return new Response(JSON.stringify({ error: "orderId invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+      }
+      if ((body as any).customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String((body as any).customerEmail).trim())) {
+        return new Response(JSON.stringify({ error: "Email invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+      }
 
       // ── Devise depuis store_settings ──
       const { data: storeSettings } = await supabaseAdmin
@@ -185,10 +203,23 @@ export default {
         .toLowerCase();
 
       // ── PaymentIntent pour carte directe ──
-      // Montant recalculé côté serveur depuis les produits en base.
+      // Montant recalculé côté serveur depuis les produits en base. P-A validation stricte.
       if (action === "payment-intent") {
         let total = 0;
         const items: any[] = Array.isArray(body.items) ? body.items : [];
+        // P-A (7) validation positive des items carte directe
+        for (const it of items) {
+          const q = Number(it.quantity);
+          if (!Number.isInteger(q) || q <= 0 || q > 100) {
+            return new Response(JSON.stringify({ error: "Quantité invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+          }
+          if (it.selectedColor && !/^#[0-9a-fA-F]{6}$/.test(String(it.selectedColor).trim())) {
+            return new Response(JSON.stringify({ error: "Couleur invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+          }
+          if (it.selectedSize && !/^(XS|S|M|L|XL|XXL|2XL|3XL)$/i.test(String(it.selectedSize).trim())) {
+            return new Response(JSON.stringify({ error: "Taille invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+          }
+        }
 
         if (orderId) {
           const computed = await computeOrderTotal(supabaseAdmin, orderId);
@@ -244,6 +275,17 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
         });
+      }
+      // P-A (7) whitelist URLs (évite open redirect)
+      try {
+        const sUrl = new URL(successUrl);
+        const cUrl = new URL(cancelUrl);
+        const okHosts = ["instawear.vercel.app", "localhost", "127.0.0.1"];
+        if (!okHosts.some((h) => sUrl.hostname === h || sUrl.hostname.endsWith("." + h)) || !okHosts.some((h) => cUrl.hostname === h || cUrl.hostname.endsWith("." + h))) {
+          return new Response(JSON.stringify({ error: "URL de redirection non autorisée" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        }
+      } catch {
+        return new Response(JSON.stringify({ error: "URL invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
       }
 
       const computed = await computeOrderTotal(supabaseAdmin, orderId);

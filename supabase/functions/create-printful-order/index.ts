@@ -9,6 +9,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// P-B State Machine (Business Logic Abuse) - transitions autorisées côté serveur
+const ALLOWED_TRANSITIONS = new Set([
+  "pending->paid", "pending->cancelled",
+  "paid->in_production", "paid->partial", "paid->on_hold", "paid->cancelled",
+  "in_production->shipped", "in_production->partial", "in_production->on_hold", "in_production->cancelled",
+  "partial->shipped", "partial->on_hold", "partial->cancelled", "partial->refunded",
+  "on_hold->in_production", "on_hold->partial", "on_hold->cancelled", "on_hold->refunded",
+  "shipped->delivered", "shipped->returned", "shipped->refunded",
+  "delivered->returned", "delivered->refunded",
+]);
+function isTransitionAllowed(from: string, to: string): boolean {
+  return from === to || ALLOWED_TRANSITIONS.has(`${from}->${to}`);
+}
+
 // ── Rate limiting simple (en mémoire, par IP) ──────────────────────────
 const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -96,13 +110,23 @@ export default {
         }
       }
 
-      const body = await req.json().catch(() => ({}));
+      // P-A (7) payload size limit 100KB
+      const rawBody = await req.text();
+      if (rawBody.length > 100 * 1024) {
+        return new Response(JSON.stringify({ error: "Payload trop volumineux" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 413 });
+      }
+      let body: any = {};
+      try { body = rawBody ? JSON.parse(rawBody) : {}; } catch { body = {}; }
       const { orderId } = body;
       if (!orderId) {
         return new Response(JSON.stringify({ error: "orderId requis" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
         });
+      }
+      // P-A (1+7) validation positive orderId
+      if (!/^ORD-[0-9]{4}-[0-9]{6}$/.test(String(orderId).trim())) {
+        return new Response(JSON.stringify({ error: "orderId invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
       }
 
       // 1. Récupérer la commande et ses items depuis Supabase
@@ -172,6 +196,12 @@ export default {
       }[] = [];
       // pour marquer les items en DB après analyse
       for (const item of orderItems) {
+        // P-A (7) + P-B: quantité positive bornée (évite -1, 0, 9999, injection)
+        const qty = Number(item.quantity);
+        if (!Number.isInteger(qty) || qty <= 0 || qty > 100) {
+          blockedItems.push({ item, print_status: 'failed', block_reason: 'Quantité invalide: ' + String(item.quantity) });
+          continue;
+        }
         const { data: product } = await supabaseAdmin
           .from("products")
           .select(
@@ -299,6 +329,10 @@ export default {
               `${b.item.product_title || b.item.product_id} (${b.item.selected_color}/${b.item.selectedSize || b.item.selected_size}): ${b.block_reason}`,
           )
           .join("; ");
+        // P-B State Machine: vérifie transition autorisée
+        if (!isTransitionAllowed(order.status, "on_hold")) {
+          return new Response(JSON.stringify({ error: "Transition "+order.status+" -> on_hold non autorisée" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 });
+        }
         await supabaseAdmin
           .from("orders")
           .update({
@@ -423,8 +457,14 @@ export default {
       // 5. Mettre à jour la commande - P4 partiel
       const hasBlocked = blockedItems.length > 0;
       const newStatus = hasBlocked ? "partial" : "in_production";
+      // P-B State Machine
+      let transitionTarget = newStatus;
+      if (!isTransitionAllowed(order.status, transitionTarget)) {
+        if (transitionTarget === "partial" && isTransitionAllowed(order.status, "in_production")) transitionTarget = "in_production";
+        else return new Response(JSON.stringify({ error: "Transition "+order.status+" -> "+transitionTarget+" non autorisée" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 });
+      }
       // si 'partial' n'est pas encore autorisé en DB, fallback in_production
-      let updatedStatus = newStatus;
+      let updatedStatus = transitionTarget;
       const notesAppend = hasBlocked
         ? `\n[POD P4] ${printfulItems.length}/${orderItems.length} items envoyés à Printful. ${blockedItems.length} bloqué(s): ${blockedItems.map((b) => `${b.item.product_title || b.item.product_id} (${b.item.selected_color}/${b.item.selected_size}): ${b.block_reason}`).join("; ")}`.slice(
             0,

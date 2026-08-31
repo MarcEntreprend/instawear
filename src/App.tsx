@@ -118,6 +118,8 @@ export default function App() {
   useTabBadge(cart, isAdmin);
 
   const [cartLoaded, setCartLoaded] = useState(false);
+  // P-B anti-race panier (Business Logic Abuse: double clic -> 2 items)
+  const addToCartLock = useRef(false);
 
   // Local caches to avoid 406 errors on admin_users and customers
   // const [adminEmails, setAdminEmails] = useState<string[]>([]);f
@@ -460,6 +462,11 @@ export default function App() {
 
   // Shopping cart managers
   const addToCart = (product: Product, color: string, size: string) => {
+    // P-B anti-race: debounced lock 400ms (évite race TOCTOU double-clic → 2 items)
+    if (addToCartLock.current) return;
+    addToCartLock.current = true;
+    setTimeout(() => { addToCartLock.current = false; }, 400);
+
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
     // P3 POD: bloquer ajout si variante indisponible (admin désactivé ou Printful)

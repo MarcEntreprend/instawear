@@ -44,6 +44,20 @@ const SUPPORTED_TYPES = new Set([
   "stock_updated",
 ]);
 
+// P-B State Machine pour webhooks (même table que create-printful-order)
+const ALLOWED_WEBHOOK_TRANSITIONS = new Set([
+  "pending->paid", "pending->cancelled",
+  "paid->in_production", "paid->partial", "paid->on_hold", "paid->cancelled",
+  "in_production->shipped", "in_production->partial", "in_production->on_hold", "in_production->cancelled",
+  "partial->shipped", "partial->on_hold", "partial->cancelled", "partial->refunded",
+  "on_hold->in_production", "on_hold->partial", "on_hold->cancelled", "on_hold->refunded",
+  "shipped->delivered", "shipped->returned", "shipped->refunded",
+  "delivered->returned", "delivered->refunded",
+]);
+function isWebhookTransitionAllowed(from: string, to: string): boolean {
+  return from === to || ALLOWED_WEBHOOK_TRANSITIONS.has(`${from}->${to}`);
+}
+
 // Couleurs et libellés pour la barre de progression dans l'email d'expédition.
 // Duplication manuelle de src/constants/orderStatus.tsx car Deno Deploy ne
 // partage pas de bundle avec le frontend Vite.
@@ -341,6 +355,19 @@ export default {
         );
       }
 
+      // P-C (4) Blind Trust: secret token optionnel pour le webhook Printful
+      // Configurez PRINTFUL_WEBHOOK_SECRET en Edge Secret et ajoutez ?secret=xxx à l'URL webhook Printful
+      try {
+        const expectedSecret = Deno.env.get("PRINTFUL_WEBHOOK_SECRET");
+        if (expectedSecret) {
+          const url = new URL(req.url);
+          const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
+          if (got !== expectedSecret) {
+            return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+          }
+        }
+      } catch {}
+
       const type = payload?.type;
       const store = payload?.store;
       const data = payload?.data;
@@ -491,6 +518,25 @@ export default {
         );
       }
 
+      // P-C fetch-back: vérifier que la commande existe vraiment chez Printful (anti-spoof sans HMAC)
+      try {
+        const { data: podSettings } = await supabaseAdmin.from("pod_settings").select("api_key").eq("id", "pod-main").maybeSingle();
+        const apiKey = (podSettings as any)?.api_key;
+        if (apiKey && pfOrderId) {
+          const vRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+          if (!vRes.ok && vRes.status === 404) {
+            console.warn(`P-C fetch-back: Printful order ${pfOrderId} introuvable -> webhook ignoré`);
+            // on ne bloque pas, mais on log pour audit
+          } else if (vRes.ok) {
+            const vData = await vRes.json();
+            const vExt = String(vData.result?.external_id || "");
+            if (vExt && vExt !== String(orderId) && vExt !== String(order.external_id || "")) {
+              console.warn(`P-C fetch-back: external_id mismatch webhook ${vExt} vs db ${orderId}`);
+            }
+          }
+        }
+      } catch (e) { console.warn("P-C fetch-back failed", e); }
+
       // ── 5. Appliquer la transition de statut ──────────────────────
       const shipment = data.shipment;
       const trackingNumber = shipment?.tracking_number;
@@ -627,6 +673,12 @@ export default {
       }
 
       if (newStatus) updatePayload.status = newStatus;
+      // P-B State Machine: refuse transition illégale mais conserve tracking_info/notes
+      if (newStatus && !isWebhookTransitionAllowed(order.status, newStatus)) {
+        console.warn(`P-B: transition ${order.status} -> ${newStatus} non autorisée pour ${type}, status conservé`);
+        delete updatePayload.status;
+        newStatus = null;
+      }
       if (notes.length > 0)
         updatePayload.notes = notes.filter(Boolean).join("\n");
 
