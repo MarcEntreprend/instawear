@@ -3,6 +3,9 @@
 // @ts-nocheck
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,27 +14,7 @@ const corsHeaders = {
 };
 
 // ── Rate limiting simple (en mémoire, par IP) ──────────────────────────
-const RATE_LIMIT_MAX = 20;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-function getClientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") || "unknown";
-}
-
-function rateLimited(req: Request): boolean {
-  const ip = getClientIp(req);
-  const now = Date.now();
-  const entry = hits.get(ip);
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > RATE_LIMIT_MAX;
-}
+// P-F rate limit distribué importé depuis _shared/rateLimit.ts
 
 // ─── Fallback color name → hex (Printful n'a pas toujours un color_code2) ──
 const COLOR_NAME_TO_HEX: Record<string, string> = {
@@ -319,9 +302,9 @@ export default {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (rateLimited(req)) {
-      return new Response(JSON.stringify({ error: "Trop de requêtes." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (await isRateLimited(req, rateLimitKey(req, quotaFor('sync-printful')))) {
+      return new Response(JSON.stringify({ error: 'Trop de requêtes.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
         status: 429,
       });
     }
@@ -946,6 +929,8 @@ export default {
           }
         }
 
+        // P-D SSRF: valider printFileUrl (vient de Printful) avant usage
+        try { printFileUrl = (await safeFetch(printFileUrl, { method: "HEAD" })).url; } catch (e) { console.warn("P-D printFileUrl SSRF check failed", safeTruncate(String(e?.message || e), 200)); }
         if (uniqueVariantIds.length === 0) {
           return new Response(
             JSON.stringify({ error: "Aucun variant catalogue trouvé." }),
@@ -1155,7 +1140,7 @@ export default {
 
         for (const [hex, mockupUrl] of colorToMockupUrl) {
           try {
-            const imgRes = await fetch(mockupUrl);
+            const imgRes = await safeFetch(mockupUrl, { headers: { Accept: "image/*" } });
             if (!imgRes.ok) {
               console.error(
                 `Failed to download mockup for ${hex}: ${imgRes.status}`,
@@ -1258,7 +1243,7 @@ export default {
             .update(updatePayload)
             .eq("id", body.productId);
         } catch (updateErr: any) {
-          console.error(`Failed to update product: ${updateErr.message}`);
+          console.error(logSafe(`Failed to update product: ${updateErr.message}`));
         }
 
         // 13. Insert into product_mockups table

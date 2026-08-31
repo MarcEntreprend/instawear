@@ -4,6 +4,9 @@
 // (produits + store_settings). Le montant envoyé par le client est ignoré.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 const corsHeaders = {
@@ -13,27 +16,7 @@ const corsHeaders = {
 };
 
 // ── Rate limiting simple (en mémoire, par IP) ──────────────────────────
-const RATE_LIMIT_MAX = 20;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-function getClientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") || "unknown";
-}
-
-function rateLimited(req: Request): boolean {
-  const ip = getClientIp(req);
-  const now = Date.now();
-  const entry = hits.get(ip);
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > RATE_LIMIT_MAX;
-}
+// P-F rate limit distribué importé depuis _shared/rateLimit.ts
 
 // ── Prix autoritatif d'un produit (miroir de la logique du frontend) ───
 function resolveUnitPrice(

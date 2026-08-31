@@ -9,6 +9,9 @@
 // correspondance de l'ordre via external_id / external_order_id.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent

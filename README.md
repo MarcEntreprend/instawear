@@ -47,6 +47,7 @@ Remove-Item -Recurse -Force node_modules/.vite -ErrorAction SilentlyContinue
 npx supabase functions deploy sync-printful --no-verify-jwt
 npx supabase functions deploy create-printful-order --no-verify-jwt
 npx supabase functions deploy printful-webhook --no-verify-jwt
+npx supabase functions deploy health --no-verify-jwt
 npx supabase functions deploy send-email --no-verify-jwt
 npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt

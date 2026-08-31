@@ -25,12 +25,3 @@ export function isValidSize(v: unknown): boolean {
 export function isPayloadTooLarge(jsonStr: string): boolean {
   return jsonStr.length > MAX_PAYLOAD_BYTES;
 }
-
-export function normalizeQuantity(v: unknown): number | null {
-  if (typeof v === "number") return isValidQuantity(v) ? v : null;
-  if (typeof v === "string") {
-    const n = Number(v);
-    return isValidQuantity(n) ? n : null;
-  }
-  return null;
-}

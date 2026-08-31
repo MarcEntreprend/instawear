@@ -6,6 +6,9 @@
 // Idempotent : une commande déjà "paid" n'est jamais retraitée.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur (Stripe).
