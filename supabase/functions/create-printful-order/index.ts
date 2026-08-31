@@ -365,8 +365,8 @@ export default {
         },
       };
 
-      // 4. Créer la commande par le fournisseur (mode draft, pas de confirm)
-      const pfRes = await fetch("https://api.printful.com/orders", {
+      // 4. Créer la commande par le fournisseur (mode draft, pas de confirm) — P5 idempotence external_id
+      const pfRes = await fetch("https://api.printful.com/orders?update_existing=true", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${settings.api_key}`,
@@ -377,6 +377,37 @@ export default {
 
       if (!pfRes.ok) {
         const errText = await pfRes.text();
+        // P5: external_id déjà utilisé -> idempotence (retry Stripe webhook)
+        if (pfRes.status === 400 && /EXTERNAL_ID_IN_USE|external_id/i.test(errText)) {
+          try {
+            const existingPfRes = await fetch(`https://api.printful.com/orders/@${encodeURIComponent(order.id)}`, {
+              headers: { Authorization: `Bearer ${settings.api_key}` },
+            });
+            if (existingPfRes.ok) {
+              const existingPf = await existingPfRes.json();
+              const existingId = existingPf.result?.id?.toString() || "";
+              // marquer comme succès idempotent
+              await supabaseAdmin.from("orders").update({ external_order_id: existingId, status: "in_production" }).eq("id", orderId);
+              for (const it of orderItems) {
+                const isBlocked = blockedItems.some((b) => b.item.id === it.id);
+                if (!isBlocked) try { await supabaseAdmin.from("order_items").update({ print_status: "fulfillable" }).eq("id", it.id); } catch {}
+              }
+              return new Response(JSON.stringify({ success: true, externalOrderId: existingId, idempotent: true }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          } catch {}
+        }
+        // P5: erreurs ciblées thread_colors / Invalid position -> marquer bloqués au lieu de 502 générique
+        const lower = errText.toLowerCase();
+        if (lower.includes("thread_colors") || lower.includes("invalid position") || lower.includes("embroidery")) {
+          // marquer tous les fulfillables comme failed pour traçage, passe en on_hold
+          for (const it of orderItems) {
+            const isBlocked = blockedItems.some((b) => b.item.id === it.id);
+            if (!isBlocked) try { await supabaseAdmin.from("order_items").update({ print_status: "failed", block_reason: errText.slice(0, 300) }).eq("id", it.id); } catch {}
+          }
+          await supabaseAdmin.from("orders").update({ status: "on_hold", notes: (order.notes ? order.notes + "\n" : "") + `[POD P5] Printful 400: ${errText}`.slice(0, 900) }).eq("id", orderId);
+        }
         return new Response(
           JSON.stringify({ error: `Erreur Printful: ${errText}` }),
           {

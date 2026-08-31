@@ -32,7 +32,7 @@ function getCorsHeaders(req: Request) {
   return {};
 }
 
-// Événements que nous traitons activement.
+// Événements que nous traitons activement. P6 POD: stock_updated géré pour MAJ variantes.
 const SUPPORTED_TYPES = new Set([
   "package_shipped",
   "order_failed",
@@ -41,6 +41,7 @@ const SUPPORTED_TYPES = new Set([
   "order_remove_hold",
   "order_refunded",
   "package_returned",
+  "stock_updated",
 ]);
 
 // Couleurs et libellés pour la barre de progression dans l'email d'expédition.
@@ -401,6 +402,43 @@ export default {
             },
           );
         }
+      }
+
+      // ── 4. Gestion stock_updated (P6 POD) — MAJ variantes sans bloquer commande ──
+      if (type === "stock_updated") {
+        const productId = (data as any).product_id;
+        const variantStock = (data as any).variant_stock || {};
+        const outIds: number[] = Array.isArray(variantStock.out) ? variantStock.out : [];
+        const discIds: number[] = Array.isArray(variantStock.discontinued) ? variantStock.discontinued : [];
+        const summary = `Stock Printful: ${discIds.length} discontinued, ${outIds.length} rupture (product_id ${productId})`;
+        // notif admin toujours
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Stock Printful mis à jour — produit ${productId}`,
+            description: summary,
+            category: "products",
+            priority: discIds.length > 0 ? "high" : "medium",
+            status: "unread",
+            metadata: { productId: String(productId), out: outIds, discontinued: discIds, linkTo: "/admin/products", source: "Printful" },
+            action_label: "Voir le produit",
+          });
+        } catch {}
+        // Tentative de MAJ directe du produit concerné (si external_product_id == productId)
+        try {
+          const { data: prod } = await supabaseAdmin.from("products").select("id, variants, variant_availability").eq("external_product_id", String(productId)).maybeSingle();
+          if (prod) {
+            // Audit léger pour que la prochaine sync sache quoi griser — on stocke les listes
+            const audit = { ...(prod.variant_availability || {}), _stock_updated_at: new Date().toISOString(), _out: outIds, _discontinued: discIds };
+            await supabaseAdmin.from("products").update({ variant_availability: audit }).eq("id", prod.id);
+            // Optionnel: si toutes les variantes sont discontinued, passer in_stock=false pour masquer du catalogue
+            if (discIds.length > 0 && outIds.length === 0) {
+              // on ne touche pas aux prix, le prochain sync complet reconstruira stock_status proprement
+            }
+          }
+        } catch (e) { console.warn("stock_updated update failed", e); }
+        return new Response(JSON.stringify({ received: true, handled: true, type: "stock_updated" }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        });
       }
 
       // ── 4. Retrouver la commande locale ───────────────────────────
