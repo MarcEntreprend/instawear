@@ -38,6 +38,7 @@ const ORDER_STATUS_LABEL: Record<
   on_hold: { label: "En pause", color: "#92400e", bg: "#fef3c7" },
   refunded: { label: "Remboursée", color: "#4c1d95", bg: "#ede9fe" },
   returned: { label: "Retournée", color: "#9f1239", bg: "#ffe4e6" },
+  partial: { label: "Partielle", color: "#b45309", bg: "#fef3c7" },
 };
 
 function OrderStatusBadge({ status }: { status: string }) {
@@ -925,11 +926,8 @@ export default function OrdersPage() {
                         try {
                           const { podApi } = await import("../api/supabaseApi");
                           await podApi.createOrder(selectedOrder.id);
-                          // Recharger les commandes depuis Supabase pour mettre à jour le tableau et le select
                           await refetch();
-                          alert(
-                            "Commande envoyée à Printful (statut mis à jour).",
-                          );
+                          alert("Commande envoyée à Printful (statut mis à jour).");
                           setSelectedOrder(null);
                         } catch (e: any) {
                           alert("Erreur : " + (e.message || ""));
@@ -942,12 +940,8 @@ export default function OrdersPage() {
                         padding: "6px 14px",
                         borderRadius: 8,
                         border: "1px solid var(--color-accent)",
-                        background: sendingToPrintful
-                          ? "var(--color-surface2)"
-                          : "var(--color-accent)",
-                        color: sendingToPrintful
-                          ? "var(--color-ink3)"
-                          : "white",
+                        background: sendingToPrintful ? "var(--color-surface2)" : "var(--color-accent)",
+                        color: sendingToPrintful ? "var(--color-ink3)" : "white",
                         fontWeight: 700,
                         fontSize: 12,
                         cursor: sendingToPrintful ? "not-allowed" : "pointer",
@@ -957,21 +951,78 @@ export default function OrdersPage() {
                         opacity: sendingToPrintful ? 0.7 : 1,
                       }}
                     >
-                      {sendingToPrintful ? (
-                        <RefreshCw
-                          size={14}
-                          strokeWidth={2}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Package size={14} strokeWidth={2} />
-                      )}
-                      {sendingToPrintful
-                        ? "Envoi en cours…"
-                        : "Envoyer à Printful"}
+                      {sendingToPrintful ? <RefreshCw size={14} strokeWidth={2} className="animate-spin" /> : <Package size={14} strokeWidth={2} />}
+                      {sendingToPrintful ? "Envoi en cours…" : "Envoyer à Printful"}
                     </button>
                   </div>
                 )}
+                {/* P4 POD: commandes partielles / on_hold avec bloqués -> choix admin */}
+                {(selectedOrder.status === "partial" || selectedOrder.status === "on_hold") &&
+                  selectedOrder.items.some((it: any) => (it.print_status || "").startsWith("blocked")) && (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <p style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "6px 10px", lineHeight: 1.4 }}>
+                        {selectedOrder.items.filter((it: any) => (it.print_status || "").startsWith("blocked")).length} article(s) bloqué(s) — les autres ont été imprimés.
+                      </p>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm("Réessayer l'envoi des articles bloqués ? (vérifie le stock Printful d'abord via Sync)")) return;
+                            setSendingToPrintful(true);
+                            try {
+                              const { podApi } = await import("../api/supabaseApi");
+                              await podApi.createOrder(selectedOrder.id);
+                              await refetch();
+                              alert("Nouvelle tentative envoyée.");
+                              setSelectedOrder(null);
+                            } catch (e: any) {
+                              alert("Erreur : " + (e.message || ""));
+                            } finally {
+                              setSendingToPrintful(false);
+                            }
+                          }}
+                          disabled={sendingToPrintful}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            border: "1px solid #059669",
+                            background: sendingToPrintful ? "var(--color-surface2)" : "#059669",
+                            color: "white",
+                            fontWeight: 700,
+                            fontSize: 11,
+                            cursor: sendingToPrintful ? "not-allowed" : "pointer",
+                            opacity: sendingToPrintful ? 0.6 : 1,
+                          }}
+                        >
+                          ↻ Réessayer les bloqués
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm("Marquer la commande comme remboursée partiellement ?")) return;
+                            try {
+                              const { orderApi } = await import("../api/supabaseApi");
+                              await orderApi.updateStatus(selectedOrder.id, "refunded" as any);
+                              await refetch();
+                              setSelectedOrder(null);
+                            } catch (e: any) {
+                              alert("Erreur : " + (e.message || ""));
+                            }
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            border: "1px solid var(--color-border)",
+                            background: "var(--color-surface)",
+                            color: "var(--color-ink2)",
+                            fontWeight: 600,
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Marquer remboursé
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                 <div style={{ marginTop: 12 }}>
                   <p
@@ -1049,6 +1100,12 @@ export default function OrdersPage() {
                 </div>
               )}
 
+            {/* P4 POD: alerte partielle si au moins une ligne bloquée */}
+            {selectedOrder.items.some((it: any) => (it.print_status || "").startsWith("blocked")) && (
+              <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e", fontSize: 12, fontWeight: 600 }}>
+                ⚠️ Commande partielle — {selectedOrder.items.filter((it: any) => (it.print_status || "").startsWith("blocked")).length} article(s) bloqué(s) (désactivé / rupture Printful) n'ont pas été envoyés à l'impression. Les autres partent normalement.
+              </div>
+            )}
             {/* Items */}
             <div>
               <h4
@@ -1199,7 +1256,30 @@ export default function OrdersPage() {
                           >
                             {item.productTitle ?? item.productId}
                           </button>
+                          {(item as any).print_status?.startsWith("blocked") && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: "2px 6px",
+                                borderRadius: 999,
+                                background: (item as any).print_status === "blocked_discontinued" ? "#fee2e2" : (item as any).print_status === "blocked_out_of_stock" ? "#fef3c7" : "#f3f4f6",
+                                color: (item as any).print_status === "blocked_discontinued" ? "#991b1b" : (item as any).print_status === "blocked_out_of_stock" ? "#92400e" : "#6b7280",
+                                border: "1px solid var(--color-border)",
+                              }}
+                              title={(item as any).block_reason || (item as any).print_status}
+                            >
+                              {(item as any).print_status === "blocked_discontinued" ? "Supprimé" : (item as any).print_status === "blocked_out_of_stock" ? "Rupture" : "Bloqué"}
+                            </span>
+                          )}
+                          {(item as any).print_status === "fulfillable" && (
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 999, background: "#d1fae5", color: "#065f46", border: "1px solid #a7f3d0" }}>À imprimer</span>
+                          )}
                         </div>
+                        {(item as any).block_reason && (
+                          <div style={{ fontSize: 11, color: "#991b1b", marginTop: 4, fontStyle: "italic" }}>{(item as any).block_reason}</div>
+                        )}
                       </td>
                       <td style={{ textAlign: "center", padding: "10px 12px" }}>
                         <span

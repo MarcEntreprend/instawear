@@ -608,6 +608,8 @@ export const customerApi = {
         selectedSize: item.selected_size,
         quantity: item.quantity,
         unitPrice: item.unit_price,
+        print_status: item.print_status ?? null,
+        block_reason: item.block_reason ?? null,
       }));
     }
     return ordersMapped;
@@ -835,6 +837,8 @@ export const orderApi = {
         selectedSize: item.selected_size,
         quantity: item.quantity,
         unitPrice: item.unit_price,
+        print_status: item.print_status ?? null,
+        block_reason: item.block_reason ?? null,
       });
     });
 
@@ -1206,7 +1210,7 @@ export const podApi = {
 
   /**
    * Récupère les détails d'un produit Printful via l'Edge Function.
-   * @param productId - L'ID externe du produit chez Printful.
+   * @param productId - L'ID externe du produit par le fournisseur.
    * @returns Les données brutes du produit Printful.
    */
   async getProductDetails(productId: string): Promise<any> {

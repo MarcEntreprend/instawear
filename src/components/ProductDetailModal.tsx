@@ -14,6 +14,7 @@ import DOMPurify from "dompurify";
 import type { Product } from "../types";
 import ImageZoom from "./ImageZoom";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { getVariantAvailability } from "../hooks/useProductAvailability";
 
 interface ProductDetailModalProps {
   product: Product;
@@ -331,13 +332,27 @@ export default function ProductDetailModal({
                 {dispColors.map((c, idx) => {
                   const isPicked =
                     pickedColor === c || (!pickedColor && idx === 0);
+                  // P3 POD: couleur désactivée si la taille choisie n'est pas dispo pour cette couleur
+                  const colorAvail =
+                    pickedSize != null
+                      ? getVariantAvailability(product as any, c, pickedSize)
+                      : "available";
+                  const isBlocked =
+                    colorAvail === "discontinued" ||
+                    colorAvail === "out_of_stock";
+                  const titleBase = dispColorNames?.[idx] || c;
+                  const title = isBlocked
+                    ? `${titleBase} — ${colorAvail === "discontinued" ? "Supprimé par le fournisseur" : "Rupture temporaire"}`
+                    : titleBase;
                   return (
                     <button
                       key={idx}
-                      onClick={() => setPickedColor(c)}
-                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"}`}
+                      onClick={() => !isBlocked && setPickedColor(c)}
+                      disabled={isBlocked}
+                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
                       style={{ backgroundColor: c }}
-                      title={dispColorNames?.[idx] || ""}
+                      title={title}
+                      aria-disabled={isBlocked}
                     />
                   );
                 })}
@@ -416,16 +431,63 @@ export default function ProductDetailModal({
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5">
-                {dispSizes.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setPickedSize(s)}
-                    className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 text-gray-600 bg-gray-50/60"}`}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {dispSizes.map((s) => {
+                  const avail = getVariantAvailability(
+                    product as any,
+                    pickedColor,
+                    s,
+                  );
+                  const isBlocked =
+                    avail === "discontinued" || avail === "out_of_stock";
+                  const label = isBlocked
+                    ? `${s} — ${avail === "discontinued" ? "Supprimé" : "Rupture"}`
+                    : s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => !isBlocked && setPickedSize(s)}
+                      disabled={isBlocked}
+                      title={
+                        isBlocked
+                          ? avail === "discontinued"
+                            ? "Supprimé par le fournisseur"
+                            : "Rupture temporaire — réassort Printful"
+                          : s
+                      }
+                      className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 text-gray-600 bg-gray-50/60"} ${isBlocked ? "opacity-40 cursor-not-allowed line-through bg-gray-100" : ""}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
+              {(() => {
+                const curAvail = getVariantAvailability(
+                  product as any,
+                  pickedColor,
+                  pickedSize,
+                );
+                if (curAvail === "discontinued")
+                  return (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-2">
+                      Cette variante a été supprimée par le fournisseur —
+                      choisissez une autre taille/couleur.
+                    </p>
+                  );
+                if (curAvail === "out_of_stock")
+                  return (
+                    <p className="text-[11px] text-amber-600 font-semibold mt-2">
+                      Rupture temporaire par le fournisseur — réassort en cours.
+                    </p>
+                  );
+                if (!product.isActive)
+                  return (
+                    <p className="text-[11px] text-rose-600 font-semibold mt-2">
+                      Produit désactivé par l'admin.
+                    </p>
+                  );
+                return null;
+              })()}
             </div>
 
             {/* Product details */}
@@ -507,69 +569,86 @@ export default function ProductDetailModal({
                 </div>
 
                 {/* Boutons d'action */}
-                {product.isActive ? (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() =>
-                        onAddToCart(
-                          product,
-                          pickedColor || product.colors[0] || "#000000",
-                          pickedSize,
-                        )
-                      }
-                      className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
-                    >
-                      Add to cart
-                    </button>
-                    <button
-                      onClick={() =>
-                        onBuyNow(
-                          product,
-                          pickedColor || product.colors[0] || "#000000",
-                          pickedSize,
-                        )
-                      }
-                      className="w-full bg-linear-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
-                    >
-                      Buy now
-                    </button>
-                    <button
-                      onClick={() => onToggleFavorite(product.id)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
-                      style={{
-                        background: favorites.includes(product.id)
-                          ? "#FEF2F2"
-                          : "var(--color-surface2)",
-                        border: `1.5px solid ${favorites.includes(product.id) ? "#FECACA" : "var(--color-border)"}`,
-                        color: favorites.includes(product.id)
-                          ? "#EF4444"
-                          : "var(--color-ink3)",
-                      }}
-                    >
-                      <Heart
-                        size={16}
-                        fill={
-                          favorites.includes(product.id) ? "#EF4444" : "none"
+                {(() => {
+                  const curAvail = getVariantAvailability(
+                    product as any,
+                    pickedColor,
+                    pickedSize,
+                  );
+                  const isBlocked =
+                    !product.isActive || curAvail !== "available";
+                  if (isBlocked) {
+                    const msg = !product.isActive
+                      ? "This item is currently unavailable."
+                      : curAvail === "discontinued"
+                        ? "Variante supprimée par le fournisseur — indisponible."
+                        : "Rupture temporaire par le fournisseur.";
+                    return (
+                      <div className="text-center">
+                        <p className="text-xs text-rose-500 font-medium mb-3">
+                          {msg}
+                        </p>
+                        <button
+                          disabled
+                          className="w-full bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase cursor-not-allowed"
+                        >
+                          Add to cart
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() =>
+                          onAddToCart(
+                            product,
+                            pickedColor || product.colors[0] || "#000000",
+                            pickedSize,
+                          )
                         }
-                      />
-                      {favorites.includes(product.id)
-                        ? "Remove from wishlist"
-                        : "Add to wishlist"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-xs text-rose-500 font-medium mb-3">
-                      This item is currently unavailable.
-                    </p>
-                    <button
-                      disabled
-                      className="w-full bg-gray-200 text-gray-400 font-black text-xs py-3.5 px-4 rounded-xl uppercase cursor-not-allowed"
-                    >
-                      Add to cart
-                    </button>
-                  </div>
-                )}
+                        className="w-full bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      >
+                        Add to cart
+                      </button>
+                      <button
+                        onClick={() =>
+                          onBuyNow(
+                            product,
+                            pickedColor || product.colors[0] || "#000000",
+                            pickedSize,
+                          )
+                        }
+                        className="w-full bg-linear-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl uppercase tracking-wider transition-all shadow-lg"
+                      >
+                        Buy now
+                      </button>
+                      <button
+                        onClick={() => onToggleFavorite(product.id)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+                        style={{
+                          background: favorites.includes(product.id)
+                            ? "#FEF2F2"
+                            : "var(--color-surface2)",
+                          border: `1.5px solid ${favorites.includes(product.id) ? "#FECACA" : "var(--color-border)"}`,
+                          color: favorites.includes(product.id)
+                            ? "#EF4444"
+                            : "var(--color-ink3)",
+                        }}
+                      >
+                        <Heart
+                          size={16}
+                          fill={
+                            favorites.includes(product.id) ? "#EF4444" : "none"
+                          }
+                        />
+                        {favorites.includes(product.id)
+                          ? "Remove from wishlist"
+                          : "Add to wishlist"}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {/* Livraison */}
                 <div className="text-xs text-(--color-ink3) space-y-1">

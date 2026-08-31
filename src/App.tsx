@@ -17,6 +17,7 @@ import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { Product, CartItem } from "./types";
+import { getVariantAvailability } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
 import {
   productApi,
@@ -146,7 +147,8 @@ export default function App() {
             cartItems
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
-                if (!product || !product.isActive) return null;
+                if (!product) return null;
+                // P3 POD: on garde même les produits inactifs/variantes supprimées en panier (grisé, non bloquant)
                 let unitPrice =
                   product.price +
                   (product.sizeSurcharge?.[item.selectedSize] ?? 0);
@@ -460,6 +462,22 @@ export default function App() {
   const addToCart = (product: Product, color: string, size: string) => {
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
+    // P3 POD: bloquer ajout si variante indisponible (admin désactivé ou Printful)
+    const avail = getVariantAvailability(
+      product as any,
+      targetColor,
+      targetSize,
+    );
+    if (avail !== "available") {
+      const msg =
+        avail === "inactive"
+          ? "Produit désactivé"
+          : avail === "discontinued"
+            ? "Variante supprimée par le fournisseur"
+            : "Rupture temporaire par le fournisseur";
+      showToast(`⛔ ${msg} — ${targetColor} / ${targetSize}`, "error");
+      return;
+    }
     const basePrice =
       product.dealActive && !dealExpired && product.dealPrice
         ? product.dealPrice

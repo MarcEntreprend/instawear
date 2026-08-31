@@ -115,7 +115,8 @@ export type OrderStatus =
   | "cancelled"
   | "on_hold"
   | "refunded"
-  | "returned";
+  | "returned"
+  | "partial";
 
 export interface ShippingAddress {
   fullName: string;

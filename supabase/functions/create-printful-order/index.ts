@@ -162,27 +162,49 @@ export default {
         );
       }
 
-      // 3. Construire le payload Printful
+      // 3. Construire le payload Printful - P4 POD partial fulfillment
+      // Un variant indisponible (is_active=false ou stock_status) ne bloque PLUS les autres items.
       const printfulItems: any[] = [];
+      const blockedItems: {
+        item: any;
+        print_status: string;
+        block_reason: string;
+      }[] = [];
+      // pour marquer les items en DB après analyse
       for (const item of orderItems) {
         const { data: product } = await supabaseAdmin
           .from("products")
           .select(
-            "external_product_id, title, variants, colors, sizes, external_variant_id",
+            "is_active, external_product_id, title, variants, colors, sizes, external_variant_id",
           )
           .eq("id", item.product_id)
           .single();
 
         if (!product) {
           console.warn(`Produit introuvable: ${item.product_id}`);
+          blockedItems.push({
+            item,
+            print_status: "blocked_discontinued",
+            block_reason: "Produit introuvable",
+          });
+          continue;
+        }
+
+        // Admin a désactivé le produit
+        if (product.is_active === false) {
+          blockedItems.push({
+            item,
+            print_status: "blocked_inactive",
+            block_reason: "Produit désactivé par l'admin (is_active=false)",
+          });
           continue;
         }
 
         // Trouver le variant qui correspond à la couleur et à la taille sélectionnées
         let externalVariantId: number | null = null;
-        let matchingVariant: any = null; // ← déclaré ici pour être accessible plus bas
+        let matchingVariant: any = null;
+        let stockStatus: string = "available";
 
-        // D'abord chercher dans le tableau variants
         if (product.variants && Array.isArray(product.variants)) {
           matchingVariant = product.variants.find(
             (v: any) =>
@@ -191,6 +213,11 @@ export default {
               v.sizes[item.selected_size] !== undefined,
           );
           if (matchingVariant) {
+            const szEntry: any = matchingVariant.sizes[item.selected_size];
+            stockStatus =
+              szEntry && typeof szEntry === "object" && szEntry.stock_status
+                ? String(szEntry.stock_status)
+                : "available";
             if (matchingVariant.external_variant_id) {
               externalVariantId = Number(matchingVariant.external_variant_id);
             } else if (matchingVariant.sync_variant_id) {
@@ -198,7 +225,34 @@ export default {
             } else if (matchingVariant.variant_id) {
               externalVariantId = Number(matchingVariant.variant_id);
             }
+          } else {
+            // variante couleur/taille introuvable -> discontinued
+            blockedItems.push({
+              item,
+              print_status: "blocked_discontinued",
+              block_reason: `Variante ${item.selected_color}/${item.selected_size} introuvable (supprimée par le fournisseur)`,
+            });
+            continue;
           }
+        }
+
+        // stock_status Printful
+        if (stockStatus === "discontinued") {
+          blockedItems.push({
+            item,
+            print_status: "blocked_discontinued",
+            block_reason:
+              "Variante discontinued par le fournisseur (availability_status)",
+          });
+          continue;
+        }
+        if (stockStatus === "out_of_stock") {
+          blockedItems.push({
+            item,
+            print_status: "blocked_out_of_stock",
+            block_reason: "Rupture temporaire Printful (out_of_stock)",
+          });
+          continue;
         }
 
         if (!externalVariantId) {
@@ -206,6 +260,11 @@ export default {
             `Aucun ID variant Printful trouvé pour ${item.product_id} (couleur: ${item.selected_color}, taille: ${item.selected_size}). ` +
               `Variant matché: ${JSON.stringify(matchingVariant)}`,
           );
+          blockedItems.push({
+            item,
+            print_status: "blocked_discontinued",
+            block_reason: "Aucun ID variant Printful (supprimé)",
+          });
           continue;
         }
 
@@ -217,9 +276,68 @@ export default {
         });
       }
 
+      // Marquer immédiatement les bloqués en DB (P1 print_status)
+      for (const b of blockedItems) {
+        try {
+          await supabaseAdmin
+            .from("order_items")
+            .update({
+              print_status: b.print_status,
+              block_reason: b.block_reason,
+            })
+            .eq("id", b.item.id);
+        } catch (e) {
+          console.warn("update blocked item failed", e);
+        }
+      }
+
       if (printfulItems.length === 0) {
+        // Tout bloqué -> on_hold (pas d'envoi Printful), notif admin
+        const reasonSummary = blockedItems
+          .map(
+            (b) =>
+              `${b.item.product_title || b.item.product_id} (${b.item.selected_color}/${b.item.selectedSize || b.item.selected_size}): ${b.block_reason}`,
+          )
+          .join("; ");
+        await supabaseAdmin
+          .from("orders")
+          .update({
+            status: "on_hold",
+            notes:
+              (order.notes ? order.notes + "\n" : "") +
+              `[POD P4] Tous les items bloqués — aucun envoi Printful. ${reasonSummary}`.slice(
+                0,
+                900,
+              ),
+          })
+          .eq("id", orderId);
+        // notif admin
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Commande ${orderId} en pause — variantes indisponibles`,
+            description: reasonSummary.slice(0, 300),
+            category: "orders",
+            priority: "high",
+            status: "unread",
+            metadata: {
+              orderId,
+              blockedCount: blockedItems.length,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch {}
         return new Response(
-          JSON.stringify({ error: "Aucun item avec variant Printful trouvé" }),
+          JSON.stringify({
+            error:
+              "Tous les items sont indisponibles (désactivés ou rupture Printful)",
+            blockedCount: blockedItems.length,
+            blockedItems: blockedItems.map((b) => ({
+              id: b.item.id,
+              reason: b.block_reason,
+            })),
+          }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 400,
@@ -247,7 +365,7 @@ export default {
         },
       };
 
-      // 4. Créer la commande chez Printful (mode draft, pas de confirm)
+      // 4. Créer la commande par le fournisseur (mode draft, pas de confirm)
       const pfRes = await fetch("https://api.printful.com/orders", {
         method: "POST",
         headers: {
@@ -271,14 +389,87 @@ export default {
       const pfData = await pfRes.json();
       const externalOrderId = pfData.result?.id?.toString() || "";
 
-      // 5. Mettre à jour la commande dans Supabase
-      await supabaseAdmin
+      // 5. Mettre à jour la commande - P4 partiel
+      const hasBlocked = blockedItems.length > 0;
+      const newStatus = hasBlocked ? "partial" : "in_production";
+      // si 'partial' n'est pas encore autorisé en DB, fallback in_production
+      let updatedStatus = newStatus;
+      const notesAppend = hasBlocked
+        ? `\n[POD P4] ${printfulItems.length}/${orderItems.length} items envoyés à Printful. ${blockedItems.length} bloqué(s): ${blockedItems.map((b) => `${b.item.product_title || b.item.product_id} (${b.item.selected_color}/${b.item.selected_size}): ${b.block_reason}`).join("; ")}`.slice(
+            0,
+            900,
+          )
+        : "";
+      let updRes = await supabaseAdmin
         .from("orders")
-        .update({ external_order_id: externalOrderId, status: "in_production" })
+        .update({
+          external_order_id: externalOrderId,
+          status: updatedStatus,
+          notes: order.notes ? order.notes + notesAppend : notesAppend.trim(),
+        })
         .eq("id", orderId);
+      // fallback si contrainte orders_status_check ne connaît pas 'partial'
+      if (
+        updRes.error &&
+        String(updRes.error.message || "").includes("orders_status_check")
+      ) {
+        updatedStatus = "in_production";
+        await supabaseAdmin
+          .from("orders")
+          .update({
+            external_order_id: externalOrderId,
+            status: updatedStatus,
+            notes: order.notes ? order.notes + notesAppend : notesAppend.trim(),
+          })
+          .eq("id", orderId);
+      }
+
+      // marquer les items fulfillable
+      for (const pf of printfulItems) {
+        // on ne connaît pas l'id exact, on marque tout non-bloqué comme fulfillable
+      }
+      for (const it of orderItems) {
+        const isBlocked = blockedItems.some((b) => b.item.id === it.id);
+        if (!isBlocked) {
+          try {
+            await supabaseAdmin
+              .from("order_items")
+              .update({ print_status: "fulfillable" })
+              .eq("id", it.id);
+          } catch {}
+        }
+      }
+      if (hasBlocked) {
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Commande ${orderId} partielle — ${blockedItems.length} article(s) non imprimé(s)`,
+            description: blockedItems
+              .map(
+                (b) =>
+                  `${b.item.product_title || b.item.product_id}: ${b.block_reason}`,
+              )
+              .join("; ")
+              .slice(0, 300),
+            category: "orders",
+            priority: "high",
+            status: "unread",
+            metadata: {
+              orderId,
+              blockedCount: blockedItems.length,
+              fulfillableCount: printfulItems.length,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch {}
+      }
 
       // 6. Envoyer l'email "in production" si le client a un email
       if (order.client_email) {
+        const partialNote = hasBlocked
+          ? `<p style="margin:12px 0;color:#92400e;background:#fef3c7;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #fcd34d;">Note: ${blockedItems.length} article(s) de votre commande est/sont indisponible(s) (supprimé/rupture) et n'a/ont pas été envoyé(s) à l'impression. Les ${printfulItems.length} autre(s) sont en cours. Un remboursement partiel sera traité si nécessaire.</p>`
+          : "";
         const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
 <div style="background:#ede9fe;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
 <h1 style="color:#7c3aed;margin:0;font-size:22px;">InstaWear</h1>
@@ -286,7 +477,7 @@ export default {
 </div>
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">In Production 🖨️</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "Customer"}</strong>,<br><br>Your order <strong>${order.id}</strong> is now being printed. We'll notify you as soon as it ships.</p>
+<p style="margin:0 0 12px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "Customer"}</strong>,<br><br>Your order <strong>${order.id}</strong> is now being printed. We'll notify you as soon as it ships.</p>${partialNote}
 <a href="https://instawear.vercel.app/?track=${encodeURIComponent(order.id)}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
 <p style="margin:0 0 8px;">This email was sent to <strong>${order.client_email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
@@ -307,9 +498,18 @@ export default {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, externalOrderId }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          externalOrderId,
+          partial: hasBlocked,
+          blockedCount: blockedItems.length,
+          fulfillableCount: printfulItems.length,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
 
       //
     } catch (error) {

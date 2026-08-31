@@ -558,7 +558,7 @@ export default {
           newStatus = "cancelled";
         }
         notes.push(
-          `Commande annulée chez Printful${reason ? ` : ${reason}` : ""}`,
+          `Commande annulée par le fournisseur${reason ? ` : ${reason}` : ""}`,
         );
       } else if (type === "order_put_hold") {
         if (order.status !== "on_hold") {
@@ -579,7 +579,7 @@ export default {
           newStatus = "refunded";
         }
         notes.push(
-          `Commande remboursée chez Printful${reason ? ` : ${reason}` : ""}`,
+          `Commande remboursée par le fournisseur${reason ? ` : ${reason}` : ""}`,
         );
       } else if (type === "package_returned") {
         if (order.status !== "returned") {

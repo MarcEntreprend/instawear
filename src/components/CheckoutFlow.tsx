@@ -1220,12 +1220,23 @@ function StripeCardForm({
           action: "payment-intent",
           currency: currencyCode,
           orderId,
-          items: cart.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            selectedColor: item.selectedColor,
-            selectedSize: item.selectedSize,
-          })),
+          // P3 POD: on n'envoie que les variantes disponibles à Stripe (les bloquées restent en panier mais non facturées)
+          items: cart
+            .filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            })
+            .map((item) => ({
+              productId: item.product.id,
+              quantity: item.quantity,
+              selectedColor: item.selectedColor,
+              selectedSize: item.selectedSize,
+            })),
         }),
       },
     );
@@ -1317,18 +1328,28 @@ function StripeCardForm({
             tax_number: reception === "livraison" ? taxNumber : "",
             phone: contactPhone,
           },
-          notes: message,
-          items: cart.map((item, idx) => ({
-            id: `item-${orderId}-${idx}`,
-            orderId,
-            productId: item.product.id,
-            productTitle: item.product.title,
-            productImage: getVariantImage(item.product, item.selectedColor),
-            selectedColor: item.selectedColor || "#000000",
-            selectedSize: item.selectedSize || "M",
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
+          notes: message + (cart.length !== cart.filter((it: any) => { const p:any=it.product; if(!p?.isActive) return false; const v=p.variants?.find((vv:any)=>String(vv.color).toLowerCase()===String(it.selectedColor).toLowerCase()); if(!v) return p.variants?.length?false:true; const e=v.sizes?.[it.selectedSize]; if(!e) return false; return ((e as any).stock_status||"available")==="available"; }).length ? ` [POD: ${cart.length - cart.filter((it: any) => { const p:any=it.product; if(!p?.isActive) return false; const v=p.variants?.find((vv:any)=>String(vv.color).toLowerCase()===String(it.selectedColor).toLowerCase()); if(!v) return p.variants?.length?false:true; const e=v.sizes?.[it.selectedSize]; if(!e) return false; return ((e as any).stock_status||"available")==="available"; }).length} article(s) indisponible(s) non facturé(s)]` : ""),
+          items: cart
+            .filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            })
+            .map((item, idx) => ({
+              id: `item-${orderId}-${idx}`,
+              orderId,
+              productId: item.product.id,
+              productTitle: item.product.title,
+              productImage: getVariantImage(item.product, item.selectedColor),
+              selectedColor: item.selectedColor || "#000000",
+              selectedSize: item.selectedSize || "M",
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
         } as any);
         sendTelegramNotification(
           orderId,
@@ -1340,7 +1361,15 @@ function StripeCardForm({
           city,
           zip,
           country,
-          cart,
+          cart.filter((it: any) => {
+            const p: any = it.product;
+            if (!p?.isActive) return false;
+            const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+            if (!v) return p.variants?.length ? false : true;
+            const e = v.sizes?.[it.selectedSize];
+            if (!e) return false;
+            return ((e as any).stock_status || "available") === "available";
+          }),
           total,
           currencySymbol,
         );
@@ -1990,9 +2019,27 @@ export default function CheckoutFlow({
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
-  const cartTotal = useMemo(
-    () => cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
+  // P3 POD: total sur les seuls items disponibles (les bloqués ne seront pas facturés/imprimés)
+  const availabilities = useMemo(
+    () => cart.map((it: any) => {
+      // inline pour éviter import cyclique — même logique que getVariantAvailability
+      const p: any = it.product;
+      if (!p?.isActive) return "inactive";
+      const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+      if (!v) return p.variants?.length ? "discontinued" : "available";
+      const e = v.sizes?.[it.selectedSize];
+      if (!e) return "discontinued";
+      const st = (e as any).stock_status || "available";
+      return st === "available" ? "available" : st;
+    }),
     [cart],
+  );
+  const blockedCount = availabilities.filter((av) => av !== "available").length;
+  const hasFulfillable = availabilities.some((av) => av === "available");
+  const fulfillableCart = useMemo(() => cart.filter((_, idx) => availabilities[idx] === "available"), [cart, availabilities]);
+  const cartTotal = useMemo(
+    () => fulfillableCart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
+    [fulfillableCart],
   );
 
   // Use country-specific shipping rates based on user location
@@ -2077,6 +2124,10 @@ export default function CheckoutFlow({
 
   const handleStripePay = async () => {
     if (!validateContact()) return;
+    if (!hasFulfillable) {
+      setPaymentError("Tous les articles du panier sont indisponibles (supprimés ou rupture Printful) — retirez-les ou choisissez d'autres variantes.");
+      return;
+    }
     setProcessing(true);
     setPaymentError(null);
 
@@ -2120,8 +2171,8 @@ export default function CheckoutFlow({
           tax_number: reception === "livraison" ? taxNumber : "",
           phone,
         },
-        notes: message,
-        items: cart.map((item, idx) => ({
+        notes: message + (blockedCount > 0 ? ` [POD: ${blockedCount} article(s) indisponible(s) non facturé(s)]` : ""),
+        items: fulfillableCart.map((item, idx) => ({
           id: `item-${newOrderId}-${idx}`,
           orderId: newOrderId,
           productId: item.product.id,
@@ -2165,7 +2216,7 @@ export default function CheckoutFlow({
           body: JSON.stringify({
             orderId: newOrderId,
             lineItems: [
-              ...cart.map((item) => ({
+              ...fulfillableCart.map((item) => ({
                 name: item.product.title,
                 image: getVariantImage(item.product, item.selectedColor),
                 unitAmount: Math.round(item.unitPrice * 100),
@@ -2212,6 +2263,10 @@ export default function CheckoutFlow({
 
   const handlePay = async () => {
     if (!validatePayment()) return;
+    if (!hasFulfillable) {
+      setPaymentError("Aucun article disponible — retirez les variantes indisponibles.");
+      return;
+    }
     setProcessing(true);
     setPaymentError(null);
 
@@ -2256,8 +2311,8 @@ export default function CheckoutFlow({
             tax_number: reception === "livraison" ? taxNumber : "",
             phone,
           },
-          notes: message,
-          items: cart.map((item, idx) => ({
+          notes: message + (blockedCount > 0 ? ` [POD: ${blockedCount} article(s) indisponible(s) exclus]` : ""),
+          items: fulfillableCart.map((item, idx) => ({
             id: `item-${newOrderId}-${idx}`,
             orderId: newOrderId,
             productId: item.product.id,
@@ -2300,7 +2355,7 @@ export default function CheckoutFlow({
           city,
           zip,
           country,
-          cart,
+          fulfillableCart,
           total,
           currencySymbol,
         );
@@ -2382,6 +2437,14 @@ export default function CheckoutFlow({
         <Stepper step={step} onJump={jumpTo} />
       </div>
 
+      {blockedCount > 0 && (
+        <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl flex gap-2 items-start" style={{ background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e" }}>
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <p className="text-xs font-semibold leading-snug">
+            {blockedCount} article{blockedCount > 1 ? "s" : ""} indisponible{blockedCount > 1 ? "s" : ""} dans votre panier — {hasFulfillable ? `seuls les ${fulfillableCart.length} disponibles seront commandés et facturés (${cartTotal.toFixed(2)} ${currencySymbol})` : "retirez-les pour continuer"}.
+          </p>
+        </div>
+      )}
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto">
         {step === 4 ? (
