@@ -301,17 +301,21 @@ instawear/
 
 ---
 
+Voici le texte à remplacer dans la section Checklist du README :
+
+---
+
 ## ✅ Checklist InstaWear — Mise à jour
 
 ### 🔒 Sécurité (⚠️ avant production)
 
-- [ ] Last check (general check)
-- [ ] 10 common mistakes
+- [ ] Audit OWASP / Last check
+- [ ] Checklist 10 common mistakes
 
 ### 🎨 UX / UI
 
 - [ ] **Animations réactives** — standardiser hover/click sur tous les boutons
-- [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin (nouvelles commandes + changements de statut Printful)
+- [ ] **Badge de commandes non consultées** — indicateur chiffré à côté de l'icône "Orders" dans la sidebar admin
 - [ ] Icône cœur des cartes produit (et modale info produit)
 - [ ] **Mobile friendly** — toutes les pages utilisateur
 
@@ -319,15 +323,13 @@ instawear/
 
 Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l'order id doit suggérer deux choses :
 
-- [ ] **Voir détails rapide** : faire apparaître le même modal `Order detail modal` de `src/admin/OrdersPage.tsx`, tout en restant dans la conversation (renommer en `OrderQuickViewModal` ?)
 - [ ] **Voir dans commande** : naviguer vers la page order, avec `useAdminHighlight`
 
 ### 🏷️ Produits
 
-- [ ] **Standardiser `useProductAvailability`** — (\*hook réutilisable ?) un produit
-- [ ] **Visibilité de produits / via admin** — logique actif/inactif absente de certaines pages
+- [ ] Visibilité de produits / via admin — logique actif/inactif absente de certaines pages
 - [ ] **Info standard produit manquant** — message uniforme quand un produit est supprimé/indisponible
-- [ ] **Comments and review ?** also showing in the user's dashboard.
+- [ ] **Comments and review** — also showing in the user's dashboard
 
 **Webhooks optionnels :**
 
@@ -335,37 +337,67 @@ Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l
 - [ ] `order_remove_hold` 🟡 Optionnel : alerte "reprise"
 - [ ] `order_refunded` 🟡 Optionnel : log admin
 - [ ] `package_returned` 🟡 Optionnel : statut → returned
+- [ ] `order_canceled` 🟡 Optionnel : webhook existant, pas de handler ni email
 - [ ] `product_synced` ⚪ Pas nécessaire (déjà géré par sync)
 - [ ] `product_updated` ⚪ Pas nécessaire
 - [ ] `product_deleted` ⚪ Pas nécessaire
-- [ ] `stock_updated` ⚪ Pas nécessaire pour l'instant
+- [ ] `stock_updated` ✅ Fait (P6)
 - [ ] `order_put_hold_approval` ⚪ Pas nécessaire
 
 ### 📧 Emails transactionnels
 
-- [ ] `order_failed` vs `order_canceled` : quel cas n'est pas encore couvert ? quelle différence ?(car chacun a un webhook, donc doit avoir un mail)
+- [ ] `order_failed` ✅ Fait
+- [ ] `order_canceled` ❌ Non couvert (pas de mail dédié)
+- [ ] Différence `order_failed` vs `order_canceled` : quel cas n'est pas encore couvert ? Car chacun a un webhook distinct.
 
 ### 📨 Emails / Resend
 
-- [ ] Cliquer sur le bouton "View order details →" dans le mail : rediriger vers `instawear.vercel.app` > ouvrir modal 'Track Your Order' avec le code de l'order déjà inséré dans le champ de recherche et déjà run / les infos déjà recherchées, donc affichées.
+- [ ] Cliquer sur le bouton "View order details →" dans le mail : rediriger vers `instawear.vercel.app` > ouvrir modal 'Track Your Order' avec le code de l'order déjà inséré dans le champ de recherche
+- [ ] URLs images dans les emails
+- [ ] Informations de l'entreprise (adresse, mentions légales)
 
 ### 🏷️ Deal sections and deal cards
 
-**Context :** look for `src/components/DealsSection.tsx` → When a deal is active, instead of _'Score exclusive deals on our AI-powered sports tees & hoodies before'_, think about an admin part that is more dynamic. it could be added alongside / next to the grid of the storeitems, or an horizontale stuffs, etc.
+**Context :** When a deal is active, remplacer la phrase fixe "Score exclusive deals on our AI-powered sports tees & hoodies before" par une part admin dynamique (grille produit, section horizontale, etc.).
+
+### 🐛 Bugs
+
+- [ ] Double ajout au panier
+- [ ] Persistance du panier
 
 ---
 
-## 📊 Compteurs de ce qui reste
+## ❌ Ce que le README ne mentionne pas mais qui est à faire
 
-| Catégorie              | Restant | Détail                                                                                                            |
-| ---------------------- | ------: | ----------------------------------------------------------------------------------------------------------------- |
-| Bugs                   |       2 | Double ajout, persistance du panier                                                                               |
-| Sécurité               |       4 | RLS, contrôle d'accès, injections, autres                                                                         |
-| UX/UI                  |       6 | Animations, badge admin, icône cœur, responsive mobile, modal de commande (InteractionsPage) + navigation, footer |
-| Produits               |       3 | Standardiser la disponibilité, visibilité admin, informations produit manquantes                                  |
-| Livraison              |       6 | Webhooks optionnels : `hold`, `remove_hold`, `refunded`, `returned` (2 déjà implémentés)                          |
-| Emails transactionnels |       1 | `order_failed` vs `order_canceled`                                                                                |
-| Emails / Resend        |       3 | URLs, images, informations de l'entreprise                                                                        |
-| Footer                 |       2 | Newsletter, liens                                                                                                 |
-| Codes morts            |       1 | `DealsSection.tsx` : phrase obsolète                                                                              |
-| **Total**              |  **28** |                                                                                                                   |
+### 🔒 Sécurité
+
+- [ ] **RLS / contrôle d'accès** — politiques Row Level Security et vérification d'accès aux lignes (orders, products, users)
+- [ ] **Injection SQL** — revue des requêtes Supabase,尤其是 dynamic query builders
+- [ ] **Erreur Printful "Invalid state code"** — validation du state code USPS/ZIP avant envoi à Printful (prévenir `Recipient: Invalid state code`)
+
+### ⚙️ Functionalities
+
+- [ ] `src/components/ProductModal.tsx` — intégrer `useProductAvailability` pour la disponibilité POD
+- [ ] `src/components/CatalogSection.tsx` — filtrer les tailles/couleurs indisponibles
+- [ ] `src/admin/ProductQuickViewModal.tsx` — utiliser `useProductAvailability` pour le bloc Disponibilité POD
+- [ ] Badge commande lue/non lue (admin orders)
+- [ ] Gestion des rôles admin (`is_admin()`) enforce côté front
+
+### 📊 Compteurs de ce qui reste
+
+| Catégorie              | Restant | Détail                                                                                     |
+| ---------------------- | ------: | ------------------------------------------------------------------------------------------ |
+| Bugs                   |       2 | Double ajout, persistance du panier                                                        |
+| Sécurité               |       5 | RLS, contrôle d'accès, injections, Erreur state code, OWASP audit                          |
+| UX/UI                  |       6 | Animations, badge admin, icône cœur, responsive mobile, modal InteractionsPage, navigation |
+| Produits               |       3 | Visibilité admin, info produit manquant, reviews                                           |
+| Livraison (webhooks)   |       5 | `hold`, `remove_hold`, `refunded`, `returned`, `order_canceled`                            |
+| Emails transactionnels |       2 | `order_canceled`, différences `failed`/`canceled`                                          |
+| Emails / Resend        |       3 | URLs, images, infos entreprise                                                             |
+| Footer                 |       2 | Newsletter, liens                                                                          |
+| Codes morts            |       1 | `DealsSection.tsx` : phrase obsolète                                                       |
+| **Total**              |  **29** |                                                                                            |
+
+---
+
+prevenir les : `Erreur : Erreur Printful: {"code":400,"result":"Recipient: Invalid state code","error":{"reason":"BadRequest","message":"Recipient: Invalid state code"}}`
