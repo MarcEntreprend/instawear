@@ -16,7 +16,9 @@ export interface ProductVariant {
   color: string;
   color_name: string;
   image: string;
-  sizes: Record<string, { price: number }>;
+  // POD: stock_status est ADDITIF et optionnel -> absent = available (rétro-compat).
+  // Ne jamais supprimer price. Valeurs Printful: available | out_of_stock | discontinued
+  sizes: Record<string, { price: number; stock_status?: string }>;
 }
 
 export interface Product {

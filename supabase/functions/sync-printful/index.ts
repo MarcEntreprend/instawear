@@ -115,13 +115,36 @@ function resolveHexColor(
   return rawCode?.toLowerCase() || rawColor || "#cccccc";
 }
 
-// ─── Source de vérité unique couleur × taille × prix ───────────────────────
+// ─── Helper POD: statut stock Printful -> stock_status interne ─────────────
+function resolveCatalogStockStatus(cv: any): string {
+  const statuses: string[] = (cv.availability_status || []).map((a: any) =>
+    String(a.status || "").toLowerCase(),
+  );
+  if (statuses.length === 0 && cv.in_stock === false) return "out_of_stock";
+  if (statuses.includes("discontinued")) return "discontinued";
+  if (statuses.includes("out_of_stock")) return "out_of_stock";
+  return "available";
+}
+function resolveSyncStockStatus(sv: any): string | null {
+  if (sv.discontinued === true) return "discontinued";
+  if (sv.out_of_stock === true) return "out_of_stock";
+  if (sv.is_discontinued === true) return "discontinued";
+  if (sv.availability_status) {
+    const s = String(sv.availability_status).toLowerCase();
+    if (s === "discontinued") return "discontinued";
+    if (s === "out_of_stock") return "out_of_stock";
+  }
+  return null;
+}
+
+// ─── Source de vérité unique couleur × taille × prix + stock_status ───────
+// POD additif: sizes[size] = {price, stock_status?} ; absent = available
 function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const byColor = new Map<
     string,
     {
       name: string;
-      sizes: Map<string, number>;
+      sizes: Map<string, { price: number; stock_status: string }>;
       image: string;
       id: number | null;
     }
@@ -137,40 +160,59 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
   }
 
+  const catalogIdToStatus = new Map<number, string>();
+  for (const cv of catalogVariants || []) {
+    if (!cv.id) continue;
+    catalogIdToStatus.set(Number(cv.id), resolveCatalogStockStatus(cv));
+  }
+  const syncIdToStatus = new Map<number, string>();
+  for (const sv of syncVariants || []) {
+    const vid = sv.variant_id || sv.product?.variant_id;
+    const st = resolveSyncStockStatus(sv);
+    if (vid && st) syncIdToStatus.set(Number(vid), st);
+  }
+
   for (const v of syncVariants || []) {
     let hex = resolveHexColor(v.color, v.color_code, v.color_code2);
-
     if (!hex.startsWith("#")) {
       const catalogVid = v.variant_id || v.product?.variant_id;
       if (catalogVid && catalogIdToHex.has(catalogVid)) {
         hex = catalogIdToHex.get(catalogVid)!;
       }
     }
-
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
       byColor.set(hex, { name, sizes: new Map(), image: "", id: null });
     const entry = byColor.get(hex)!;
-
-    // Stocker l'ID du variant Printful (le premier trouvé fait foi)
-    if (!entry.id && v.id) {
-      entry.id = v.id;
-    }
-
+    if (!entry.id && v.id) entry.id = v.id;
     if (v.size && v.retail_price != null) {
-      entry.sizes.set(v.size, parseFloat(v.retail_price));
+      const catalogVid = v.variant_id || v.product?.variant_id;
+      let stockStatus = "available";
+      if (catalogVid && catalogIdToStatus.has(Number(catalogVid))) {
+        stockStatus = catalogIdToStatus.get(Number(catalogVid))!;
+      } else if (catalogVid && syncIdToStatus.has(Number(catalogVid))) {
+        stockStatus = syncIdToStatus.get(Number(catalogVid))!;
+      } else {
+        const svStatus = resolveSyncStockStatus(v);
+        if (svStatus) stockStatus = svStatus;
+      }
+      const existing = entry.sizes.get(v.size);
+      if (!existing) {
+        entry.sizes.set(v.size, { price: parseFloat(v.retail_price), stock_status: stockStatus });
+      } else {
+        const order: Record<string, number> = { available: 0, out_of_stock: 1, discontinued: 2 };
+        if ((order[stockStatus] ?? 0) > (order[existing.stock_status] ?? 0)) {
+          entry.sizes.set(v.size, { price: existing.price, stock_status: stockStatus });
+        }
+      }
     }
-    if (!entry.image && v.product?.image) {
-      entry.image = v.product.image;
-    }
+    if (!entry.image && v.product?.image) entry.image = v.product.image;
   }
 
   for (const cv of catalogVariants || []) {
     const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
     const entry = byColor.get(hex);
-    if (entry) {
-      if (cv.image) entry.image = cv.image;
-    }
+    if (entry && cv.image) entry.image = cv.image;
   }
 
   for (const v of syncVariants || []) {
@@ -183,8 +225,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
     const entry = byColor.get(hex);
     if (entry && !entry.image) {
-      entry.image =
-        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+      entry.image = v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
     }
   }
 
@@ -194,7 +235,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     image: entry.image,
     external_variant_id: entry.id ? String(entry.id) : undefined,
     sizes: Object.fromEntries(
-      [...entry.sizes.entries()].map(([size, price]) => [size, { price }]),
+      [...entry.sizes.entries()].map(([size, data]) => [size, { price: data.price, stock_status: data.stock_status }]),
     ),
   }));
 
@@ -1347,13 +1388,56 @@ export default {
             }
           }
 
-          const { colors, colorNames, colorImages, sizes, variants } =
+          let { colors, colorNames, colorImages, sizes, variants } =
             buildVariantMatrix(syncVariants, catalogVariants);
+
+          // P2c: Conserver les variantes disparues comme discontinued (garde prix/couleurs)
+          try {
+            const { data: existingForMerge } = await supabaseAdmin
+              .from("products")
+              .select("variants")
+              .eq("external_product_id", pfProduct.id.toString())
+              .maybeSingle();
+            const oldVariants: any[] = existingForMerge?.variants || [];
+            if (oldVariants.length > 0 && variants.length > 0) {
+              const key = (c: string, s: string) => `${c.toLowerCase()}|${s}`;
+              const newKeySet = new Set<string>();
+              for (const v of variants) for (const sz of Object.keys(v.sizes || {})) newKeySet.add(key(v.color, sz));
+              const newByColor = new Map<string, any>();
+              for (const v of variants) newByColor.set(v.color.toLowerCase(), v);
+              for (const ov of oldVariants) {
+                const ovColor: string = ov.color || "";
+                if (!ovColor) continue;
+                const ovSizes: Record<string, any> = ov.sizes || {};
+                for (const [sz, szData] of Object.entries(ovSizes)) {
+                  const k = key(ovColor, sz);
+                  if (newKeySet.has(k)) continue;
+                  const price: number = typeof szData === "object" && szData !== null && "price" in szData ? Number((szData as any).price) || 0 : Number(szData) || 0;
+                  if (!price) continue;
+                  let target = newByColor.get(ovColor.toLowerCase());
+                  if (!target) {
+                    target = { color: ovColor, color_name: ov.color_name || ovColor, image: ov.image || "", external_variant_id: ov.external_variant_id, sizes: {} };
+                    variants.push(target);
+                    newByColor.set(ovColor.toLowerCase(), target);
+                    colors.push(ovColor);
+                    colorNames.push(ov.color_name || ovColor);
+                    if (ov.image) colorImages.push(ov.image);
+                    if (!sizes.includes(sz)) sizes.push(sz);
+                  }
+                  if (!target.sizes[sz]) {
+                    target.sizes[sz] = { price, stock_status: "discontinued" };
+                    newKeySet.add(k);
+                    if (!sizes.includes(sz)) sizes.push(sz);
+                  }
+                }
+              }
+            }
+          } catch {}
 
           const sizeSurcharge: Record<string, number> = {};
           const allPrices = variants.flatMap((v) =>
             Object.entries(v.sizes).map(
-              ([size, s]) => [size, s.price] as [string, number],
+              ([size, s]: any) => [size, s.price] as [string, number],
             ),
           );
           if (allPrices.length > 0) {
@@ -1381,6 +1465,11 @@ export default {
             ? parseFloat(mainVariant.retail_price)
             : null;
 
+          // P2: in_stock dérivé POD (au moins une taille available)
+          const hasAvailableVariant = variants.some((v: any) =>
+            Object.values(v.sizes || {}).some((s: any) => (s?.stock_status || "available") === "available"),
+          );
+
           const productPayload: Record<string, any> = {
             title: syncProduct?.name || pfProduct.name || "Sans titre",
             image: imageUrl,
@@ -1394,9 +1483,20 @@ export default {
               Object.keys(sizeSurcharge).length > 0 ? sizeSurcharge : null,
             size_guide: sizeGuideData || null,
             variants: variants.length > 0 ? variants : null,
+            in_stock: hasAvailableVariant,
             last_external_sync: new Date().toISOString(),
             external_variant_id: mainVariant?.id?.toString() || null,
           };
+
+          // audit léger debug admin
+          try {
+            const availabilityAudit: Record<string, string> = {};
+            for (const v of variants) for (const [sz, sd] of Object.entries(v.sizes || {})) {
+              const st = (sd as any)?.stock_status || "available";
+              if (st !== "available") availabilityAudit[`${v.color}|${sz}`] = st;
+            }
+            productPayload.variant_availability = Object.keys(availabilityAudit).length > 0 ? availabilityAudit : null;
+          } catch {}
 
           try {
             productPayload.color_images =
@@ -1412,38 +1512,37 @@ export default {
             .maybeSingle();
 
           if (existing) {
-            const updatePayload = { ...productPayload };
-            try {
-              await supabaseAdmin
-                .from("products")
-                .update(updatePayload)
-                .eq("id", existing.id);
-            } catch (e: any) {
+            const updatePayload: any = { ...productPayload };
+            const { error: updErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
+            if (updErr) {
+              // fallback si colonnes P1 pas encore migrées
               delete updatePayload.color_images;
-              await supabaseAdmin
-                .from("products")
-                .update(updatePayload)
-                .eq("id", existing.id);
+              delete updatePayload.variant_availability;
+              const { error: retryErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
+              if (retryErr) {
+                delete updatePayload.in_stock;
+                await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
+              }
             }
           } else {
             const productId = `prod-printful-${pfProduct.id}`;
-            const insertPayload = { ...productPayload };
-            try {
-              await supabaseAdmin.from("products").insert({
-                id: productId,
-                is_active: true,
-                brand: "INSTAWEAR",
-                description: syncProduct?.name || "",
-                category: "tshirt",
-                event_type: "culture",
-                style: "street",
-                tags: [],
-                external_product_id: pfProduct.id.toString(),
-                ...insertPayload,
-              });
-            } catch (e: any) {
+            const insertPayload: any = { ...productPayload };
+            const { error: insErr } = await supabaseAdmin.from("products").insert({
+              id: productId,
+              is_active: true,
+              brand: "INSTAWEAR",
+              description: syncProduct?.name || "",
+              category: "tshirt",
+              event_type: "culture",
+              style: "street",
+              tags: [],
+              external_product_id: pfProduct.id.toString(),
+              ...insertPayload,
+            });
+            if (insErr) {
               delete insertPayload.color_images;
-              await supabaseAdmin.from("products").insert({
+              delete insertPayload.variant_availability;
+              const { error: retryErr } = await supabaseAdmin.from("products").insert({
                 id: productId,
                 is_active: true,
                 brand: "INSTAWEAR",
@@ -1455,6 +1554,21 @@ export default {
                 external_product_id: pfProduct.id.toString(),
                 ...insertPayload,
               });
+              if (retryErr) {
+                delete insertPayload.in_stock;
+                await supabaseAdmin.from("products").insert({
+                  id: productId,
+                  is_active: true,
+                  brand: "INSTAWEAR",
+                  description: syncProduct?.name || "",
+                  category: "tshirt",
+                  event_type: "culture",
+                  style: "street",
+                  tags: [],
+                  external_product_id: pfProduct.id.toString(),
+                  ...insertPayload,
+                });
+              }
             }
           }
 

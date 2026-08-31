@@ -65,6 +65,7 @@ interface ProductRow {
   bought_last_month?: number | null;
   show_ratings?: boolean | null;
   show_bought?: boolean | null;
+  variant_availability?: any | null; // P2 audit (nullable)
 }
 
 // ─── Helpers de mapping ──────────────────────────────────────────────────

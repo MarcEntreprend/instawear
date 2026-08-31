@@ -5,7 +5,8 @@ export interface AdminProductVariant {
   color: string;
   color_name: string;
   image: string;
-  sizes: Record<string, { price: number }>;
+  // POD: stock_status additif (absent = available) -> ne casse pas prix/couleurs existants
+  sizes: Record<string, { price: number; stock_status?: string }>;
 }
 
 export interface AdminProduct {
@@ -164,6 +165,16 @@ export interface TrackingInfo {
 }
 
 // ─── Order Item (§2.6) ────────────────────────────────────────────────────
+// POD P1: print_status/block_reason additifs (nullable = pending) -> fulfillment partiel
+export type OrderItemPrintStatus =
+  | "pending"
+  | "fulfillable"
+  | "blocked_inactive"
+  | "blocked_discontinued"
+  | "blocked_out_of_stock"
+  | "fulfilled"
+  | "failed";
+
 export interface OrderItem {
   id: string;
   orderId: string;
@@ -174,6 +185,8 @@ export interface OrderItem {
   selectedSize: string;
   quantity: number;
   unitPrice: number;
+  print_status?: OrderItemPrintStatus | null;
+  block_reason?: string | null;
 }
 
 // ─── POD Integration settings (§2.7) ─────────────────────────────────────

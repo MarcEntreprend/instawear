@@ -399,6 +399,96 @@ export default function ProductQuickViewModal({
                 </strong>
               </span>
             </div>
+            {/* P2: Disponibilité POD par variante (stock_status) */}
+            {product.variants && product.variants.length > 0 && (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--color-surface2)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 11,
+                    color: "var(--color-ink3)",
+                    textTransform: "uppercase",
+                    marginBottom: 8,
+                  }}
+                >
+                  Disponibilité POD par variante
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {product.variants!.map((v: any) => {
+                    const sizes = (v as any).sizes || {};
+                    const entries = Object.entries(sizes) as [string, any][];
+                    if (entries.length === 0) return null;
+                    return (
+                      <div
+                        key={v.color}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            background: v.color,
+                            border: "1px solid var(--color-border)",
+                            flexShrink: 0,
+                          }}
+                          title={v.color_name || v.color}
+                        />
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "var(--color-ink2)",
+                            minWidth: 90,
+                          }}
+                        >
+                          {v.color_name || v.color}
+                        </span>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {entries.map(([sz, sd]: any) => {
+                            const st = sd?.stock_status || "available";
+                            const isOk = st === "available";
+                            const isDisc = st === "discontinued";
+                            return (
+                              <span
+                                key={sz}
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "2px 7px",
+                                  borderRadius: 999,
+                                  border: "1px solid var(--color-border)",
+                                  background: isOk ? "var(--color-surface)" : isDisc ? "#fee2e2" : "#fef3c7",
+                                  color: isOk ? "var(--color-ink2)" : isDisc ? "#991b1b" : "#92400e",
+                                }}
+                                title={isOk ? "Disponible" : isDisc ? "Discontinued Printful" : "Rupture temporaire"}
+                              >
+                                {sz}: {isOk ? "OK" : isDisc ? "Supprimé" : "Rupture"} · {Number(sd.price).toFixed(2)}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: 10, color: "var(--color-ink4)", marginTop: 8, lineHeight: 1.4 }}>
+                  Source Printful `availability_status`. Les tailles <em>Supprimé</em> sont conservées avec leur prix pour ne pas casser l'historique, mais grisées/non-achetаbles côté storefront (P3).
+                </p>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span
                 className="badge"
