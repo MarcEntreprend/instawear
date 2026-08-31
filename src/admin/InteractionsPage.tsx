@@ -20,10 +20,12 @@ import {
   ArrowLeft,
   Send,
 } from "lucide-react";
-import { interactionApi } from "../api/supabaseApi";
+import { interactionApi, productApi, orderApi } from "../api/supabaseApi";
 import CopyID from "../components/CopyID";
 import { useHighlightListener } from "./useAdminHighlight";
 import CartIcon from "../components/CartIcon";
+import ProductQuickViewModal from "./ProductQuickViewModal";
+import type { AdminProduct } from "./adminTypes";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -89,9 +91,12 @@ const ORDER_ID_REGEX = /\b(ord-\d{4}-\d{4,5})\b/gi;
 
 /**
  * Transforme un texte en ReactNode en remplaçant les IDs de commande
- * par leur version majuscule + bouton CopyID.
+ * par leur version majuscule + bouton CopyID + action "Voir détails rapide".
  */
-function formatMessageText(text: string): React.ReactNode {
+function formatMessageText(
+  text: string,
+  onQuickView?: (orderId: string) => void,
+): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -110,6 +115,29 @@ function formatMessageText(text: string): React.ReactNode {
       <span key={match.index} style={{ whiteSpace: "nowrap" }}>
         {orderId}
         <CopyID id={orderId} size={12} />
+        {onQuickView && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickView(orderId);
+            }}
+            title="Voir détails rapide"
+            style={{
+              marginLeft: 6,
+              padding: "1px 8px",
+              borderRadius: 6,
+              border: "1px solid var(--color-accent)",
+              background: "var(--color-accent-bg)",
+              color: "var(--color-accent)",
+              fontWeight: 600,
+              fontSize: 10,
+              cursor: "pointer",
+            }}
+          >
+            Voir détails rapide
+          </button>
+        )}
       </span>,
     );
     lastIndex = match.index + match[0].length;
@@ -163,6 +191,10 @@ export default function InteractionsPage() {
   const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(
     null,
   );
+  const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
+    null,
+  );
+  const [quickViewLoading, setQuickViewLoading] = useState(false);
 
   // Charger les interactions depuis l'API
   const fetchInteractions = useCallback(async () => {
@@ -285,6 +317,26 @@ export default function InteractionsPage() {
     }
   };
 
+  // ── "Voir détails rapide" : récupère l'ordre, puis le premier produit ──
+  const handleQuickViewOrder = async (orderId: string) => {
+    if (quickViewLoading) return;
+    setQuickViewLoading(true);
+    try {
+      const order = await orderApi.get(orderId);
+      const productId = order?.items?.[0]?.productId;
+      if (!productId) {
+        console.warn("Aucun produit trouvé pour la commande", orderId);
+        return;
+      }
+      const product = await productApi.get(productId);
+      if (product) setQuickViewProduct(product);
+    } catch (e) {
+      console.error("Erreur ouverture détails rapides", e);
+    } finally {
+      setQuickViewLoading(false);
+    }
+  };
+
   // ── Filtrage & tri ──────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = [...interactions];
@@ -346,6 +398,10 @@ export default function InteractionsPage() {
           setSelectedTicket(null);
           setMessages([]);
         }}
+        onQuickViewOrder={handleQuickViewOrder}
+        quickViewProduct={quickViewProduct}
+        quickViewLoading={quickViewLoading}
+        onCloseQuickView={() => setQuickViewProduct(null)}
       />
     );
   }
@@ -636,6 +692,10 @@ function TicketDetail({
   onSendReply,
   onChangeStatus,
   onBack,
+  onQuickViewOrder,
+  quickViewProduct,
+  quickViewLoading,
+  onCloseQuickView,
 }: {
   ticket: AdminInteraction;
   messages: InteractionMessage[];
@@ -644,6 +704,10 @@ function TicketDetail({
   onSendReply: () => void;
   onChangeStatus: (status: InteractionStatus) => void;
   onBack: () => void;
+  onQuickViewOrder: (orderId: string) => void;
+  quickViewProduct: AdminProduct | null;
+  quickViewLoading: boolean;
+  onCloseQuickView: () => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -703,6 +767,23 @@ function TicketDetail({
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <CartIcon size={12} /> Commande : {ticket.metadata.orderId}
               <CopyID id={ticket.metadata.orderId} />
+              <button
+                onClick={() => onQuickViewOrder(ticket.metadata!.orderId!)}
+                title="Voir détails rapide"
+                style={{
+                  marginLeft: 4,
+                  padding: "1px 8px",
+                  borderRadius: 6,
+                  border: "1px solid var(--color-accent)",
+                  background: "var(--color-accent-bg)",
+                  color: "var(--color-accent)",
+                  fontWeight: 600,
+                  fontSize: 10,
+                  cursor: "pointer",
+                }}
+              >
+                Voir détails rapide
+              </button>
             </span>
           )}
           {ticket.metadata.productTitle && (
@@ -810,7 +891,7 @@ function TicketDetail({
               >
                 {msg.from === "admin" ? "Vous" : ticket.customerName}
               </p>
-              <p>{formatMessageText(msg.text)}</p>
+              <p>{formatMessageText(msg.text, onQuickViewOrder)}</p>
             </div>
             <span
               style={{ fontSize: 10, color: "var(--color-ink4)", marginTop: 4 }}
@@ -893,6 +974,18 @@ function TicketDetail({
           Ctrl+Entrée pour envoyer
         </p>
       </div>
+
+      {quickViewLoading && (
+        <p style={{ fontSize: 12, color: "var(--color-ink3)" }}>
+          Chargement de la commande…
+        </p>
+      )}
+      {quickViewProduct && (
+        <ProductQuickViewModal
+          product={quickViewProduct}
+          onClose={onCloseQuickView}
+        />
+      )}
     </div>
   );
 }

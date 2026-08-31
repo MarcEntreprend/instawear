@@ -1028,6 +1028,9 @@ export const orderApi = {
         shipped: "Expédiée",
         delivered: "Livrée",
         cancelled: "Annulée",
+        on_hold: "En pause",
+        refunded: "Remboursée",
+        returned: "Retournée",
       };
       await notificationApi.create({
         title: `Statut commande mis à jour`,

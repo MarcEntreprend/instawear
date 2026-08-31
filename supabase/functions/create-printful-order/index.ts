@@ -180,10 +180,11 @@ export default {
 
         // Trouver le variant qui correspond à la couleur et à la taille sélectionnées
         let externalVariantId: number | null = null;
+        let matchingVariant: any = null; // ← déclaré ici pour être accessible plus bas
 
-        // D'abord chercher dans le tableau variantsf
+        // D'abord chercher dans le tableau variants
         if (product.variants && Array.isArray(product.variants)) {
-          const matchingVariant = product.variants.find(
+          matchingVariant = product.variants.find(
             (v: any) =>
               v.color?.toLowerCase() === item.selected_color?.toLowerCase() &&
               v.sizes &&
@@ -286,7 +287,7 @@ export default {
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">In Production 🖨️</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "Customer"}</strong>,<br><br>Your order <strong>${order.id}</strong> is now being printed. We'll notify you as soon as it ships.</p>
-<a href="https://instawear.vercel.app" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="https://instawear.vercel.app/?track=${encodeURIComponent(order.id)}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
 <p style="margin:0 0 8px;">This email was sent to <strong>${order.client_email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
 <p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>

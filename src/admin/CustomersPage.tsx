@@ -64,6 +64,9 @@ const ORDER_STATUS_LABEL: Record<
   shipped: { label: "Expédiée", color: "#065f46", bg: "#d1fae5" },
   delivered: { label: "Livrée", color: "#166534", bg: "#dcfce7" },
   cancelled: { label: "Annulée", color: "#991b1b", bg: "#fee2e2" },
+  on_hold: { label: "En pause", color: "#92400e", bg: "#fef3c7" },
+  refunded: { label: "Remboursée", color: "#4c1d95", bg: "#ede9fe" },
+  returned: { label: "Retournée", color: "#9f1239", bg: "#ffe4e6" },
 };
 
 function OrderStatusBadge({ status }: { status: string }) {

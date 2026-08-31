@@ -58,7 +58,7 @@ npx supabase functions deploy delete-account --no-verify-jwt
 ## 📦 Test livraison
 
 ```powershell
-# Ton order id local
+# Ton  order id local
 $orderId = "ORD-2026-957682"
 # Store ID Printful (doit matcher pod_settings.store_id)
 $storeId = "InstaWear2"

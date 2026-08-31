@@ -159,7 +159,7 @@ function sendEmailServer(
     </td>
   </tr>
 </table>
-<a href="https://instawear.vercel.app/?order=success&id=${orderId}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="https://instawear.vercel.app/?track=${encodeURIComponent(orderId)}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:24px;padding:16px;background:#f9fafb;border-radius:8px;">
 <p style="margin:0 0 8px;font-weight:600;font-size:13px;">Ship to:</p>
 <p style="margin:0;font-size:13px;color:#555;">${address}<br>${city}, ${stateCode ? stateCode + ", " : ""}${zip}<br>${country}<br>${phone ? phone + "<br>" : ""}${email}</p>

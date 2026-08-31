@@ -1,7 +1,8 @@
 // supabase/functions/printful-webhook/index.ts
 // @ts-nocheck
 // Webhook Printful – reçoit les événements réels de Printful et met à jour
-// le statut de la commande (shipped / cancelled) + note le numéro de suivi.
+// le statut de la commande (shipped / cancelled / on_hold / refunded /
+// returned) + note le numéro de suivi.
 //
 // Printful n'offre pas de signature HMAC (pas de X-PF-Signature) : la
 // validation repose sur la structure du payload, le store ID et la
@@ -36,6 +37,10 @@ const SUPPORTED_TYPES = new Set([
   "package_shipped",
   "order_failed",
   "order_canceled",
+  "order_put_hold",
+  "order_remove_hold",
+  "order_refunded",
+  "package_returned",
 ]);
 
 // Couleurs et libellés pour la barre de progression dans l'email d'expédition.
@@ -54,6 +59,9 @@ const EMAIL_STEP_INDEX: Record<string, number> = {
   in_production: 2,
   shipped: 3,
   delivered: 4,
+  on_hold: 2,
+  refunded: -1,
+  returned: -1,
 };
 const ACCENT = "#059669"; // couleur "shipped" (var(--color-accent) côté site)
 const REACHED_GREY = "#9CA3AF"; // approx var(--color-ink4)
@@ -208,7 +216,7 @@ async function sendShippedEmail(
 
 ${shipmentsHtml}
 
-<a href="https://instawear.vercel.app/?order=success&id=${order.id}" style="display:inline-block;margin-top:8px;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="https://instawear.vercel.app/?track=${encodeURIComponent(order.id)}" style="display:inline-block;margin-top:8px;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
 <p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
 </div></div></body></html>`;
@@ -228,6 +236,82 @@ ${shipmentsHtml}
     });
   } catch (err) {
     console.error("Shipped email error:", err);
+  }
+}
+
+// ── Email d'échec de commande (via send-email, clé service_role) ────────
+async function sendFailedEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  reason?: string,
+) {
+  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
+<div style="background:#ffe6e6;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#cc0000;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#cc0000;margin:4px 0 0;font-size:14px;">We couldn't process your order</p>
+</div>
+<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+<h2 style="margin:0 0 8px;font-size:18px;">Order failed ❌</h2>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,<br><br>Unfortunately, your order <strong>${order.id}</strong> could not be processed.${reason ? ` Reason: ${reason}.` : ""} If you've already been charged, a refund will be issued automatically.</p>
+<a href="https://instawear.vercel.app" style="display:inline-block;padding:12px 24px;background:#cc0000;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Visit InstaWear →</a>
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
+<p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
+</div></div></body></html>`;
+
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify({
+        to: order.client_email,
+        subject: `Your order ${order.id} could not be processed`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed email error:", err);
+  }
+}
+
+// ── Email d'annulation de commande (via send-email, clé service_role) ───
+async function sendCancelledEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  reason?: string,
+) {
+  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
+<div style="background:#ffe6e6;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#cc0000;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#cc0000;margin:4px 0 0;font-size:14px;">Your order has been cancelled</p>
+</div>
+<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+<h2 style="margin:0 0 8px;font-size:18px;">Order cancelled</h2>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,<br><br>Your order <strong>${order.id}</strong> has been cancelled.${reason ? ` Reason: ${reason}.` : ""} If you have any questions, please contact our support team.</p>
+<a href="https://instawear.vercel.app" style="display:inline-block;padding:12px 24px;background:#999;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Visit InstaWear →</a>
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
+<p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
+</div></div></body></html>`;
+
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify({
+        to: order.client_email,
+        subject: `Your order ${order.id} has been cancelled`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Cancelled email error:", err);
   }
 }
 
@@ -476,6 +560,32 @@ export default {
         notes.push(
           `Commande annulée chez Printful${reason ? ` : ${reason}` : ""}`,
         );
+      } else if (type === "order_put_hold") {
+        if (order.status !== "on_hold") {
+          newStatus = "on_hold";
+        }
+        notes.push(
+          `Commande mise en pause par Printful${reason ? ` : ${reason}` : ""}`,
+        );
+      } else if (type === "order_remove_hold") {
+        if (order.status === "on_hold") {
+          newStatus = "in_production";
+        }
+        notes.push(
+          `Pause levée, le traitement reprend${reason ? ` : ${reason}` : ""}`,
+        );
+      } else if (type === "order_refunded") {
+        if (order.status !== "refunded") {
+          newStatus = "refunded";
+        }
+        notes.push(
+          `Commande remboursée chez Printful${reason ? ` : ${reason}` : ""}`,
+        );
+      } else if (type === "package_returned") {
+        if (order.status !== "returned") {
+          newStatus = "returned";
+        }
+        notes.push(`Colis renvoyé au vendeur${reason ? ` : ${reason}` : ""}`);
       }
 
       if (newStatus) updatePayload.status = newStatus;
@@ -579,6 +689,67 @@ export default {
             order,
             allShipments,
           );
+        }
+      }
+
+      // ── 7. Notifications admin pour les événements non-expédition ──
+      const ADMIN_EVENT_META: Record<
+        string,
+        { title: string; priority: string }
+      > = {
+        order_put_hold: {
+          title: `Commande ${orderId} mise en pause`,
+          priority: "medium",
+        },
+        order_remove_hold: {
+          title: `Pause levée — commande ${orderId}`,
+          priority: "low",
+        },
+        order_refunded: {
+          title: `Commande ${orderId} remboursée`,
+          priority: "medium",
+        },
+        package_returned: {
+          title: `Colis retourné — commande ${orderId}`,
+          priority: "high",
+        },
+        order_failed: { title: `Échec commande ${orderId}`, priority: "high" },
+        order_canceled: {
+          title: `Commande ${orderId} annulée`,
+          priority: "medium",
+        },
+      };
+
+      const adminMeta = ADMIN_EVENT_META[type];
+      if (adminMeta && type !== "package_shipped") {
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: adminMeta.title,
+            description: notes.length
+              ? `${order.client_name || "Client"} — ${notes.join(" ")}`
+              : order.client_name || "Client",
+            category: "orders",
+            priority: adminMeta.priority,
+            status: "unread",
+            metadata: {
+              orderId,
+              customerName: order.client_name || null,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch (err) {
+          console.warn("Échec notification admin:", err);
+        }
+
+        // Emails dédiés : échec vs annulation (chaque événement a le sien).
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        if (type === "order_failed") {
+          await sendFailedEmail(supabaseUrl, serviceRoleKey, order, reason);
+        } else if (type === "order_canceled") {
+          await sendCancelledEmail(supabaseUrl, serviceRoleKey, order, reason);
         }
       }
 
