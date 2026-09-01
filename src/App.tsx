@@ -13,9 +13,13 @@ import CheckoutFlow from "./components/CheckoutFlow";
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
+import MobileTabBar from "./components/MobileTabBar";
+import BackToTopButton from "./components/BackToTopButton";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
+import { useCookieConsent } from "./hooks/useCookieConsent";
 import { Product, CartItem } from "./types";
 import { getVariantAvailability } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
@@ -93,6 +97,7 @@ export default function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const currencySymbol = useCurrencySymbol();
+  const cookieConsent = useCookieConsent();
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -1110,6 +1115,43 @@ export default function App() {
         <NotFound
           onBack={() => {
             window.location.href = "/";
+          }}
+        />
+      )}
+
+      {/* V2: Back to top + Cookie banner */}
+      <BackToTopButton />
+      <CookieConsentBanner
+        isVisible={!cookieConsent.hasResponded}
+        onAcceptAll={cookieConsent.acceptAll}
+        onRejectNonEssential={cookieConsent.rejectNonEssential}
+        onSavePreferences={cookieConsent.savePreferences}
+        onNavigateLegal={() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })}
+      />
+
+      {/* V2: Mobile tab bar (store view only) */}
+      {activeTab === "store" && !showNewAdmin && !selectedProduct && (
+        <MobileTabBar
+          favouritesCount={favorites.length}
+          cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
+          onTabChange={(tab) => {
+            if (tab === "home") {
+              setActiveTab("store");
+              setShowFavoritesOnly(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else if (tab === "catalog") {
+              setActiveTab("store");
+              setShowFavoritesOnly(false);
+              document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth" });
+            } else if (tab === "favourites") {
+              handleOpenFavorites();
+            } else if (tab === "cart") {
+              setCartOpen(true);
+            } else if (tab === "account") {
+              if (isUser) setShowAccountPage(true);
+              else if (isAdmin) setShowProfileModal(true);
+              else setShowAuthModal(true);
+            }
           }}
         />
       )}

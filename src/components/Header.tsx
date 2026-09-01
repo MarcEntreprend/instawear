@@ -11,6 +11,17 @@ import {
   Zap,
   Sun,
   Moon,
+  Truck,
+  ShieldCheck,
+  RotateCcw,
+  PartyPopper,
+  Trophy,
+  Music,
+  Snowflake,
+  Gift,
+  Sparkles,
+  MapPin,
+  ChevronDown,
 } from "lucide-react";
 import { CartItem, NavLink, Product } from "../types";
 import { CART_PLUS_ICON } from "../constants/assets";
@@ -71,7 +82,7 @@ const NAV_LINKS: NavLink[] = [
 ];
 
 const CATEGORY_PILLS = [
-  { label: "All", eventType: null, category: null },
+  { label: "All", eventType: null, category: null, icon: Sparkles },
   {
     label: (
       <>
@@ -81,15 +92,16 @@ const CATEGORY_PILLS = [
     ),
     eventType: null,
     category: "deals",
+    icon: Zap,
   },
-  { label: "🏆 Sports", eventType: "sport", category: null },
-  { label: "🎉 Festivals", eventType: "culture", category: null },
-  { label: "🍂 Seasonal", eventType: "saisonnier", category: null },
+  { label: "Sports", eventType: "sport", category: null, icon: Trophy },
+  { label: "Festivals", eventType: "culture", category: null, icon: PartyPopper },
+  { label: "Seasonal", eventType: "saisonnier", category: null, icon: Snowflake },
   { divider: true },
-  { label: "T-Shirts", eventType: null, category: "tshirt" },
-  { label: "Hoodies", eventType: null, category: "hoodie" },
-  { label: "Accessories", eventType: null, category: "accessory" },
-  { label: "Mugs", eventType: null, category: "mug" },
+  { label: "T-Shirts", eventType: null, category: "tshirt", icon: null },
+  { label: "Hoodies", eventType: null, category: "hoodie", icon: null },
+  { label: "Accessories", eventType: null, category: "accessory", icon: null },
+  { label: "Mugs", eventType: null, category: "mug", icon: null },
 ];
 
 export default function Header({
@@ -290,9 +302,49 @@ export default function Header({
     return currentEventType === null && currentCategory === null;
   };
 
+  // Shy nav: hide pills when scrolling through catalog (V2)
+  const [isQuickNavVisible, setIsQuickNavVisible] = useState(true);
+  useEffect(() => {
+    const occasionEl = document.getElementById("section-occasion");
+    const catalogEl = document.getElementById("section-catalog");
+    if (!occasionEl || !catalogEl) return;
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+    const updateVisibility = () => {
+      ticking = false;
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollY;
+      const occasionRect = occasionEl.getBoundingClientRect();
+      const isOccasionVisible = occasionRect.bottom > 0;
+      const catalogRect = catalogEl.getBoundingClientRect();
+      const isCatalogVisible = catalogRect.top < window.innerHeight && catalogRect.bottom > 0;
+      if (isOccasionVisible) { setIsQuickNavVisible(true); lastScrollY = currentY; return; }
+      if (isCatalogVisible) { setIsQuickNavVisible(false); lastScrollY = currentY; return; }
+      if (Math.abs(delta) > 15) { setIsQuickNavVisible(delta < 0); lastScrollY = currentY; }
+    };
+    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(updateVisibility); } };
+    updateVisibility();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <>
-      {/* Promo bar (visuel v2) */}
+      {/* Util bar V2 (hidden md) */}
+      <div className="hidden md:block text-xs" style={{ background: "var(--color-ink)", color: "var(--color-ink4)" }}>
+        <div className="max-w-350 mx-auto px-6 h-9 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 font-medium" style={{ color: "var(--color-bg)" }}>
+            <MapPin size={13} strokeWidth={2} />
+            {detectedCountry ? `Shipping to ${detectedCountry}` : "Shipping worldwide"}
+          </span>
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-1.5"><Truck size={13} /> Fast delivery</span>
+            <span className="flex items-center gap-1.5"><RotateCcw size={13} /> 30-day returns</span>
+            <span className="flex items-center gap-1.5"><ShieldCheck size={13} /> Secure payment</span>
+          </div>
+        </div>
+      </div>
+      {/* Promo bar */}
       <div
         className="w-full py-2 px-4 text-center text-xs font-semibold"
         style={{
@@ -794,12 +846,17 @@ export default function Header({
           </nav>
         </nav>
 
-        {/* Category pills sub-nav (visuel v2, logique v3) */}
+        {/* Category pills — V2 chip style + shy nav */}
         <div
-          className="border-t"
-          style={{ borderColor: "var(--color-border)" }}
+          className="overflow-hidden"
+          style={{
+            borderTop: isQuickNavVisible ? "1px solid var(--color-border)" : "1px solid transparent",
+            maxHeight: isQuickNavVisible ? "3.25rem" : "0px",
+            opacity: isQuickNavVisible ? 1 : 0,
+            transition: "max-height .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
+          }}
         >
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto scrollbar-none">
+          <div className="max-w-350 mx-auto px-4 py-2 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto no-scrollbar">
             {CATEGORY_PILLS.map((pill: any, i) => {
               if (pill.divider) {
                 return (
@@ -809,27 +866,15 @@ export default function Header({
                 );
               }
               const active = isPillActive(pill);
+              const Icon = pill.icon;
               return (
                 <button
                   key={i}
                   onClick={() => handlePill(pill)}
-                  className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150"
-                  style={{
-                    background: active ? "var(--color-accent)" : "transparent",
-                    color: active ? "white" : "var(--color-ink3)",
-                    border: `1.5px solid ${active ? "var(--color-accent)" : "transparent"}`,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active)
-                      e.currentTarget.style.background =
-                        "var(--color-surface2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active)
-                      e.currentTarget.style.background = "transparent";
-                  }}
+                  className="chip shrink-0"
+                  data-active={active}
                 >
+                  {Icon ? <Icon size={13} /> : null}
                   {pill.label}
                 </button>
               );
