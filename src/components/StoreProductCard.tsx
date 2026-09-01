@@ -1,8 +1,6 @@
-// src/components/StoreProductCard.tsx
-
-import { Heart, Star, Clock, Eye, Plus, CheckCircle } from "lucide-react";
+// src/components/StoreProductCard.tsx — V2 ticket-card visuals + V1 logic (availability, deal, currency)
+import { Heart, Star, Flame, Check, ShoppingBag, Clock } from "lucide-react";
 import type { Product } from "../types";
-import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useProductAvailability } from "../hooks/useProductAvailability";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 
@@ -30,288 +28,128 @@ export default function StoreProductCard({
   onToggleFavorite,
   onAddToCart,
   onSelectProduct,
-  showDeliveryInfo = false,
-  getDeliverEstimateString,
 }: StoreProductCardProps) {
-  const variantColors = product.variants?.length
-    ? product.variants.map((v) => v.color)
-    : product.colors;
-  const variantColorNames = product.variants?.length
-    ? product.variants.map((v) => v.color_name)
-    : product.colorNames;
-
   const availability = useProductAvailability(product);
   const unavailable = availability !== "available";
 
-  // Fonction pour tronquer le titre à 2 lignes
-  const truncateTitle = (title: string, maxLines: number = 2): string => {
-    // Estimation approximative : ~20 caractères par ligne pour une police normale
-    // Ajustez selon vos besoins
-    const charsPerLine = 20;
-    const maxChars = maxLines * charsPerLine;
+  const swatches = product.variants?.length
+    ? product.variants.map((v) => ({ hex: v.color, name: v.color_name }))
+    : (product.colors ?? []).map((hex, i) => ({ hex, name: product.colorNames?.[i] ?? hex }));
+  const visibleSwatches = swatches.slice(0, 4);
+  const extraSwatches = swatches.length - visibleSwatches.length;
 
-    if (title.length <= maxChars) {
-      return title;
-    }
+  const dealLive = product.dealActive && !dealExpired && product.dealPrice != null;
 
-    // Trouver le dernier espace avant la limite pour couper proprement
-    let truncated = title.slice(0, maxChars);
-    const lastSpace = truncated.lastIndexOf(" ");
-
-    if (lastSpace > 0) {
-      truncated = truncated.slice(0, lastSpace);
-    }
-
-    return truncated + "...";
-  };
+  const displayPrice = dealLive ? product.dealPrice! : product.price;
+  const strikePrice = dealLive ? product.price : product.originalPrice && product.originalPrice > product.price ? product.originalPrice : null;
 
   return (
-    <div
-      key={product.id}
-      className="bg-white/60 border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5 transition-all text-left flex flex-col justify-between h-full relative group"
-      id={`product-card-${product.id}`}
-    >
-      {/* Badges */}
-      <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
-        {product.isBestSeller && (
-          <span className="bg-amber-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow">
-            Best Seller
-          </span>
-        )}
-        {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
-          <span
-            className={`bg-rose-500 text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow ${dealFadingOut ? "deal-fade-out" : "animate-pulse"}`}
-          >
-            Limited Deal
-          </span>
-        )}
-        {product.eventType === "discount" && (
-          <span className="bg-white text-gray-900 text-[8px] font-black uppercase px-2 py-0.5 rounded shadow inline-flex items-center gap-1">
-            Deals{" "}
-            <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping" />
-          </span>
-        )}
-      </div>
-
-      {/* Image */}
+    <article className={`ticket-card animate-fade-up group ${unavailable ? "opacity-90" : ""}`}>
       <div
         onClick={() => onSelectProduct(product)}
-        className="aspect-square rounded-t-xl bg-gray-50 overflow-hidden relative cursor-pointer group"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectProduct(product); } }}
+        role="button"
+        tabIndex={0}
+        className="block w-full text-left cursor-pointer"
+        aria-label={`View ${product.title}`}
       >
-        <img
-          src={product.image || PLACEHOLDER_IMG}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG;
-          }}
-          alt={product.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-        />
-        {/* Color dots */}
-        <div className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1 py-0.5 border border-gray-200/60 shadow-sm max-w-fit">
-          {variantColors.length <= 3 ? (
-            variantColors.map((c, idx) => (
-              <span
-                key={idx}
-                className="w-3 h-3 rounded-full border border-gray-200 block"
-                style={{ backgroundColor: c }}
-                title={variantColorNames?.[idx] || c}
-              />
-            ))
-          ) : (
-            <>
-              {variantColors.slice(0, 2).map((c, idx) => (
-                <span
-                  key={idx}
-                  className="w-3 h-3 rounded-full border border-gray-200 block"
-                  style={{ backgroundColor: c }}
-                  title={variantColorNames?.[idx] || c}
-                />
+        <div className="relative p-3 pb-0">
+          <div className="bezel-outer">
+            <div className="bezel-inner aspect-square">
+              <img src={product.image || PLACEHOLDER_IMG} alt={product.title} loading="lazy" onError={(e) => ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" />
+            </div>
+          </div>
+          <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
+            {dealLive && <span className="badge badge-accent animate-pulse">Deal</span>}
+            {!dealLive && product.isBestSeller && <span className="badge badge-ink">Best-seller</span>}
+            {!dealLive && product.isLimitedTime && <span className={`badge badge-gold ${dealFadingOut ? "deal-fade-out" : ""}`}>Limited</span>}
+            {product.eventType === "discount" && <span className="badge" style={{ background: "var(--color-surface)", color: "var(--color-ink)", border: "1px solid var(--color-border)" }}>Deals <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping ml-1" /></span>}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!unavailable) onToggleFavorite(product.id); }}
+            aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
+            aria-pressed={isFavorite}
+            disabled={unavailable}
+            className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: isFavorite ? "var(--color-accent)" : "var(--color-surface)", boxShadow: "var(--shadow-md)", border: `1px solid ${isFavorite ? "var(--color-accent)" : "var(--color-border)"}` }}
+          >
+            <Heart size={16} fill={isFavorite ? "#fff" : "none"} style={{ color: isFavorite ? "#fff" : "var(--color-ink3)" }} />
+          </button>
+        </div>
+
+        <div className="ticket-perforation mx-3 mt-3" />
+
+        <div className="p-5 pt-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-ink3)" }}>{product.brand}</p>
+          <h3 className="text-sm font-bold leading-snug mb-1.5 line-clamp-2 group-hover:text-(--color-accent) transition-colors" style={{ color: "var(--color-ink)" }} title={product.title}>
+            {product.title}
+          </h3>
+
+          {(product.showRatings !== false && product.ratings?.count > 0 || product.showBought) && (
+            <div className="flex items-center gap-1.5 mb-2.5 text-xs">
+              {product.showRatings !== false && product.ratings?.count > 0 && (
+                <>
+                  <span className="flex items-center gap-1 text-amber-400">
+                    <Star size={13} fill="var(--color-gold)" style={{ color: "var(--color-gold)" }} />
+                    <span className="font-bold" style={{ color: "var(--color-ink2)" }}>{product.ratings.score.toFixed(1)}</span>
+                  </span>
+                  <span className="text-[11px]" style={{ color: "var(--color-ink4)" }}>({product.ratings.count})</span>
+                </>
+              )}
+              {product.showBought && (
+                <span className="text-[11px] font-medium ml-1" style={{ color: "var(--color-accent)" }}>{product.boughtLastMonth}+ bought</span>
+              )}
+            </div>
+          )}
+
+          {visibleSwatches.length > 0 && (
+            <div className="flex items-center gap-1.5 mb-3">
+              {visibleSwatches.map((s, i) => (
+                <span key={i} title={s.name} className="w-4 h-4 rounded-full" style={{ background: s.hex, border: "1px solid var(--color-border2)" }} />
               ))}
-              <span
-                className="color-wheel"
-                title={`+${variantColors.length - 2} colors`}
-              />
-            </>
+              {extraSwatches > 0 && <span className="color-wheel" title={`+${extraSwatches} colors`} />}
+              {extraSwatches > 0 && <span className="text-[11px] font-semibold" style={{ color: "var(--color-ink4)" }}>+{extraSwatches}</span>}
+            </div>
+          )}
+
+          <div className="flex items-end justify-between">
+            <div className="flex items-baseline gap-2">
+              <span className="text-base font-extrabold" style={{ color: dealLive ? "var(--color-accent)" : "var(--color-ink)" }}>
+                {displayPrice.toFixed(2)} <span className="text-xs font-medium" style={{ color: dealLive ? "var(--color-accent)" : "var(--color-ink3)" }}>{currencySymbol}</span>
+              </span>
+              {strikePrice != null && <span className="text-xs line-through" style={{ color: "var(--color-ink4)" }}>{strikePrice.toFixed(2)} {currencySymbol}</span>}
+            </div>
+            {unavailable ? (
+              <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>{availability === "out_of_stock" ? "Out of stock" : "Unavailable"}</span>
+            ) : (
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-success)" }}><Check size={12} /> In stock</span>
+            )}
+          </div>
+
+          {dealLive && (
+            <div className={`mt-3 bg-rose-500/10 border border-rose-500/20 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-[11px] ${dealFadingOut ? "deal-fade-out" : ""}`}>
+              <span className="font-bold flex items-center gap-1.5" style={{ color: "var(--color-negative)" }}><Clock size={12} /> Ends in</span>
+              <span className="font-mono font-bold" style={{ color: "var(--color-negative)" }}>{countdownStr}</span>
+            </div>
           )}
         </div>
-        {/* Heart button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(product.id);
-          }}
-          disabled={unavailable}
-          className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 hover:scale-110"
-          style={{
-            background: isFavorite
-              ? "var(--color-accent)"
-              : "rgba(255,255,255,0.9)",
-            backdropFilter: "blur(8px)",
-            border: `1px solid ${isFavorite ? "transparent" : "var(--color-border)"}`,
-            zIndex: 5,
-            opacity: unavailable ? 0.4 : 1,
-            cursor: unavailable ? "not-allowed" : "pointer",
-          }}
-          aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <Heart
-            size={14}
-            strokeWidth={2}
-            style={{
-              color: isFavorite ? "white" : "var(--color-ink2)",
-              fill: isFavorite ? "white" : "none",
-            }}
-          />
-        </button>
       </div>
 
-      {/* Content */}
-      <div className="px-3 pt-1 pb-3 flex-1 flex flex-col justify-between">
-        <div>
-          <h4
-            onClick={() => onSelectProduct(product)}
-            className="text-xs md:text-sm font-bold text-gray-900 mt-0.5 leading-tight transition-colors duration-200 group-hover:text-(--color-accent) cursor-pointer"
-            style={{
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              minHeight: "2rem",
-              maxHeight: "2.5rem",
-              wordBreak: "break-word",
-            }}
-            title={product.title} // Affiche le titre complet au survol
+      <div className="px-5 pb-5">
+        {unavailable ? (
+          <button disabled className="btn w-full bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200">
+            <ShoppingBag size={15} /> Unavailable
+          </button>
+        ) : (
+          <button
+            onClick={() => onAddToCart(product, product.colors?.[0] || swatches[0]?.hex || "#000000", "M")}
+            className="btn btn-primary w-full"
           >
-            {truncateTitle(product.title)}
-          </h4>
-
-          <div className="flex items-center gap-1.5 mt-2 text-xs">
-            {product.showRatings && (
-              <>
-                <div className="flex items-center text-amber-400 text-[11px]">
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
-                  <span className="font-bold ml-0.5 mt-0.5">
-                    {product.ratings.score.toFixed(1)}
-                  </span>
-                </div>
-                <span className="text-[10px] text-gray-500">
-                  ({product.ratings.count})
-                </span>
-                {product.showBought && (
-                  <span className="text-[10px] text-gray-600">|</span>
-                )}
-              </>
-            )}
-            {product.showBought && (
-              <span className="text-[10px] text-(--color-accent) font-sans tracking-wide flex-1">
-                {product.boughtLastMonth}+ bought
-              </span>
-            )}
-
-            {/* Bouton Add to cart au survol */}
-            {!unavailable && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToCart(product, product.colors?.[0] || "#000000", "M");
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white shrink-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out max-w-9 group-hover:max-w-48 ml-auto"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--color-accent), var(--color-accent2))",
-                  boxShadow: "var(--shadow-accent)",
-                }}
-              >
-                <img
-                  src={CART_PLUS_ICON}
-                  alt="Add to cart"
-                  className="w-4 h-4 shrink-0"
-                  style={{ filter: "brightness(0) invert(1)" }}
-                />
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out whitespace-nowrap">
-                  Add to cart
-                </span>
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-baseline gap-2 mt-2 mb-0.5">
-            {product.dealActive && !dealExpired && product.dealPrice ? (
-              <>
-                <span className="text-lg font-black text-rose-500 font-sans">
-                  {product.dealPrice.toFixed(2)}{" "}
-                  <span className="text-[11px] font-medium text-rose-400">
-                    {currencySymbol}
-                  </span>
-                </span>
-                <span className="text-xs text-gray-500 line-through">
-                  {product.price.toFixed(2)} {currencySymbol}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="text-lg font-black text-gray-900 font-sans">
-                  {product.price.toFixed(2)}{" "}
-                  <span className="text-[11px] font-medium text-gray-500">
-                    {currencySymbol}
-                  </span>
-                </span>
-                {product.originalPrice && (
-                  <span className="text-xs text-gray-500 line-through">
-                    {product.originalPrice.toFixed(2)} {currencySymbol}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-
-          {product.isLimitedTime && (!dealExpired || dealFadingOut) && (
-            <div
-              className={`bg-rose-900/30 border border-rose-800 rounded px-2 py-1 mt-2 flex items-center justify-between text-[10px] text-rose-600 ${dealFadingOut ? "deal-fade-out" : ""}`}
-            >
-              <span className="font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-rose-400 shrink-0" /> Offer ends
-              </span>
-              <span className="font-mono font-bold text-rose-600">
-                {countdownStr}
-              </span>
-            </div>
-          )}
-
-          {showDeliveryInfo && getDeliverEstimateString && (
-            <div className="text-[10px] text-gray-500 leading-normal flex flex-col gap-0.5 mb-3 border-t border-gray-200/60 pt-2 font-sans">
-              <p className="text-(--color-accent) font-semibold flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Join the Choice program
-              </p>
-              <p>
-                Estimated delivery by{" "}
-                <span className="text-gray-900 font-semibold">
-                  {getDeliverEstimateString(4)}
-                </span>
-              </p>
-              <p className="text-gray-500">Tracked & secure shipping</p>
-            </div>
-          )}
-        </div>
-
-        {unavailable && (
-          <div className="text-center mt-1">
-            <p className="text-[10px] text-rose-500 font-medium mb-1">
-              {availability === "out_of_stock"
-                ? "This item is currently out of stock."
-                : "This item is currently unavailable."}
-            </p>
-            <button
-              disabled
-              className="w-full bg-gray-200 text-gray-400 font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-not-allowed"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add to cart
-            </button>
-          </div>
+            <img src={CART_PLUS_ICON} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} /> Add to cart
+          </button>
         )}
       </div>
-    </div>
+    </article>
   );
 }

@@ -50,6 +50,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import CartIcon from "./CartIcon";
+import CreditCardPreview from "./CreditCardPreview";
 
 // ─── Props ──────────────────────────────────────────────────────────────
 
@@ -1179,6 +1180,10 @@ function StripeCardForm({
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [previewNumber, setPreviewNumber] = useState("");
+  const [previewExpiry, setPreviewExpiry] = useState("");
+  const [previewCvc, setPreviewCvc] = useState("");
+  const [isFlipped, setIsFlipped] = useState(false);
 
   // Style cohérent avec le thème (clair/sombre) via variables CSS
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -1414,6 +1419,8 @@ function StripeCardForm({
         </p>
       </div>
 
+      <CreditCardPreview cardNumber={previewNumber} cardHolder={contactName} cardExpiry={previewExpiry} cardCvv={previewCvc} isFlipped={isFlipped} />
+
       {/* Separate fields */}
       <div className="flex flex-col gap-4 max-w-sm">
         <div className="flex flex-col gap-1.5">
@@ -1421,7 +1428,7 @@ function StripeCardForm({
             Card Number <span className="text-(--color-accent)">*</span>
           </label>
           <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-            <CardNumberElement options={elementOptions} />
+            <CardNumberElement options={elementOptions} onChange={(e: any) => setPreviewNumber(e.empty ? "" : e.brand ? e.brand : previewNumber)} />
           </div>
         </div>
 
@@ -1431,15 +1438,15 @@ function StripeCardForm({
               Expiry <span className="text-(--color-accent)">*</span>
             </label>
             <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-              <CardExpiryElement options={elementOptions} />
+              <CardExpiryElement options={elementOptions} onChange={(e: any) => setPreviewExpiry(e.empty ? "" : `${String(e.month || "").padStart(2, "0")}/${String(e.year || "").slice(-2)}`)} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
               CVV <span className="text-(--color-accent)">*</span>
             </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-              <CardCvcElement options={elementOptions} />
+            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)" onFocus={() => setIsFlipped(true)} onBlur={() => setIsFlipped(false)}>
+              <CardCvcElement options={elementOptions} onChange={(e: any) => setPreviewCvc(e.empty ? "" : "•••")} onFocus={() => setIsFlipped(true)} onBlur={() => setIsFlipped(false)} />
             </div>
           </div>
         </div>

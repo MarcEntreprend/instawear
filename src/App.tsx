@@ -29,7 +29,7 @@ import {
   customerApi,
   orderApi,
 } from "./api/supabaseApi";
-import ProductDetailModal from "./components/ProductDetailModal";
+import ProductPage from "./pages/ProductPage";
 import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
@@ -81,6 +81,36 @@ export default function App() {
   const [selectedProductInitialSize, setSelectedProductInitialSize] = useState<
     string | null
   >(null);
+
+  // V2 routing: /produit/:id → product page (pushState + popstate)
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/produit\/([^/]+)/);
+    if (match && products.length > 0) {
+      const p = products.find((x) => x.id === match[1]);
+      if (p) setSelectedProduct(p);
+    }
+  }, [products]);
+  useEffect(() => {
+    const onPop = () => {
+      const m = window.location.pathname.match(/^\/produit\/([^/]+)/);
+      if (m) {
+        const p = products.find((x) => x.id === m[1]);
+        if (p) setSelectedProduct(p);
+        else setSelectedProduct(null);
+      } else {
+        setSelectedProduct(null);
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [products]);
+  const openProduct = (p: Product, color?: string | null, size?: string | null) => {
+    setSelectedProductInitialColor(color || null);
+    setSelectedProductInitialSize(size || null);
+    setSelectedProduct(p);
+    try { history.pushState({}, "", `/produit/${p.id}`); } catch {}
+  };
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
@@ -889,9 +919,7 @@ export default function App() {
             onBannerAction={(banner) => {
               if (banner.productId) {
                 const target = products.find((p) => p.id === banner.productId);
-                if (target) {
-                  setSelectedProduct(target);
-                }
+                if (target) openProduct(target);
               }
             }}
           />
@@ -903,7 +931,7 @@ export default function App() {
             currencySymbol={currencySymbol}
             products={products}
             onSelectEventType={setSelectedEventType}
-            onSelectProduct={(product) => setSelectedProduct(product)}
+            onSelectProduct={(product) => openProduct(product)}
           />
 
           <CatalogSection
@@ -919,7 +947,7 @@ export default function App() {
             getDeliverEstimateString={getDeliverEstimateString}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            onSelectProduct={(product) => setSelectedProduct(product)}
+            onSelectProduct={(product) => openProduct(product)}
             onClearFilters={() => {
               setSearchTerm("");
               setSelectedCategory(null);
@@ -944,13 +972,18 @@ export default function App() {
         <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
       )}
 
-      {/* Product Detailed Sheet Modal */}
+      {/* Product Page (V2) — replaces modal, with URL pushState */}
       {selectedProduct && (
-        <ProductDetailModal
+        <ProductPage
           product={selectedProduct}
+          products={products}
           currencySymbol={currencySymbol}
           favorites={favorites}
+          dealExpired={dealExpired}
+          dealFadingOut={dealFadingOut}
+          countdownString={countdownString}
           onClose={() => {
+            history.pushState({}, "", "/");
             setSelectedProduct(null);
             setSelectedProductInitialColor(null);
             setSelectedProductInitialSize(null);
@@ -964,10 +997,9 @@ export default function App() {
           onBuyNow={(p, c, s) => {
             addToCart(p, c, s);
             setCheckoutOpen(true);
+            history.pushState({}, "", "/");
             setSelectedProduct(null);
           }}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
           getDeliverEstimateString={getDeliverEstimateString}
         />
       )}
@@ -985,9 +1017,7 @@ export default function App() {
           }}
           onSelectProduct={(productId: string) => {
             const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProduct(product);
-            }
+            if (product) openProduct(product);
           }}
         />
       )}
