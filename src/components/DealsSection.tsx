@@ -1,15 +1,21 @@
-// src\components\DealsSection.tsx
-
-import { PLACEHOLDER_IMG } from "../constants/assets";
+// src/components/DealsSection.tsx — V2 4 blocks + V1 live data
+import { ArrowRight, Truck, Percent, Gift } from "lucide-react";
+import type { Product } from "../types";
+import StoreProductCard from "./StoreProductCard";
+import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 
 interface DealsSectionProps {
   dealExpired: boolean;
   dealFadingOut: boolean;
   countdownString: string;
   currencySymbol: string;
-  products: any[];
-  onSelectEventType: (type: string) => void;
-  onSelectProduct: (product: any) => void;
+  products: Product[];
+  favorites?: string[];
+  onSelectEventType: (type: string | null) => void;
+  onSelectCategory?: (cat: string | null) => void;
+  onSelectProduct: (product: Product) => void;
+  onToggleFavorite?: (id: string) => void;
+  onAddToCart?: (product: Product, color: string, size: string) => void;
 }
 
 export default function DealsSection({
@@ -18,116 +24,301 @@ export default function DealsSection({
   countdownString,
   currencySymbol,
   products,
+  favorites = [],
   onSelectEventType,
+  onSelectCategory,
   onSelectProduct,
+  onToggleFavorite,
+  onAddToCart,
 }: DealsSectionProps) {
-  const dealProducts = products.filter((p: any) => p.dealActive && p.isActive);
-  if (dealExpired && !dealFadingOut) return null; // ne plus masquer si aucun deal
-  if (dealProducts.length === 0) {
-    return (
-      <section className="section-container w-full px-4">
-        <div className="bg-white/40 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
-          <p className="text-sm text-gray-500">
-            No active deals right now. Check back soon!
-          </p>
-        </div>
-      </section>
-    );
-  }
+  const newArrivals = [...products]
+    .filter((p) => p.isActive)
+    .sort((a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0))
+    .slice(0, 8);
+  const handleSelectCategory = (
+    eventType: string | null,
+    category: string | null,
+  ) => {
+    if (eventType) onSelectEventType(eventType);
+    if (category && onSelectCategory) onSelectCategory(category);
+    if (!eventType && !category) onSelectEventType(null);
+    document
+      .getElementById("section-catalog")
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
-    <section
-      className={`section-container w-full px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 ${dealFadingOut ? "deal-fade-out" : ""}`}
-    >
-      <div className="lg:col-span-4 bg-linear-to-tr from-indigo-50 via-white to-indigo-50 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between min-h-75">
-        <div>
-          <span className="bg-rose-500 text-gray-900 font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-            🔥 TODAY'S DROP
-          </span>
-          <h3 className="text-2xl font-black mt-3 leading-tight">
-            Limited-Edition Game Day Gear
-          </h3>
-          <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-            Score exclusive deals on our AI-powered sports tees & hoodies before
-            the next big matchup kicks off. Once it's gone, it's gone.
-          </p>
-        </div>
-
-        <div className="my-6 bg-gray-50/60 p-4 border border-indigo-500/10 rounded-xl">
-          <p className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-            Offer ends in:
-          </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            {countdownString.split(":").map((unit, i) => (
-              <span key={i} className="flex items-center gap-2">
-                <span className="bg-white text-(--color-accent) font-mono font-black text-2xl px-2.5 py-1 rounded border border-gray-200">
-                  {unit}
-                </span>
-                {i < 2 && <span className="text-gray-500 font-bold">:</span>}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => onSelectEventType("sport")}
-          className="bg-gray-50/40 hover:bg-gray-50/80 border border-indigo-500/20 text-indigo-600 font-bold text-xs p-3.5 rounded-xl uppercase tracking-wider transition-all block w-full text-center"
-        >
-          Shop Sports Gear &rarr;
-        </button>
-      </div>
-
-      <div className="lg:col-span-8 bg-white/40 border border-gray-200 rounded-2xl p-6 flex flex-col justify-between">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+    <>
+      {/* Magasinez par événement */}
+      <section
+        id="section-occasion"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20"
+      >
+        <div className="flex items-end justify-between mb-8">
           <div>
-            <h3 className="text-lg font-black tracking-wide text-gray-900">
-              🛍️ Bundle & Save
-            </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Complete your look and save on printing costs.
-            </p>
-          </div>
-          <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto">
-            FROM $5.99 PER ITEM
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-          {dealProducts.slice(0, 4).map((item: any) => (
-            <div
-              key={item.id}
-              onClick={() => onSelectProduct(item)}
-              className="group bg-gray-50 border border-gray-200 p-2.5 rounded-xl cursor-pointer hover:border-violet-500 transition-all text-center flex flex-col justify-between h-full"
+            <span className="eyebrow mb-2 block">Par occasion</span>
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold"
+              style={{ color: "var(--color-ink)" }}
             >
-              <div className="aspect-square rounded-lg overflow-hidden bg-white relative">
-                <img
-                  src={item.image || PLACEHOLDER_IMG}
-                  alt={item.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              <div className="mt-2 text-left">
-                <p className="text-[10px] text-gray-500 font-bold uppercase truncate">
-                  {item.brand}
-                </p>
-                <p className="text-xs text-gray-900 mt-0.5 font-bold truncate">
-                  {item.title}
-                </p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs font-black text-gray-900">
-                    {item.price} {currencySymbol}
-                  </span>
-                  {item.originalPrice && (
-                    <span className="text-[10px] text-gray-500 line-through">
-                      {item.originalPrice} {currencySymbol}
-                    </span>
-                  )}
-                </div>
-              </div>
+              Magasinez par événement
+            </h2>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => onSelectCategory?.(value)}
+              className="card-premium flex flex-col items-center gap-3 py-7 px-4"
+            >
+              <span
+                className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: "var(--color-accent-bg)",
+                  color: "var(--color-accent)",
+                }}
+              >
+                <Icon size={22} />
+              </span>
+              <span
+                className="text-sm font-bold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <span className="eyebrow mb-2 block">Fraîchement imprimé</span>
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              Nouveautés
+            </h2>
+          </div>
+          <button
+            onClick={() => handleSelectCategory(null, null)}
+            className="hidden sm:flex btn btn-ghost"
+          >
+            Tout voir <ArrowRight size={15} />
+          </button>
+        </div>
+        <div className="flex sm:grid sm:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+          {newArrivals.map((product) => (
+            <div
+              key={product.id}
+              className="w-[72vw] sm:w-auto shrink-0 sm:shrink"
+            >
+              <StoreProductCard
+                product={product}
+                isFavorite={favorites.includes(product.id)}
+                dealExpired={dealExpired}
+                dealFadingOut={dealFadingOut}
+                countdownStr={countdownString}
+                currencySymbol={currencySymbol}
+                onToggleFavorite={(id) => onToggleFavorite?.(id)}
+                onAddToCart={(p, c, s) => onAddToCart?.(p, c, s)}
+                onSelectProduct={onSelectProduct}
+              />
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5">
+          <div
+            className="relative overflow-hidden rounded-4xl p-8 sm:p-10 min-h-70 flex flex-col justify-between"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-ink) 0%, #241a12 100%)",
+            }}
+          >
+            <span className="eyebrow" style={{ color: "var(--color-accent2)" }}>
+              Livraison partout
+            </span>
+            <div>
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 max-w-[16ch]">
+                Votre style, livré. Exclusivement en ligne.
+              </h3>
+              <p
+                className="text-sm mb-5"
+                style={{ color: "rgba(255,255,255,.7)" }}
+              >
+                Expédition sous 48h partout en France, Belgique, Suisse et
+                Canada.
+              </p>
+              <button
+                onClick={() => handleSelectCategory(null, null)}
+                className="btn btn-accent"
+              >
+                Commander maintenant
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-rows-2 gap-5">
+            <PromoTile
+              eyebrow="Élégance intemporelle"
+              title="Découvrez la collection Accessoires"
+              icon={Gift}
+              onClick={() => handleSelectCategory(null, "accessory")}
+            />
+            <PromoTile
+              eyebrow="Trouvez votre paire"
+              title="Explorez la collection Sport"
+              icon={Truck}
+              onClick={() => handleSelectCategory("sport", null)}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="flex items-end justify-between mb-8">
+          <h2
+            className="text-2xl sm:text-3xl font-extrabold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            Offres en vedette
+          </h2>
+          <button
+            onClick={() => handleSelectCategory(null, null)}
+            className="hidden sm:flex btn btn-ghost"
+          >
+            Toutes les promos <ArrowRight size={15} />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div
+            className="rounded-4xl p-8 sm:p-10 min-h-55 flex flex-col justify-between"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent2) 100%)",
+            }}
+          >
+            <span
+              className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: "rgba(255,255,255,.85)" }}
+            >
+              <Percent size={14} /> Offres exclusives
+            </span>
+            <div>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-4 max-w-[20ch]">
+                Profitez de nos dernières trouvailles mode événementielle
+              </h3>
+              <button
+                onClick={() => handleSelectCategory(null, null)}
+                className="btn"
+                style={{ background: "#fff", color: "var(--color-accent)" }}
+              >
+                Shopper maintenant
+              </button>
+            </div>
+          </div>
+          <div
+            className="rounded-4xl p-8 sm:p-10 min-h-55 flex flex-col justify-between"
+            style={{
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            <span className="eyebrow">Bienvenue</span>
+            <div>
+              <h3
+                className="text-xl sm:text-2xl font-extrabold mb-2"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Une offre rien que pour vous
+              </h3>
+              <p
+                className="text-sm mb-4"
+                style={{ color: "var(--color-ink3)" }}
+              >
+                Profitez d'une réduction spéciale sur votre première commande.
+              </p>
+              <button
+                onClick={() => handleSelectCategory(null, null)}
+                className="btn btn-primary"
+              >
+                Obtenir la réduction
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="flex items-end justify-between mb-8">
+          <span className="eyebrow">Par type de produit</span>
+        </div>
+        <div className="flex gap-3 overflow-x-auto no-scrollbar">
+          {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => handleSelectCategory(null, value)}
+              className="chip shrink-0"
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+function PromoTile({
+  eyebrow,
+  title,
+  icon: Icon,
+  onClick,
+}: {
+  eyebrow: string;
+  title: string;
+  icon: typeof Gift;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-left rounded-4xl p-6 flex items-center justify-between gap-4"
+      style={{
+        background: "var(--color-surface2)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <div>
+        <span className="text-xs" style={{ color: "var(--color-ink3)" }}>
+          {eyebrow}
+        </span>
+        <p
+          className="text-base font-bold mt-1 max-w-[16ch]"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {title}
+        </p>
+        <span
+          className="inline-flex items-center gap-1 text-xs font-bold mt-3"
+          style={{ color: "var(--color-accent)" }}
+        >
+          Voir plus <ArrowRight size={12} />
+        </span>
       </div>
-    </section>
+      <span
+        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+        style={{
+          background: "var(--color-accent-bg)",
+          color: "var(--color-accent)",
+        }}
+      >
+        <Icon size={20} />
+      </span>
+    </button>
   );
 }

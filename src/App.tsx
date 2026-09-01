@@ -17,6 +17,8 @@ import LegalPage from "./pages/LegalPage";
 import FaqPage from "./pages/FaqPage";
 import ContactPage from "./pages/ContactPage";
 import PromotionsPage from "./pages/PromotionsPage";
+import SearchResultsPage from "./pages/SearchResultsPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -89,6 +91,7 @@ export default function App() {
   // V2 routing: /produit/:id → product page (pushState + popstate)
   useEffect(() => {
     const path = window.location.pathname;
+    const search = window.location.search;
     const match = path.match(/^\/produit\/([^/]+)/);
     if (match && products.length > 0) {
       const p = products.find((x) => x.id === match[1]);
@@ -98,10 +101,18 @@ export default function App() {
     else if (path === "/faq") setShowFaqPage(true);
     else if (path === "/contact") setShowContactPage(true);
     else if (path === "/promotions") setShowPromotionsPage(true);
+    else if (path === "/recherche") {
+      const q = new URLSearchParams(search).get("q") || "";
+      if (q) setSearchPageQuery(q);
+    } else if (path === "/suivi") {
+      const c = new URLSearchParams(search).get("code") || "";
+      setTrackingPageCode(c);
+    }
   }, [products]);
   useEffect(() => {
     const onPop = () => {
       const path = window.location.pathname;
+      const search = window.location.search;
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1]);
@@ -115,15 +126,27 @@ export default function App() {
       setShowFaqPage(path === "/faq");
       setShowContactPage(path === "/contact");
       setShowPromotionsPage(path === "/promotions");
+      if (path === "/recherche")
+        setSearchPageQuery(new URLSearchParams(search).get("q") || "");
+      else setSearchPageQuery(null);
+      if (path === "/suivi")
+        setTrackingPageCode(new URLSearchParams(search).get("code") || "");
+      else setTrackingPageCode(null);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [products]);
-  const openProduct = (p: Product, color?: string | null, size?: string | null) => {
+  const openProduct = (
+    p: Product,
+    color?: string | null,
+    size?: string | null,
+  ) => {
     setSelectedProductInitialColor(color || null);
     setSelectedProductInitialSize(size || null);
     setSelectedProduct(p);
-    try { history.pushState({}, "", `/produit/${p.id}`); } catch {}
+    try {
+      history.pushState({}, "", `/produit/${p.id}`);
+    } catch {}
   };
 
   // ── Pages (V2) ──
@@ -131,10 +154,48 @@ export default function App() {
   const [showFaqPage, setShowFaqPage] = useState(false);
   const [showContactPage, setShowContactPage] = useState(false);
   const [showPromotionsPage, setShowPromotionsPage] = useState(false);
-  const openLegal = (slug: string) => { setLegalSlug(slug); try { history.pushState({}, "", `/legal/${slug}`); } catch {} };
-  const openFaqPage = () => { setShowFaqPage(true); try { history.pushState({}, "", "/faq"); } catch {} };
-  const openContactPage = () => { setShowContactPage(true); try { history.pushState({}, "", "/contact"); } catch {} };
-  const openPromotionsPage = () => { setShowPromotionsPage(true); try { history.pushState({}, "", "/promotions"); } catch {} };
+  const [searchPageQuery, setSearchPageQuery] = useState<string | null>(null);
+  const [trackingPageCode, setTrackingPageCode] = useState<string | null>(null);
+  const openLegal = (slug: string) => {
+    setLegalSlug(slug);
+    try {
+      history.pushState({}, "", `/legal/${slug}`);
+    } catch {}
+  };
+  const openFaqPage = () => {
+    setShowFaqPage(true);
+    try {
+      history.pushState({}, "", "/faq");
+    } catch {}
+  };
+  const openContactPage = () => {
+    setShowContactPage(true);
+    try {
+      history.pushState({}, "", "/contact");
+    } catch {}
+  };
+  const openPromotionsPage = () => {
+    setShowPromotionsPage(true);
+    try {
+      history.pushState({}, "", "/promotions");
+    } catch {}
+  };
+  const openSearchPage = (q: string) => {
+    setSearchPageQuery(q);
+    try {
+      history.pushState({}, "", `/recherche?q=${encodeURIComponent(q)}`);
+    } catch {}
+  };
+  const openTrackingPage = (code?: string) => {
+    setTrackingPageCode(code || "");
+    try {
+      history.pushState(
+        {},
+        "",
+        code ? `/suivi?code=${encodeURIComponent(code)}` : "/suivi",
+      );
+    } catch {}
+  };
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
@@ -524,7 +585,9 @@ export default function App() {
     // P-B anti-race: debounced lock 400ms (évite race TOCTOU double-clic → 2 items)
     if (addToCartLock.current) return;
     addToCartLock.current = true;
-    setTimeout(() => { addToCartLock.current = false; }, 400);
+    setTimeout(() => {
+      addToCartLock.current = false;
+    }, 400);
 
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
@@ -878,6 +941,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
       <Header
+        isHomePage={activeTab === "store" && !selectedProduct}
         cart={cart}
         detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
@@ -947,8 +1011,13 @@ export default function App() {
               }
             }}
           />
+          <ReassuranceBar />
 
           <DealsSection
+            favorites={favorites}
+            onSelectCategory={setSelectedCategory}
+            onToggleFavorite={toggleFavorite}
+            onAddToCart={addToCart}
             dealExpired={dealExpired}
             dealFadingOut={dealFadingOut}
             countdownString={countdownString}
@@ -986,7 +1055,7 @@ export default function App() {
           />
 
           <AboutSection />
-          <ReassuranceBar />
+
           <FaqSection />
         </main>
       )}
@@ -1029,9 +1098,31 @@ export default function App() {
       )}
 
       {/* Pages (V2) */}
-      {legalSlug && <LegalPage slug={legalSlug} onBack={() => { setLegalSlug(null); history.pushState({}, "", "/"); }} />}
-      {showFaqPage && <FaqPage onBack={() => { setShowFaqPage(false); history.pushState({}, "", "/"); }} />}
-      {showContactPage && <ContactPage onBack={() => { setShowContactPage(false); history.pushState({}, "", "/"); }} />}
+      {legalSlug && (
+        <LegalPage
+          slug={legalSlug}
+          onBack={() => {
+            setLegalSlug(null);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {showFaqPage && (
+        <FaqPage
+          onBack={() => {
+            setShowFaqPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {showContactPage && (
+        <ContactPage
+          onBack={() => {
+            setShowContactPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
       {showPromotionsPage && (
         <PromotionsPage
           products={products}
@@ -1043,7 +1134,37 @@ export default function App() {
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}
           onSelectProduct={(p) => openProduct(p)}
-          onBack={() => { setShowPromotionsPage(false); history.pushState({}, "", "/"); }}
+          onBack={() => {
+            setShowPromotionsPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {searchPageQuery !== null && (
+        <SearchResultsPage
+          query={searchPageQuery}
+          products={products}
+          favouriteIds={favorites}
+          onBack={() => {
+            setSearchPageQuery(null);
+            history.pushState({}, "", "/");
+          }}
+          onSearch={(q) => openSearchPage(q)}
+          onSelectProduct={(p) => {
+            setSearchPageQuery(null);
+            openProduct(p);
+          }}
+          onToggleFavourite={(p) => toggleFavorite(p.id)}
+          onQuickAdd={(p) => addToCart(p, p.colors?.[0] || "#000000", "M")}
+        />
+      )}
+      {trackingPageCode !== null && (
+        <OrderTrackingPage
+          initialCode={trackingPageCode || ""}
+          onBack={() => {
+            setTrackingPageCode(null);
+            history.pushState({}, "", "/");
+          }}
         />
       )}
 
@@ -1203,7 +1324,9 @@ export default function App() {
         onAcceptAll={cookieConsent.acceptAll}
         onRejectNonEssential={cookieConsent.rejectNonEssential}
         onSavePreferences={cookieConsent.savePreferences}
-        onNavigateLegal={() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })}
+        onNavigateLegal={() =>
+          document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })
+        }
       />
 
       {/* V2: Mobile tab bar (store view only) */}
@@ -1219,7 +1342,9 @@ export default function App() {
             } else if (tab === "catalog") {
               setActiveTab("store");
               setShowFavoritesOnly(false);
-              document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth" });
+              document
+                .getElementById("section-catalog")
+                ?.scrollIntoView({ behavior: "smooth" });
             } else if (tab === "favourites") {
               handleOpenFavorites();
             } else if (tab === "cart") {
