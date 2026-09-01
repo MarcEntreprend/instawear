@@ -89,6 +89,13 @@ export const ORDER_STATUS: Record<
     bg: "#ffe4e6",
     step: -1,
   },
+  partial: {
+    label: "Partial",
+    icon: <Box size={12} strokeWidth={2} />,
+    color: "#b45309",
+    bg: "#fef3c7",
+    step: 2,
+  },
 };
 
 export const STATUS_STEPS = [

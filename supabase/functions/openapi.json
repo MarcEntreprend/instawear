@@ -1,0 +1,34 @@
+{
+  "openapi": "3.0.0",
+  "info": { "title": "InstaWear POD Edge Functions", "version": "1.0.0" },
+  "paths": {
+    "/sync-printful": {
+      "post": {
+        "summary": "Sync Printful products / generate-mockups / setup-webhook etc.",
+        "x-roles": ["admin"],
+        "x-edges": ["sync-printful"]
+      }
+    },
+    "/create-printful-order": {
+      "post": { "summary": "Push paid order to Printful (idempotent, partial fulfillment)", "x-roles": ["admin"], "x-edges": ["create-printful-order"] }
+    },
+    "/printful-webhook": {
+      "post": { "summary": "Printful webhook receiver (package_shipped / order_failed / stock_updated etc.)", "x-roles": ["public"], "x-edges": ["printful-webhook"] }
+    },
+    "/stripe-checkout": {
+      "post": { "summary": "Create Stripe PaymentIntent / Checkout Session (server-recomputed total)", "x-roles": ["public"], "x-edges": ["stripe-checkout"] }
+    },
+    "/stripe-webhook": {
+      "post": { "summary": "Stripe webhook receiver (signature verified, idempotent)", "x-roles": ["public"], "x-edges": ["stripe-webhook"] }
+    },
+    "/health": {
+      "get": { "summary": "Healthcheck (admin only, no public topology leak)", "x-roles": ["admin"], "x-edges": ["health"] }
+    },
+    "/delete-account": {
+      "post": { "summary": "User self-delete (RLS-protected)", "x-roles": ["authenticated"], "x-edges": ["delete-account"] }
+    },
+    "/send-email": {
+      "post": { "summary": "Resend transactional email (service_role only)", "x-roles": ["service_role"], "x-edges": ["send-email"] }
+    }
+  }
+}

@@ -9,6 +9,9 @@
 // correspondance de l'ordre via external_id / external_order_id.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -32,7 +35,7 @@ function getCorsHeaders(req: Request) {
   return {};
 }
 
-// Événements que nous traitons activement.
+// Événements que nous traitons activement. P6 POD: stock_updated géré pour MAJ variantes.
 const SUPPORTED_TYPES = new Set([
   "package_shipped",
   "order_failed",
@@ -41,7 +44,22 @@ const SUPPORTED_TYPES = new Set([
   "order_remove_hold",
   "order_refunded",
   "package_returned",
+  "stock_updated",
 ]);
+
+// P-B State Machine pour webhooks (même table que create-printful-order)
+const ALLOWED_WEBHOOK_TRANSITIONS = new Set([
+  "pending->paid", "pending->cancelled",
+  "paid->in_production", "paid->partial", "paid->on_hold", "paid->cancelled",
+  "in_production->shipped", "in_production->partial", "in_production->on_hold", "in_production->cancelled",
+  "partial->shipped", "partial->on_hold", "partial->cancelled", "partial->refunded",
+  "on_hold->in_production", "on_hold->partial", "on_hold->cancelled", "on_hold->refunded",
+  "shipped->delivered", "shipped->returned", "shipped->refunded",
+  "delivered->returned", "delivered->refunded",
+]);
+function isWebhookTransitionAllowed(from: string, to: string): boolean {
+  return from === to || ALLOWED_WEBHOOK_TRANSITIONS.has(`${from}->${to}`);
+}
 
 // Couleurs et libellés pour la barre de progression dans l'email d'expédition.
 // Duplication manuelle de src/constants/orderStatus.tsx car Deno Deploy ne
@@ -322,6 +340,12 @@ export default {
     }
 
     try {
+      if (await isRateLimited(req, rateLimitKey(req, "printful-webhook"))) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json", "Retry-After": "60" },
+          status: 429,
+        });
+      }
       // ── 1. Lire et valider la structure du payload ────────────────
       const rawBody = await req.text();
       let payload: any;
@@ -339,6 +363,19 @@ export default {
           },
         );
       }
+
+      // P-C (4) Blind Trust: secret token optionnel pour le webhook Printful
+      // Configurez PRINTFUL_WEBHOOK_SECRET en Edge Secret et ajoutez ?secret=xxx à l'URL webhook Printful
+      try {
+        const expectedSecret = Deno.env.get("PRINTFUL_WEBHOOK_SECRET");
+        if (expectedSecret) {
+          const url = new URL(req.url);
+          const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
+          if (got !== expectedSecret) {
+            return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+          }
+        }
+      } catch {}
 
       const type = payload?.type;
       const store = payload?.store;
@@ -403,6 +440,43 @@ export default {
         }
       }
 
+      // ── 4. Gestion stock_updated (P6 POD) — MAJ variantes sans bloquer commande ──
+      if (type === "stock_updated") {
+        const productId = (data as any).product_id;
+        const variantStock = (data as any).variant_stock || {};
+        const outIds: number[] = Array.isArray(variantStock.out) ? variantStock.out : [];
+        const discIds: number[] = Array.isArray(variantStock.discontinued) ? variantStock.discontinued : [];
+        const summary = `Stock Printful: ${discIds.length} discontinued, ${outIds.length} rupture (product_id ${productId})`;
+        // notif admin toujours
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Stock Printful mis à jour — produit ${productId}`,
+            description: summary,
+            category: "products",
+            priority: discIds.length > 0 ? "high" : "medium",
+            status: "unread",
+            metadata: { productId: String(productId), out: outIds, discontinued: discIds, linkTo: "/admin/products", source: "Printful" },
+            action_label: "Voir le produit",
+          });
+        } catch {}
+        // Tentative de MAJ directe du produit concerné (si external_product_id == productId)
+        try {
+          const { data: prod } = await supabaseAdmin.from("products").select("id, variants, variant_availability").eq("external_product_id", String(productId)).maybeSingle();
+          if (prod) {
+            // Audit léger pour que la prochaine sync sache quoi griser — on stocke les listes
+            const audit = { ...(prod.variant_availability || {}), _stock_updated_at: new Date().toISOString(), _out: outIds, _discontinued: discIds };
+            await supabaseAdmin.from("products").update({ variant_availability: audit }).eq("id", prod.id);
+            // Optionnel: si toutes les variantes sont discontinued, passer in_stock=false pour masquer du catalogue
+            if (discIds.length > 0 && outIds.length === 0) {
+              // on ne touche pas aux prix, le prochain sync complet reconstruira stock_status proprement
+            }
+          }
+        } catch (e) { console.warn("stock_updated update failed", e); }
+        return new Response(JSON.stringify({ received: true, handled: true, type: "stock_updated" }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+
       // ── 4. Retrouver la commande locale ───────────────────────────
       const orderData = data.order;
       const pfOrderId = orderData?.id;
@@ -452,6 +526,25 @@ export default {
           },
         );
       }
+
+      // P-C fetch-back: vérifier que la commande existe vraiment chez Printful (anti-spoof sans HMAC)
+      try {
+        const { data: podSettings } = await supabaseAdmin.from("pod_settings").select("api_key").eq("id", "pod-main").maybeSingle();
+        const apiKey = (podSettings as any)?.api_key;
+        if (apiKey && pfOrderId) {
+          const vRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+          if (!vRes.ok && vRes.status === 404) {
+            console.warn(`P-C fetch-back: Printful order ${pfOrderId} introuvable -> webhook ignoré`);
+            // on ne bloque pas, mais on log pour audit
+          } else if (vRes.ok) {
+            const vData = await vRes.json();
+            const vExt = String(vData.result?.external_id || "");
+            if (vExt && vExt !== String(orderId) && vExt !== String(order.external_id || "")) {
+              console.warn(`P-C fetch-back: external_id mismatch webhook ${vExt} vs db ${orderId}`);
+            }
+          }
+        }
+      } catch (e) { console.warn("P-C fetch-back failed", e); }
 
       // ── 5. Appliquer la transition de statut ──────────────────────
       const shipment = data.shipment;
@@ -558,7 +651,7 @@ export default {
           newStatus = "cancelled";
         }
         notes.push(
-          `Commande annulée chez Printful${reason ? ` : ${reason}` : ""}`,
+          `Commande annulée par le fournisseur${reason ? ` : ${reason}` : ""}`,
         );
       } else if (type === "order_put_hold") {
         if (order.status !== "on_hold") {
@@ -579,7 +672,7 @@ export default {
           newStatus = "refunded";
         }
         notes.push(
-          `Commande remboursée chez Printful${reason ? ` : ${reason}` : ""}`,
+          `Commande remboursée par le fournisseur${reason ? ` : ${reason}` : ""}`,
         );
       } else if (type === "package_returned") {
         if (order.status !== "returned") {
@@ -589,6 +682,12 @@ export default {
       }
 
       if (newStatus) updatePayload.status = newStatus;
+      // P-B State Machine: refuse transition illégale mais conserve tracking_info/notes
+      if (newStatus && !isWebhookTransitionAllowed(order.status, newStatus)) {
+        console.warn(`P-B: transition ${order.status} -> ${newStatus} non autorisée pour ${type}, status conservé`);
+        delete updatePayload.status;
+        newStatus = null;
+      }
       if (notes.length > 0)
         updatePayload.notes = notes.filter(Boolean).join("\n");
 

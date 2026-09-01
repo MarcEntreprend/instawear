@@ -6,6 +6,9 @@
 // Idempotent : une commande déjà "paid" n'est jamais retraitée.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { safeFetch } from "./_shared/safeUrl.ts";
+import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur (Stripe).
@@ -196,6 +199,12 @@ export default {
     }
 
     try {
+      if (await isRateLimited(req, rateLimitKey(req, "stripe-webhook"))) {
+        return new Response(JSON.stringify({ error: "Trop de requetes." }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json", "Retry-After": "60" },
+          status: 429,
+        });
+      }
       // Même fallback de clé que stripe-checkout (TEST d'abord, sinon PROD).
       const stripe = new Stripe(
         Deno.env.get("STRIPE_SECRET_KEY_TEST") ||

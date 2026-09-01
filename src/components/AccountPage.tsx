@@ -940,7 +940,11 @@ function OrdersTab({
       setSearchDebouncing(false);
       return;
     }
-    if (!customerId) return;
+    if (!customerId) {
+      // attendre que customerId soit résolu (session + onAuthStateChange)
+      setSearchDebouncing(true);
+      return;
+    }
 
     setSearchDebouncing(true);
     debounceRef.current = setTimeout(async () => {
@@ -1508,12 +1512,18 @@ function OrderDetail({
           </p>
         </div>
 
+        {/* P4/P6 POD: alerte partielle côté client */}
+        {(order.status === "partial" || order.status === "on_hold" || order.items?.some((it: any) => (it.print_status || "").startsWith("blocked"))) && (
+          <div className="mt-4 rounded-xl p-3 flex gap-2 items-start" style={{ background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e" }}>
+            <span className="text-xs font-bold">⚠️ Commande partielle — certains articles indisponibles n'ont pas été envoyés à l'impression (voir détails par ligne). Un remboursement partiel sera traité si vous avez été facturé.</span>
+          </div>
+        )}
         {/* Items */}
         <div
           className="flex flex-col gap-3 pt-3"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          {order.items?.map((item) => (
+          {order.items?.map((item: any) => (
             <div key={item.id} className="flex items-center gap-3">
               <button
                 onClick={() => {
@@ -1556,6 +1566,14 @@ function OrderDetail({
                 >
                   Size {item.selectedSize} · Qty {item.quantity}
                 </p>
+                {(item as any).print_status?.startsWith("blocked") && (
+                  <span className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: (item as any).print_status === "blocked_discontinued" ? "#fee2e2" : "#fef3c7", color: (item as any).print_status === "blocked_discontinued" ? "#991b1b" : "#92400e", border: "1px solid var(--color-border)" }}>
+                    {(item as any).print_status === "blocked_discontinued" ? "Supprimé chez Printful" : (item as any).print_status === "blocked_out_of_stock" ? "Rupture temporaire" : "Non imprimé"} {(item as any).block_reason ? `— ${(item as any).block_reason}` : ""}
+                  </span>
+                )}
+                {(item as any).print_status === "fulfillable" && (
+                  <span className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#d1fae5", color: "#065f46", border: "1px solid #a7f3d0" }}>En cours d'impression</span>
+                )}
               </div>
               <span
                 className="text-[13px] font-bold tabular-nums shrink-0"

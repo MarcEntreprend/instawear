@@ -65,6 +65,7 @@ interface ProductRow {
   bought_last_month?: number | null;
   show_ratings?: boolean | null;
   show_bought?: boolean | null;
+  variant_availability?: any | null; // P2 audit (nullable)
 }
 
 // ─── Helpers de mapping ──────────────────────────────────────────────────
@@ -580,18 +581,47 @@ export const customerApi = {
     const isEmail = clientIdOrEmail.includes("@");
     const from = page * perPage;
     const to = from + perPage - 1;
-    let query = supabase
-      .from("orders")
-      .select("*")
-      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail)
-      .order("created_at", { ascending: false })
-      .range(from, to);
-    if (search?.trim()) {
-      query = query.ilike("id", `%${search.trim()}%`);
+
+    // Si on cherche par ID user (UUID), on lance en parallèle
+    // (a) la query par client_id
+    // (b) la query par client_email (fallback guest)
+    // getSession() lit le cache local instantanément, pas getUser() qui fait un round-trip.
+    let userEmail: string | undefined;
+    if (!isEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      userEmail = session?.user?.email;
     }
-    const { data: orders, error } = await query;
-    if (error) throw error;
-    const ordersMapped = (orders ?? []).map(mapOrder);
+
+    const base = () => {
+      let q = supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (search?.trim()) q = q.ilike("id", `%${search.trim()}%`);
+      return q;
+    };
+
+    const idQuery = base().eq("client_id", clientIdOrEmail);
+    const emailQueryPromise = !isEmail && userEmail
+      ? base().eq("client_email", userEmail)
+      : Promise.resolve({ data: [] as any[], error: null as any });
+
+    const [{ data: byId, error: idErr }, { data: byEmail, error: emailErr }] = await Promise.all([
+      idQuery,
+      emailQueryPromise,
+    ]);
+    if (idErr) throw idErr;
+    if (emailErr) throw emailErr;
+
+    // Fusion dédupliquée par id (client_id match prioritaire)
+    const seen = new Set<string>();
+    const merged: any[] = [];
+    for (const row of [...(byId ?? []), ...(byEmail ?? [])]) {
+      if (!seen.has(row.id)) { seen.add(row.id); merged.push(row); }
+    }
+    merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    let ordersMapped = merged.map(mapOrder);
     for (const order of ordersMapped) {
       const { data: items } = await supabase
         .from("order_items")
@@ -607,6 +637,8 @@ export const customerApi = {
         selectedSize: item.selected_size,
         quantity: item.quantity,
         unitPrice: item.unit_price,
+        print_status: item.print_status ?? null,
+        block_reason: item.block_reason ?? null,
       }));
     }
     return ordersMapped;
@@ -615,12 +647,29 @@ export const customerApi = {
   // ──  ───────────────────────────────────────────────
   async getOrderCount(clientIdOrEmail: string): Promise<number> {
     const isEmail = clientIdOrEmail.includes("@");
-    const { count, error } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail);
-    if (error) throw error;
-    return count ?? 0;
+
+    let userEmail: string | undefined;
+    if (!isEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      userEmail = session?.user?.email;
+    }
+
+    const [{ count: idCount, error: idErr }, { count: emailCount, error: emailErr }] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail)
+        .then((r) => r),
+      (!isEmail && userEmail
+        ? supabase
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("client_email", userEmail)
+        : Promise.resolve({ count: 0, error: null as any })),
+    ]);
+    if (idErr) throw idErr;
+    if (emailErr) throw emailErr;
+    return (idCount ?? 0) + (emailCount ?? 0);
   },
 
   // ── Notifications ───────────────────────────────────────────────
@@ -834,6 +883,8 @@ export const orderApi = {
         selectedSize: item.selected_size,
         quantity: item.quantity,
         unitPrice: item.unit_price,
+        print_status: item.print_status ?? null,
+        block_reason: item.block_reason ?? null,
       });
     });
 
@@ -1205,7 +1256,7 @@ export const podApi = {
 
   /**
    * Récupère les détails d'un produit Printful via l'Edge Function.
-   * @param productId - L'ID externe du produit chez Printful.
+   * @param productId - L'ID externe du produit par le fournisseur.
    * @returns Les données brutes du produit Printful.
    */
   async getProductDetails(productId: string): Promise<any> {

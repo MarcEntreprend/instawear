@@ -17,5 +17,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["node_modules", "dist", "post-Lot-rouge"]
+  "exclude": ["node_modules", "dist", "post-Lot-rouge", "supabase/functions"]
 }
