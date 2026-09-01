@@ -9,9 +9,13 @@ interface FooterProps {
   onSelectEventType: (type: string) => void;
   onNavigate: (tab: "store" | "admin") => void;
   onOpenAdmin?: () => void;
+  onOpenLegal?: (slug: string) => void;
+  onOpenFaq?: () => void;
+  onOpenContact?: () => void;
+  onOpenPromotions?: () => void;
 }
 
-export default function Footer({ isAdmin, onSelectEventType, onNavigate, onOpenAdmin }: FooterProps) {
+export default function Footer({ isAdmin, onSelectEventType, onNavigate, onOpenAdmin, onOpenLegal, onOpenFaq, onOpenContact, onOpenPromotions }: FooterProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [valid, setValid] = useState(false);
@@ -147,9 +151,9 @@ export default function Footer({ isAdmin, onSelectEventType, onNavigate, onOpenA
         <div className="max-w-350 mx-auto px-6 h-16 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs" style={{ color: "var(--color-ink3)" }}>
           <span>© {new Date().getFullYear()} InstaWear. Tous droits réservés.</span>
           <div className="flex items-center gap-5">
-            <a href="#" className="hover:underline">CGV</a>
-            <a href="#" className="hover:underline">Confidentialité</a>
-            <a href="#" className="hover:underline">Cookies</a>
+            <button onClick={() => onOpenLegal?.("cgv")} className="hover:underline bg-transparent border-none cursor-pointer text-xs" style={{ color: "var(--color-ink3)" }}>CGV</button>
+            <button onClick={() => onOpenLegal?.("privacy")} className="hover:underline bg-transparent border-none cursor-pointer text-xs" style={{ color: "var(--color-ink3)" }}>Confidentialité</button>
+            <button onClick={() => onOpenLegal?.("cookies")} className="hover:underline bg-transparent border-none cursor-pointer text-xs" style={{ color: "var(--color-ink3)" }}>Cookies</button>
             {isAdmin && (
               <button onClick={onOpenAdmin} className="flex items-center gap-1.5 hover:underline bg-transparent border-none cursor-pointer text-xs" style={{ color: "var(--color-ink3)" }}>
                 <Lock size={11} /> Accès admin

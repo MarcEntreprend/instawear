@@ -78,12 +78,14 @@ interface Interaction {
 }
 
 type TabKey =
+  | "dashboard"
   | "orders"
   | "favorites"
   | "cart"
   | "notifications"
   | "profile"
-  | "support";
+  | "support"
+  | "reviews";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function initials(email: string, name?: string): string {
@@ -465,6 +467,11 @@ export default function AccountPage({
     badge?: number;
   }[] = [
     {
+      key: "dashboard",
+      label: "Dashboard",
+      icon: <Home size={18} strokeWidth={1.75} />,
+    },
+    {
       key: "orders",
       label: "Orders",
       icon: <Package size={18} strokeWidth={1.75} />,
@@ -502,6 +509,11 @@ export default function AccountPage({
       icon: <MessageSquare size={18} strokeWidth={1.75} />,
       badge:
         interactions.filter((i) => i.status === "open").length || undefined,
+    },
+    {
+      key: "reviews",
+      label: "Reviews",
+      icon: <Star size={18} strokeWidth={1.75} />,
     },
   ];
 
@@ -781,6 +793,45 @@ export default function AccountPage({
               </h2>
             </div>
 
+            {tab === "dashboard" && (
+              <div className="flex flex-col gap-6 animate-fade-up">
+                <div>
+                  <span className="eyebrow">Welcome back</span>
+                  <h3 className="text-xl font-black mt-1" style={{ color: "var(--color-ink)" }}>{customerName || customerEmail || "Member"}</h3>
+                  <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>Member since {memberSince} · {orders.length} orders · {favorites.length} saved</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="card-premium p-4 text-center">
+                    <p className="text-2xl font-black" style={{ color: "var(--color-ink)" }}>{orders.length}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Orders</p>
+                  </div>
+                  <div className="card-premium p-4 text-center">
+                    <p className="text-2xl font-black" style={{ color: "var(--color-ink)" }}>{favorites.length}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Saved</p>
+                  </div>
+                  <div className="card-premium p-4 text-center">
+                    <p className="text-2xl font-black" style={{ color: "var(--color-accent)" }}>{useCurrencySymbol()}{orders.reduce((a, o) => a + (o.totalAmount || 0), 0).toFixed(0)}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Spent</p>
+                  </div>
+                </div>
+                {orders.length > 0 && (
+                  <div className="card-premium p-5">
+                    <h4 className="text-sm font-bold mb-3" style={{ color: "var(--color-ink)" }}>Recent orders</h4>
+                    <div className="flex flex-col gap-3">
+                      {orders.slice(0, 3).map((o) => (
+                        <div key={o.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
+                          <div>
+                            <p className="text-xs font-bold font-mono-num" style={{ color: "var(--color-ink)" }}>{o.id}</p>
+                            <p className="text-[11px]" style={{ color: "var(--color-ink3)" }}>{formatDate(o.createdAt)} · <StatusPill status={o.status} /></p>
+                          </div>
+                          <button onClick={() => setTab("orders")} className="text-xs font-bold hover:underline" style={{ color: "var(--color-accent)" }}>View</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {tab === "orders" && (
               <OrdersTab
                 orders={orders}
@@ -844,6 +895,17 @@ export default function AccountPage({
                 orders={orders}
                 currencySymbol={currencySymbol}
               />
+            )}
+            {tab === "reviews" && (
+              <div className="flex flex-col gap-4 animate-fade-up">
+                <span className="eyebrow">Your reviews</span>
+                <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>Reviews</h3>
+                <div className="card-premium p-8 text-center">
+                  <Star size={32} style={{ color: "var(--color-ink4)" }} className="mx-auto mb-3" />
+                  <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>No reviews yet</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>Your product reviews will appear here after purchase.</p>
+                </div>
+              </div>
             )}
           </div>
         </main>

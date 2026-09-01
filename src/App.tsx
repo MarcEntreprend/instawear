@@ -13,6 +13,10 @@ import CheckoutFlow from "./components/CheckoutFlow";
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
+import LegalPage from "./pages/LegalPage";
+import FaqPage from "./pages/FaqPage";
+import ContactPage from "./pages/ContactPage";
+import PromotionsPage from "./pages/PromotionsPage";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -90,10 +94,15 @@ export default function App() {
       const p = products.find((x) => x.id === match[1]);
       if (p) setSelectedProduct(p);
     }
+    if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
+    else if (path === "/faq") setShowFaqPage(true);
+    else if (path === "/contact") setShowContactPage(true);
+    else if (path === "/promotions") setShowPromotionsPage(true);
   }, [products]);
   useEffect(() => {
     const onPop = () => {
-      const m = window.location.pathname.match(/^\/produit\/([^/]+)/);
+      const path = window.location.pathname;
+      const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1]);
         if (p) setSelectedProduct(p);
@@ -101,6 +110,11 @@ export default function App() {
       } else {
         setSelectedProduct(null);
       }
+      if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
+      else setLegalSlug(null);
+      setShowFaqPage(path === "/faq");
+      setShowContactPage(path === "/contact");
+      setShowPromotionsPage(path === "/promotions");
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -111,6 +125,16 @@ export default function App() {
     setSelectedProduct(p);
     try { history.pushState({}, "", `/produit/${p.id}`); } catch {}
   };
+
+  // ── Pages (V2) ──
+  const [legalSlug, setLegalSlug] = useState<string | null>(null);
+  const [showFaqPage, setShowFaqPage] = useState(false);
+  const [showContactPage, setShowContactPage] = useState(false);
+  const [showPromotionsPage, setShowPromotionsPage] = useState(false);
+  const openLegal = (slug: string) => { setLegalSlug(slug); try { history.pushState({}, "", `/legal/${slug}`); } catch {} };
+  const openFaqPage = () => { setShowFaqPage(true); try { history.pushState({}, "", "/faq"); } catch {} };
+  const openContactPage = () => { setShowContactPage(true); try { history.pushState({}, "", "/contact"); } catch {} };
+  const openPromotionsPage = () => { setShowPromotionsPage(true); try { history.pushState({}, "", "/promotions"); } catch {} };
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
@@ -1004,6 +1028,25 @@ export default function App() {
         />
       )}
 
+      {/* Pages (V2) */}
+      {legalSlug && <LegalPage slug={legalSlug} onBack={() => { setLegalSlug(null); history.pushState({}, "", "/"); }} />}
+      {showFaqPage && <FaqPage onBack={() => { setShowFaqPage(false); history.pushState({}, "", "/"); }} />}
+      {showContactPage && <ContactPage onBack={() => { setShowContactPage(false); history.pushState({}, "", "/"); }} />}
+      {showPromotionsPage && (
+        <PromotionsPage
+          products={products}
+          favorites={favorites}
+          dealExpired={dealExpired}
+          dealFadingOut={dealFadingOut}
+          countdownString={countdownString}
+          currencySymbol={currencySymbol}
+          onToggleFavorite={toggleFavorite}
+          onAddToCart={addToCart}
+          onSelectProduct={(p) => openProduct(p)}
+          onBack={() => { setShowPromotionsPage(false); history.pushState({}, "", "/"); }}
+        />
+      )}
+
       {/* Slide-over Shopping Cart drawer */}
       {cartOpen && (
         <CartDrawer
@@ -1028,6 +1071,10 @@ export default function App() {
         onSelectEventType={setSelectedEventType}
         onNavigate={setActiveTab}
         onOpenAdmin={() => setShowNewAdmin(true)}
+        onOpenLegal={openLegal}
+        onOpenFaq={openFaqPage}
+        onOpenContact={openContactPage}
+        onOpenPromotions={openPromotionsPage}
       />
 
       {showAuthModal && (
