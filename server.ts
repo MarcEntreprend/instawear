@@ -15,7 +15,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+// const PORT = 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10); // fonction pour tenter plusieurs ports si le premier est occupé
 
 // Gemini API
 const geminiApiKey = process.env.GEMINI_API_KEY || "";
