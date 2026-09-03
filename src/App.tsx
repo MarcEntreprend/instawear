@@ -47,6 +47,7 @@ import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
+import TestimonialsSection from "./components/TestimonialsSection";
 import NotFound from "./components/NotFound";
 
 // ── Product delivery info visibility switch ──
@@ -724,7 +725,8 @@ export default function App() {
   ) => {
     const idMap: Record<string, string> = {
       catalog: "section-catalog",
-      about: "section-about",
+      about: "about",
+      testimonials: "testimonials",
       faq: "section-faq",
       filters: "section-filters",
     };
@@ -1068,6 +1070,8 @@ export default function App() {
           />
 
           <AboutSection />
+
+          <TestimonialsSection />
 
           <FaqSection />
         </main>

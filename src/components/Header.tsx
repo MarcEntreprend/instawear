@@ -393,18 +393,12 @@ export default function Header({
     setIsDesktopSuggestOpen(false);
   };
   const handleNavClick = (link: NavLink) => {
-    // FAQ / Contact → pages dédiées si disponibles
+    // Contact → modal/page (garder tel quel)
     if (link.section === "contact" && onOpenContactPage) {
       onOpenContactPage();
       setIsMobileMenuOpen(false);
       return;
     }
-    if (link.section === "faq" && onOpenFaqPage) {
-      onOpenFaqPage();
-      setIsMobileMenuOpen(false);
-      return;
-    }
-    // Si on n'est pas sur la home (produit ouvert), revenir d'abord à la boutique
     const needsHome = !isHomePage && onNavigateHome;
     const doNav = () => {
       if (link.eventType != null) onSelectEventType(link.eventType);
@@ -419,7 +413,7 @@ export default function Header({
     if (needsHome) {
       onNavigateHome!();
       setIsMobileMenuOpen(false);
-      setTimeout(doNav, 80);
+      setTimeout(doNav, 200);
       return;
     }
     doNav();
