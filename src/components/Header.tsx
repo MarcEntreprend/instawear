@@ -511,7 +511,7 @@ export default function Header({
       </div>
 
       <header
-        className="sticky top-0 z-40 transition-shadow duration-300"
+        className="sticky top-0 z-40 transition-shadow duration-300 relative"
         style={{
           background: "var(--color-bg)",
           borderBottom: "1px solid var(--color-border)",
@@ -689,19 +689,22 @@ export default function Header({
         </div>
         {isHomePage && (
           <div
-            className="overflow-hidden"
+            className="absolute left-0 right-0 overflow-hidden"
             style={{
-              borderTop: isQuickNavVisible
-                ? "1px solid var(--color-border)"
-                : "1px solid transparent",
+              top: "100%",
+              height: "3.25rem",
               transform: isQuickNavVisible
                 ? "translateY(0)"
                 : "translateY(-100%)",
-              height: "3.25rem", // hauteur fixe, ne change jamais
               opacity: isQuickNavVisible ? 1 : 0,
               pointerEvents: isQuickNavVisible ? "auto" : "none",
               transition:
-                "transform .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
+                "transform .35s var(--ease-smooth), opacity .25s var(--ease-smooth)",
+              background: "var(--color-bg)",
+              borderBottom: isQuickNavVisible
+                ? "1px solid var(--color-border)"
+                : "none",
+              zIndex: 1,
             }}
           >
             <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full h-full flex items-center">
