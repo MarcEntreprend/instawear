@@ -520,14 +520,9 @@ export default function Header({
       >
         <div className="max-w-350 mx-auto px-4 sm:px-6 h-16 md:h-(--header-h) flex items-center gap-3 sm:gap-6">
           <button
-            className="flex lg:hidden! btn-icon shrink-0"
-            aria-label="Ouvrir le menu"
-            onClick={() => setIsMobileMenuOpen(true)}
-          >
-            <Menu size={19} />
-          </button>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            onClick={() => {
+              window.location.href = "/";
+            }}
             className="flex items-center gap-2 shrink-0 bg-transparent border-none cursor-pointer"
             aria-label="InstaWear — accueil"
           >
