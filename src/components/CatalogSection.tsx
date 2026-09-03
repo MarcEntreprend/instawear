@@ -28,6 +28,8 @@ interface CatalogSectionProps {
   setSelectedEventType: (v: string | null) => void;
   showDeliveryInfo?: boolean;
   getDeliverEstimateString?: (days: number) => string;
+  isFavoritesMode?: boolean;
+  onClearFavorites?: () => void;
 }
 const PAGE_SIZE = 12;
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -38,7 +40,7 @@ const COLOR_OPTIONS = [
 ];
 
 export default function CatalogSection({
-  filteredProducts, loadingProducts, networkError = false, favorites, dealExpired, dealFadingOut, countdownString, currencySymbol, onToggleFavorite, onAddToCart, onSelectProduct, onClearFilters, searchTerm, selectedCategory, selectedEventType, setSearchTerm, setSelectedCategory, setSelectedEventType,
+  filteredProducts, loadingProducts, networkError = false, favorites, dealExpired, dealFadingOut, countdownString, currencySymbol, onToggleFavorite, onAddToCart, onSelectProduct, onClearFilters, searchTerm, selectedCategory, selectedEventType, setSearchTerm, setSelectedCategory, setSelectedEventType, isFavoritesMode = false, onClearFavorites,
 }: CatalogSectionProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -71,6 +73,11 @@ export default function CatalogSection({
   const activeFilterCount = [selectedEventType, selectedCategory, filterSize, filterColor, inStockOnly ? "stock" : null, priceMin !== 0 || priceMax !== 200 ? "price" : null].filter(Boolean).length;
 
   const resetExtra = () => { setPriceMin(0); setPriceMax(200); setFilterSize(null); setFilterColor(null); setInStockOnly(false); };
+  const handleResetAll = () => {
+    onClearFilters();
+    resetExtra();
+    if (isFavoritesMode && onClearFavorites) onClearFavorites();
+  };
 
   return (
     <section id="section-catalog" className="max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 scroll-mt-24">
@@ -81,12 +88,12 @@ export default function CatalogSection({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-        <aside className="hidden lg:block">
+      <div className="flex flex-col lg:flex-row gap-8">
+        <aside className="hidden lg:block w-[260px] shrink-0">
           <div className="sticky top-24 flex flex-col gap-7">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>Filtres</h3>
-              {activeFilterCount > 0 && <button onClick={() => { onClearFilters(); resetExtra(); }} className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><RotateCcw size={12} /> Réinitialiser</button>}
+              {activeFilterCount > 0 && <button onClick={handleResetAll} className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><RotateCcw size={12} /> Réinitialiser</button>}
             </div>
             <FilterGroup title="Événement">
               <div className="flex flex-col gap-0.5">
@@ -128,7 +135,7 @@ export default function CatalogSection({
           </div>
         </aside>
 
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3 mb-6">
             <button onClick={() => setIsFilterDrawerOpen(true)} className="lg:hidden btn btn-secondary"><SlidersHorizontal size={15} /> Filtres {activeFilterCount > 0 && <span className="badge badge-accent">{activeFilterCount}</span>}</button>
             <div className="flex items-center gap-2 ml-auto">
@@ -150,7 +157,7 @@ export default function CatalogSection({
                 {filterColor && <span className="chip" data-active="true" onClick={() => setFilterColor(null)} style={{ cursor: "pointer" }}>Color <X size={12} /></span>}
                 {inStockOnly && <span className="chip" data-active="true" onClick={() => setInStockOnly(false)} style={{ cursor: "pointer" }}>En stock <X size={12} /></span>}
               </div>
-              <button onClick={() => { onClearFilters(); resetExtra(); }} className="text-xs font-bold hover:underline" style={{ color: "var(--color-accent)" }}>Clear all</button>
+              <button onClick={handleResetAll} className="text-xs font-bold hover:underline" style={{ color: "var(--color-accent)" }}>Clear all</button>
             </div>
           )}
 
@@ -160,7 +167,7 @@ export default function CatalogSection({
             <div className="text-center py-24 rounded-3xl" style={{ background: "var(--color-surface2)" }}>
               <p className="text-base font-bold mb-2" style={{ color: "var(--color-ink)" }}>Aucun article ne correspond à ces filtres</p>
               <p className="text-sm mb-5" style={{ color: "var(--color-ink3)" }}>Essayez d'élargir votre recherche.</p>
-              <button onClick={() => { onClearFilters(); resetExtra(); }} className="btn btn-secondary mx-auto"><RotateCcw size={14} /> Réinitialiser les filtres</button>
+              <button onClick={handleResetAll} className="btn btn-secondary mx-auto"><RotateCcw size={14} /> Réinitialiser les filtres</button>
             </div>
           ) : (
             <>
@@ -181,7 +188,7 @@ export default function CatalogSection({
           <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-4xl animate-fade-up" style={{ background: "var(--color-bg)", boxShadow: "var(--shadow-xl)" }}>
             <div className="sticky top-0 flex items-center justify-between px-5 h-16" style={{ background: "var(--color-bg)", borderBottom: "1px solid var(--color-border)" }}><span className="text-base font-bold" style={{ color: "var(--color-ink)" }}>Filtres</span><button aria-label="Fermer" onClick={() => setIsFilterDrawerOpen(false)}><X size={20} style={{ color: "var(--color-ink2)" }} /></button></div>
             <div className="p-5 flex flex-col gap-6">
-              <div className="flex items-center justify-between"><h3 className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>Filtres</h3>{activeFilterCount > 0 && <button onClick={() => { onClearFilters(); resetExtra(); }} className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><RotateCcw size={12} /> Réinitialiser</button>}</div>
+              <div className="flex items-center justify-between"><h3 className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>Filtres</h3>{activeFilterCount > 0 && <button onClick={handleResetAll} className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><RotateCcw size={12} /> Réinitialiser</button>}</div>
               <div className="flex flex-wrap gap-2">{SIZE_OPTIONS.map((size) => <button key={size} onClick={() => setFilterSize(filterSize === size ? null : size)} className="chip" data-active={filterSize === size}>{size}</button>)}</div>
               <div className="flex flex-wrap gap-2.5">{COLOR_OPTIONS.map((c) => <button key={c.hex} onClick={() => setFilterColor(filterColor === c.hex ? null : c.hex)} className="w-8 h-8 rounded-full" style={{ background: c.hex, border: filterColor === c.hex ? "2px solid var(--color-accent)" : "1px solid var(--color-border2)" }} />)}</div>
             </div>

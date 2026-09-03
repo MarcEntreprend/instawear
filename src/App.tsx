@@ -1067,6 +1067,8 @@ export default function App() {
             setSearchTerm={setSearchTerm}
             setSelectedCategory={setSelectedCategory}
             setSelectedEventType={setSelectedEventType}
+            isFavoritesMode={showFavoritesOnly}
+            onClearFavorites={() => setShowFavoritesOnly(false)}
           />
 
           <AboutSection />
