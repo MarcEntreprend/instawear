@@ -150,7 +150,10 @@ export default function Footer({
         className={`max-w-350 mx-auto px-6 py-14 grid gap-x-6 gap-y-10 ${isAdmin ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}
       >
         <div className="col-span-2 md:col-span-1">
-          <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="flex items-center gap-2 mb-4 bg-transparent border-none cursor-pointer"
+          >
             <img
               src={LOGO_URL}
               alt="InstaWear"
@@ -162,7 +165,7 @@ export default function Footer({
             >
               Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
             </span>
-          </div>
+          </button>
           <p
             className="text-sm mb-5 max-w-[26ch]"
             style={{ color: "var(--color-ink2)" }}

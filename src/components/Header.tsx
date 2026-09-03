@@ -527,15 +527,8 @@ export default function Header({
             <Menu size={19} />
           </button>
           <button
-            onClick={() =>
-              handleNavClick({
-                label: "Accueil",
-                section: "catalog",
-                eventType: null,
-                category: null,
-              })
-            }
-            className="flex items-center gap-2 shrink-0"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="flex items-center gap-2 shrink-0 bg-transparent border-none cursor-pointer"
             aria-label="InstaWear — accueil"
           >
             <span
