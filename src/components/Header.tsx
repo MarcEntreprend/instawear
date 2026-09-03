@@ -511,7 +511,7 @@ export default function Header({
       </div>
 
       <header
-        className="sticky top-0 z-40 transition-shadow duration-300 relative"
+        className="sticky top-0 z-40 transition-shadow duration-300"
         style={{
           background: "var(--color-bg)",
           borderBottom: "1px solid var(--color-border)",
