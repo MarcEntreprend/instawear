@@ -614,7 +614,7 @@ export default function Header({
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0">
             <button
-              className="md:hidden btn-icon"
+              className="flex lg:hidden! btn-icon shrink-0"
               aria-label="Rechercher"
               onClick={() => setIsSearchOpen(true)}
             >
@@ -711,30 +711,51 @@ export default function Header({
           className="fixed inset-0 z-50 md:hidden animate-fade-in flex flex-col"
           style={{ background: "var(--color-bg)" }}
         >
-          <form
-            onSubmit={handleSubmitSearch}
+          <div
             className="flex items-center gap-3 px-4 h-16 shrink-0"
             style={{ borderBottom: "1px solid var(--color-border)" }}
           >
-            <Search size={19} style={{ color: "var(--color-ink3)" }} />
-            <input
-              ref={searchInputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              type="search"
-              placeholder="Rechercher…"
-              className="flex-1 bg-transparent outline-none text-base"
-              style={{ color: "var(--color-ink)" }}
-            />
+            <form
+              onSubmit={handleSubmitSearch}
+              className={`flex-1 flex items-center rounded-full px-4 h-11 transition-all duration-200`}
+              style={{
+                background: isSearchFocused
+                  ? "var(--color-surface)"
+                  : "var(--color-surface2)",
+                border: `1.5px solid ${isSearchFocused ? "var(--color-accent)" : "var(--color-border)"}`,
+              }}
+            >
+              <Search size={17} style={{ color: "var(--color-ink3)" }} />
+              <input
+                ref={searchInputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setIsSearchFocused(true);
+                }}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                type="search"
+                placeholder="Rechercher un article, un événement…"
+                className="flex-1 bg-transparent outline-none px-3 text-sm [&::-webkit-search-cancel-button]:hidden"
+                style={{
+                  color: "var(--color-ink)",
+                  outline: "none",
+                }}
+              />
+            </form>
             <button
-              type="button"
-              onClick={() => setIsSearchOpen(false)}
+              className="btn-icon shrink-0"
               aria-label="Fermer la recherche"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setIsSearchFocused(false);
+              }}
             >
               <X size={20} style={{ color: "var(--color-ink2)" }} />
             </button>
-          </form>
-          <div className="flex-1 overflow-y-auto">
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
             {query.trim().length > 0 && (
               <SuggestionsList
                 categories={suggestions.categories}
