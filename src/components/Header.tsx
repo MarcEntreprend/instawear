@@ -56,6 +56,9 @@ interface HeaderProps {
       | "filters",
   ) => void;
   onOpenTracking: () => void;
+  onNavigateHome?: () => void;
+  onOpenFaqPage?: () => void;
+  onOpenContactPage?: () => void;
   products: Product[];
   searchSuggestions?: string[];
   darkMode?: boolean;
@@ -289,6 +292,9 @@ export default function Header({
   onOpenAccount,
   onScrollToSection,
   onOpenTracking,
+  onNavigateHome,
+  onOpenFaqPage,
+  onOpenContactPage,
   products,
   darkMode,
   onToggleDarkMode,
@@ -296,8 +302,6 @@ export default function Header({
   currentSearchTerm,
   onSelectCategory,
   onSelectEventType,
-  currentEventType,
-  currentCategory,
   isHomePage = true,
 }: HeaderProps) {
   const { theme: themeHook, toggleTheme: toggleHook } = useTheme();
@@ -389,20 +393,36 @@ export default function Header({
     setIsDesktopSuggestOpen(false);
   };
   const handleNavClick = (link: NavLink) => {
-    if (link.section === "contact") {
-      onScrollToSection("contact");
+    // FAQ / Contact → pages dédiées si disponibles
+    if (link.section === "contact" && onOpenContactPage) {
+      onOpenContactPage();
       setIsMobileMenuOpen(false);
       return;
     }
-    if (link.section === "faq") {
-      onScrollToSection("faq");
+    if (link.section === "faq" && onOpenFaqPage) {
+      onOpenFaqPage();
       setIsMobileMenuOpen(false);
       return;
     }
-    if (link.eventType != null) onSelectEventType(link.eventType);
-    if (link.category != null) onSelectCategory(link.category);
-    if (link.eventType || link.category) onScrollToSection("filters");
-    else onScrollToSection(link.section as any);
+    // Si on n'est pas sur la home (produit ouvert), revenir d'abord à la boutique
+    const needsHome = !isHomePage && onNavigateHome;
+    const doNav = () => {
+      if (link.eventType != null) onSelectEventType(link.eventType);
+      if (link.category != null) onSelectCategory(link.category);
+      if (link.section === "about") onScrollToSection("about");
+      else if (link.section === "testimonials") onScrollToSection("testimonials");
+      else if (link.section === "faq") onScrollToSection("faq");
+      else if (link.section === "contact") onScrollToSection("contact");
+      else if (link.eventType || link.category) onScrollToSection("catalog");
+      else onScrollToSection(link.section as any);
+    };
+    if (needsHome) {
+      onNavigateHome!();
+      setIsMobileMenuOpen(false);
+      setTimeout(doNav, 80);
+      return;
+    }
+    doNav();
     setIsMobileMenuOpen(false);
   };
   const handlePickCategorySuggestion = (s: CategorySuggestion) => {
@@ -674,19 +694,19 @@ export default function Header({
         </div>
         {isHomePage && (
           <div
-            className="overflow-hidden"
+            className="overflow-hidden flex items-center"
             style={{
               borderTop: isQuickNavVisible
                 ? "1px solid var(--color-border)"
                 : "1px solid transparent",
-              maxHeight: isQuickNavVisible ? "3.25rem" : "0px",
+              height: isQuickNavVisible ? "3.25rem" : "0px",
               opacity: isQuickNavVisible ? 1 : 0,
               transition:
-                "max-height .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
+                "height .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
             }}
           >
-            <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 py-2.5 min-w-max">
+            <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full">
+              <div className="flex items-center gap-2 min-w-max">
                 {CATEGORY_LINKS.map((link) => {
                   const Icon = link.icon;
                   return (

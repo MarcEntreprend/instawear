@@ -941,7 +941,20 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
       <Header
-        isHomePage={activeTab === "store" && !selectedProduct}
+        isHomePage={activeTab === "store" && !selectedProduct && !legalSlug && !showFaqPage && !showContactPage && !showPromotionsPage && !searchPageQuery && !trackingPageCode}
+        onNavigateHome={() => {
+          setSelectedProduct(null);
+          setLegalSlug(null);
+          setShowFaqPage(false);
+          setShowContactPage(false);
+          setShowPromotionsPage(false);
+          setSearchPageQuery(null);
+          setTrackingPageCode(null);
+          setActiveTab("store");
+          history.pushState({}, "", "/");
+        }}
+        onOpenFaqPage={openFaqPage}
+        onOpenContactPage={openContactPage}
         cart={cart}
         detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
