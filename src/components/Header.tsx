@@ -404,7 +404,8 @@ export default function Header({
       if (link.eventType != null) onSelectEventType(link.eventType);
       if (link.category != null) onSelectCategory(link.category);
       if (link.section === "about") onScrollToSection("about");
-      else if (link.section === "testimonials") onScrollToSection("testimonials");
+      else if (link.section === "testimonials")
+        onScrollToSection("testimonials");
       else if (link.section === "faq") onScrollToSection("faq");
       else if (link.section === "contact") onScrollToSection("contact");
       else if (link.eventType || link.category) onScrollToSection("catalog");
@@ -688,18 +689,22 @@ export default function Header({
         </div>
         {isHomePage && (
           <div
-            className="overflow-hidden flex items-center"
+            className="overflow-hidden"
             style={{
               borderTop: isQuickNavVisible
                 ? "1px solid var(--color-border)"
                 : "1px solid transparent",
-              height: isQuickNavVisible ? "3.25rem" : "0px",
+              transform: isQuickNavVisible
+                ? "translateY(0)"
+                : "translateY(-100%)",
+              height: "3.25rem", // hauteur fixe, ne change jamais
               opacity: isQuickNavVisible ? 1 : 0,
+              pointerEvents: isQuickNavVisible ? "auto" : "none",
               transition:
-                "height .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
+                "transform .35s var(--ease-smooth), opacity .25s var(--ease-smooth), border-color .35s var(--ease-smooth)",
             }}
           >
-            <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full">
+            <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full h-full flex items-center">
               <div className="flex items-center gap-2 min-w-max">
                 {CATEGORY_LINKS.map((link) => {
                   const Icon = link.icon;
