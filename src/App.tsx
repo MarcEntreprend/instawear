@@ -89,6 +89,20 @@ export default function App() {
     string | null
   >(null);
 
+  // Force top on first load (browsers restore previous scroll → “Nouveautés”)
+  useEffect(() => {
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    document.documentElement.style.scrollBehavior = "auto";
+    const toTop = () => window.scrollTo(0, 0);
+    toTop();
+    requestAnimationFrame(toTop);
+    const t1 = setTimeout(toTop, 100);
+    const t2 = setTimeout(toTop, 500);
+    const onLoad = () => { toTop(); setTimeout(() => { document.documentElement.style.scrollBehavior = ""; }, 600); };
+    window.addEventListener("load", onLoad);
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("load", onLoad); };
+  }, []);
+
   // V2 routing: /produit/:id → product page (pushState + popstate)
   useEffect(() => {
     const path = window.location.pathname;
