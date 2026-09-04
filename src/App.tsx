@@ -943,7 +943,16 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
       <Header
-        isHomePage={activeTab === "store" && !selectedProduct && !legalSlug && !showFaqPage && !showContactPage && !showPromotionsPage && !searchPageQuery && !trackingPageCode}
+        isHomePage={
+          activeTab === "store" &&
+          !selectedProduct &&
+          !legalSlug &&
+          !showFaqPage &&
+          !showContactPage &&
+          !showPromotionsPage &&
+          !searchPageQuery &&
+          !trackingPageCode
+        }
         onNavigateHome={() => {
           setSelectedProduct(null);
           setLegalSlug(null);
