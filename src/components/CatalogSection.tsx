@@ -152,18 +152,18 @@ export default function CatalogSection({
       </div>
 
       <div className="flex flex-col lg:grid lg:grid-cols-[260px_1fr] gap-8 w-full lg:items-start">
-        <aside className="hidden lg:block w-65 min-w-65 max-w-65 shrink-0">
+        <aside className="hidden lg:block sticky top-24 self-start">
           <div
-            className="sticky top-24 flex flex-col gap-7 overflow-y-auto pr-1 scrollbar-thin"
-            style={{ maxHeight: "calc(100vh - 7rem)" }}
+            className="flex flex-col gap-7 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 scrollbar-thin"
+            style={{ scrollbarWidth: "thin" }}
           >
             <div className="flex items-center justify-between">
-              <h3
+              {/* <h3
                 className="text-sm font-bold"
                 style={{ color: "var(--color-ink)" }}
               >
                 Filtres
-              </h3>
+              </h3> */}
               {activeFilterCount > 0 && (
                 <button
                   onClick={handleResetAll}
