@@ -91,7 +91,7 @@ export default function HeroCarousel({
               src={b.image}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ opacity: 0.55, mixBlendMode: "luminosity" }}
+              style={{ opacity: 0.55 }}
               onError={(e) =>
                 ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)
               }
