@@ -152,7 +152,7 @@ export default function CatalogSection({
       </div>
 
       <div className="flex flex-col lg:grid lg:grid-cols-[260px_1fr] gap-8 w-full lg:items-start">
-        <aside className="hidden lg:block w-[260px] min-w-[260px] max-w-[260px] shrink-0">
+        <aside className="hidden lg:block w-65 min-w-65 max-w-65 shrink-0">
           <div className="sticky top-24 flex flex-col gap-7">
             <div className="flex items-center justify-between">
               <h3
@@ -186,7 +186,7 @@ export default function CatalogSection({
                           selectedEventType === value ? null : value,
                         )
                       }
-                      className="w-4 h-4 accent-[var(--color-accent)]"
+                      className="w-4 h-4 accent-(--color-accent)"
                     />
                     <Icon size={14} style={{ color: "var(--color-ink3)" }} />
                     <span
@@ -221,7 +221,7 @@ export default function CatalogSection({
                           selectedCategory === value ? null : value,
                         )
                       }
-                      className="w-4 h-4 accent-[var(--color-accent)]"
+                      className="w-4 h-4 accent-(--color-accent)"
                     />
                     <Icon size={14} style={{ color: "var(--color-ink3)" }} />
                     <span
