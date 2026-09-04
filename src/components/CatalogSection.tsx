@@ -281,15 +281,22 @@ export default function CatalogSection({
               </div>
             </FilterGroup>
             <FilterGroup title="Taille">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {SIZE_OPTIONS.map((size) => (
                   <button
                     key={size}
                     onClick={() =>
                       setFilterSize(filterSize === size ? null : size)
                     }
-                    className="chip"
-                    data-active={filterSize === size}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                    style={{
+                      background:
+                        filterSize === size
+                          ? "var(--color-accent)"
+                          : "var(--color-surface2)",
+                      color: filterSize === size ? "#fff" : "var(--color-ink3)",
+                      border: `1px solid ${filterSize === size ? "var(--color-accent)" : "var(--color-border)"}`,
+                    }}
                   >
                     {size}
                   </button>
