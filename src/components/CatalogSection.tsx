@@ -73,7 +73,7 @@ export default function CatalogSection({
   isFavoritesMode = false,
   onClearFavorites,
 }: CatalogSectionProps) {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [priceMin, setPriceMin] = useState(0);
@@ -360,7 +360,7 @@ export default function CatalogSection({
                   border: "1px solid var(--color-border)",
                 }}
               >
-                <button
+                {/* <button
                   onClick={() => setViewMode("grid")}
                   aria-pressed={viewMode === "grid"}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -389,7 +389,7 @@ export default function CatalogSection({
                   }}
                 >
                   <List size={14} style={{ color: "var(--color-ink)" }} />
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
