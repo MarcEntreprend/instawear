@@ -1,5 +1,5 @@
 // src/components/CatalogSection.tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Sparkles,
   RefreshCw,
@@ -304,28 +304,11 @@ export default function CatalogSection({
               </div>
             </FilterGroup>
             <FilterGroup title="Couleur">
-              <div className="flex flex-wrap gap-2.5">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c.hex}
-                    onClick={() =>
-                      setFilterColor(filterColor === c.hex ? null : c.hex)
-                    }
-                    aria-label={c.name}
-                    title={c.name}
-                    className="w-8 h-8 rounded-full"
-                    style={{
-                      background: c.hex,
-                      border:
-                        filterColor === c.hex
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border2)",
-                      boxShadow:
-                        filterColor === c.hex ? "var(--shadow-sm)" : "none",
-                    }}
-                  />
-                ))}
-              </div>
+              <ColorPicker
+                colors={COLOR_OPTIONS}
+                selectedColor={filterColor}
+                onSelect={(hex) => setFilterColor(hex)}
+              />
             </FilterGroup>
             <label className="flex items-center justify-between cursor-pointer">
               <span
@@ -648,22 +631,13 @@ export default function CatalogSection({
                 ))}
               </div>
               <div className="flex flex-wrap gap-2.5">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c.hex}
-                    onClick={() =>
-                      setFilterColor(filterColor === c.hex ? null : c.hex)
-                    }
-                    className="w-8 h-8 rounded-full"
-                    style={{
-                      background: c.hex,
-                      border:
-                        filterColor === c.hex
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border2)",
-                    }}
+                <FilterGroup title="Couleur">
+                  <ColorPicker
+                    colors={COLOR_OPTIONS}
+                    selectedColor={filterColor}
+                    onSelect={(hex) => setFilterColor(hex)}
                   />
-                ))}
+                </FilterGroup>
               </div>
             </div>
             <div
@@ -686,6 +660,114 @@ export default function CatalogSection({
     </section>
   );
 }
+
+// ─── Sélecteur de couleurs compact ──────────────────────────────────
+function ColorPicker({
+  colors,
+  selectedColor,
+  onSelect,
+}: {
+  colors: { hex: string; name: string }[];
+  selectedColor: string | null;
+  onSelect: (hex: string | null) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fermer le dropdown au clic en dehors
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const visibleSwatches = colors.slice(0, 3);
+  const extraSwatches = colors.length - 3;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Affichage compact : 3 couleurs + cercle multicolore */}
+      <div className="flex items-center gap-1.5">
+        {visibleSwatches.map((c) => (
+          <button
+            key={c.hex}
+            onClick={() => {
+              onSelect(selectedColor === c.hex ? null : c.hex);
+              setIsOpen(false);
+            }}
+            className="w-4 h-4 rounded-full transition-transform hover:scale-110"
+            style={{
+              background: c.hex,
+              border:
+                selectedColor === c.hex
+                  ? "2px solid var(--color-accent)"
+                  : "1px solid var(--color-border2)",
+              boxShadow: selectedColor === c.hex ? "var(--shadow-sm)" : "none",
+            }}
+            title={c.name}
+          />
+        ))}
+        {extraSwatches > 0 && (
+          <>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="color-wheel transition-transform hover:scale-110"
+              title={`+${extraSwatches} colors`}
+            />
+            <span
+              className="text-[11px] font-semibold cursor-pointer hover:underline"
+              style={{ color: "var(--color-ink4)" }}
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              +{extraSwatches}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Dropdown scrollable */}
+      {isOpen && (
+        <div
+          className="absolute top-full left-0 mt-2 z-50 w-48 max-h-48 overflow-y-auto rounded-xl shadow-lg border p-2 animate-fade-up"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+            boxShadow: "var(--shadow-lg)",
+          }}
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {colors.map((c) => (
+              <button
+                key={c.hex}
+                onClick={() => {
+                  onSelect(selectedColor === c.hex ? null : c.hex);
+                  setIsOpen(false);
+                }}
+                className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+                style={{
+                  background: c.hex,
+                  border:
+                    selectedColor === c.hex
+                      ? "2px solid var(--color-accent)"
+                      : "1px solid var(--color-border2)",
+                }}
+                title={c.name}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterGroup({
   title,
   children,
