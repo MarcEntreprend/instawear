@@ -1,4 +1,4 @@
-// src/components/Footer.tsx — V1 props + V2 visuals (help banner + 6-col grid)
+// src/components/Footer.tsx — V1 props + V2 visuals (help banner + 6-col grid) + mybooker credit centered
 import { useState } from "react";
 import {
   HelpCircle,
@@ -8,7 +8,6 @@ import {
   Facebook,
   ArrowRight,
   Check,
-  Send,
   Loader2,
   Lock,
 } from "lucide-react";
@@ -386,14 +385,32 @@ export default function Footer({
         </div>
       </div>
 
+      {/* Bande de copyright avec mention mybooker centrée */}
       <div style={{ borderTop: "1px solid var(--color-border)" }}>
         <div
           className="max-w-350 mx-auto px-6 h-16 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
           style={{ color: "var(--color-ink3)" }}
         >
+          {/* Gauche : Copyright */}
           <span>
             © {new Date().getFullYear()} InstaWear. Tous droits réservés.
           </span>
+
+          {/* Centre : mybooker credit */}
+          <span className="text-[11px]" style={{ color: "var(--color-ink4)" }}>
+            Réalisé par{" "}
+            <a
+              href="https://mybooker.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium transition-colors hover:text-(--color-accent)"
+              style={{ color: "var(--color-ink2)" }}
+            >
+              mybooker
+            </a>
+          </span>
+
+          {/* Droite : Liens légaux */}
           <div className="flex items-center gap-5">
             <button
               onClick={() => onOpenLegal?.("cgv")}
