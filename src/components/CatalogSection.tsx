@@ -1,5 +1,6 @@
 // src/components/CatalogSection.tsx
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useIsMobile } from "../hooks/useIsMobile";
 import {
   X,
   LayoutGrid,
@@ -338,15 +339,19 @@ export default function CatalogSection({
 
         <div className="flex-1 min-w-0 w-full">
           <div className="flex items-center justify-between gap-3 mb-6">
-            <button
-              onClick={() => setIsFilterDrawerOpen(true)}
-              className="btn btn-secondary lg:hidden"
-            >
-              <SlidersHorizontal size={15} /> Filtres{" "}
-              {activeFilterCount > 0 && (
-                <span className="badge badge-accent">{activeFilterCount}</span>
-              )}
-            </button>
+            {useIsMobile() && (
+              <button
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="btn btn-secondary flex items-center gap-2"
+              >
+                <SlidersHorizontal size={15} /> Filtres{" "}
+                {activeFilterCount > 0 && (
+                  <span className="badge badge-accent">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            )}
             <div className="flex items-center gap-2 ml-auto">
               <div
                 className="hidden sm:flex items-center rounded-full p-1"
