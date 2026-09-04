@@ -89,18 +89,9 @@ export default function App() {
     string | null
   >(null);
 
-  // Force top on first load (browsers restore previous scroll → “Nouveautés”)
+  // Keep manual restore without forcing scroll (hero placeholder keeps layout stable)
   useEffect(() => {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    document.documentElement.style.scrollBehavior = "auto";
-    const toTop = () => window.scrollTo(0, 0);
-    toTop();
-    requestAnimationFrame(toTop);
-    const t1 = setTimeout(toTop, 100);
-    const t2 = setTimeout(toTop, 500);
-    const onLoad = () => { toTop(); setTimeout(() => { document.documentElement.style.scrollBehavior = ""; }, 600); };
-    window.addEventListener("load", onLoad);
-    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("load", onLoad); };
   }, []);
 
   // V2 routing: /produit/:id → product page (pushState + popstate)
@@ -397,6 +388,7 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   let toastIdCounter = useRef(0);
   const isInitialMount = useRef(true);
+  const hasScrolledOnLoad = useRef(false);
 
   //
   useEffect(() => {
@@ -860,6 +852,12 @@ export default function App() {
 
   // Auto-scroll to filters or catalog when a filter changes
   useEffect(() => {
+    // Ignorer le scroll automatique au premier chargement
+    if (!hasScrolledOnLoad.current && window.scrollY < 10) {
+      hasScrolledOnLoad.current = true;
+      return;
+    }
+
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;

@@ -42,7 +42,19 @@ export default function HeroCarousel({ banners, loading, onBannerAction }: HeroC
     autoPlayTimeoutRef.current = setTimeout(() => setIsPaused(false), duration);
   };
 
-  if (loading || banners.length === 0) return null;
+  if (loading || banners.length === 0) {
+    return (
+      <section className="relative overflow-hidden rounded-b-4xl sm:rounded-b-[2.5rem]">
+        <div className="relative h-[78vh] min-h-105 max-h-190 w-full animate-pulse" style={{ background: "var(--color-surface2)" }}>
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)] animate-spin" />
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
   const banner = banners[index % banners.length];
 
   return (
