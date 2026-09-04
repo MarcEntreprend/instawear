@@ -1,14 +1,11 @@
 // src/components/CatalogSection.tsx
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Sparkles,
-  RefreshCw,
   X,
   LayoutGrid,
   List,
   SlidersHorizontal,
   RotateCcw,
-  ChevronDown,
 } from "lucide-react";
 import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
@@ -343,7 +340,7 @@ export default function CatalogSection({
           <div className="flex items-center justify-between gap-3 mb-6">
             <button
               onClick={() => setIsFilterDrawerOpen(true)}
-              className="lg:hidden btn btn-secondary"
+              className="btn btn-secondary lg:hidden"
             >
               <SlidersHorizontal size={15} /> Filtres{" "}
               {activeFilterCount > 0 && (
