@@ -136,7 +136,7 @@ export default function CatalogSection({
   return (
     <section
       id="section-catalog"
-      className="max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 scroll-mt-24"
+      className="w-full max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 scroll-mt-24"
     >
       <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
         <div>
