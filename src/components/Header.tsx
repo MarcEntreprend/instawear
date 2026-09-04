@@ -519,30 +519,41 @@ export default function Header({
         }}
       >
         <div className="max-w-350 mx-auto px-4 sm:px-6 h-16 md:h-(--header-h) flex items-center gap-3 sm:gap-6">
-          <button
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="flex items-center gap-2 shrink-0 bg-transparent border-none cursor-pointer"
-            aria-label="InstaWear — accueil"
-          >
-            <span
-              className="w-9 h-9 rounded-2xl flex items-center justify-center overflow-hidden"
-              style={{ background: "var(--color-accent)" }}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Menu sandwich — visible uniquement sur mobile/tablette */}
+            <button
+              className="flex lg:hidden! btn-icon shrink-0"
+              aria-label="Ouvrir le menu"
+              onClick={() => setIsMobileMenuOpen(true)}
             >
-              <img
-                src="/InstaWear-logo.png"
-                alt="InstaWear"
-                className="w-full h-full object-cover"
-              />
-            </span>
-            <span
-              className="hidden sm:block text-lg font-extrabold tracking-tight"
-              style={{ color: "var(--color-ink)" }}
+              <Menu size={20} />
+            </button>
+
+            <button
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              className="flex items-center gap-2 bg-transparent border-none cursor-pointer"
+              aria-label="InstaWear — accueil"
             >
-              Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
-            </span>
-          </button>
+              <span
+                className="w-9 h-9 rounded-2xl flex items-center justify-center overflow-hidden"
+                style={{ background: "var(--color-accent)" }}
+              >
+                <img
+                  src="/InstaWear-logo.png"
+                  alt="InstaWear"
+                  className="w-full h-full object-cover"
+                />
+              </span>
+              <span
+                className="hidden sm:block text-lg font-extrabold tracking-tight"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+              </span>
+            </button>
+          </div>
           <nav className="hidden lg:flex items-center gap-1 ml-2">
             {MAIN_NAV_LINKS.map((link) => (
               <button
@@ -796,7 +807,10 @@ export default function Header({
               className="flex items-center justify-between px-5 h-16"
               style={{ borderBottom: "1px solid var(--color-border)" }}
             >
-              <span style={{ color: "var(--color-ink)" }}>
+              <span
+                className="text-lg font-extrabold tracking-tight"
+                style={{ color: "var(--color-ink)" }}
+              >
                 Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
               </span>
               <button
