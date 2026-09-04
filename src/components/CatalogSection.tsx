@@ -152,7 +152,7 @@ export default function CatalogSection({
       <div className="flex flex-col lg:grid lg:grid-cols-[260px_1fr] gap-8 w-full lg:items-start">
         <aside className="hidden lg:block sticky top-24 self-start">
           <div
-            className="flex flex-col gap-7 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 scrollbar-thin"
+            className="flex flex-col gap-2 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 scrollbar-thin"
             style={{ scrollbarWidth: "thin" }}
           >
             <div className="flex items-center justify-between">
@@ -338,7 +338,7 @@ export default function CatalogSection({
         </aside>
 
         <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="flex items-center justify-between gap-3">
             {useIsMobile() && (
               <button
                 onClick={() => setIsFilterDrawerOpen(true)}
