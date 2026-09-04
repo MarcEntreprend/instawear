@@ -672,14 +672,33 @@ function ColorPicker({
   onSelect: (hex: string | null) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<"top" | "bottom">(
+    "bottom",
+  );
+  const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const MAX_VISIBLE = 6;
 
-  // Fermer le dropdown au clic en dehors
+  const visibleColors = colors.slice(0, MAX_VISIBLE);
+  const extraCount = colors.length - MAX_VISIBLE;
+
+  const toggleOpen = () => {
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setDropdownPosition(spaceBelow < 200 ? "top" : "bottom");
+    }
+    setIsOpen(!isOpen);
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
+        !dropdownRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -688,21 +707,53 @@ function ColorPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const visibleSwatches = colors.slice(0, 3);
-  const extraSwatches = colors.length - 3;
+  useEffect(() => {
+    if (isOpen) {
+      const updatePosition = () => {
+        if (buttonRef.current) {
+          const rect = buttonRef.current.getBoundingClientRect();
+          const spaceBelow = window.innerHeight - rect.bottom;
+          setDropdownPosition(spaceBelow < 200 ? "top" : "bottom");
+        }
+      };
+      window.addEventListener("resize", updatePosition);
+      return () => window.removeEventListener("resize", updatePosition);
+    }
+  }, [isOpen]);
+
+  const getDropdownStyle = (): React.CSSProperties => {
+    if (!buttonRef.current) return {};
+    const rect = buttonRef.current.getBoundingClientRect();
+    const left = rect.left;
+    const top =
+      dropdownPosition === "bottom" ? rect.bottom + 8 : rect.top - 8 - 200; // 200 = max-height du dropdown
+    return {
+      position: "fixed",
+      top: top,
+      left: left,
+      width: Math.max(200, rect.width * 1.2),
+      maxHeight: 200,
+      overflowY: "auto",
+      background: "var(--color-surface)",
+      border: "1px solid var(--color-border)",
+      borderRadius: "0.75rem",
+      boxShadow: "var(--shadow-lg)",
+      padding: "0.5rem",
+      zIndex: 9999,
+    };
+  };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Affichage compact : 3 couleurs + cercle multicolore */}
-      <div className="flex items-center gap-1.5">
-        {visibleSwatches.map((c) => (
+    <div ref={buttonRef} className="inline-block">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {visibleColors.map((c) => (
           <button
             key={c.hex}
             onClick={() => {
               onSelect(selectedColor === c.hex ? null : c.hex);
               setIsOpen(false);
             }}
-            className="w-4 h-4 rounded-full transition-transform hover:scale-110"
+            className="w-5 h-5 rounded-full transition-transform hover:scale-110"
             style={{
               background: c.hex,
               border:
@@ -714,54 +765,48 @@ function ColorPicker({
             title={c.name}
           />
         ))}
-        {extraSwatches > 0 && (
+        {extraCount > 0 && (
           <>
             <button
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={toggleOpen}
               className="color-wheel transition-transform hover:scale-110"
-              title={`+${extraSwatches} colors`}
+              title={`+${extraCount} colors`}
             />
             <span
               className="text-[11px] font-semibold cursor-pointer hover:underline"
               style={{ color: "var(--color-ink4)" }}
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={toggleOpen}
             >
-              +{extraSwatches}
+              +{extraCount}
             </span>
           </>
         )}
       </div>
 
-      {/* Dropdown scrollable */}
       {isOpen && (
         <div
-          className="absolute top-full left-0 mt-2 z-50 w-48 max-h-48 overflow-y-auto rounded-xl shadow-lg border p-2 animate-fade-up"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
-            boxShadow: "var(--shadow-lg)",
-          }}
+          ref={dropdownRef}
+          style={getDropdownStyle()}
+          className="flex flex-wrap gap-1.5 p-2"
         >
-          <div className="flex flex-wrap gap-1.5">
-            {colors.map((c) => (
-              <button
-                key={c.hex}
-                onClick={() => {
-                  onSelect(selectedColor === c.hex ? null : c.hex);
-                  setIsOpen(false);
-                }}
-                className="w-6 h-6 rounded-full transition-transform hover:scale-110"
-                style={{
-                  background: c.hex,
-                  border:
-                    selectedColor === c.hex
-                      ? "2px solid var(--color-accent)"
-                      : "1px solid var(--color-border2)",
-                }}
-                title={c.name}
-              />
-            ))}
-          </div>
+          {colors.map((c) => (
+            <button
+              key={c.hex}
+              onClick={() => {
+                onSelect(selectedColor === c.hex ? null : c.hex);
+                setIsOpen(false);
+              }}
+              className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+              style={{
+                background: c.hex,
+                border:
+                  selectedColor === c.hex
+                    ? "2px solid var(--color-accent)"
+                    : "1px solid var(--color-border2)",
+              }}
+              title={c.name}
+            />
+          ))}
         </div>
       )}
     </div>
