@@ -1752,6 +1752,75 @@ export const heroPromotionsApi = {
   },
 };
 
+export const reviewApi = {
+  async list(productId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("product_reviews")
+      .select("*, review_helpful(customer_id)")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      productId: r.product_id,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      rating: r.rating,
+      title: r.title,
+      body: r.body ?? r.comment,
+      comment: r.comment,
+      helpful: r.helpful ?? 0,
+      verified: r.verified ?? false,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      helpfulBy: (r.review_helpful ?? []).map((h: any) => h.customer_id),
+    }));
+  },
+  async create(review: { productId: string; customerId: string; customerName?: string; rating: number; title?: string; body?: string }): Promise<any> {
+    const { data: verified } = await supabase.rpc("is_verified_buyer", { p_product_id: review.productId, p_customer_id: review.customerId });
+    const { data, error } = await supabase
+      .from("product_reviews")
+      .insert({
+        product_id: review.productId,
+        customer_id: review.customerId,
+        customer_name: review.customerName || "Anonymous",
+        rating: review.rating,
+        title: review.title || null,
+        body: review.body || null,
+        comment: review.body || null,
+        verified: !!verified,
+      })
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: { rating?: number; title?: string; body?: string }): Promise<void> {
+    const { error } = await supabase
+      .from("product_reviews")
+      .update({ rating: updates.rating, title: updates.title, body: updates.body, comment: updates.body })
+      .eq("id", id);
+    if (error) throw error;
+  },
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from("product_reviews").delete().eq("id", id);
+    if (error) throw error;
+  },
+  async toggleHelpful(reviewId: string, customerId: string): Promise<void> {
+    const { data: existing } = await supabase
+      .from("review_helpful")
+      .select("review_id")
+      .eq("review_id", reviewId)
+      .eq("customer_id", customerId)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from("review_helpful").delete().eq("review_id", reviewId).eq("customer_id", customerId);
+    } else {
+      await supabase.from("review_helpful").insert({ review_id: reviewId, customer_id: customerId });
+    }
+  },
+};
+
 export const referenceListApi = {
   async list(): Promise<import("../admin/adminTypes").ReferenceItem[]> {
     const { data, error } = await supabase
