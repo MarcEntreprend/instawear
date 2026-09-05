@@ -143,7 +143,7 @@ export default function ProductPage({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-(--color-bg) animate-fade-in">
       <div className="max-w-350 mx-auto px-4 sm:px-6 pt-4 pb-24 lg:pb-16">
         <button
           onClick={onClose}
