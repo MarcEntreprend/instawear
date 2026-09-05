@@ -16,6 +16,7 @@ import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPrice } from "../data/currency";
 import ZoomImage from "../components/product/ZoomImage";

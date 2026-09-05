@@ -1,0 +1,19 @@
+# InstaWear
+
+> Print-on-demand clothing store for global events — Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, AI designs, 4-day delivery.
+
+- [Home](https://instawear.vercel.app/)
+- [Catalog](https://instawear.vercel.app/#section-catalog)
+- [FAQ](https://instawear.vercel.app/faq)
+- [Contact](https://instawear.vercel.app/contact)
+- [CGV](https://instawear.vercel.app/legal/cgv)
+- [Privacy](https://instawear.vercel.app/legal/privacy)
+- [Cookies](https://instawear.vercel.app/legal/cookies)
+- [Sitemap](https://instawear.vercel.app/sitemap.xml)
+
+## Products
+Catalog is dynamic via Supabase — see sitemap for product pages at `/produit/:id`.
+
+## API
+No public API. For AI crawlers: respect robots.txt, use sitemap.
+
