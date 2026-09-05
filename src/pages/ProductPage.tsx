@@ -16,6 +16,8 @@ import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatPrice } from "../data/currency";
 import ZoomImage from "../components/product/ZoomImage";
 import ImageLightbox from "../components/product/ImageLightbox";
 import SizeGuideModal from "../components/product/SizeGuideModal";
@@ -65,6 +67,7 @@ export default function ProductPage({
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
   const { ids: recentlyIds, addViewed } = useRecentlyViewed();
+  const { currency } = useCurrency();
 
   useEffect(() => {
     addViewed(product.id);
@@ -254,15 +257,14 @@ export default function ProductPage({
                   color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
                 }}
               >
-                {unitPrice.toFixed(2)} {currencySymbol}
+                {formatPrice(unitPrice, currency)}
               </span>
               {dealLive && (
                 <span
                   className="text-sm line-through"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  {(currentVariantPrice ?? product.price).toFixed(2)}{" "}
-                  {currencySymbol}
+                  {formatPrice(currentVariantPrice ?? product.price, currency)}
                 </span>
               )}
             </div>
@@ -378,14 +380,14 @@ export default function ProductPage({
                   className="text-xl font-extrabold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {unitPrice.toFixed(2)} {currencySymbol}
+                  {formatPrice(unitPrice, currency)}
                 </span>
                 {dealLive && (
                   <span
                     className="text-xs line-through"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    {product.price.toFixed(2)} {currencySymbol}
+                    {formatPrice(product.price, currency)}
                   </span>
                 )}
               </div>
@@ -545,7 +547,7 @@ export default function ProductPage({
           className="text-sm font-extrabold"
           style={{ color: "var(--color-ink)" }}
         >
-          {unitPrice.toFixed(2)} {currencySymbol}
+          {formatPrice(unitPrice, currency)}
         </span>
         <button
           onClick={handleAdd}
