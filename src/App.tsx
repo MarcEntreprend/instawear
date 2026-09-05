@@ -19,6 +19,7 @@ import ContactPage from "./pages/ContactPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
+import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -150,6 +151,7 @@ export default function App() {
     setSelectedProductInitialColor(color || null);
     setSelectedProductInitialSize(size || null);
     setSelectedProduct(p);
+    addViewed(p.id);
     try {
       history.pushState({}, "", `/produit/${p.id}`);
     } catch {}
@@ -219,6 +221,7 @@ export default function App() {
 
   const currencySymbol = useCurrencySymbol();
   const cookieConsent = useCookieConsent();
+  const { addViewed } = useRecentlyViewed();
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -1133,6 +1136,7 @@ export default function App() {
             history.pushState({}, "", "/");
             setSelectedProduct(null);
           }}
+          onSelectProduct={(p) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
         />
       )}
