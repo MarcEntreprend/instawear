@@ -12,7 +12,7 @@ import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
-import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { EVENT_TYPES, PRODUCT_CATEGORIES, STYLE_OPTIONS, MATERIAL_OPTIONS, SORT_OPTIONS, type SortValue } from "../data/categories";
 
 interface CatalogSectionProps {
   filteredProducts: Product[];
@@ -39,6 +39,42 @@ interface CatalogSectionProps {
   onClearFavorites?: () => void;
 }
 const PAGE_SIZE = 12;
+type FilterState = {
+  search: string; category: string | null; eventType: string | null; style: string | null; material: string | null;
+  priceMin: number; priceMax: number; inStockOnly: boolean; size: string | null; color: string | null;
+};
+const DEFAULT_FILTERS: FilterState = { search: "", category: null, eventType: null, style: null, material: null, priceMin: 0, priceMax: 200, inStockOnly: false, size: null, color: null };
+const DEFAULT_SORT: SortValue = "popular";
+const DEFAULT_VIEW: "grid" | "list" = "grid";
+function parseFiltersFromSearch(search: string, fallbackEventType: string | null, fallbackCategory: string | null): { filters: FilterState; sort: SortValue; view: "grid" | "list" } {
+  const params = new URLSearchParams(search);
+  const filters: FilterState = {
+    search: params.get("q") ?? "", eventType: params.get("event") ?? fallbackEventType, category: params.get("cat") ?? fallbackCategory,
+    style: params.get("style") ?? null, material: params.get("material") ?? null,
+    priceMin: params.has("pmin") ? Number(params.get("pmin")) : 0, priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
+    inStockOnly: params.get("stock") === "1", size: params.get("size") ?? null, color: params.get("color") ? `#${params.get("color")}` : null,
+  };
+  const sortParam = params.get("sort");
+  const sort = SORT_OPTIONS.some((o) => o.value === sortParam) ? (sortParam as SortValue) : DEFAULT_SORT;
+  const view = params.get("view") === "list" ? "list" : DEFAULT_VIEW;
+  return { filters, sort, view };
+}
+function serializeFiltersToSearch(filters: FilterState, sort: SortValue, view: "grid" | "list"): string {
+  const params = new URLSearchParams();
+  if (filters.search.trim()) params.set("q", filters.search.trim());
+  if (filters.eventType) params.set("event", filters.eventType);
+  if (filters.category) params.set("cat", filters.category);
+  if (filters.style) params.set("style", filters.style);
+  if (filters.material) params.set("material", filters.material);
+  if (filters.priceMin !== 0) params.set("pmin", String(filters.priceMin));
+  if (filters.priceMax !== 200) params.set("pmax", String(filters.priceMax));
+  if (filters.inStockOnly) params.set("stock", "1");
+  if (filters.size) params.set("size", filters.size);
+  if (filters.color) params.set("color", filters.color.replace("#", ""));
+  if (sort !== DEFAULT_SORT) params.set("sort", sort);
+  if (view !== DEFAULT_VIEW) params.set("view", view);
+  return params.toString();
+}
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
 const COLOR_OPTIONS = [
   { hex: "#000000", name: "Black" },
@@ -73,23 +109,49 @@ export default function CatalogSection({
   isFavoritesMode = false,
   onClearFavorites,
 }: CatalogSectionProps) {
-  const [viewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).view;
+    return DEFAULT_VIEW;
+  });
+  const [sort, setSort] = useState<SortValue>(() => {
+    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).sort;
+    return DEFAULT_SORT;
+  });
+  const [filters, setFilters] = useState<FilterState>(() => {
+    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).filters;
+    return { ...DEFAULT_FILTERS, eventType: selectedEventType, category: selectedCategory, search: searchTerm };
+  });
+  // Sync App's search/category/event into local filters when they change externally (header)
+  useEffect(() => { setFilters((f) => ({ ...f, search: searchTerm, category: selectedCategory, eventType: selectedEventType })); }, [searchTerm, selectedCategory, selectedEventType]);
+  useEffect(() => {
+    const qs = serializeFiltersToSearch(filters, sort, viewMode);
+    const url = qs ? `/?${qs}` : "/";
+    window.history.replaceState(window.history.state, "", url);
+  }, [filters, sort, viewMode]);
+
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [priceMin, setPriceMin] = useState(0);
-  const [priceMax, setPriceMax] = useState(200);
-  const [filterSize, setFilterSize] = useState<string | null>(null);
-  const [filterColor, setFilterColor] = useState<string | null>(null);
-  const [inStockOnly, setInStockOnly] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const extraFiltered = filteredProducts.filter((p) => {
-    if (p.price < priceMin || p.price > priceMax) return false;
-    if (filterSize && !p.sizes.includes(filterSize)) return false;
-    if (filterColor && !p.colors.includes(filterColor)) return false;
-    if (inStockOnly && p.inStock === false) return false;
-    return true;
-  });
+  const extraFiltered = useMemo(() => {
+    let list = filteredProducts.filter((p) => {
+      if (p.price < filters.priceMin || p.price > filters.priceMax) return false;
+      if (filters.size && !p.sizes.includes(filters.size)) return false;
+      if (filters.color && !p.colors.includes(filters.color)) return false;
+      if (filters.inStockOnly && p.inStock === false) return false;
+      if (filters.style && p.style !== filters.style) return false;
+      if (filters.material && p.material !== filters.material) return false;
+      return true;
+    });
+    switch (sort) {
+      case "price-asc": list = [...list].sort((a, b) => a.price - b.price); break;
+      case "price-desc": list = [...list].sort((a, b) => b.price - a.price); break;
+      case "rating": list = [...list].sort((a, b) => b.ratings.score - a.ratings.score); break;
+      case "new": list = [...list].sort((a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0)); break;
+      default: list = [...list].sort((a, b) => b.boughtLastMonth - a.boughtLastMonth);
+    }
+    return list;
+  }, [filteredProducts, filters, sort]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -98,8 +160,7 @@ export default function CatalogSection({
     if (!sentinelRef.current) return;
     const obs = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting)
-          setVisibleCount((c) => Math.min(c + PAGE_SIZE, extraFiltered.length));
+        if (entries[0].isIntersecting) loadMore();
       },
       { rootMargin: "400px" },
     );
@@ -110,20 +171,27 @@ export default function CatalogSection({
   const displayed = extraFiltered.slice(0, visibleCount);
   const hasMore = visibleCount < extraFiltered.length;
   const activeFilterCount = [
-    selectedEventType,
-    selectedCategory,
-    filterSize,
-    filterColor,
-    inStockOnly ? "stock" : null,
-    priceMin !== 0 || priceMax !== 200 ? "price" : null,
+    filters.eventType,
+    filters.category,
+    filters.style,
+    filters.material,
+    filters.size,
+    filters.color,
+    filters.inStockOnly ? "stock" : null,
+    filters.priceMin !== 0 || filters.priceMax !== 200 ? "price" : null,
   ].filter(Boolean).length;
 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadMore = () => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setVisibleCount((v) => Math.min(extraFiltered.length, v + PAGE_SIZE));
+      setIsLoadingMore(false);
+    }, 250);
+  };
+
   const resetExtra = () => {
-    setPriceMin(0);
-    setPriceMax(200);
-    setFilterSize(null);
-    setFilterColor(null);
-    setInStockOnly(false);
+    setFilters(DEFAULT_FILTERS);
   };
   const handleResetAll = () => {
     onClearFilters();
@@ -250,8 +318,8 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
-                    value={priceMin}
-                    onChange={(e) => setPriceMin(Number(e.target.value) || 0)}
+                    value={filters.priceMin}
+                    onChange={(e) => setFilters((f) => ({ ...f, priceMin: Number(e.target.value) || 0 }))}
                     className="w-full bg-transparent outline-none text-sm"
                     style={{ color: "var(--color-ink)" }}
                   />
@@ -270,12 +338,48 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
-                    value={priceMax}
-                    onChange={(e) => setPriceMax(Number(e.target.value) || 0)}
+                    value={filters.priceMax}
+                    onChange={(e) => setFilters((f) => ({ ...f, priceMax: Number(e.target.value) || 0 }))}
                     className="w-full bg-transparent outline-none text-sm"
                     style={{ color: "var(--color-ink)" }}
                   />
                 </div>
+              </div>
+            </FilterGroup>
+            <FilterGroup title="Style">
+              <div className="flex flex-wrap gap-1.5">
+                {STYLE_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setFilters((f) => ({ ...f, style: f.style === s ? null : s }))}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                    style={{
+                      background: filters.style === s ? "var(--color-accent)" : "var(--color-surface2)",
+                      color: filters.style === s ? "#fff" : "var(--color-ink3)",
+                      border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </FilterGroup>
+            <FilterGroup title="Matière">
+              <div className="flex flex-wrap gap-1.5">
+                {MATERIAL_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setFilters((f) => ({ ...f, material: f.material === m ? null : m }))}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                    style={{
+                      background: filters.material === m ? "var(--color-accent)" : "var(--color-surface2)",
+                      color: filters.material === m ? "#fff" : "var(--color-ink3)",
+                      border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
               </div>
             </FilterGroup>
             <FilterGroup title="Taille">
@@ -284,16 +388,16 @@ export default function CatalogSection({
                   <button
                     key={size}
                     onClick={() =>
-                      setFilterSize(filterSize === size ? null : size)
+                      setFilters((f) => ({ ...f, size: f.size === size ? null : size }))
                     }
                     className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
                     style={{
                       background:
-                        filterSize === size
+                        filters.size === size
                           ? "var(--color-accent)"
                           : "var(--color-surface2)",
-                      color: filterSize === size ? "#fff" : "var(--color-ink3)",
-                      border: `1px solid ${filterSize === size ? "var(--color-accent)" : "var(--color-border)"}`,
+                      color: filters.size === size ? "#fff" : "var(--color-ink3)",
+                      border: `1px solid ${filters.size === size ? "var(--color-accent)" : "var(--color-border)"}`,
                     }}
                   >
                     {size}
@@ -304,8 +408,8 @@ export default function CatalogSection({
             <FilterGroup title="Couleur">
               <ColorPicker
                 colors={COLOR_OPTIONS}
-                selectedColor={filterColor}
-                onSelect={(hex) => setFilterColor(hex)}
+                selectedColor={filters.color}
+                onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))}
               />
             </FilterGroup>
             <label className="flex items-center justify-between cursor-pointer">
@@ -316,10 +420,10 @@ export default function CatalogSection({
                 En stock uniquement
               </span>
               <span
-                onClick={() => setInStockOnly(!inStockOnly)}
+                onClick={() => setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))}
                 className="w-11 h-6 rounded-full relative transition-colors"
                 style={{
-                  background: inStockOnly
+                  background: filters.inStockOnly
                     ? "var(--color-accent)"
                     : "var(--color-border2)",
                 }}
@@ -327,7 +431,7 @@ export default function CatalogSection({
                 <span
                   className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
                   style={{
-                    transform: inStockOnly
+                    transform: filters.inStockOnly
                       ? "translateX(22px)"
                       : "translateX(2px)",
                   }}
@@ -353,15 +457,16 @@ export default function CatalogSection({
               </button>
             )}
             <div className="flex items-center gap-2 ml-auto">
-              <div
-                className="hidden sm:flex items-center rounded-full p-1"
-                style={{
-                  background: "var(--color-surface2)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                {/* <button
-                  onClick={() => setViewMode("grid")}
+              <div className="flex items-center gap-2">
+                <div
+                  className="hidden sm:flex items-center rounded-full p-1"
+                  style={{
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <button
+                    onClick={() => setViewMode("grid")}
                   aria-pressed={viewMode === "grid"}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{
@@ -389,7 +494,23 @@ export default function CatalogSection({
                   }}
                 >
                   <List size={14} style={{ color: "var(--color-ink)" }} />
-                </button> */}
+                </button>
+                </div>
+                <div className="relative">
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as SortValue)}
+                    className="appearance-none rounded-full pl-4 pr-9 h-9 text-xs font-semibold outline-none"
+                    style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-ink)" }}
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "var(--color-ink3)" }}>▼</span>
+                </div>
               </div>
             </div>
           </div>
@@ -397,11 +518,13 @@ export default function CatalogSection({
           {(searchTerm ||
             selectedCategory ||
             selectedEventType ||
-            filterSize ||
-            filterColor ||
-            inStockOnly ||
-            priceMin !== 0 ||
-            priceMax !== 200) && (
+            filters.size ||
+            filters.color ||
+            filters.style ||
+            filters.material ||
+            filters.inStockOnly ||
+            filters.priceMin !== 0 ||
+            filters.priceMax !== 200) && (
             <div
               className="mb-6 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3"
               style={{
@@ -446,31 +569,41 @@ export default function CatalogSection({
                     {selectedEventType} <X size={12} />
                   </span>
                 )}
-                {filterSize && (
+                {filters.size && (
                   <span
                     className="chip"
                     data-active="true"
-                    onClick={() => setFilterSize(null)}
+                    onClick={() => setFilters((f) => ({ ...f, size: null }))}
                     style={{ cursor: "pointer" }}
                   >
-                    {filterSize} <X size={12} />
+                    {filters.size} <X size={12} />
                   </span>
                 )}
-                {filterColor && (
+                {filters.color && (
                   <span
                     className="chip"
                     data-active="true"
-                    onClick={() => setFilterColor(null)}
+                    onClick={() => setFilters((f) => ({ ...f, color: null }))}
                     style={{ cursor: "pointer" }}
                   >
                     Color <X size={12} />
                   </span>
                 )}
-                {inStockOnly && (
+                {filters.style && (
+                  <span className="chip" data-active="true" onClick={() => setFilters((f) => ({ ...f, style: null }))} style={{ cursor: "pointer" }}>
+                    {filters.style} <X size={12} />
+                  </span>
+                )}
+                {filters.material && (
+                  <span className="chip" data-active="true" onClick={() => setFilters((f) => ({ ...f, material: null }))} style={{ cursor: "pointer" }}>
+                    {filters.material} <X size={12} />
+                  </span>
+                )}
+                {filters.inStockOnly && (
                   <span
                     className="chip"
                     data-active="true"
-                    onClick={() => setInStockOnly(false)}
+                    onClick={() => setFilters((f) => ({ ...f, inStockOnly: false }))}
                     style={{ cursor: "pointer" }}
                   >
                     En stock <X size={12} />
@@ -623,10 +756,10 @@ export default function CatalogSection({
                   <button
                     key={size}
                     onClick={() =>
-                      setFilterSize(filterSize === size ? null : size)
+                      setFilters((f) => ({ ...f, size: f.size === size ? null : size }))
                     }
                     className="chip"
-                    data-active={filterSize === size}
+                    data-active={filters.size === size}
                   >
                     {size}
                   </button>
@@ -636,8 +769,8 @@ export default function CatalogSection({
                 <FilterGroup title="Couleur">
                   <ColorPicker
                     colors={COLOR_OPTIONS}
-                    selectedColor={filterColor}
-                    onSelect={(hex) => setFilterColor(hex)}
+                    selectedColor={filters.color}
+                    onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))}
                   />
                 </FilterGroup>
               </div>
