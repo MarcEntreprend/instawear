@@ -431,14 +431,50 @@ export default function PromotionsPage() {
               </div>
             </div>
             <div>
-              <label style={labelStyle}>Accroche (headline)</label>
-              <input
-                type="text"
-                value={form.headline || ""}
-                onChange={(e) => setForm({ ...form, headline: e.target.value })}
-                style={inputStyle}
-                placeholder="Phrase d'accroche percutante"
-              />
+              <label style={labelStyle}>Accroche — double style</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <input
+                    type="text"
+                    value={(form.headline || "").split("\n")[0] || ""}
+                    onChange={(e) => {
+                      const parts = (form.headline || "").split("\n");
+                      const p2 = parts[1] || "";
+                      const v1 = e.target.value;
+                      setForm({ ...form, headline: p2 ? `${v1}\n${p2}` : v1 });
+                    }}
+                    style={inputStyle}
+                    placeholder='Ligne 1 — normal (ex: "Franchissez")'
+                  />
+                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>Style normal</span>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={(form.headline || "").split("\n")[1] || ""}
+                    onChange={(e) => {
+                      const parts = (form.headline || "").split("\n");
+                      const p1 = parts[0] || "";
+                      const v2 = e.target.value;
+                      setForm({ ...form, headline: v2 ? `${p1}\n${v2}` : p1 });
+                    }}
+                    style={{ ...inputStyle, fontStyle: "italic", fontFamily: "var(--font-serif)" }}
+                    placeholder='Ligne 2 — italique (ex: "la ligne.")'
+                  />
+                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>Italique / emphase</span>
+                </div>
+              </div>
+              {form.headline && (
+                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--color-ink4)", textTransform: "uppercase", letterSpacing: 1 }}>Aperçu</span>
+                  <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, marginTop: 4, color: "var(--color-ink)" }}>
+                    {(form.headline || "").split("\n").map((line: string, i: number) => (
+                      <span key={i} style={{ display: "block", fontStyle: i === 1 ? "italic" : "normal", fontFamily: i === 1 ? "var(--font-serif)" : undefined }}>{line || (i === 0 ? "—" : "")}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 6 }}>Laisse la 2e ligne vide pour un seul style. Exemples : “Franchissez” + “la ligne.” → <b>Franchissez</b> <i style={{ fontFamily: "var(--font-serif)" }}>la ligne.</i></p>
             </div>
             <div>
               <label style={labelStyle}>Sous-texte</label>

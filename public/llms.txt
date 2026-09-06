@@ -1,0 +1,25 @@
+# InstaWear
+
+> Print-on-demand clothing store for global events — Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, AI designs, delivery in 3–7 business days. Prices in EUR (converted at display for CHF/CAD).
+
+- [Home](https://instawear.vercel.app/)
+- [Catalog](https://instawear.vercel.app/#section-catalog)
+- [Promotions](https://instawear.vercel.app/promotions)
+- [Order tracking](https://instawear.vercel.app/suivi)
+- [FAQ](https://instawear.vercel.app/faq)
+- [Contact](https://instawear.vercel.app/contact)
+- [CGV](https://instawear.vercel.app/legal/cgv)
+- [Privacy](https://instawear.vercel.app/legal/privacy)
+- [Cookies](https://instawear.vercel.app/legal/cookies)
+- [Sitemap](https://instawear.vercel.app/sitemap.xml)
+
+## Catalog
+Categories: T-Shirts, Hoodies, Accessories, Mugs. Events: festival, sport, concert, saisonnier, anniversaire. Product pages live at `/produit/:id` (see sitemap.xml for the full list, regenerated regularly). Prices shown with deal countdowns when promotions are active. No account needed to browse or order as guest; tracking by order code (format ORD-YYYY-XXXXXX).
+
+## Policies
+- Shipping: printed on demand via Printful, 3–7 business days, free over threshold.
+- Returns: 30 days for print defects; personalized items non-returnable unless defective.
+- Contact: form at /contact (creates a support ticket) or bonjour@instawear.com, reply within 24h business days.
+
+## API
+No public API. For AI crawlers: respect robots.txt, use sitemap.xml.

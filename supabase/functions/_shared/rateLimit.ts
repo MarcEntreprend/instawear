@@ -16,6 +16,7 @@ export function quotaFor(path: string): Quota {
     case "health": return { max: 30, windowMs: 60_000 };
     case "delete-account": return { max: 3, windowMs: 60_000 };
     case "send-email": return { max: 30, windowMs: 60_000 };
+    case "contact-message": return { max: 5, windowMs: 60_000 };
     default: return { max: 20, windowMs: 60_000 };
   }
 }

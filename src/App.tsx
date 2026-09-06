@@ -5,17 +5,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
-import AccountPage from "./components/AccountPage";
-import CheckoutFlow from "./components/CheckoutFlow";
+// Blocs lourds en lazy : chargés uniquement à l'ouverture (admin jamais
+// téléchargé pour un visiteur non-admin, Stripe uniquement au checkout).
+const AccountPage = lazy(() => import("./components/AccountPage"));
+const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
-import AdminDashboardNew from "./admin/AdminDashboardNew";
+import LegalPage from "./pages/LegalPage";
+import FaqPage from "./pages/FaqPage";
+import ContactPage from "./pages/ContactPage";
+import PromotionsPage from "./pages/PromotionsPage";
+import SearchResultsPage from "./pages/SearchResultsPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
+import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
+import MobileTabBar from "./components/MobileTabBar";
+import BackToTopButton from "./components/BackToTopButton";
+import CookieConsentBanner from "./components/CookieConsentBanner";
+// Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
+const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+
+// Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
+function LazyFallback() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg)" }} aria-label="Chargement">
+      <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-border)", borderTopColor: "var(--color-accent)" }} />
+    </div>
+  );
+}
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
+import { useCookieConsent } from "./hooks/useCookieConsent";
+import { applyConsent } from "./lib/analytics";
 import { Product, CartItem } from "./types";
 import { getVariantAvailability } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
@@ -25,7 +49,7 @@ import {
   customerApi,
   orderApi,
 } from "./api/supabaseApi";
-import ProductDetailModal from "./components/ProductDetailModal";
+import ProductPage from "./pages/ProductPage";
 import HeroCarousel from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
@@ -37,6 +61,7 @@ import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
+import TestimonialsSection from "./components/TestimonialsSection";
 import NotFound from "./components/NotFound";
 
 // ── Product delivery info visibility switch ──
@@ -78,6 +103,121 @@ export default function App() {
     string | null
   >(null);
 
+  // Keep manual restore without forcing scroll (hero placeholder keeps layout stable)
+  useEffect(() => {
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  }, []);
+
+  // V2 routing: /produit/:id → product page (pushState + popstate)
+  useEffect(() => {
+    const path = window.location.pathname;
+    const search = window.location.search;
+    const match = path.match(/^\/produit\/([^/]+)/);
+    if (match && products.length > 0) {
+      const p = products.find((x) => x.id === match[1]);
+      if (p) setSelectedProduct(p);
+    }
+    if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
+    else if (path === "/faq") setShowFaqPage(true);
+    else if (path === "/contact") setShowContactPage(true);
+    else if (path === "/promotions") setShowPromotionsPage(true);
+    else if (path === "/recherche") {
+      const q = new URLSearchParams(search).get("q") || "";
+      if (q) setSearchPageQuery(q);
+    } else if (path === "/suivi") {
+      const c = new URLSearchParams(search).get("code") || "";
+      setTrackingPageCode(c);
+    }
+  }, [products]);
+  useEffect(() => {
+    const onPop = () => {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const m = path.match(/^\/produit\/([^/]+)/);
+      if (m) {
+        const p = products.find((x) => x.id === m[1]);
+        if (p) setSelectedProduct(p);
+        else setSelectedProduct(null);
+      } else {
+        setSelectedProduct(null);
+      }
+      if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
+      else setLegalSlug(null);
+      setShowFaqPage(path === "/faq");
+      setShowContactPage(path === "/contact");
+      setShowPromotionsPage(path === "/promotions");
+      if (path === "/recherche")
+        setSearchPageQuery(new URLSearchParams(search).get("q") || "");
+      else setSearchPageQuery(null);
+      if (path === "/suivi")
+        setTrackingPageCode(new URLSearchParams(search).get("code") || "");
+      else setTrackingPageCode(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [products]);
+  const openProduct = (
+    p: Product,
+    color?: string | null,
+    size?: string | null,
+  ) => {
+    setSelectedProductInitialColor(color || null);
+    setSelectedProductInitialSize(size || null);
+    setSelectedProduct(p);
+    addViewed(p.id);
+    try {
+      history.pushState({}, "", `/produit/${p.id}`);
+    } catch {}
+  };
+
+  // ── Pages (V2) ──
+  const [legalSlug, setLegalSlug] = useState<string | null>(null);
+  const [showFaqPage, setShowFaqPage] = useState(false);
+  const [showContactPage, setShowContactPage] = useState(false);
+  const [showPromotionsPage, setShowPromotionsPage] = useState(false);
+  const [searchPageQuery, setSearchPageQuery] = useState<string | null>(null);
+  const [trackingPageCode, setTrackingPageCode] = useState<string | null>(null);
+  const openLegal = (slug: string) => {
+    setLegalSlug(slug);
+    try {
+      history.pushState({}, "", `/legal/${slug}`);
+    } catch {}
+  };
+  const openFaqPage = () => {
+    setShowFaqPage(true);
+    try {
+      history.pushState({}, "", "/faq");
+    } catch {}
+  };
+  const openContactPage = () => {
+    setShowContactPage(true);
+    try {
+      history.pushState({}, "", "/contact");
+    } catch {}
+  };
+  const openPromotionsPage = () => {
+    setShowPromotionsPage(true);
+    try {
+      history.pushState({}, "", "/promotions");
+    } catch {}
+  };
+  const openSearchPage = (q: string) => {
+    setSearchPageQuery(q);
+    try {
+      history.pushState({}, "", `/recherche?q=${encodeURIComponent(q)}`);
+    } catch {}
+  };
+  const openTrackingPage = (code?: string) => {
+    setTrackingPageCode(code || "");
+    try {
+      history.pushState(
+        {},
+        "",
+        code ? `/suivi?code=${encodeURIComponent(code)}` : "/suivi",
+      );
+    } catch {}
+  };
+
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -93,6 +233,13 @@ export default function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const currencySymbol = useCurrencySymbol();
+  const cookieConsent = useCookieConsent();
+  const { addViewed } = useRecentlyViewed();
+
+  // Traceurs : chargés uniquement après consentement non-essentiels
+  useEffect(() => {
+    applyConsent(cookieConsent.consent);
+  }, [cookieConsent.consent]);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -262,6 +409,7 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   let toastIdCounter = useRef(0);
   const isInitialMount = useRef(true);
+  const hasScrolledOnLoad = useRef(false);
 
   //
   useEffect(() => {
@@ -465,7 +613,9 @@ export default function App() {
     // P-B anti-race: debounced lock 400ms (évite race TOCTOU double-clic → 2 items)
     if (addToCartLock.current) return;
     addToCartLock.current = true;
-    setTimeout(() => { addToCartLock.current = false; }, 400);
+    setTimeout(() => {
+      addToCartLock.current = false;
+    }, 400);
 
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
@@ -602,7 +752,8 @@ export default function App() {
   ) => {
     const idMap: Record<string, string> = {
       catalog: "section-catalog",
-      about: "section-about",
+      about: "about",
+      testimonials: "testimonials",
       faq: "section-faq",
       filters: "section-filters",
     };
@@ -709,19 +860,61 @@ export default function App() {
   }, []);
 
   // Detect user country via IP (free, no API key, CORS-friendly)
+  // Cache 7j en localStorage + fallback silencieux (CheckoutFlow utilise
+  // store_settings.country si detectedCountry est null).
   useEffect(() => {
-    fetch("https://api.country.is/")
-      .then((res) => res.json())
+    const KEY = "instawear-country";
+    const TTL = 7 * 86400000;
+    try {
+      const cached = window.localStorage.getItem(KEY);
+      if (cached) {
+        const { code, at } = JSON.parse(cached);
+        if (code && Date.now() - at < TTL) {
+          setDetectedCountry(code);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    let cancelled = false;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch("https://api.country.is/", { signal: ctrl.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`geo ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
+        if (cancelled) return;
         if (data?.country) {
           setDetectedCountry(data.country);
+          try {
+            window.localStorage.setItem(
+              KEY,
+              JSON.stringify({ code: data.country, at: Date.now() }),
+            );
+          } catch { /* ignore */ }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback silencieux : detectedCountry reste null,
+        // CheckoutFlow utilisera store_settings.country.
+      })
+      .finally(() => clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, []);
 
   // Auto-scroll to filters or catalog when a filter changes
   useEffect(() => {
+    // Ignorer le scroll automatique au premier chargement
+    if (!hasScrolledOnLoad.current && window.scrollY < 10) {
+      hasScrolledOnLoad.current = true;
+      return;
+    }
+
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
@@ -749,20 +942,31 @@ export default function App() {
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname;
-      // Routes connues
-      const knownPaths = ["/", "/unsubscribe", "/index.html"];
+      // Routes connues (SPA : pages produit / légales / aide / suivi)
+      const knownPaths = ["/", "/unsubscribe", "/index.html", "/faq", "/contact", "/promotions", "/recherche", "/suivi"];
+      const knownPrefixes = ["/produit/", "/legal/"];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
         path.startsWith("/flags/") ||
         path.startsWith("/InstaWear-") ||
         path === "/globe-off.svg" ||
-        path === "/unsubscribe.html";
+        path === "/unsubscribe.html" ||
+        path === "/robots.txt" ||
+        path === "/sitemap.xml" ||
+        path === "/llms.txt" ||
+        path === "/ai.txt" ||
+        path === "/site.webmanifest" ||
+        path === "/manifest.json" ||
+        path === "/favicon.ico" ||
+        /\.(png|jpe?g|svg|webp|ico|css|js|map|json|webmanifest)$/.test(path);
 
-      if (!knownPaths.includes(path) && !isStaticFile && path !== "/") {
-        setShowNotFound(true);
-      } else {
-        setShowNotFound(false);
-      }
+      const isKnown =
+        knownPaths.includes(path) ||
+        knownPrefixes.some((p) => path.startsWith(p)) ||
+        isStaticFile ||
+        path === "/";
+
+      setShowNotFound(!isKnown);
     };
 
     checkRoute();
@@ -819,6 +1023,29 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
       <Header
+        isHomePage={
+          activeTab === "store" &&
+          !selectedProduct &&
+          !legalSlug &&
+          !showFaqPage &&
+          !showContactPage &&
+          !showPromotionsPage &&
+          !searchPageQuery &&
+          !trackingPageCode
+        }
+        onNavigateHome={() => {
+          setSelectedProduct(null);
+          setLegalSlug(null);
+          setShowFaqPage(false);
+          setShowContactPage(false);
+          setShowPromotionsPage(false);
+          setSearchPageQuery(null);
+          setTrackingPageCode(null);
+          setActiveTab("store");
+          history.pushState({}, "", "/");
+        }}
+        onOpenFaqPage={openFaqPage}
+        onOpenContactPage={openContactPage}
         cart={cart}
         detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
@@ -884,21 +1111,24 @@ export default function App() {
             onBannerAction={(banner) => {
               if (banner.productId) {
                 const target = products.find((p) => p.id === banner.productId);
-                if (target) {
-                  setSelectedProduct(target);
-                }
+                if (target) openProduct(target);
               }
             }}
           />
+          <ReassuranceBar />
 
           <DealsSection
+            favorites={favorites}
+            onSelectCategory={setSelectedCategory}
+            onToggleFavorite={toggleFavorite}
+            onAddToCart={addToCart}
             dealExpired={dealExpired}
             dealFadingOut={dealFadingOut}
             countdownString={countdownString}
             currencySymbol={currencySymbol}
             products={products}
             onSelectEventType={setSelectedEventType}
-            onSelectProduct={(product) => setSelectedProduct(product)}
+            onSelectProduct={(product) => openProduct(product)}
           />
 
           <CatalogSection
@@ -914,7 +1144,7 @@ export default function App() {
             getDeliverEstimateString={getDeliverEstimateString}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            onSelectProduct={(product) => setSelectedProduct(product)}
+            onSelectProduct={(product) => openProduct(product)}
             onClearFilters={() => {
               setSearchTerm("");
               setSelectedCategory(null);
@@ -926,26 +1156,37 @@ export default function App() {
             setSearchTerm={setSearchTerm}
             setSelectedCategory={setSelectedCategory}
             setSelectedEventType={setSelectedEventType}
+            isFavoritesMode={showFavoritesOnly}
+            onClearFavorites={() => setShowFavoritesOnly(false)}
           />
 
           <AboutSection />
-          <ReassuranceBar />
+
+          <TestimonialsSection />
+
           <FaqSection />
         </main>
       )}
 
-      {/* Admin Creator Dashboard Screen 2 */}
-      {activeTab === "admin" && (
-        <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+      {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
+      {activeTab === "admin" && isAdmin && (
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+        </Suspense>
       )}
 
-      {/* Product Detailed Sheet Modal */}
+      {/* Product Page (V2) — replaces modal, with URL pushState */}
       {selectedProduct && (
-        <ProductDetailModal
+        <ProductPage
           product={selectedProduct}
+          products={products}
           currencySymbol={currencySymbol}
           favorites={favorites}
+          dealExpired={dealExpired}
+          dealFadingOut={dealFadingOut}
+          countdownString={countdownString}
           onClose={() => {
+            history.pushState({}, "", "/");
             setSelectedProduct(null);
             setSelectedProductInitialColor(null);
             setSelectedProductInitialSize(null);
@@ -953,17 +1194,88 @@ export default function App() {
           initialColor={selectedProductInitialColor || undefined}
           initialSize={selectedProductInitialSize || undefined}
           onToggleFavorite={toggleFavorite}
-          onAddToCart={(p, c, s) => {
+          onAddToCart={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
           }}
-          onBuyNow={(p, c, s) => {
+          onBuyNow={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
             setCheckoutOpen(true);
+            history.pushState({}, "", "/");
             setSelectedProduct(null);
           }}
+          onSelectProduct={(p: Product) => openProduct(p)}
+          getDeliverEstimateString={getDeliverEstimateString}
+        />
+      )}
+
+      {/* Pages (V2) */}
+      {legalSlug && (
+        <LegalPage
+          slug={legalSlug}
+          onBack={() => {
+            setLegalSlug(null);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {showFaqPage && (
+        <FaqPage
+          onBack={() => {
+            setShowFaqPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {showContactPage && (
+        <ContactPage
+          onBack={() => {
+            setShowContactPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {showPromotionsPage && (
+        <PromotionsPage
+          products={products}
+          favorites={favorites}
           dealExpired={dealExpired}
           dealFadingOut={dealFadingOut}
-          getDeliverEstimateString={getDeliverEstimateString}
+          countdownString={countdownString}
+          currencySymbol={currencySymbol}
+          onToggleFavorite={toggleFavorite}
+          onAddToCart={addToCart}
+          onSelectProduct={(p) => openProduct(p)}
+          onBack={() => {
+            setShowPromotionsPage(false);
+            history.pushState({}, "", "/");
+          }}
+        />
+      )}
+      {searchPageQuery !== null && (
+        <SearchResultsPage
+          query={searchPageQuery}
+          products={products}
+          favouriteIds={favorites}
+          onBack={() => {
+            setSearchPageQuery(null);
+            history.pushState({}, "", "/");
+          }}
+          onSearch={(q) => openSearchPage(q)}
+          onSelectProduct={(p) => {
+            setSearchPageQuery(null);
+            openProduct(p);
+          }}
+          onToggleFavourite={(p) => toggleFavorite(p.id)}
+          onQuickAdd={(p) => addToCart(p, p.colors?.[0] || "#000000", "M")}
+        />
+      )}
+      {trackingPageCode !== null && (
+        <OrderTrackingPage
+          initialCode={trackingPageCode || ""}
+          onBack={() => {
+            setTrackingPageCode(null);
+            history.pushState({}, "", "/");
+          }}
         />
       )}
 
@@ -980,9 +1292,7 @@ export default function App() {
           }}
           onSelectProduct={(productId: string) => {
             const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProduct(product);
-            }
+            if (product) openProduct(product);
           }}
         />
       )}
@@ -993,6 +1303,11 @@ export default function App() {
         onSelectEventType={setSelectedEventType}
         onNavigate={setActiveTab}
         onOpenAdmin={() => setShowNewAdmin(true)}
+        onOpenLegal={openLegal}
+        onOpenFaq={openFaqPage}
+        onOpenContact={openContactPage}
+        onOpenPromotions={openPromotionsPage}
+        onManageCookies={cookieConsent.resetConsent}
       />
 
       {showAuthModal && (
@@ -1040,54 +1355,62 @@ export default function App() {
       )}
 
       {showAccountPage && (
-        <AccountPage
-          onClose={() => setShowAccountPage(false)}
-          onViewProduct={(productId, initialColor, initialSize) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
-            }
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <AccountPage
+            onClose={() => setShowAccountPage(false)}
+            onViewProduct={(productId, initialColor, initialSize) => {
+              const product = products.find((p) => p.id === productId);
+              if (product) {
+                setSelectedProductInitialColor(initialColor || null);
+                setSelectedProductInitialSize(initialSize || null);
+                setSelectedProduct(product);
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/*  rendu du nouveau Admin en dehors du flux normal */}
       {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
       {showNewAdmin && isAdmin && (
-        <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        </Suspense>
       )}
 
       {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
       {checkoutOpen && (
-        <CheckoutFlow
-          cart={cart}
-          detectedCountry={detectedCountry}
-          onUpdateQty={updateCartQty}
-          onRemoveItem={removeFromCart}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => {
-            setCart([]);
-            showToast(
-              "🎉 Order confirmed! A confirmation email has been sent.",
-              "success",
-            );
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={cart}
+            detectedCountry={detectedCountry}
+            onUpdateQty={updateCartQty}
+            onRemoveItem={removeFromCart}
+            onClose={() => setCheckoutOpen(false)}
+            onSuccess={() => {
+              setCart([]);
+              showToast(
+                "🎉 Order confirmed! A confirmation email has been sent.",
+                "success",
+              );
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Confirmation mode after Stripe return */}
       {stripeConfirmOrderId && (
-        <CheckoutFlow
-          cart={[]}
-          detectedCountry={detectedCountry}
-          onUpdateQty={() => {}}
-          onRemoveItem={() => {}}
-          onClose={() => setStripeConfirmOrderId(null)}
-          onSuccess={() => {}}
-          confirmModeOrderId={stripeConfirmOrderId}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={[]}
+            detectedCountry={detectedCountry}
+            onUpdateQty={() => {}}
+            onRemoveItem={() => {}}
+            onClose={() => setStripeConfirmOrderId(null)}
+            onSuccess={() => {}}
+            confirmModeOrderId={stripeConfirmOrderId}
+          />
+        </Suspense>
       )}
 
       {/* Order Tracking Modal */}
@@ -1110,6 +1433,44 @@ export default function App() {
         <NotFound
           onBack={() => {
             window.location.href = "/";
+          }}
+        />
+      )}
+
+      {/* V2: Back to top + Cookie banner */}
+      <BackToTopButton />
+      <CookieConsentBanner
+        isVisible={!cookieConsent.hasResponded}
+        onAcceptAll={cookieConsent.acceptAll}
+        onRejectNonEssential={cookieConsent.rejectNonEssential}
+        onNavigateLegal={() => openLegal("cookies")}
+      />
+
+      {/* V2: Mobile tab bar (store view only) */}
+      {activeTab === "store" && !showNewAdmin && !selectedProduct && (
+        <MobileTabBar
+          favouritesCount={favorites.length}
+          cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
+          onTabChange={(tab) => {
+            if (tab === "home") {
+              setActiveTab("store");
+              setShowFavoritesOnly(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else if (tab === "catalog") {
+              setActiveTab("store");
+              setShowFavoritesOnly(false);
+              document
+                .getElementById("section-catalog")
+                ?.scrollIntoView({ behavior: "smooth" });
+            } else if (tab === "favourites") {
+              handleOpenFavorites();
+            } else if (tab === "cart") {
+              setCartOpen(true);
+            } else if (tab === "account") {
+              if (isUser) setShowAccountPage(true);
+              else if (isAdmin) setShowProfileModal(true);
+              else setShowAuthModal(true);
+            }
           }}
         />
       )}

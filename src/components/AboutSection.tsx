@@ -1,52 +1,179 @@
 // src/components/AboutSection.tsx
+import { useState } from "react";
+import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
+import { TESTIMONIALS } from "../data/testimonials";
 
 export default function AboutSection() {
   return (
-    <section
-      id="section-about"
-      className="bg-white border-t border-gray-200 mt-12 py-12 px-4 scroll-mt-28"
-    >
-      <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
-        <span className="bg-linear-to-r from-(--color-accent) to-(--color-accent2) text-white text-[10px] font-black uppercase px-3 py-1 rounded-full mb-4">
-          🎨 OUR STORY
-        </span>
-        <h3 className="text-3xl font-black text-gray-900 leading-tight">
-          About InstaWear
-        </h3>
-        <p className="text-sm text-gray-600 mt-4 leading-relaxed max-w-2xl font-sans">
-          InstaWear was founded by a collective of pop culture fans, sports
-          enthusiasts, and AI engineers. Our mission: let you wear the energy of
-          global events in real time.
-        </p>
-        <p className="text-sm text-gray-500 mt-2.5 leading-relaxed max-w-2xl font-sans">
-          Every piece is made to order just for you — we connect directly to
-          Printful production hubs. Zero excess inventory, zero wasted stock. We
-          believe in reactive, circular fashion. This is the future of
-          print‑on‑demand.
-        </p>
-        <div className="flex gap-4 sm:gap-8 md:gap-12 mt-8 text-center bg-gray-50/60 p-4 sm:p-6 rounded-2xl border border-gray-200">
-          <div>
-            <p className="text-3xl font-black text-(--color-accent) font-sans">
-              100%
-            </p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Certified Organic Cotton
-            </p>
+    <>
+      {/* À propos */}
+      <section
+        id="about"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div className="bezel-outer order-2 lg:order-1">
+            <div className="bezel-inner aspect-4/5">
+              <img
+                src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
+                alt="L'équipe InstaWear"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
-          <div className="border-l border-gray-200"></div>
-          <div>
-            <p className="text-3xl font-black text-indigo-400 font-sans">0</p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Destroyed Inventory
+          <div className="order-1 lg:order-2">
+            <span className="eyebrow mb-4 block">Notre histoire</span>
+            <h2
+              className="text-3xl sm:text-4xl font-extrabold leading-tight mb-5"
+              style={{ color: "var(--color-ink)" }}
+            >
+              Le vestiaire pensé{" "}
+              <em className="font-display not-italic sm:italic pb-1 inline-block">
+                pour vos événements
+              </em>
+            </h2>
+            <p
+              className="text-base leading-relaxed mb-4"
+              style={{ color: "var(--color-ink2)" }}
+            >
+              InstaWear est né d'une idée simple : chaque moment fort mérite une
+              tenue qui lui ressemble. Festival, marathon, concert ou
+              anniversaire — nous imprimons à la demande des pièces uniques,
+              sans stock dormant et sans compromis sur la qualité.
             </p>
-          </div>
-          <div className="border-l border-gray-200"></div>
-          <div>
-            <p className="text-3xl font-black text-amber-500 font-sans">24h</p>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mt-1">
-              Design → Print
+            <p
+              className="text-base leading-relaxed mb-8"
+              style={{ color: "var(--color-ink2)" }}
+            >
+              Chaque commande est fabriquée spécialement pour vous, au plus près
+              de votre événement, avec des matières responsables et une
+              sérigraphie pensée pour durer.
             </p>
+            <div className="grid grid-cols-3 gap-4">
+              <Stat value="12k+" label="Pièces imprimées" />
+              <Stat value="4.7/5" label="Note moyenne" />
+              <Stat value="48h" label="Délai d'expédition" />
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* Avis clients */}
+      <TestimonialsCarousel />
+    </>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <p
+        className="text-2xl font-extrabold"
+        style={{ color: "var(--color-accent)" }}
+      >
+        {value}
+      </p>
+      <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function TestimonialsCarousel() {
+  const [index, setIndex] = useState(0);
+  const testimonial = TESTIMONIALS[index];
+
+  const go = (dir: 1 | -1) =>
+    setIndex((i) => (i + dir + TESTIMONIALS.length) % TESTIMONIALS.length);
+
+  return (
+    <section id="testimonials" style={{ background: "var(--color-surface2)" }}>
+      <div className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <div className="flex items-end justify-between mb-10">
+          <div>
+            <span className="eyebrow mb-2 block">Ils en parlent</span>
+            <h2
+              className="text-2xl sm:text-3xl font-extrabold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              Avis clients
+            </h2>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              onClick={() => go(-1)}
+              aria-label="Avis précédent"
+              className="btn-icon"
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <button
+              onClick={() => go(1)}
+              aria-label="Avis suivant"
+              className="btn-icon"
+            >
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        </div>
+
+        <div
+          key={testimonial.id}
+          className="card-premium p-8 sm:p-10 max-w-2xl animate-fade-up"
+        >
+          <Quote size={28} style={{ color: "var(--color-accent)" }} />
+          <p
+            className="text-lg sm:text-xl font-medium leading-relaxed my-6"
+            style={{ color: "var(--color-ink)" }}
+          >
+            « {testimonial.text} »
+          </p>
+          <div className="flex items-center gap-3">
+            <img
+              src={testimonial.avatar}
+              alt=""
+              className="w-11 h-11 rounded-full object-cover"
+            />
+            <div>
+              <p
+                className="text-sm font-bold"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {testimonial.name}
+              </p>
+              <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
+                {testimonial.location} · {testimonial.product}
+              </p>
+            </div>
+            <div className="ml-auto flex items-center gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  size={13}
+                  fill={i < testimonial.rating ? "var(--color-gold)" : "none"}
+                  style={{ color: "var(--color-gold)" }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex sm:hidden items-center gap-2 mt-6">
+          <button
+            onClick={() => go(-1)}
+            aria-label="Avis précédent"
+            className="btn-icon"
+          >
+            <ChevronLeft size={17} />
+          </button>
+          <button
+            onClick={() => go(1)}
+            aria-label="Avis suivant"
+            className="btn-icon"
+          >
+            <ChevronRight size={17} />
+          </button>
         </div>
       </div>
     </section>

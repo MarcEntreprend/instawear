@@ -52,6 +52,7 @@ npx supabase functions deploy send-email --no-verify-jwt
 npx supabase functions deploy stripe-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy delete-account --no-verify-jwt
+npx supabase functions deploy contact-message --no-verify-jwt
 ```
 
 ---
@@ -310,7 +311,7 @@ Voici le texte à remplacer dans la section Checklist du README :
 ### 🔒 Sécurité (⚠️ avant production)
 
 - [ ] Audit OWASP / Last check
-- [ ] Checklist 10 common mistakes
+- [ ] Checklist 10 common mistakes (`10-Security-Mistakes-in-API-Development.md`)
 
 ### 🎨 UX / UI
 
@@ -341,7 +342,6 @@ Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l
 - [ ] `product_synced` ⚪ Pas nécessaire (déjà géré par sync)
 - [ ] `product_updated` ⚪ Pas nécessaire
 - [ ] `product_deleted` ⚪ Pas nécessaire
-- [ ] `stock_updated` ✅ Fait (P6)
 - [ ] `order_put_hold_approval` ⚪ Pas nécessaire
 
 ### 📧 Emails transactionnels

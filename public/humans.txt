@@ -1,0 +1,7 @@
+/* TEAM */
+Developer: InstaWear (Marc)
+Contact: bonjour@instawear.com
+Site: https://instawear.vercel.app/
+
+/* SITE */
+Stack: React 19 + Vite + Tailwind v4, Supabase (Postgres/Auth/Edge Functions), Stripe, Printful POD, Resend.
