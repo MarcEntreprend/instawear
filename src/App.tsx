@@ -1127,16 +1127,16 @@ export default function App() {
           initialColor={selectedProductInitialColor || undefined}
           initialSize={selectedProductInitialSize || undefined}
           onToggleFavorite={toggleFavorite}
-          onAddToCart={(p, c, s) => {
+          onAddToCart={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
           }}
-          onBuyNow={(p, c, s) => {
+          onBuyNow={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
             setCheckoutOpen(true);
             history.pushState({}, "", "/");
             setSelectedProduct(null);
           }}
-          onSelectProduct={(p) => openProduct(p)}
+          onSelectProduct={(p: Product) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
         />
       )}
@@ -1368,9 +1368,7 @@ export default function App() {
         onAcceptAll={cookieConsent.acceptAll}
         onRejectNonEssential={cookieConsent.rejectNonEssential}
         onSavePreferences={cookieConsent.savePreferences}
-        onNavigateLegal={() =>
-          document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })
-        }
+        onNavigateLegal={() => openLegal("cookies")}
       />
 
       {/* V2: Mobile tab bar (store view only) */}

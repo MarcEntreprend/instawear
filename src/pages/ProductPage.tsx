@@ -74,6 +74,14 @@ export default function ProductPage({
     addViewed(product.id);
   }, [product.id, addViewed]);
 
+  usePageMeta({
+    title: product.title,
+    description: product.description?.slice(0, 158) || product.fullDescription?.slice(0, 158) || "",
+    image: product.image,
+    url: `https://instawear.vercel.app/produit/${product.id}`,
+    type: "product",
+  });
+
   const hasVariants = product.variants && product.variants.length > 0;
   const dispColors = hasVariants
     ? product.variants!.map((v: any) => v.color)

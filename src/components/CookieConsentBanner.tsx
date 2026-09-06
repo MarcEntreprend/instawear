@@ -7,7 +7,7 @@ export interface CookieConsentBannerProps {
   onAcceptAll: () => void;
   onRejectNonEssential: () => void;
   onSavePreferences: (prefs: { analytics: boolean; performance: boolean; functionality: boolean }) => void;
-  onNavigateLegal: () => void;
+  onNavigateLegal: (slug?: string) => void;
 }
 
 export default function CookieConsentBanner({
@@ -46,7 +46,7 @@ export default function CookieConsentBanner({
           </p>
           <p className="text-xs leading-relaxed" style={{ color: "var(--color-ink3)" }}>
             Certains sont essentiels au fonctionnement du site, d'autres nous aident à l'améliorer.{" "}
-            <button onClick={onNavigateLegal} className="underline font-semibold" style={{ color: "var(--color-ink2)" }}>
+            <button onClick={() => onNavigateLegal("cookies")} className="underline font-semibold" style={{ color: "var(--color-ink2)" }}>
               En savoir plus
             </button>
           </p>
