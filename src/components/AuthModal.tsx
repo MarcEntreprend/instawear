@@ -4,7 +4,7 @@
  * Visual style ported from InstaWear-design-from-zero (premium var(--color-*) system)
  * Logic / rules / handlers kept 100% intact from instawear_gem version
  */
-import React, { useState, useEffect, useCallback, type ReactNode } from "react";
+import React, { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "../lib/supabaseClient";
 import {
   X,
@@ -15,10 +15,7 @@ import {
   Eye,
   EyeOff,
   Calendar,
-  Check,
   ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +23,7 @@ interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (isAdmin: boolean, name?: string) => void;
   onSignUpSuccess: (name: string) => void;
+  onOpenLegal?: (slug: string) => void;
 }
 
 type Mode = "login" | "signup" | "resetPassword" | "otp" | "verifyOtp";
@@ -37,6 +35,7 @@ export default function AuthModal({
   onClose,
   onLoginSuccess,
   onSignUpSuccess,
+  onOpenLegal,
   initialMode = "login",
 }: AuthModalProps & { initialMode?: Mode }) {
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -44,10 +43,12 @@ export default function AuthModal({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
-  const [newsletter, setNewsletter] = useState(false);
+  const [newsletter, setNewsletter] = useState(true);
+  const [acceptsTerms, setAcceptsTerms] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Visual-only: show/hide password (style from design-from-zero, no logic change)
@@ -59,11 +60,12 @@ export default function AuthModal({
   // Password reset state
   const [resetStep, setResetStep] = useState<ResetStep>("email");
   const [resetEmail, setResetEmail] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [timer, setTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
+  // Message conservé à travers un changement de mode (le reset de mode vide `info`)
+  const pendingInfo = useRef("");
 
   // Countdown timer (pour le renvoi de l'email de reset)
   useEffect(() => {
@@ -110,12 +112,15 @@ export default function AuthModal({
   // Reset all fields when switching modes
   useEffect(() => {
     setError("");
+    setInfo(pendingInfo.current);
+    pendingInfo.current = "";
     setEmail("");
     setPassword("");
     setName("");
+    setNewsletter(true);
+    setAcceptsTerms(false);
     setResetStep("email");
     setResetEmail("");
-    setCode("");
     setNewPassword("");
     setConfirmPassword("");
     setTimer(0);
@@ -218,11 +223,29 @@ export default function AuthModal({
 
     try {
       if (mode === "signup") {
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters.");
+          setLoading(false);
+          return;
+        }
+        if (!acceptsTerms) {
+          setError("Please accept the Terms and Conditions to create an account.");
+          setLoading(false);
+          return;
+        }
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
         if (signUpError) throw signUpError;
+
+        // Email confirmation ON → no session yet: don't fake a login.
+        if (data.user && !data.session) {
+          pendingInfo.current =
+            "Account created! Check your email to confirm, then sign in.";
+          setMode("login");
+          return;
+        }
 
         if (data.user) {
           const { error: insertError } = await supabase
@@ -234,6 +257,7 @@ export default function AuthModal({
                 name,
                 date_of_birth: dob || null,
                 email_preferences: { order_confirmation: true, shipping_update: true, promotions: newsletter },
+                terms_accepted_at: new Date().toISOString(),
                 registration_date: new Date().toISOString(),
                 last_login_date: new Date().toISOString(),
               } as any,
@@ -286,6 +310,20 @@ export default function AuthModal({
         const { data: isAdminUser } = await supabase.rpc("is_admin");
         const isAdmin = !!isAdminUser;
 
+        // Read the real display name from customers (the form field is cleared on mode change)
+        let displayName =
+          (data.user.user_metadata as any)?.full_name || email;
+        try {
+          const { data: customer } = await supabase
+            .from("customers")
+            .select("name")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          if (customer?.name) displayName = customer.name;
+        } catch {
+          // keep fallback
+        }
+
         // Update last_login_date in customers (silent update, no upsert)
         supabase
           .from("customers")
@@ -295,7 +333,7 @@ export default function AuthModal({
             if (error) console.warn("Error updating last_login_date:", error);
           });
 
-        onLoginSuccess(isAdmin, name || email);
+        onLoginSuccess(isAdmin, displayName);
       }
     } catch (err: any) {
       let message =
@@ -315,17 +353,22 @@ export default function AuthModal({
   };
 
   const handleSendOtp = async () => {
-    if (!otpEmail.trim()) { setError("Enter your email"); return; }
+    if (!otpEmail.trim()) { setError("Enter your email address."); return; }
     setLoading(true); setError("");
     try {
       const { error } = await supabase.auth.signInWithOtp({ email: otpEmail.trim() });
       if (error) throw error;
       setMode("verifyOtp");
-    } catch (err: any) { setError(err.message || "Failed to send OTP"); }
+    } catch (err: any) {
+      setError(
+        err.message ||
+          "Could not send the code. Check the email address and try again.",
+      );
+    }
     finally { setLoading(false); }
   };
   const handleVerifyOtp = async () => {
-    if (!otpCode.trim()) { setError("Enter the 6-digit code"); return; }
+    if (otpCode.trim().length < 6) { setError("Enter the 6-digit code sent to your email."); return; }
     setLoading(true); setError("");
     try {
       const { data, error } = await supabase.auth.verifyOtp({ email: otpEmail.trim(), token: otpCode.trim(), type: "email" });
@@ -334,8 +377,15 @@ export default function AuthModal({
         const { data: isAdminUser } = await supabase.rpc("is_admin");
         onLoginSuccess(!!isAdminUser, data.user.email || otpEmail);
         onClose();
+      } else {
+        setError("Invalid or expired code. Request a new code and try again.");
       }
-    } catch (err: any) { setError(err.message || "Invalid code"); }
+    } catch (err: any) {
+      setError(
+        err.message ||
+          "Invalid or expired code. Request a new code and try again.",
+      );
+    }
     finally { setLoading(false); }
   };
 
@@ -420,6 +470,30 @@ export default function AuthModal({
             />
             <span className="text-xs" style={{ color: "var(--color-ink2)" }}>
               Send me news and exclusive InstaWear offers by email.
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acceptsTerms}
+              onChange={(e) => setAcceptsTerms(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-(--color-accent)"
+            />
+            <span className="text-xs" style={{ color: "var(--color-ink2)" }}>
+              I accept the{" "}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onOpenLegal?.("cgv");
+                }}
+                className="underline font-semibold"
+                style={{ color: "var(--color-accent)" }}
+              >
+                Terms and Conditions
+              </button>
+              .
             </span>
           </label>
         </>
@@ -647,6 +721,7 @@ export default function AuthModal({
 
         <div className="p-6">
           {error && <ErrorText message={error} />}
+          {info && !error && <InfoText message={info} />}
 
           {mode === "resetPassword" ? (
             renderResetPassword()
@@ -702,7 +777,7 @@ export default function AuthModal({
             renderAuthForm()
           )}
 
-          {/* Bottom links (login/signup only) */}
+          {/* Bottom links (login/signup only) — single OTP entry */}
           {mode !== "resetPassword" && mode !== "otp" && mode !== "verifyOtp" && (
             <div className="mt-6 flex flex-col gap-3">
               <div className="flex justify-between items-center gap-2 text-sm">
@@ -717,7 +792,10 @@ export default function AuthModal({
                 </button>
                 {mode === "login" && (
                   <button
-                    onClick={() => setMode("otp")}
+                    onClick={() => {
+                      setOtpEmail(email);
+                      setMode("otp");
+                    }}
                     className="text-xs font-semibold hover:underline"
                     style={{ color: "var(--color-ink3)" }}
                   >
@@ -725,21 +803,6 @@ export default function AuthModal({
                   </button>
                 )}
               </div>
-              {mode === "login" && (
-                <p className="text-xs text-center" style={{ color: "var(--color-ink3)" }}>
-                  Sign in with OTP code?{" "}
-                  <button
-                    onClick={() => {
-                      setOtpEmail(email);
-                      setMode("otp");
-                    }}
-                    className="font-semibold hover:underline"
-                    style={{ color: "var(--color-accent)" }}
-                  >
-                    Use email code
-                  </button>
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -805,6 +868,22 @@ function ErrorText({ message }: { message: string }) {
       }}
     >
       <span className="shrink-0 mt-0.5">!</span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function InfoText({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-start gap-2 p-3 rounded-xl text-xs font-semibold mb-2"
+      style={{
+        background: "var(--color-success-bg, #edfaf3)",
+        color: "var(--color-success, #1f7a4c)",
+        border: "1px solid var(--color-success, #1f7a4c)",
+      }}
+    >
+      <span className="shrink-0 mt-0.5">✓</span>
       <span>{message}</span>
     </div>
   );
