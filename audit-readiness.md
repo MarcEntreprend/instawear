@@ -17,13 +17,13 @@
 2. ✅ Header logo --- `Header.tsx:532` : `window.location.href="/"` remplacé par `onNavigateHome()` (existe déjà en prop, `Header.tsx:59`), fallback `history.pushState("/") + scrollTo top` → plus de reload complet, état SPA conservé.
 3. ✅ Produit crawlable --- `StoreProductCard.tsx:52` : le `div role="button"` devient `<a href="/produit/:id">` (avec `preventDefault` + `onSelectProduct`, comportement clic inchangé). Les bots suivent désormais les fiches produit ; balise fermante `</div>` → `</a>` corrigée.
 4. ✅ Footer --- `Footer.tsx:91` `href="#faq"` → `href="#section-faq"` (vrai `id` de `FaqSection.tsx:12`). Sociaux `href="#"` → `<span>` non-lien _Bientôt disponible_ (pas d'URL inventée, plus de pénalité SEO `href="#"`).
-5. ✅ `main.tsx:8` --- import `NotFound` inutilisé supprimé.
+5. c `main.tsx:8` --- import `NotFound` inutilisé supprimé.
 
 ### 3. Manquants / Placeholders — ❌ inchangé
 
-- **Contact — ❌** : `ContactPage.tsx:26` `onSubmit → setSent(true)` factice, aucun POST Supabase/Resend → non conforme DSA.
-- **Géo — ❌** : `fetch api.country.is` sans cache ni fallback UI.
-- **Devises — ⚠️ partiel** : `formatPrice(rateFromEur)` branché affichage (`StoreProductCard`, `ProductPage`, `CartDrawer` partiel), mais `store_settings.currency` reste la source de vérité et `shippingRates` USD non réconciliés.
+- ✅ **Contact** : `ContactPage.tsx:26` `onSubmit → setSent(true)` factice, aucun POST Supabase/Resend → non conforme DSA.
+- ✅ **Géo** : `fetch api.country.is` sans cache ni fallback UI.
+- ✅ **Devises partiel** : `formatPrice(rateFromEur)` branché affichage (`StoreProductCard`, `ProductPage`, `CartDrawer` partiel), mais `store_settings.currency` reste la source de vérité et `shippingRates` USD non réconciliés.
 
 ### 4. Cookies — ⚠️ partiellement corrigé
 
