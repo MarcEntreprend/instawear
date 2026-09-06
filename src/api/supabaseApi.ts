@@ -467,6 +467,7 @@ export const customerApi = {
         shipping_update: true,
         promotions: false,
       },
+      date_of_birth: data.date_of_birth || null,
     };
   },
   // ── Favoris ──────────────────────────────────────────────────────────

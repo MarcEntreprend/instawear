@@ -9,7 +9,6 @@
 // Protections : rate limit 3/min par IP, payload ≤100KB, email whitelist,
 // compte récent (<30 min) exigé. Destinataire = l'inscrit uniquement.
 
-import { Resend } from "npm:resend@3";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
@@ -131,32 +130,47 @@ export default {
       }
 
       const safeName = escapeHtml(displayName);
-      const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
-      const { data: mailData, error: mailError } = await resend.emails.send({
-        from: Deno.env.get("RESEND_FROM_EMAIL")!,
-        to: [email],
-        subject: "Welcome to InstaWear 🎉",
-        html:
-          `<div style="font-family:sans-serif;max-width:600px">` +
-          `<h2>Welcome, ${safeName}!</h2>` +
-          `<p>Your InstaWear account is ready. Wear the energy of every event — festival tees, sport hoodies and more, printed on demand.</p>` +
-          `<p><a href="https://instawear.vercel.app/" style="display:inline-block;background:#ff5c35;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold">Start shopping</a></p>` +
-          `<p style="color:#888;font-size:12px">You received this email because you just created an account on InstaWear.</p>` +
-          `</div>`,
-      });
-      if (mailError) {
-        // Ne jamais faire échouer l'inscription : compte + notif admin OK.
-        // Le front ignore ce flag (fire-and-forget) ; voir logs pour Resend.
-        console.error("auth-welcome resend:", logSafe(mailError));
-        return json({
-          success: true,
-          mailSent: false,
-          mailError: logSafe(mailError),
+      // Resend API direct (même mécanisme que stripe-webhook qui fonctionne :
+      // POST + Bearer, pas de SDK).
+      let mailSent = false;
+      let mailErrorMsg: string | null = null;
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")!}`,
+          },
+          body: JSON.stringify({
+            from: Deno.env.get("RESEND_FROM_EMAIL")!,
+            to: [email],
+            subject: "Welcome to InstaWear 🎉",
+            html:
+              `<div style="font-family:sans-serif;max-width:600px">` +
+              `<h2>Welcome, ${safeName}!</h2>` +
+              `<p>Your InstaWear account is ready. Wear the energy of every event — festival tees, sport hoodies and more, printed on demand.</p>` +
+              `<p><a href="https://instawear.vercel.app/" style="display:inline-block;background:#ff5c35;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:bold">Start shopping</a></p>` +
+              `<p style="color:#888;font-size:12px">You received this email because you just created an account on InstaWear.</p>` +
+              `</div>`,
+          }),
         });
+        const mailData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          mailErrorMsg = logSafe({ status: res.status, body: mailData });
+          console.error("auth-welcome resend:", mailErrorMsg);
+        } else {
+          mailSent = true;
+          console.log(
+            "auth-welcome mail sent:",
+            (mailData as any)?.id || "ok",
+          );
+        }
+      } catch (e) {
+        mailErrorMsg = logSafe(String(e));
+        console.error("auth-welcome resend throw:", mailErrorMsg);
       }
-
-      console.log("auth-welcome mail sent:", (mailData as any)?.id || "ok");
-      return json({ success: true, mailSent: true });
+      // Ne jamais faire échouer l'inscription : compte + notif admin OK.
+      return json({ success: true, mailSent, mailError: mailErrorMsg });
     } catch (e) {
       console.error("auth-welcome fatal:", logSafe(String(e)));
       return json({ error: "Erreur interne. Réessayez plus tard." }, 500);

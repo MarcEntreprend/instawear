@@ -11,7 +11,6 @@
 // message 10..5000 chars. Pas de relais arbitraire : destinataire admin
 // uniquement (admin_users super_admin, sinon CONTACT_NOTIFY_EMAIL).
 
-import { Resend } from "npm:resend@3";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
@@ -191,21 +190,28 @@ export default {
         adminEmail = (anyAdmin as any)?.email || null;
       }
 
-      // 5. Email admin via Resend (ne fait jamais échouer le ticket)
+      // 5. Email admin via Resend API direct (même mécanisme que
+      // stripe-webhook qui fonctionne : POST + Bearer, pas de SDK).
+      // Ne fait jamais échouer le ticket.
       let mailSent = false;
       let mailErrorMsg: string | null = null;
       if (adminEmail) {
         try {
-          const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
           const safeEmail = escapeHtml(email);
           const safeMsg = escapeHtml(message).replace(/\n/g, "<br>");
           const userLine = customer
             ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
             : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
-          const { data: mailData, error: mailError } = await resend.emails.send(
-            {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")!}`,
+            },
+            body: JSON.stringify({
               from: Deno.env.get("RESEND_FROM_EMAIL")!,
               to: [adminEmail],
+              reply_to: email,
               subject: `[Contact InstaWear] ${email}`,
               html:
                 `<div style="font-family:sans-serif;max-width:600px">` +
@@ -215,12 +221,13 @@ export default {
                 `<hr>` +
                 `<p>${safeMsg}</p>` +
                 `<hr>` +
-                `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions.</p>` +
+                `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions. Répondez directement à cet email pour répondre à l'expéditeur.</p>` +
                 `</div>`,
-            },
-          );
-          if (mailError) {
-            mailErrorMsg = logSafe(mailError);
+            }),
+          });
+          const mailData = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            mailErrorMsg = logSafe({ status: res.status, body: mailData });
             console.error("contact-message resend:", mailErrorMsg);
           } else {
             mailSent = true;
@@ -230,7 +237,7 @@ export default {
             );
           }
         } catch (e) {
-          // Le SDK peut throw (réseau) : ticket déjà stocké, on logge seulement.
+          // Réseau : ticket déjà stocké, on logge seulement.
           mailErrorMsg = logSafe(String(e));
           console.error("contact-message resend throw:", mailErrorMsg);
         }
