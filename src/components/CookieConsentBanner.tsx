@@ -33,19 +33,19 @@ export default function CookieConsentBanner({
           <Cookie size={17} />
         </span>
         <p className="text-xs leading-relaxed" style={{ color: "var(--color-ink2)" }}>
-          Nous utilisons des cookies pour améliorer votre expérience.{" "}
+          We use cookies to improve your experience.{" "}
           <button onClick={onNavigateLegal} className="underline font-semibold" style={{ color: "var(--color-ink)" }}>
-            En savoir plus
+            Learn more
           </button>
         </p>
       </div>
 
       <div className="flex items-center gap-2">
         <button onClick={onAcceptAll} className="btn btn-accent flex-1">
-          Tout accepter
+          Accept all
         </button>
         <button onClick={onRejectNonEssential} className="btn btn-secondary flex-1">
-          Refuser les non-essentiels
+          Reject non-essential
         </button>
       </div>
     </div>

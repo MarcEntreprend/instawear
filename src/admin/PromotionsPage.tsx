@@ -33,7 +33,7 @@ export default function PromotionsPage() {
     title: "",
     headline: "",
     sub: "",
-    cta: "Découvrir",
+    cta: "Shop Now",
     bgGradient: "from-white via-indigo-50 to-white",
     tag: "⚡ PROMOTION",
     order: 0,
@@ -194,7 +194,7 @@ export default function PromotionsPage() {
       title: "",
       headline: "",
       sub: "",
-      cta: "Découvrir",
+      cta: "Shop Now",
       bgGradient: "from-white via-indigo-50 to-white",
       tag: "⚡ PROMOTION",
       order: promotions.length,
@@ -312,7 +312,7 @@ export default function PromotionsPage() {
               title: "",
               headline: "",
               sub: "",
-              cta: "Découvrir",
+              cta: "Shop Now",
               bgGradient: "from-white via-indigo-50 to-white",
               tag: "⚡ PROMOTION",
               order: promotions.length,
@@ -432,7 +432,13 @@ export default function PromotionsPage() {
             </div>
             <div>
               <label style={labelStyle}>Accroche — double style</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                }}
+              >
                 <div>
                   <input
                     type="text"
@@ -446,7 +452,9 @@ export default function PromotionsPage() {
                     style={inputStyle}
                     placeholder='Ligne 1 — normal (ex: "Franchissez")'
                   />
-                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>Style normal</span>
+                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>
+                    Style normal
+                  </span>
                 </div>
                 <div>
                   <input
@@ -458,23 +466,77 @@ export default function PromotionsPage() {
                       const v2 = e.target.value;
                       setForm({ ...form, headline: v2 ? `${p1}\n${v2}` : p1 });
                     }}
-                    style={{ ...inputStyle, fontStyle: "italic", fontFamily: "var(--font-serif)" }}
+                    style={{
+                      ...inputStyle,
+                      fontStyle: "italic",
+                      fontFamily: "var(--font-serif)",
+                    }}
                     placeholder='Ligne 2 — italique (ex: "la ligne.")'
                   />
-                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>Italique / emphase</span>
+                  <span style={{ fontSize: 10, color: "var(--color-ink4)" }}>
+                    Italique / emphase
+                  </span>
                 </div>
               </div>
               {form.headline && (
-                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--color-ink4)", textTransform: "uppercase", letterSpacing: 1 }}>Aperçu</span>
-                  <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, marginTop: 4, color: "var(--color-ink)" }}>
-                    {(form.headline || "").split("\n").map((line: string, i: number) => (
-                      <span key={i} style={{ display: "block", fontStyle: i === 1 ? "italic" : "normal", fontFamily: i === 1 ? "var(--font-serif)" : undefined }}>{line || (i === 0 ? "—" : "")}</span>
-                    ))}
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "var(--color-ink4)",
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Aperçu
+                  </span>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      marginTop: 4,
+                      color: "var(--color-ink)",
+                    }}
+                  >
+                    {(form.headline || "")
+                      .split("\n")
+                      .map((line: string, i: number) => (
+                        <span
+                          key={i}
+                          style={{
+                            display: "block",
+                            fontStyle: i === 1 ? "italic" : "normal",
+                            fontFamily:
+                              i === 1 ? "var(--font-serif)" : undefined,
+                          }}
+                        >
+                          {line || (i === 0 ? "—" : "")}
+                        </span>
+                      ))}
                   </div>
                 </div>
               )}
-              <p style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 6 }}>Laisse la 2e ligne vide pour un seul style. Exemples : “Franchissez” + “la ligne.” → <b>Franchissez</b> <i style={{ fontFamily: "var(--font-serif)" }}>la ligne.</i></p>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "var(--color-ink4)",
+                  marginTop: 6,
+                }}
+              >
+                Laisse la 2e ligne vide pour un seul style. Exemples :
+                “Franchissez” + “la ligne.” → <b>Franchissez</b>{" "}
+                <i style={{ fontFamily: "var(--font-serif)" }}>la ligne.</i>
+              </p>
             </div>
             <div>
               <label style={labelStyle}>Sous-texte</label>
@@ -500,7 +562,7 @@ export default function PromotionsPage() {
                   value={form.cta || ""}
                   onChange={(e) => setForm({ ...form, cta: e.target.value })}
                   style={inputStyle}
-                  placeholder="Découvrir"
+                  placeholder="Shop Now"
                 />
               </div>
               <div>

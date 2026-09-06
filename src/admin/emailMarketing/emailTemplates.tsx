@@ -70,7 +70,7 @@ export const TEMPLATES: Template[] = [
   <p style="font-size:13px;font-weight:600;color:#ff5c35;text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px">Nouveau</p>
   <h2 style="font-size:28px;font-weight:800;color:#1a1916;margin:0 0 16px">{{product_name}}</h2>
   <p style="font-size:15px;color:#7a7872;line-height:1.6;margin:0 0 24px">{{product_description}}</p>
-  <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Découvrir →</a>
+  <a href="{{cta_link}}" style="display:inline-block;background:#1a1916;color:#fff;padding:14px 36px;border-radius:99px;font-weight:700;text-decoration:none;font-size:15px">Explore →</a>
   <p style="font-size:12px;color:#b5b3af;margin-top:32px">InstaWear · 123 Main Street, Doral, FL 10001<br><a href="{{unsubscribe_link}}" style="color:#b5b3af;text-decoration:underline">Unsubscribe</a></p>
 </div>`,
   },

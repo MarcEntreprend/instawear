@@ -4,28 +4,28 @@ import { usePageMeta } from "../hooks/usePageMeta";
 
 const DOCS: Record<string, { title: string; intro: string; sections: { heading: string; body: string[] }[] }> = {
   cgv: {
-    title: "Conditions Générales de Vente",
-    intro: "Les présentes CGV régissent les ventes effectuées sur InstaWear, boutique print-on-demand opérée via Printful.",
+    title: "Terms and Conditions",
+    intro: "These Terms and Conditions govern sales made on InstaWear, a print-on-demand store operated via Printful.",
     sections: [
-      { heading: "Commande et paiement", body: ["Toute commande implique l'acceptation des présentes CGV. Le paiement est exigible à la commande via Stripe. Aucune commande n'est expédiée sans paiement validé."] },
-      { heading: "Livraison", body: ["Délai indicatif 3–7 jours ouvrés selon destination. Printful imprime à la demande, aucun stock n'est conservé."] },
-      { heading: "Retours", body: ["Retours acceptés sous 30 jours pour défaut d'impression. Produits personnalisés non repris sauf défaut."] },
+      { heading: "Ordering and Payment", body: ["All orders imply acceptance of these Terms. Payment is due at checkout via Stripe. No order is shipped without validated payment."] },
+      { heading: "Delivery", body: ["Estimated lead time 3–7 business days depending on destination. Printful prints on demand, no stock is held."] },
+      { heading: "Returns", body: ["Returns accepted within 30 days for printing defects. Customized products not accepted for return unless defective."] },
     ],
   },
   privacy: {
-    title: "Politique de Confidentialité",
-    intro: "InstaWear collecte le minimum nécessaire au traitement des commandes et à l'amélioration du service.",
+    title: "Privacy Policy",
+    intro: "InstaWear collects the minimum necessary to process orders and improve service.",
     sections: [
-      { heading: "Données collectées", body: ["Email, adresse de livraison, historique de commandes. Aucune donnée bancaire conservée (Stripe)."] },
-      { heading: "Conservation", body: ["Données conservées 3 ans après dernière commande, sauf obligation légale."] },
+      { heading: "Data Collected", body: ["Email, shipping address, order history. No payment data stored (Stripe)."] },
+      { heading: "Retention", body: ["Data kept for 3 years after last order, unless legal obligation requires longer."] },
     ],
   },
   cookies: {
-    title: "Politique Cookies",
-    intro: "Ce site utilise des cookies essentiels et, avec votre consentement, des cookies d'analyse.",
+    title: "Cookie Policy",
+    intro: "This site uses essential cookies and, with your consent, analytics cookies.",
     sections: [
-      { heading: "Cookies essentiels", body: ["Nécessaires au panier et à l'authentification. Toujours actifs."] },
-      { heading: "Cookies d'analyse", body: ["Avec votre consentement (bandeau), nous mesurons l'audience pour améliorer le catalogue."] },
+      { heading: "Essential Cookies", body: ["Required for cart and authentication. Always active."] },
+      { heading: "Analytics Cookies", body: ["With your consent (banner), we measure audience to improve the catalog."] },
     ],
   },
 };
@@ -40,7 +40,7 @@ export default function LegalPage({ slug, onBack }: { slug: string; onBack: () =
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center gap-2">
-        <button onClick={onBack} aria-label="Retour" className="btn-icon w-8 h-8"><ChevronLeft size={15} /></button>
+        <button onClick={onBack} aria-label="Back" className="btn-icon w-8 h-8"><ChevronLeft size={15} /></button>
         <span className="text-xs" style={{ color: "var(--color-ink3)" }}>InstaWear / {doc.title}</span>
       </div>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">

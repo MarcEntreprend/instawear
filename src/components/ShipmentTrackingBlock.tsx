@@ -13,12 +13,12 @@ interface ShipmentTrackingBlockProps {
   shipments: TrackingInfo[];
 }
 
-// Formate "YYYY-MM-DD" en "13 août 2026" (locale fr).
-function formatDateFr(dateStr: string | null): string | null {
+// Format "YYYY-MM-DD" to "August 13, 2026" (locale en).
+function formatDate(dateStr: string | null): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr + "T00:00:00");
   if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("fr-FR", {
+  return d.toLocaleDateString("en-US", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -51,17 +51,17 @@ export default function ShipmentTrackingBlock({
       >
         <Truck size={14} color="var(--color-accent)" />
         {shipments.length > 1
-          ? `Suivi (${shipments.length} colis)`
-          : "Suivi du colis"}
+          ? `Tracking (${shipments.length} packages)`
+          : "Package tracking"}
       </p>
 
       {shipments.map((shipment, i) => {
         const carrier = shipment?.carrier || shipment?.service;
         const trackingNumber = shipment?.trackingNumber;
         const trackingUrl = shipment?.trackingUrl;
-        const minEst = formatDateFr(shipment?.estimatedMinDate ?? null);
-        const maxEst = formatDateFr(shipment?.estimatedMaxDate ?? null);
-        const shipDate = formatDateFr(shipment?.shipDate ?? null);
+        const minEst = formatDate(shipment?.estimatedMinDate ?? null);
+        const maxEst = formatDate(shipment?.estimatedMaxDate ?? null);
+        const shipDate = formatDate(shipment?.shipDate ?? null);
 
         const estimateLabel =
           minEst && maxEst && minEst === maxEst
@@ -95,8 +95,8 @@ export default function ShipmentTrackingBlock({
                 }}
               >
                 {shipments.length > 1
-                  ? `Colis ${i + 1} sur ${shipments.length}`
-                  : "Colis"}
+                  ? `Package ${i + 1} of ${shipments.length}`
+                  : "Package"}
               </span>
               {shipment?.reshipment && (
                 <span
@@ -113,7 +113,7 @@ export default function ShipmentTrackingBlock({
                   }}
                 >
                   <RefreshCw size={10} strokeWidth={2.5} />
-                  Réexpédié gratuitement
+                  Reshipped free of charge
                 </span>
               )}
             </div>
@@ -129,7 +129,7 @@ export default function ShipmentTrackingBlock({
               {estimateLabel && (
                 <div style={{ gridColumn: "1 / -1" }}>
                   <span style={{ color: "var(--color-ink4)" }}>
-                    Arrivée estimée :
+                    Estimated arrival:
                   </span>{" "}
                   <strong>{estimateLabel}</strong>
                 </div>
@@ -137,7 +137,7 @@ export default function ShipmentTrackingBlock({
               {carrier && (
                 <div>
                   <span style={{ color: "var(--color-ink4)" }}>
-                    Transporteur :
+                    Carrier:
                   </span>{" "}
                   {carrier}
                 </div>
@@ -145,14 +145,14 @@ export default function ShipmentTrackingBlock({
               {shipDate && (
                 <div>
                   <span style={{ color: "var(--color-ink4)" }}>
-                    Expédié le :
+                    Shipped on:
                   </span>{" "}
                   {shipDate}
                 </div>
               )}
               {trackingNumber && (
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <span style={{ color: "var(--color-ink4)" }}>Suivi n° :</span>{" "}
+                  <span style={{ color: "var(--color-ink4)" }}>Tracking #:</span>{" "}
                   {trackingUrl ? (
                     <a
                       href={trackingUrl}

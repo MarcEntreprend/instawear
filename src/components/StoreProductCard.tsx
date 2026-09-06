@@ -125,11 +125,11 @@ export default function StoreProductCard({
             {unavailable ? (
               <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>{availability === "out_of_stock" ? "Out of stock" : "Unavailable"}</span>
             ) : product.inStock === false ? (
-              <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>Épuisé</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>Sold out</span>
             ) : (product as any).stock_quantity !== undefined && (product as any).stock_quantity !== null && (product as any).stock_quantity <= 10 ? (
-              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><Flame size={12} /> Plus que {(product as any).stock_quantity}</span>
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><Flame size={12} /> Only {(product as any).stock_quantity} left</span>
             ) : (
-              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-success)" }}><Check size={12} /> En stock</span>
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-success)" }}><Check size={12} /> In stock</span>
             )}
           </div>
 

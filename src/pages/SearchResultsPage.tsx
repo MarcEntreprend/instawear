@@ -18,8 +18,8 @@ export default function SearchResultsPage({ query, products, favouriteIds = [], 
   const [draft, setDraft] = useState(query);
   const [activeEventType, setActiveEventType] = useState<string | null>(null);
   usePageMeta({
-    title: query.trim() ? `Recherche : ${query.trim()}` : "Recherche",
-    description: "Recherchez t-shirts, hoodies et accessoires InstaWear pour votre prochain événement.",
+    title: query.trim() ? `Search: ${query.trim()}` : "Search",
+    description: "Search for t-shirts, hoodies and InstaWear accessories for your next event.",
     url: `https://instawear.vercel.app/recherche?q=${encodeURIComponent(query.trim())}`,
   });
   const nq = normalize(query.trim());
@@ -31,16 +31,16 @@ export default function SearchResultsPage({ query, products, favouriteIds = [], 
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-350 mx-auto px-4 sm:px-6 pt-5 pb-6">
         <div className="flex items-center gap-2 mb-5">
-          <button onClick={onBack} aria-label="Retour" className="btn-icon w-8 h-8 shrink-0"><ChevronLeft size={15} /></button>
+          <button onClick={onBack} aria-label="Back" className="btn-icon w-8 h-8 shrink-0"><ChevronLeft size={15} /></button>
           <form onSubmit={handleSubmit} className="flex items-center flex-1 max-w-xl rounded-full px-4 h-11" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
             <Search size={16} style={{ color: "var(--color-ink3)" }} />
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} type="search" placeholder="Rechercher un article, un événement…" className="flex-1 bg-transparent outline-none px-3 text-sm" style={{ color: "var(--color-ink)" }} />
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} type="search" placeholder="Search for an item, an event…" className="flex-1 bg-transparent outline-none px-3 text-sm" style={{ color: "var(--color-ink)" }} />
           </form>
         </div>
-        {query.trim() && <p className="text-sm mb-6" style={{ color: "var(--color-ink3)" }}>{results.length} résultat{results.length !== 1 ? "s" : ""} pour <span style={{ color: "var(--color-ink)" }} className="font-semibold">« {query} »</span></p>}
+        {query.trim() && <p className="text-sm mb-6" style={{ color: "var(--color-ink3)" }}>{results.length} result{results.length !== 1 ? "s" : ""} for <span style={{ color: "var(--color-ink)" }} className="font-semibold">“{query}”</span></p>}
         {baseResults.length > 0 && (
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mb-8">
-            <button onClick={() => setActiveEventType(null)} className="chip" data-active={activeEventType === null}>Tout</button>
+            <button onClick={() => setActiveEventType(null)} className="chip" data-active={activeEventType === null}>All</button>
             {EVENT_TYPES.filter((et) => baseResults.some((p) => p.eventType === et.value)).map(({ value, label, icon: Icon }) => (
               <button key={value} onClick={() => setActiveEventType(value)} className="chip" data-active={activeEventType === value}><Icon size={14} /> {label}</button>
             ))}
@@ -55,9 +55,9 @@ export default function SearchResultsPage({ query, products, favouriteIds = [], 
         ) : (
           <div className="text-center py-16">
             <span className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: "var(--color-surface2)" }}><SearchX size={24} style={{ color: "var(--color-ink4)" }} /></span>
-            <p className="text-base font-bold mb-1" style={{ color: "var(--color-ink)" }}>{query.trim() ? "Aucun résultat pour cette recherche" : "Que recherchez-vous ?"}</p>
-            <p className="text-sm mb-8" style={{ color: "var(--color-ink3)" }}>{query.trim() ? "Essayez un autre mot-clé ou explorez ces suggestions." : "Tapez un mot-clé ci-dessus pour commencer."}</p>
-            <p className="eyebrow justify-center mb-4">Ça pourrait vous plaire</p>
+            <p className="text-base font-bold mb-1" style={{ color: "var(--color-ink)" }}>{query.trim() ? "No results for this search" : "What are you looking for?"}</p>
+            <p className="text-sm mb-8" style={{ color: "var(--color-ink3)" }}>{query.trim() ? "Try another keyword or explore these suggestions." : "Type a keyword above to get started."}</p>
+            <p className="eyebrow justify-center mb-4">You might like</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
               {suggestions.map((product) => (
                 <StoreProductCard key={product.id} product={product} isFavorite={favouriteIds.includes(product.id)} dealExpired={false} dealFadingOut={false} countdownStr="" currencySymbol="€" onToggleFavorite={(id) => onToggleFavourite(products.find((p) => p.id === id)!)} onAddToCart={(p, c, s) => onQuickAdd(p)} onSelectProduct={onSelectProduct} />

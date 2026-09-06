@@ -68,10 +68,10 @@ interface HeaderProps {
 
 type CategoryLink = NavLink & { icon: LucideIcon };
 const MAIN_NAV_LINKS: NavLink[] = [
-  { label: "Catalogue", section: "catalog", eventType: null, category: null },
-  { label: "À propos", section: "about", eventType: null, category: null },
+  { label: "Catalog", section: "catalog", eventType: null, category: null },
+  { label: "About", section: "about", eventType: null, category: null },
   {
-    label: "Avis clients",
+    label: "Reviews",
     section: "testimonials",
     eventType: null,
     category: null,
@@ -88,7 +88,7 @@ const CATEGORY_LINKS: CategoryLink[] = [
     icon: PartyPopper,
   },
   {
-    label: "Sport",
+    label: "Sports",
     section: "catalog",
     eventType: "sport",
     category: null,
@@ -102,28 +102,28 @@ const CATEGORY_LINKS: CategoryLink[] = [
     icon: Music,
   },
   {
-    label: "Saisonnier",
+    label: "Seasonal",
     section: "catalog",
     eventType: "saisonnier",
     category: null,
     icon: Snowflake,
   },
   {
-    label: "Anniversaires",
+    label: "Birthdays",
     section: "catalog",
     eventType: "anniversaire",
     category: null,
     icon: Gift,
   },
   {
-    label: "Nouveautés",
+    label: "New Arrivals",
     section: "catalog",
     eventType: null,
     category: null,
     icon: Sparkles,
   },
 ];
-const SHIP_LOCATIONS = ["France", "Belgique", "Suisse", "Canada"];
+const SHIP_LOCATIONS = ["France", "Belgium", "Switzerland", "Canada"];
 interface CategorySuggestion {
   kind: "event" | "category";
   value: string;
@@ -185,7 +185,7 @@ function SuggestionsList({
             className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
             style={{ color: "var(--color-ink4)" }}
           >
-            Catégories
+            Categories
           </p>
           {categories.map((c) => {
             const Icon = c.icon;
@@ -216,7 +216,7 @@ function SuggestionsList({
                   className="text-[10px] font-semibold shrink-0"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Catégorie
+                  Category
                 </span>
               </button>
             );
@@ -232,12 +232,12 @@ function SuggestionsList({
               : undefined
           }
         >
-          <p
-            className="px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider"
-            style={{ color: "var(--color-ink4)" }}
-          >
-            Produits
-          </p>
+            <p
+              className="px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              Products
+            </p>
           {products.map((p) => (
             <button
               key={p.id}
@@ -264,12 +264,12 @@ function SuggestionsList({
                   {p.title}
                 </span>
               </span>
-              <span
-                className="text-[10px] font-semibold shrink-0"
-                style={{ color: "var(--color-ink4)" }}
-              >
-                Produit
-              </span>
+                <span
+                  className="text-[10px] font-semibold shrink-0"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Product
+                </span>
             </button>
           ))}
         </div>
@@ -455,7 +455,7 @@ export default function Header({
               className="flex items-center gap-1.5 font-medium"
               style={{ color: "var(--color-bg)" }}
             >
-              <MapPin size={13} strokeWidth={2} /> Livraison vers {shipTo}{" "}
+              <MapPin size={13} strokeWidth={2} /> Shipping to {shipTo}{" "}
               <ChevronDown size={13} strokeWidth={2} />
             </button>
             {isShipMenuOpen && (
@@ -498,13 +498,13 @@ export default function Header({
           </div>
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-1.5">
-              <Truck size={13} /> Livraison rapide
+              <Truck size={13} /> Fast delivery
             </span>
             <span className="flex items-center gap-1.5">
-              <RotateCcw size={13} /> Retours sous 30 jours
+              <RotateCcw size={13} /> 30-day returns
             </span>
             <span className="flex items-center gap-1.5">
-              <ShieldCheck size={13} /> Paiement sécurisé
+              <ShieldCheck size={13} /> Secure payment
             </span>
           </div>
         </div>
@@ -523,7 +523,7 @@ export default function Header({
             {/* Menu sandwich — visible uniquement sur mobile/tablette */}
             <button
               className="flex lg:hidden! btn-icon shrink-0"
-              aria-label="Ouvrir le menu"
+              aria-label="Open menu"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu size={20} />
@@ -542,7 +542,7 @@ export default function Header({
                 }
               }}
               className="flex items-center gap-2 bg-transparent border-none cursor-pointer"
-              aria-label="InstaWear — accueil"
+              aria-label="InstaWear — home"
             >
               <span
                 className="w-9 h-9 rounded-2xl flex items-center justify-center overflow-hidden"
@@ -601,7 +601,7 @@ export default function Header({
                   setTimeout(() => setIsDesktopSuggestOpen(false), 120);
                 }}
                 type="search"
-                placeholder="Rechercher un article, un événement…"
+                placeholder="Search for an item, an event…"
                 className="flex-1 bg-transparent outline-none px-3 text-sm"
                 style={{ color: "var(--color-ink)", outline: "none" }}
               />
@@ -621,7 +621,7 @@ export default function Header({
                     className="px-4 py-4 text-sm text-center"
                     style={{ color: "var(--color-ink3)" }}
                   >
-                    Aucun résultat
+                    No results
                   </p>
                 ) : (
                   <SuggestionsList
@@ -637,21 +637,21 @@ export default function Header({
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0">
             <button
               className="flex lg:hidden! btn-icon shrink-0"
-              aria-label="Rechercher"
+              aria-label="Search"
               onClick={() => setIsSearchOpen(true)}
             >
               <Search size={18} />
             </button>
             <button
               className="btn-icon"
-              aria-label="Changer de thème"
+              aria-label="Toggle theme"
               onClick={toggleTheme}
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             <button
               className="btn-icon"
-              aria-label="Favoris"
+              aria-label="Wishlist"
               onClick={onOpenFavorites}
             >
               <Heart size={18} />
@@ -661,7 +661,7 @@ export default function Header({
             </button>
             <button
               className="btn-icon"
-              aria-label="Panier"
+              aria-label="Cart"
               onClick={onOpenCart}
             >
               <ShoppingBag size={18} />
@@ -686,10 +686,10 @@ export default function Header({
               </span>
               <span className="text-sm font-semibold max-w-26 truncate">
                 {isUserLoggedIn
-                  ? "Compte"
+                  ? "Account"
                   : isAdminLoggedIn
                     ? "Admin"
-                    : "Connexion"}
+                    : "Sign in"}
               </span>
             </button>
           </div>
@@ -765,7 +765,7 @@ export default function Header({
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
                 type="search"
-                placeholder="Rechercher un article, un événement…"
+                placeholder="Search for an item, an event…"
                 className="flex-1 bg-transparent outline-none px-3 text-sm [&::-webkit-search-cancel-button]:hidden"
                 style={{
                   color: "var(--color-ink)",
@@ -775,7 +775,7 @@ export default function Header({
             </form>
             <button
               className="btn-icon shrink-0"
-              aria-label="Fermer la recherche"
+              aria-label="Close search"
               onClick={() => {
                 setIsSearchOpen(false);
                 setIsSearchFocused(false);
@@ -822,7 +822,7 @@ export default function Header({
                 Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
               </span>
               <button
-                aria-label="Fermer le menu"
+                aria-label="Close menu"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <X size={22} style={{ color: "var(--color-ink2)" }} />
@@ -843,7 +843,7 @@ export default function Header({
                 </button>
               ))}
               <div className="pt-5">
-                <span className="eyebrow">Événements</span>
+                <span className="eyebrow">Events</span>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {CATEGORY_LINKS.map((link) => {
                     const Icon = link.icon;
@@ -870,14 +870,14 @@ export default function Header({
               >
                 <User size={16} />{" "}
                 {isUserLoggedIn
-                  ? "Mon compte"
+                  ? "My account"
                   : isAdminLoggedIn
                     ? "Admin"
-                    : "Connexion"}
+                    : "Sign in"}
               </button>
               <button
                 className="btn-icon"
-                aria-label="Changer de thème"
+                aria-label="Toggle theme"
                 onClick={toggleTheme}
               >
                 {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}

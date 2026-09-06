@@ -84,10 +84,10 @@ export default function Footer({
               className="text-base font-bold mb-1"
               style={{ color: "var(--color-ink)" }}
             >
-              On est toujours là pour vous aider
+              We're always here to help
             </h3>
             <p className="text-sm" style={{ color: "var(--color-ink2)" }}>
-              Choisissez le canal le plus rapide pour vous.
+              Choose the fastest channel for you.
             </p>
           </div>
           <a href="#section-faq" className="flex items-center gap-3">
@@ -105,7 +105,7 @@ export default function Footer({
                 className="block text-xs"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Centre d'aide
+                Help Center
               </span>
               <span
                 className="block text-sm font-semibold"
@@ -171,15 +171,14 @@ export default function Footer({
             className="text-sm mb-5 max-w-[26ch]"
             style={{ color: "var(--color-ink2)" }}
           >
-            Le vestiaire des événements. Design à la demande, imprimé pour votre
-            moment.
+            The event wardrobe. On-demand design, printed for your moment.
           </p>
           <div className="flex items-center gap-2">
             {[Instagram, Facebook, Twitter].map((Icon, i) => (
               <span
                 key={i}
-                title="Bientôt disponible"
-                aria-label="Réseau social (bientôt disponible)"
+                title="Coming soon"
+                aria-label="Social network (coming soon)"
                 className="btn-icon opacity-60 cursor-default"
               >
                 <Icon size={16} />
@@ -193,7 +192,7 @@ export default function Footer({
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
-            Boutique
+            Shop
           </h4>
           <ul
             className="flex flex-col gap-2.5 text-sm"
@@ -207,7 +206,7 @@ export default function Footer({
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
-                Toute la boutique
+                All Shop
               </button>
             </li>
             <li>
@@ -231,7 +230,7 @@ export default function Footer({
                 onClick={() => onSelectEventType("saisonnier")}
                 className="hover:text-(--color-accent) text-left"
               >
-                Saisonnier
+                Seasonal
               </button>
             </li>
           </ul>
@@ -242,7 +241,7 @@ export default function Footer({
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
-            Aide
+            Help
           </h4>
           <ul
             className="flex flex-col gap-2.5 text-sm"
@@ -269,7 +268,7 @@ export default function Footer({
                 }
                 className="hover:text-(--color-accent) text-left"
               >
-                Livraison & retours
+                Shipping & Returns
               </button>
             </li>
             <li>
@@ -319,14 +318,14 @@ export default function Footer({
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
-            Restez informé
+            Stay informed
           </h4>
           {subscribed ? (
             <p
               className="flex items-center gap-2 text-sm font-semibold"
               style={{ color: "var(--color-success)" }}
             >
-              <Check size={16} /> Inscription confirmée
+              <Check size={16} /> Subscription confirmed
             </p>
           ) : (
             <>
@@ -355,14 +354,14 @@ export default function Footer({
                     }}
                     type="email"
                     required
-                    placeholder="Votre email"
+                    placeholder="Your email"
                     className="flex-1 bg-transparent outline-none text-sm min-w-0"
                     style={{ color: "var(--color-ink)" }}
                   />
                   <button
                     type="submit"
                     disabled={subscribing || !valid}
-                    aria-label="S'inscrire"
+                    aria-label="Subscribe"
                     className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                     style={{
                       background: valid
@@ -379,7 +378,7 @@ export default function Footer({
                   </button>
                 </div>
                 <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-                  Nouveautés et offres exclusives, sans spam.
+                  New arrivals and exclusive offers, no spam.
                 </p>
               </form>
             </>
@@ -395,12 +394,12 @@ export default function Footer({
         >
           {/* Gauche : Copyright */}
           <span>
-            © {new Date().getFullYear()} InstaWear. Tous droits réservés.
+            © {new Date().getFullYear()} InstaWear. All rights reserved.
           </span>
 
           {/* Centre : mybooker credit */}
           <span className="text-[11px]" style={{ color: "var(--color-ink4)" }}>
-            Réalisé par{" "}
+            Built by{" "}
             <a
               href="https://mybooker.vercel.app"
               target="_blank"
@@ -419,14 +418,14 @@ export default function Footer({
               className="hover:underline bg-transparent border-none cursor-pointer text-xs"
               style={{ color: "var(--color-ink3)" }}
             >
-              CGV
+              Terms
             </button>
             <button
               onClick={() => onOpenLegal?.("privacy")}
               className="hover:underline bg-transparent border-none cursor-pointer text-xs"
               style={{ color: "var(--color-ink3)" }}
             >
-              Confidentialité
+              Privacy
             </button>
             <button
               onClick={() => onOpenLegal?.("cookies")}
@@ -440,7 +439,7 @@ export default function Footer({
               className="hover:underline bg-transparent border-none cursor-pointer text-xs"
               style={{ color: "var(--color-ink3)" }}
             >
-              Gérer les cookies
+              Manage cookies
             </button>
             {isAdmin && (
               <button
@@ -448,7 +447,7 @@ export default function Footer({
                 className="flex items-center gap-1.5 hover:underline bg-transparent border-none cursor-pointer text-xs"
                 style={{ color: "var(--color-ink3)" }}
               >
-                <Lock size={11} /> Accès admin
+                <Lock size={11} /> Admin access
               </button>
             )}
           </div>

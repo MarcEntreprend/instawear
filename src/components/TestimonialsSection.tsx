@@ -2,17 +2,17 @@
 import { Star } from "lucide-react";
 
 const TESTIMONIALS = [
-  { name: "Léa M.", text: "Qualité incroyable, livraison ultra rapide !", rating: 5 },
-  { name: "Thomas R.", text: "Le design est fidèle à la photo, je recommande.", rating: 5 },
-  { name: "Inès K.", text: "Service client au top, échange facile.", rating: 4 },
+  { name: "Léa M.", text: "Incredible quality, super fast delivery!", rating: 5 },
+  { name: "Thomas R.", text: "Design is true to photo, I recommend it.", rating: 5 },
+  { name: "Inès K.", text: "Top customer service, easy exchange.", rating: 4 },
 ];
 
 export default function TestimonialsSection() {
   return (
     <section id="section-testimonials" className="section-container w-full px-4 py-14 sm:py-20 scroll-mt-28">
       <div className="text-center mb-10">
-        <span className="eyebrow justify-center">Avis clients</span>
-        <h2 className="text-2xl sm:text-3xl font-extrabold mt-2" style={{ color: "var(--color-ink)" }}>Ils nous font confiance</h2>
+        <span className="eyebrow justify-center">Customer reviews</span>
+        <h2 className="text-2xl sm:text-3xl font-extrabold mt-2" style={{ color: "var(--color-ink)" }}>They trust us</h2>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
         {TESTIMONIALS.map((t) => (

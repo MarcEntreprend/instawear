@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "../../types";
-const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" });
 export default function FrequentlyBoughtTogether({ mainProduct, mainImage, mainUnitPrice, mainCanAdd, addOns, onAddMain, onQuickAddProduct }: { mainProduct: Product; mainImage: string; mainUnitPrice: number; mainCanAdd: boolean; addOns: Product[]; onAddMain: () => void; onQuickAddProduct: (p: Product) => void }) {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set(addOns.map((p) => p.id)));
   const [justAdded, setJustAdded] = useState(false);
@@ -13,7 +13,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, mainImage, mainU
   const handleAdd = () => { if (mainCanAdd) onAddMain(); checked.forEach((p) => onQuickAddProduct(p)); setJustAdded(true); setTimeout(() => setJustAdded(false), 1800); };
   return (
     <section className="mt-14">
-      <p className="eyebrow mb-4">Souvent achetés ensemble</p>
+      <p className="eyebrow mb-4">Frequently bought together</p>
       <div className="card-premium p-5 sm:p-6">
         <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2">
           <div className="flex flex-col items-center gap-2 shrink-0">
@@ -35,10 +35,10 @@ export default function FrequentlyBoughtTogether({ mainProduct, mainImage, mainU
           ))}
         </div>
         <div className="flex items-center justify-between gap-4 mt-5 pt-5 flex-wrap" style={{ borderTop: "1px solid var(--color-border)" }}>
-          <p className="text-sm" style={{ color: "var(--color-ink2)" }}>Total pour {1 + checked.length} article{checked.length > 0 ? "s" : ""} : <span className="text-base font-extrabold" style={{ color: "var(--color-ink)" }}>{fmt.format(total)}</span></p>
-          <button onClick={handleAdd} className="btn btn-accent">{justAdded ? <><Check size={15} /> Ajouté</> : <><ShoppingBag size={15} /> Ajouter la sélection</>}</button>
+          <p className="text-sm" style={{ color: "var(--color-ink2)" }}>Total for {1 + checked.length} item{checked.length > 0 ? "s" : ""}: <span className="text-base font-extrabold" style={{ color: "var(--color-ink)" }}>{fmt.format(total)}</span></p>
+          <button onClick={handleAdd} className="btn btn-accent">{justAdded ? <><Check size={15} /> Added</> : <><ShoppingBag size={15} /> Add selection</>}</button>
         </div>
-        {!mainCanAdd && <p className="text-xs mt-3" style={{ color: "var(--color-ink4)" }}>Choisissez une taille pour inclure « {mainProduct.title} ».</p>}
+        {!mainCanAdd && <p className="text-xs mt-3" style={{ color: "var(--color-ink4)" }}>Select a size to include “{mainProduct.title}”.</p>}
       </div>
     </section>
   );

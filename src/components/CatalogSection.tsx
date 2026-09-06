@@ -206,13 +206,13 @@ export default function CatalogSection({
     >
       <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
         <div>
-          <span className="eyebrow mb-2 block">La boutique</span>
+          <span className="eyebrow mb-2 block">The Shop</span>
           <h2
             className="text-2xl sm:text-3xl font-extrabold"
             style={{ color: "var(--color-ink)" }}
           >
-            {extraFiltered.length} article{extraFiltered.length > 1 ? "s" : ""}{" "}
-            pour votre prochain événement
+            {extraFiltered.length} item{extraFiltered.length > 1 ? "s" : ""}{" "}
+            for your next event
           </h2>
         </div>
       </div>
@@ -236,11 +236,11 @@ export default function CatalogSection({
                   className="text-xs font-semibold flex items-center gap-1"
                   style={{ color: "var(--color-accent)" }}
                 >
-                  <RotateCcw size={12} /> Réinitialiser
+                  <RotateCcw size={12} /> Reset
                 </button>
               )}
             </div>
-            <FilterGroup title="Événement">
+            <FilterGroup title="Event">
               <div className="flex flex-col gap-0.5">
                 {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
                   <label
@@ -268,7 +268,7 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Catégorie">
+            <FilterGroup title="Category">
               <div className="flex flex-col gap-0.5">
                 {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
                   <label
@@ -303,7 +303,7 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Prix">
+            <FilterGroup title="Price">
               <div className="flex items-center gap-2">
                 <div
                   className="flex items-center rounded-xl px-3 h-10 flex-1"
@@ -364,7 +364,7 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Matière">
+            <FilterGroup title="Material">
               <div className="flex flex-wrap gap-1.5">
                 {MATERIAL_OPTIONS.map((m) => (
                   <button
@@ -382,7 +382,7 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Taille">
+            <FilterGroup title="Size">
               <div className="flex flex-wrap gap-1.5">
                 {SIZE_OPTIONS.map((size) => (
                   <button
@@ -405,7 +405,7 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Couleur">
+            <FilterGroup title="Color">
               <ColorPicker
                 colors={COLOR_OPTIONS}
                 selectedColor={filters.color}
@@ -417,7 +417,7 @@ export default function CatalogSection({
                 className="text-sm font-semibold"
                 style={{ color: "var(--color-ink)" }}
               >
-                En stock uniquement
+                In stock only
               </span>
               <span
                 onClick={() => setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))}
@@ -448,7 +448,7 @@ export default function CatalogSection({
                 onClick={() => setIsFilterDrawerOpen(true)}
                 className="btn btn-secondary flex items-center gap-2"
               >
-                <SlidersHorizontal size={15} /> Filtres{" "}
+                <SlidersHorizontal size={15} /> Filters{" "}
                 {activeFilterCount > 0 && (
                   <span className="badge badge-accent">
                     {activeFilterCount}
@@ -537,7 +537,7 @@ export default function CatalogSection({
                   className="text-xs font-semibold"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Filtres actifs:
+                  Active filters:
                 </span>
                 {searchTerm && (
                   <span
@@ -606,7 +606,7 @@ export default function CatalogSection({
                     onClick={() => setFilters((f) => ({ ...f, inStockOnly: false }))}
                     style={{ cursor: "pointer" }}
                   >
-                    En stock <X size={12} />
+                    In stock <X size={12} />
                   </span>
                 )}
               </div>
@@ -635,19 +635,19 @@ export default function CatalogSection({
                 className="text-base font-bold mb-2"
                 style={{ color: "var(--color-ink)" }}
               >
-                Aucun article ne correspond à ces filtres
+                No items match these filters
               </p>
               <p
                 className="text-sm mb-5"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Essayez d'élargir votre recherche.
+                Try broadening your search.
               </p>
               <button
                 onClick={handleResetAll}
                 className="btn btn-secondary mx-auto"
               >
-                <RotateCcw size={14} /> Réinitialiser les filtres
+                <RotateCcw size={14} /> Reset filters
               </button>
             </div>
           ) : (
@@ -680,7 +680,7 @@ export default function CatalogSection({
                   className="flex flex-col items-center gap-3 mt-10"
                 >
                   <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-                    {visibleCount} sur {extraFiltered.length} articles
+                    {visibleCount} of {extraFiltered.length} items
                   </p>
                   <button
                     onClick={() =>
@@ -690,7 +690,7 @@ export default function CatalogSection({
                     }
                     className="btn btn-secondary"
                   >
-                    Charger plus
+                    Load more
                   </button>
                 </div>
               )}
@@ -724,10 +724,10 @@ export default function CatalogSection({
                 className="text-base font-bold"
                 style={{ color: "var(--color-ink)" }}
               >
-                Filtres
+                Filters
               </span>
               <button
-                aria-label="Fermer"
+                aria-label="Close"
                 onClick={() => setIsFilterDrawerOpen(false)}
               >
                 <X size={20} style={{ color: "var(--color-ink2)" }} />
@@ -739,7 +739,7 @@ export default function CatalogSection({
                   className="text-sm font-bold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  Filtres
+                  Filters
                 </h3>
                 {activeFilterCount > 0 && (
                   <button
@@ -747,7 +747,7 @@ export default function CatalogSection({
                     className="text-xs font-semibold flex items-center gap-1"
                     style={{ color: "var(--color-accent)" }}
                   >
-                    <RotateCcw size={12} /> Réinitialiser
+                    <RotateCcw size={12} /> Reset
                   </button>
                 )}
               </div>
@@ -766,7 +766,7 @@ export default function CatalogSection({
                 ))}
               </div>
               <div className="flex flex-wrap gap-2.5">
-                <FilterGroup title="Couleur">
+            <FilterGroup title="Color">
                   <ColorPicker
                     colors={COLOR_OPTIONS}
                     selectedColor={filters.color}
@@ -786,7 +786,7 @@ export default function CatalogSection({
                 onClick={() => setIsFilterDrawerOpen(false)}
                 className="btn btn-accent w-full"
               >
-                Voir {extraFiltered.length} articles
+                View {extraFiltered.length} items
               </button>
             </div>
           </div>

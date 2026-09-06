@@ -342,7 +342,7 @@ export default function ProductDetailModal({
                     colorAvail === "out_of_stock";
                   const titleBase = dispColorNames?.[idx] || c;
                   const title = isBlocked
-                    ? `${titleBase} — ${colorAvail === "discontinued" ? "Supprimé par le fournisseur" : "Rupture temporaire"}`
+                    ? `${titleBase} — ${colorAvail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
                     : titleBase;
                   return (
                     <button
@@ -440,7 +440,7 @@ export default function ProductDetailModal({
                   const isBlocked =
                     avail === "discontinued" || avail === "out_of_stock";
                   const label = isBlocked
-                    ? `${s} — ${avail === "discontinued" ? "Supprimé" : "Rupture"}`
+                    ? `${s} — ${avail === "discontinued" ? "Removed" : "Out of stock"}`
                     : s;
                   return (
                     <button
@@ -450,8 +450,8 @@ export default function ProductDetailModal({
                       title={
                         isBlocked
                           ? avail === "discontinued"
-                            ? "Supprimé par le fournisseur"
-                            : "Rupture temporaire — réassort Printful"
+                            ? "Removed by supplier"
+                            : "Temporarily out of stock — restocking"
                           : s
                       }
                       className={`min-w-10 h-8 rounded border text-xs font-bold transition-all uppercase px-2.5 ${pickedSize === s ? "border-cyan-400 bg-(--color-accent-bg)" : "border-gray-200 text-gray-600 bg-gray-50/60"} ${isBlocked ? "opacity-40 cursor-not-allowed line-through bg-gray-100" : ""}`}
@@ -470,20 +470,20 @@ export default function ProductDetailModal({
                 if (curAvail === "discontinued")
                   return (
                     <p className="text-[11px] text-rose-600 font-semibold mt-2">
-                      Cette variante a été supprimée par le fournisseur —
-                      choisissez une autre taille/couleur.
+                      This variant was removed by the supplier — please choose
+                      another size/color.
                     </p>
                   );
                 if (curAvail === "out_of_stock")
                   return (
                     <p className="text-[11px] text-amber-600 font-semibold mt-2">
-                      Rupture temporaire par le fournisseur — réassort en cours.
+                      Temporarily out of stock — restocking in progress.
                     </p>
                   );
                 if (!product.isActive)
                   return (
                     <p className="text-[11px] text-rose-600 font-semibold mt-2">
-                      Produit désactivé par l'admin.
+                      Product disabled by admin.
                     </p>
                   );
                 return null;
@@ -581,8 +581,8 @@ export default function ProductDetailModal({
                     const msg = !product.isActive
                       ? "This item is currently unavailable."
                       : curAvail === "discontinued"
-                        ? "Variante supprimée par le fournisseur — indisponible."
-                        : "Rupture temporaire par le fournisseur.";
+                        ? "Variant removed by supplier — unavailable."
+                        : "Temporarily out of stock.";
                     return (
                       <div className="text-center">
                         <p className="text-xs text-rose-500 font-medium mb-3">

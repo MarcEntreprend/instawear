@@ -11,11 +11,11 @@ export interface MobileTabBarProps {
 }
 
 const TABS: { key: MobileTab; label: string; icon: LucideIcon }[] = [
-  { key: "home", label: "Accueil", icon: Home },
-  { key: "catalog", label: "Boutique", icon: LayoutGrid },
-  { key: "favourites", label: "Favoris", icon: Heart },
-  { key: "cart", label: "Panier", icon: ShoppingBag },
-  { key: "account", label: "Compte", icon: User },
+  { key: "home", label: "Home", icon: Home },
+  { key: "catalog", label: "Shop", icon: LayoutGrid },
+  { key: "favourites", label: "Wishlist", icon: Heart },
+  { key: "cart", label: "Cart", icon: ShoppingBag },
+  { key: "account", label: "Account", icon: User },
 ];
 
 export default function MobileTabBar({ active = "home", favouritesCount = 0, cartCount = 0, onTabChange }: MobileTabBarProps) {

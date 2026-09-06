@@ -16,43 +16,43 @@ export default function AboutSection() {
             <div className="bezel-inner aspect-4/5">
               <img
                 src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
-                alt="L'équipe InstaWear"
+                alt="The InstaWear team"
                 className="w-full h-full object-cover"
               />
             </div>
           </div>
           <div className="order-1 lg:order-2">
-            <span className="eyebrow mb-4 block">Notre histoire</span>
+            <span className="eyebrow mb-4 block">Our story</span>
             <h2
               className="text-3xl sm:text-4xl font-extrabold leading-tight mb-5"
               style={{ color: "var(--color-ink)" }}
             >
-              Le vestiaire pensé{" "}
+              The wardrobe designed{" "}
               <em className="font-display not-italic sm:italic pb-1 inline-block">
-                pour vos événements
+                for your events
               </em>
             </h2>
             <p
               className="text-base leading-relaxed mb-4"
               style={{ color: "var(--color-ink2)" }}
             >
-              InstaWear est né d'une idée simple : chaque moment fort mérite une
-              tenue qui lui ressemble. Festival, marathon, concert ou
-              anniversaire — nous imprimons à la demande des pièces uniques,
-              sans stock dormant et sans compromis sur la qualité.
+              InstaWear was born from a simple idea: every highlight deserves an
+              outfit to match. Festival, marathon, concert or birthday — we print
+              one-of-a-kind pieces on demand, with no dead stock and no
+              compromise on quality.
             </p>
             <p
               className="text-base leading-relaxed mb-8"
               style={{ color: "var(--color-ink2)" }}
             >
-              Chaque commande est fabriquée spécialement pour vous, au plus près
-              de votre événement, avec des matières responsables et une
-              sérigraphie pensée pour durer.
+              Each order is made specially for you, as close as possible to your
+              event, with responsible materials and screen printing built to
+              last.
             </p>
             <div className="grid grid-cols-3 gap-4">
-              <Stat value="12k+" label="Pièces imprimées" />
-              <Stat value="4.7/5" label="Note moyenne" />
-              <Stat value="48h" label="Délai d'expédition" />
+              <Stat value="12k+" label="Items printed" />
+              <Stat value="4.7/5" label="Average rating" />
+              <Stat value="48h" label="Shipping lead time" />
             </div>
           </div>
         </div>
@@ -92,25 +92,25 @@ function TestimonialsCarousel() {
       <div className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <span className="eyebrow mb-2 block">Ils en parlent</span>
+            <span className="eyebrow mb-2 block">What they say</span>
             <h2
               className="text-2xl sm:text-3xl font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              Avis clients
+              Customer reviews
             </h2>
           </div>
           <div className="hidden sm:flex items-center gap-2">
             <button
               onClick={() => go(-1)}
-              aria-label="Avis précédent"
+              aria-label="Previous review"
               className="btn-icon"
             >
               <ChevronLeft size={17} />
             </button>
             <button
               onClick={() => go(1)}
-              aria-label="Avis suivant"
+              aria-label="Next review"
               className="btn-icon"
             >
               <ChevronRight size={17} />
@@ -127,7 +127,7 @@ function TestimonialsCarousel() {
             className="text-lg sm:text-xl font-medium leading-relaxed my-6"
             style={{ color: "var(--color-ink)" }}
           >
-            « {testimonial.text} »
+            “{testimonial.text}”
           </p>
           <div className="flex items-center gap-3">
             <img
@@ -162,14 +162,14 @@ function TestimonialsCarousel() {
         <div className="flex sm:hidden items-center gap-2 mt-6">
           <button
             onClick={() => go(-1)}
-            aria-label="Avis précédent"
+            aria-label="Previous review"
             className="btn-icon"
           >
             <ChevronLeft size={17} />
           </button>
           <button
             onClick={() => go(1)}
-            aria-label="Avis suivant"
+            aria-label="Next review"
             className="btn-icon"
           >
             <ChevronRight size={17} />

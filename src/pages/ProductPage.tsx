@@ -76,7 +76,10 @@ export default function ProductPage({
 
   usePageMeta({
     title: product.title,
-    description: product.description?.slice(0, 158) || product.fullDescription?.slice(0, 158) || "",
+    description:
+      product.description?.slice(0, 158) ||
+      product.fullDescription?.slice(0, 158) ||
+      "",
     image: product.image,
     url: `https://instawear.vercel.app/produit/${product.id}`,
     type: "product",
@@ -92,12 +95,18 @@ export default function ProductPage({
       el.type = "application/ld+json";
       document.head.appendChild(el);
     }
-    const price = product.dealActive && product.dealPrice != null ? product.dealPrice : product.price;
+    const price =
+      product.dealActive && product.dealPrice != null
+        ? product.dealPrice
+        : product.price;
     const schema: any = {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.title,
-      description: (product.description || product.fullDescription || "").slice(0, 500),
+      description: (product.description || product.fullDescription || "").slice(
+        0,
+        500,
+      ),
       image: [product.image, ...(product.gallery || [])].filter(Boolean),
       brand: { "@type": "Brand", name: product.brand || "InstaWear" },
       offers: {
@@ -105,9 +114,10 @@ export default function ProductPage({
         url: `https://instawear.vercel.app/produit/${product.id}`,
         priceCurrency: currency.code,
         price: Number(price).toFixed(2),
-        availability: product.inStock !== false
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
+        availability:
+          product.inStock !== false
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
       },
     };
     if (product.ratings?.count > 0) {
@@ -120,7 +130,9 @@ export default function ProductPage({
     el.textContent = JSON.stringify(schema);
 
     const bcId = "jsonld-breadcrumb";
-    let bc = document.head.querySelector(`#${bcId}`) as HTMLScriptElement | null;
+    let bc = document.head.querySelector(
+      `#${bcId}`,
+    ) as HTMLScriptElement | null;
     if (!bc) {
       bc = document.createElement("script");
       bc.id = bcId;
@@ -131,9 +143,24 @@ export default function ProductPage({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Accueil", item: "https://instawear.vercel.app/" },
-        { "@type": "ListItem", position: 2, name: "Boutique", item: "https://instawear.vercel.app/#section-catalog" },
-        { "@type": "ListItem", position: 3, name: product.title, item: `https://instawear.vercel.app/produit/${product.id}` },
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: "https://instawear.vercel.app/",
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Shop",
+          item: "https://instawear.vercel.app/#section-catalog",
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: product.title,
+          item: `https://instawear.vercel.app/produit/${product.id}`,
+        },
       ],
     });
     return () => {
@@ -348,7 +375,7 @@ export default function ProductPage({
                 className="text-xs font-bold uppercase tracking-wider mb-2.5"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Coloris — {dispColorNames?.[colorIdx] || pickedColor}
+                Color — {dispColorNames?.[colorIdx] || pickedColor}
               </p>
               <div className="flex items-center gap-2.5">
                 {dispColors.map((c: string, i: number) => {
@@ -388,14 +415,14 @@ export default function ProductPage({
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Taille {pickedSize && `— ${pickedSize}`}
+                  Size {pickedSize && `— ${pickedSize}`}
                 </p>
                 <button
                   onClick={() => setIsSizeGuideOpen(true)}
                   className="text-xs font-semibold flex items-center gap-1"
                   style={{ color: "var(--color-accent)" }}
                 >
-                  <Info size={12} /> Guide des tailles
+                  <Info size={12} /> Size guide
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -465,7 +492,7 @@ export default function ProductPage({
                   className="text-xs mb-3"
                   style={{ color: "var(--color-negative)" }}
                 >
-                  Choisissez une taille disponible
+                  Please select an available size
                 </p>
               )}
               <div className="flex items-center gap-3 mb-4">
@@ -493,7 +520,7 @@ export default function ProductPage({
                   className="text-xs"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Qté
+                  Qty
                 </span>
               </div>
               <button
@@ -501,15 +528,14 @@ export default function ProductPage({
                 disabled={!canAdd}
                 className="btn btn-accent w-full disabled:opacity-40"
               >
-                <ShoppingBag size={16} />{" "}
-                {justAdded ? "Ajouté" : "Ajouter au panier"}
+                <ShoppingBag size={16} /> {justAdded ? "Added" : "Add to cart"}
               </button>
               <button
                 onClick={handleBuyNow}
                 disabled={!canAdd}
                 className="btn btn-primary w-full mt-3 disabled:opacity-40"
               >
-                Acheter maintenant
+                Buy now
               </button>
               <button
                 onClick={() => onToggleFavorite(product.id)}
@@ -529,18 +555,18 @@ export default function ProductPage({
                   fill={favorites.includes(product.id) ? "#EF4444" : "none"}
                 />{" "}
                 {favorites.includes(product.id)
-                  ? "Retirer des favoris"
-                  : "Favoris"}
+                  ? "Remove from wishlist"
+                  : "Wishlist"}
               </button>
               <div
                 className="flex items-center gap-4 text-xs mt-6"
                 style={{ color: "var(--color-ink3)" }}
               >
                 <span className="flex items-center gap-1.5">
-                  <Truck size={13} /> Livraison rapide
+                  <Truck size={13} /> Fast delivery
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <ShieldCheck size={13} /> Paiement sécurisé
+                  <ShieldCheck size={13} /> Secure payment
                 </span>
               </div>
             </div>
@@ -571,7 +597,7 @@ export default function ProductPage({
         <ProductReviews productId={product.id} />
 
         <div className="mt-14">
-          <p className="eyebrow mb-4">Vous aimerez aussi</p>
+          <p className="eyebrow mb-4">You might also like</p>
           <div className="flex gap-3.5 overflow-x-auto no-scrollbar snap-x pb-1">
             {related.map((p: Product) => (
               <RelatedProductCard
@@ -623,7 +649,7 @@ export default function ProductPage({
           disabled={!canAdd}
           className="btn btn-accent flex-1 disabled:opacity-40"
         >
-          <ShoppingBag size={15} /> Ajouter
+          <ShoppingBag size={15} /> Add
         </button>
       </div>
     </div>

@@ -56,12 +56,12 @@ export default function DealsSection({
       >
         <div className="flex items-end justify-between mb-8">
           <div>
-            <span className="eyebrow mb-2 block">Par occasion</span>
+            <span className="eyebrow mb-2 block">By occasion</span>
             <h2
               className="text-2xl sm:text-3xl font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              Magasinez par événement
+              Shop by event
             </h2>
           </div>
         </div>
@@ -95,19 +95,19 @@ export default function DealsSection({
       <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <span className="eyebrow mb-2 block">Fraîchement imprimé</span>
+            <span className="eyebrow mb-2 block">Freshly printed</span>
             <h2
               className="text-2xl sm:text-3xl font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              Nouveautés
+              New arrivals
             </h2>
           </div>
           <button
             onClick={() => handleSelectCategory(null, null)}
             className="hidden sm:flex btn btn-ghost"
           >
-            Tout voir <ArrowRight size={15} />
+            View all <ArrowRight size={15} />
           </button>
         </div>
         <div className="flex sm:grid sm:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -142,37 +142,36 @@ export default function DealsSection({
             }}
           >
             <span className="eyebrow" style={{ color: "var(--color-accent2)" }}>
-              Livraison partout
+              Delivery everywhere
             </span>
             <div>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 max-w-[16ch]">
-                Votre style, livré. Exclusivement en ligne.
+                Your style, delivered. Online exclusive.
               </h3>
               <p
                 className="text-sm mb-5"
                 style={{ color: "rgba(255,255,255,.7)" }}
               >
-                Expédition sous 48h partout en France, Belgique, Suisse et
-                Canada.
+                Ships within 48h across France, Belgium, Switzerland and Canada.
               </p>
               <button
                 onClick={() => handleSelectCategory(null, null)}
                 className="btn btn-accent"
               >
-                Commander maintenant
+                Order now
               </button>
             </div>
           </div>
           <div className="grid grid-rows-2 gap-5">
             <PromoTile
-              eyebrow="Élégance intemporelle"
-              title="Découvrez la collection Accessoires"
+              eyebrow="Timeless elegance"
+              title="Discover the Accessories collection"
               icon={Gift}
               onClick={() => handleSelectCategory(null, "accessory")}
             />
             <PromoTile
-              eyebrow="Trouvez votre paire"
-              title="Explorez la collection Sport"
+              eyebrow="Find your pair"
+              title="Explore the Sports collection"
               icon={Truck}
               onClick={() => handleSelectCategory("sport", null)}
             />
@@ -186,13 +185,13 @@ export default function DealsSection({
             className="text-2xl sm:text-3xl font-extrabold"
             style={{ color: "var(--color-ink)" }}
           >
-            Offres en vedette
+            Featured offers
           </h2>
           <button
             onClick={() => handleSelectCategory(null, null)}
             className="hidden sm:flex btn btn-ghost"
           >
-            Toutes les promos <ArrowRight size={15} />
+            All deals <ArrowRight size={15} />
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -207,18 +206,18 @@ export default function DealsSection({
               className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider"
               style={{ color: "rgba(255,255,255,.85)" }}
             >
-              <Percent size={14} /> Offres exclusives
+              <Percent size={14} /> Exclusive offers
             </span>
             <div>
               <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-4 max-w-[20ch]">
-                Profitez de nos dernières trouvailles mode événementielle
+                Enjoy our latest event fashion finds
               </h3>
               <button
                 onClick={() => handleSelectCategory(null, null)}
                 className="btn"
                 style={{ background: "#fff", color: "var(--color-accent)" }}
               >
-                Shopper maintenant
+                Shop now
               </button>
             </div>
           </div>
@@ -229,25 +228,25 @@ export default function DealsSection({
               border: "1px solid var(--color-border)",
             }}
           >
-            <span className="eyebrow">Bienvenue</span>
+            <span className="eyebrow">Welcome</span>
             <div>
               <h3
                 className="text-xl sm:text-2xl font-extrabold mb-2"
                 style={{ color: "var(--color-ink)" }}
               >
-                Une offre rien que pour vous
+                An offer just for you
               </h3>
               <p
                 className="text-sm mb-4"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Profitez d'une réduction spéciale sur votre première commande.
+                Enjoy a special discount on your first order.
               </p>
               <button
                 onClick={() => handleSelectCategory(null, null)}
                 className="btn btn-primary"
               >
-                Obtenir la réduction
+                Get discount
               </button>
             </div>
           </div>
@@ -256,7 +255,7 @@ export default function DealsSection({
 
       <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="flex items-end justify-between mb-8">
-          <span className="eyebrow">Par type de produit</span>
+          <span className="eyebrow">By product type</span>
         </div>
         <div className="flex gap-3 overflow-x-auto no-scrollbar">
           {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
@@ -307,7 +306,7 @@ function PromoTile({
           className="inline-flex items-center gap-1 text-xs font-bold mt-3"
           style={{ color: "var(--color-accent)" }}
         >
-          Voir plus <ArrowRight size={12} />
+          See more <ArrowRight size={12} />
         </span>
       </div>
       <span
