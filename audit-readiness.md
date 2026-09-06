@@ -19,7 +19,7 @@
 4. ✅ Footer --- `Footer.tsx:91` `href="#faq"` → `href="#section-faq"` (vrai `id` de `FaqSection.tsx:12`). Sociaux `href="#"` → `<span>` non-lien _Bientôt disponible_ (pas d'URL inventée, plus de pénalité SEO `href="#"`).
 5. c `main.tsx:8` --- import `NotFound` inutilisé supprimé.
 
-### 3. Manquants / Placeholders — ❌ inchangé
+### ✅ 3. Manquants / Placeholders
 
 - ✅ **Contact** : `ContactPage.tsx:26` `onSubmit → setSent(true)` factice, aucun POST Supabase/Resend → non conforme DSA.
 - ✅ **Géo** : `fetch api.country.is` sans cache ni fallback UI.
@@ -44,23 +44,8 @@
 
 ### 7. Perf / Autre — ❌ inchangé
 
-- Bundle monolithe ~1,1 Mo (`motion`+`lottie`+`genai`+`stripe`+`supabase`+`lucide`), 0 `lazy()` Admin/Checkout/ProductPage, 0 `manualChunks`.
-- Images sans `imagetools`/`decoding`/`fetchpriority`, `express.static` sans `maxAge`.
-- `public/unsubscribe.html` expose `anon` key (ok si RLS strict).
+- ✅ Bundle monolithe ~1,1 Mo (`motion`+`lottie`+`genai`+`stripe`+`supabase`+`lucide`), 0 `lazy()` Admin/Checkout/ProductPage, 0 `manualChunks`.
+- ✅Images sans `imagetools`/`decoding`/`fetchpriority`, `express.static` sans `maxAge`.
+- ✅ `public/unsubscribe.html` expose `anon` key (ok si RLS strict).
 
-**Top bloquants restants :** 1) `usePageMeta` sur 6 pages + `Product JSON-LD` 2) sitemap produits + `allowlist 404` 3) cookies : gate + bouton Gérer + tableau CNIL 4) `ContactPage` backend 5) `<a href="/produit/:id">` + sociaux `href="#"` + logo `pushState` 6) `CatalogSection.tsx.new` + `console.*`.
-
-## 2 — `npx tsc --noEmit`
-
-✅ **Vert, 0 erreur** (était 8 erreurs `TS7006` + `TS2322`). `npm run build` non relancé ici, `tsc` suffit pour ces 3 fichiers.
-
-## 3 — Pourquoi ces 3 fichiers sont modifiés
-
-- **`src/App.tsx`**
-  - `(p, c, s) → (p: Product, c: string, s: string)` (`1130`, `1133`, `1139`) : corrige les 6× `TS7006 implicit any` remontés par ton `tsc`. Aucun changement de logique, `addToCart`/`openProduct` identiques.
-  - `onNavigateLegal={scrollIntoView(#faq)} → onNavigateLegal={openLegal}` : corrige le bug audit §2 — le lien _En savoir plus_ du bandeau cookies ouvrait la FAQ au lieu de `/legal/cookies`.
-- **`src/components/CookieConsentBanner.tsx`**
-  - `onNavigateLegal: () => void → (slug?: string) => void` : aligne le type du prop avec `openLegal(slug: string)` d'`App`, corrige `TS2322`.
-  - `onClick={onNavigateLegal} → onClick={() => onNavigateLegal("cookies")}` : sans ça, React injecte le `MouseEvent` comme `slug` (`TS2322` restant). Le clic ouvre désormais la vraie page cookies.
-- **`src/pages/ProductPage.tsx`**
-  - Ajout du bloc `usePageMeta({title: product.title, description: slice(0,158), image, url: /produit/:id, type: "product"})` : l'import existait mais n'était **jamais appelé** (audit §5). C'est le premier pas du fix SEO dynamique — chaque fiche produit met désormais à jour `title/meta/og/canonical`.
+** ✅Top bloquants restants :** 1) `usePageMeta` sur 6 pages + `Product JSON-LD` 2) sitemap produits + `allowlist 404` 3) cookies : gate + bouton Gérer + tableau CNIL 4) `ContactPage` backend 5) `<a href="/produit/:id">` + sociaux `href="#"` + logo `pushState` 6) `CatalogSection.tsx.new` + `console.*`.
