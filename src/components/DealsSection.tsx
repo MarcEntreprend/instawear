@@ -92,7 +92,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
+      <section data-track-section="deals-new" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
         <div className="flex items-end justify-between mb-8">
           <div>
             <span className="eyebrow mb-2 block">Freshly printed</span>
@@ -179,7 +179,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section data-track-section="deals-featured" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="flex items-end justify-between mb-8">
           <h2
             className="text-2xl sm:text-3xl font-extrabold"

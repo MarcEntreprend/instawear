@@ -2329,3 +2329,36 @@ export const newsletterApi = {
     if (error) throw error;
   },
 };
+
+// ─── Merchandising Phase 1 : config par section + affinité co-achats ──
+// Fail-open : toute erreur → l'appelant utilise la règle legacy.
+export interface MerchConfig {
+  enabled: boolean;
+  pins: string[];
+  excludes: string[];
+}
+
+export const merchApi = {
+  async getConfigs(): Promise<Record<string, MerchConfig>> {
+    const { data, error } = await supabase.from("merch_config").select("*");
+    if (error) throw error;
+    const out: Record<string, MerchConfig> = {};
+    for (const row of data ?? []) {
+      out[row.section] = {
+        enabled: row.enabled !== false,
+        pins: row.pins ?? [],
+        excludes: row.excludes ?? [],
+      };
+    }
+    return out;
+  },
+  /** Ids co-achetés avec productId (vrais order_items, over-fetch ×3 pour filtrer côté front). */
+  async affinity(productId: string, limit = 9): Promise<string[]> {
+    const { data, error } = await supabase.rpc("product_affinity", {
+      p_product_id: productId,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.product_id);
+  },
+};

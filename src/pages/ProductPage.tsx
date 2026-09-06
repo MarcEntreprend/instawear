@@ -28,6 +28,8 @@ import RecentlyViewedSection from "../components/product/RecentlyViewedSection";
 import ProductReviews from "../components/product/ProductReviews";
 import DealCountdown from "../components/DealCountdown";
 import StoreProductCard from "../components/StoreProductCard";
+import { isMerchEligible, applyMerchList, type MerchSectionConfig } from "../utils/merch";
+import { merchApi } from "../api/supabaseApi";
 
 export default function ProductPage({
   product,
@@ -198,15 +200,40 @@ export default function ProductPage({
     product.dealActive && !dealExpired && product.dealPrice != null;
   const unitPrice = dealLive ? product.dealPrice! : displayPrice;
 
-  const related = useMemo(
-    () =>
-      products
-        .filter((p: Product) => p.id !== product.id && p.isActive)
-        .slice(0, 8),
-    [products, product.id],
-  );
-  const frequentlyAddOns = useMemo(
-    () =>
+  // ── Phase 1 Merchandising : affinité co-achats réels + pins/excludes.
+  // Fail-open : toute erreur → règles legacy. Kill switch par section.
+  const [affinityIds, setAffinityIds] = useState<string[]>([]);
+  const [merchConfig, setMerchConfig] = useState<
+    Record<string, MerchSectionConfig>
+  >({});
+  useEffect(() => {
+    let cancelled = false;
+    merchApi
+      .getConfigs()
+      .then((c) => {
+        if (!cancelled) setMerchConfig(c);
+      })
+      .catch(() => {});
+    merchApi
+      .affinity(product.id, 9)
+      .then((ids) => {
+        if (!cancelled) setAffinityIds(ids);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id]);
+
+  const byId = useMemo(() => {
+    const m = new Map<string, Product>();
+    for (const p of products) m.set(p.id, p);
+    return (id: string) => m.get(id);
+  }, [products]);
+
+  const frequentlyAddOns = useMemo(() => {
+    const cfg = merchConfig["frequently"];
+    const legacy = () =>
       products
         .filter(
           (p: Product) =>
@@ -214,18 +241,110 @@ export default function ProductPage({
             p.category !== product.category &&
             p.isActive,
         )
-        .slice(0, 3),
-    [products, product.category, product.id],
+        .slice(0, 3);
+    if (cfg && cfg.enabled === false) return legacy();
+    // Réel d'abord (affinité, catégorie différente = complément), puis règle.
+    const pool = [
+      ...affinityIds
+        .map(byId)
+        .filter(
+          (p): p is Product =>
+            !!p &&
+            p.id !== product.id &&
+            p.category !== product.category &&
+            isMerchEligible(p),
+        ),
+      ...products.filter(
+        (p: Product) =>
+          p.id !== product.id &&
+          p.category !== product.category &&
+          isMerchEligible(p) &&
+          !affinityIds.includes(p.id),
+      ),
+    ];
+    const list = applyMerchList(pool, {
+      pins: cfg?.pins,
+      excludes: cfg?.excludes,
+      excludeIds: [product.id],
+      limit: 3,
+      byId: (id) => {
+        const p = byId(id);
+        return p && p.id !== product.id && isMerchEligible(p) ? p : undefined;
+      },
+    });
+    return list.length > 0 ? list : legacy();
+  }, [affinityIds, byId, merchConfig, product, products]);
+
+  const frequentlyIds = useMemo(
+    () => new Set(frequentlyAddOns.map((p) => p.id)),
+    [frequentlyAddOns],
   );
+
   const recentlyProducts = useMemo(
     () =>
       recentlyIds
         .map((id) => products.find((p: Product) => p.id === id))
         .filter(Boolean)
-        .filter((p: any) => p.id !== product.id)
+        .filter(
+          (p: any) => p.id !== product.id && !frequentlyIds.has(p.id),
+        )
         .slice(0, 8) as Product[],
-    [recentlyIds, products, product.id],
+    [recentlyIds, products, product.id, frequentlyIds],
   );
+
+  const related = useMemo(() => {
+    const cfg = merchConfig["related"];
+    const seen = new Set<string>([product.id, ...frequentlyIds]);
+    for (const p of recentlyProducts) seen.add(p.id);
+    if (cfg && cfg.enabled === false) {
+      return products
+        .filter((p: Product) => p.id !== product.id && p.isActive)
+        .slice(0, 8);
+    }
+    // Affinité d'abord, puis même catégorie/event, puis le reste.
+    const pool = [
+      ...affinityIds
+        .map(byId)
+        .filter(
+          (p): p is Product =>
+            !!p && p.id !== product.id && isMerchEligible(p),
+        ),
+      ...products.filter(
+        (p: Product) =>
+          p.id !== product.id &&
+          (p.category === product.category ||
+            p.eventType === product.eventType) &&
+          isMerchEligible(p) &&
+          !affinityIds.includes(p.id),
+      ),
+      ...products.filter(
+        (p: Product) =>
+          p.id !== product.id &&
+          p.isActive &&
+          p.category !== product.category &&
+          p.eventType !== product.eventType &&
+          !affinityIds.includes(p.id),
+      ),
+    ];
+    return applyMerchList(pool, {
+      pins: cfg?.pins,
+      excludes: cfg?.excludes,
+      excludeIds: seen,
+      limit: 8,
+      byId: (id) => {
+        const p = byId(id);
+        return p && p.id !== product.id && isMerchEligible(p) ? p : undefined;
+      },
+    });
+  }, [
+    affinityIds,
+    byId,
+    frequentlyIds,
+    merchConfig,
+    product,
+    products,
+    recentlyProducts,
+  ]);
 
   const canAdd =
     pickedSize &&
@@ -595,18 +714,20 @@ export default function ProductPage({
           </div>
         </div>
 
-        <FrequentlyBoughtTogether
-          mainProduct={product}
-          mainImage={displayImage}
-          mainUnitPrice={unitPrice}
-          mainCanAdd={!!canAdd}
-          mainColor={pickedColor || dispColors[0] || "#000000"}
-          mainSize={pickedSize}
-          addOns={frequentlyAddOns}
-          onAddMain={handleAdd}
-          onAddBundle={handleBundleAdd}
-          onQuickAddProduct={quickAdd}
-        />
+        <div data-track-section="frequently">
+          <FrequentlyBoughtTogether
+            mainProduct={product}
+            mainImage={displayImage}
+            mainUnitPrice={unitPrice}
+            mainCanAdd={!!canAdd}
+            mainColor={pickedColor || dispColors[0] || "#000000"}
+            mainSize={pickedSize}
+            addOns={frequentlyAddOns}
+            onAddMain={handleAdd}
+            onAddBundle={handleBundleAdd}
+            onQuickAddProduct={quickAdd}
+          />
+        </div>
         <RecentlyViewedSection
           products={recentlyProducts}
           onSelect={(p: Product) => {
@@ -617,7 +738,7 @@ export default function ProductPage({
         />
         <ProductReviews productId={product.id} />
 
-        <div className="mt-14">
+        <div data-track-section="related" className="mt-14">
           <p className="eyebrow mb-4">You might also like</p>
           <div className="flex gap-3.5 overflow-x-auto no-scrollbar snap-x pb-1">
             {related.map((p: Product) => (
