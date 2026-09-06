@@ -123,15 +123,43 @@ export default {
         console.error("contact-message first message:", logSafe(msgError));
       }
 
-      // 3. Destinataire admin : super_admin, sinon premier admin, sinon env
-      let adminEmail: string | null = null;
-      const { data: superAdmin } = await supabaseAdmin
-        .from("admin_users")
-        .select("email")
-        .eq("role", "super_admin")
-        .limit(1)
-        .maybeSingle();
-      adminEmail = (superAdmin as any)?.email || null;
+      // 3. Notification admin urgente (compteur onglet + badge sidebar)
+      // Le badge sidebar compte les unread et passe en accent si urgent>0.
+      const { error: notifError } = await supabaseAdmin
+        .from("notifications")
+        .insert({
+          title: "Nouveau message — /contact",
+          description: `"${email}" : ${subjectBase}`,
+          category: "interactions",
+          priority: "urgent",
+          status: "unread",
+          timestamp: new Date().toISOString(),
+          metadata: {
+            interactionId: inter.id,
+            customerEmail: email,
+            registeredUser: !!customer,
+            linkTo: "/admin/interactions",
+            source: "contact-page",
+          },
+          action_label: "Voir le message",
+        });
+      if (notifError) {
+        console.error("contact-message notification:", logSafe(notifError));
+      }
+
+      // 4. Destinataire email admin : env explicite d'abord,
+      // puis super_admin, puis premier admin.
+      let adminEmail: string | null =
+        Deno.env.get("CONTACT_NOTIFY_EMAIL") || null;
+      if (!adminEmail) {
+        const { data: superAdmin } = await supabaseAdmin
+          .from("admin_users")
+          .select("email")
+          .eq("role", "super_admin")
+          .limit(1)
+          .maybeSingle();
+        adminEmail = (superAdmin as any)?.email || null;
+      }
       if (!adminEmail) {
         const { data: anyAdmin } = await supabaseAdmin
           .from("admin_users")
@@ -140,40 +168,50 @@ export default {
           .maybeSingle();
         adminEmail = (anyAdmin as any)?.email || null;
       }
-      adminEmail = adminEmail || Deno.env.get("CONTACT_NOTIFY_EMAIL") || null;
 
-      // 4. Email admin via Resend
+      // 5. Email admin via Resend (ne fait jamais échouer le ticket)
+      let mailSent = false;
+      let mailErrorMsg: string | null = null;
       if (adminEmail) {
-        const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
-        const safeEmail = escapeHtml(email);
-        const safeMsg = escapeHtml(message).replace(/\n/g, "<br>");
-        const userLine = customer
-          ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
-          : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
-        const { error: mailError } = await resend.emails.send({
-          from: Deno.env.get("RESEND_FROM_EMAIL")!,
-          to: [adminEmail],
-          subject: `[Contact InstaWear] ${email}`,
-          html: `<div style="font-family:sans-serif;max-width:600px">` +
-            `<h2>Nouveau message — /contact</h2>` +
-            `<p><b>De :</b> ${safeEmail}</p>` +
-            `<p><b>Profil :</b> ${userLine}</p>` +
-            `<hr>` +
-            `<p>${safeMsg}</p>` +
-            `<hr>` +
-            `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions.</p>` +
-            `</div>`,
-        });
-        if (mailError) {
-          // Ticket déjà stocké : on ne fait pas échouer la requête,
-          // l'admin le verra dans Interactions.
-          console.error("contact-message resend:", logSafe(mailError));
+        try {
+          const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
+          const safeEmail = escapeHtml(email);
+          const safeMsg = escapeHtml(message).replace(/\n/g, "<br>");
+          const userLine = customer
+            ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
+            : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
+          const { data: mailData, error: mailError } = await resend.emails.send({
+            from: Deno.env.get("RESEND_FROM_EMAIL")!,
+            to: [adminEmail],
+            subject: `[Contact InstaWear] ${email}`,
+            html: `<div style="font-family:sans-serif;max-width:600px">` +
+              `<h2>Nouveau message — /contact</h2>` +
+              `<p><b>De :</b> ${safeEmail}</p>` +
+              `<p><b>Profil :</b> ${userLine}</p>` +
+              `<hr>` +
+              `<p>${safeMsg}</p>` +
+              `<hr>` +
+              `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions.</p>` +
+              `</div>`,
+          });
+          if (mailError) {
+            mailErrorMsg = logSafe(mailError);
+            console.error("contact-message resend:", mailErrorMsg);
+          } else {
+            mailSent = true;
+            console.log("contact-message mail sent:", (mailData as any)?.id || "ok");
+          }
+        } catch (e) {
+          // Le SDK peut throw (réseau) : ticket déjà stocké, on logge seulement.
+          mailErrorMsg = logSafe(String(e));
+          console.error("contact-message resend throw:", mailErrorMsg);
         }
       } else {
+        mailErrorMsg = "aucun email admin trouvé";
         console.error("contact-message: aucun email admin trouvé");
       }
 
-      return json({ success: true });
+      return json({ success: true, mailSent, mailError: mailErrorMsg });
     } catch (e) {
       console.error("contact-message fatal:", logSafe(String(e)));
       return json({ error: "Erreur interne. Réessayez plus tard." }, 500);
