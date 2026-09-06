@@ -28,7 +28,7 @@ import RecentlyViewedSection from "../components/product/RecentlyViewedSection";
 import ProductReviews from "../components/product/ProductReviews";
 import DealCountdown from "../components/DealCountdown";
 import StoreProductCard from "../components/StoreProductCard";
-import { isMerchEligible, applyMerchList, type MerchSectionConfig } from "../utils/merch";
+import { isMerchEligible, applyMerchList, ensureMin, type MerchSectionConfig } from "../utils/merch";
 import { merchApi } from "../api/supabaseApi";
 
 export default function ProductPage({
@@ -200,12 +200,14 @@ export default function ProductPage({
     product.dealActive && !dealExpired && product.dealPrice != null;
   const unitPrice = dealLive ? product.dealPrice! : displayPrice;
 
-  // ── Phase 1 Merchandising : affinité co-achats réels + pins/excludes.
+  // ── Phase 1+4 Merchandising : affinité co-achats réels + pins/excludes.
   // Fail-open : toute erreur → règles legacy. Kill switch par section.
+  // Scores pré-calculés (edge merch-scorer) ignorés s'ils sont absents/périmés.
   const [affinityIds, setAffinityIds] = useState<string[]>([]);
   const [merchConfig, setMerchConfig] = useState<
     Record<string, MerchSectionConfig>
   >({});
+  const [scoreMap, setScoreMap] = useState<Map<string, number> | null>(null);
   useEffect(() => {
     let cancelled = false;
     merchApi
@@ -218,6 +220,12 @@ export default function ProductPage({
       .affinity(product.id, 9)
       .then((ids) => {
         if (!cancelled) setAffinityIds(ids);
+      })
+      .catch(() => {});
+    merchApi
+      .getScores("related")
+      .then((r) => {
+        if (!cancelled && r) setScoreMap(r.scores);
       })
       .catch(() => {});
     return () => {
@@ -243,7 +251,20 @@ export default function ProductPage({
         )
         .slice(0, 3);
     if (cfg && cfg.enabled === false) return legacy();
-    // Réel d'abord (affinité, catégorie différente = complément), puis règle.
+    // Réel d'abord (affinité, catégorie différente = complément), puis règle
+    // triée par score pré-calculé quand il est frais.
+    const ruleFill = products.filter(
+      (p: Product) =>
+        p.id !== product.id &&
+        p.category !== product.category &&
+        isMerchEligible(p) &&
+        !affinityIds.includes(p.id),
+    );
+    if (scoreMap) {
+      ruleFill.sort(
+        (a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0),
+      );
+    }
     const pool = [
       ...affinityIds
         .map(byId)
@@ -254,13 +275,7 @@ export default function ProductPage({
             p.category !== product.category &&
             isMerchEligible(p),
         ),
-      ...products.filter(
-        (p: Product) =>
-          p.id !== product.id &&
-          p.category !== product.category &&
-          isMerchEligible(p) &&
-          !affinityIds.includes(p.id),
-      ),
+      ...ruleFill,
     ];
     const list = applyMerchList(pool, {
       pins: cfg?.pins,
@@ -273,7 +288,7 @@ export default function ProductPage({
       },
     });
     return list.length > 0 ? list : legacy();
-  }, [affinityIds, byId, merchConfig, product, products]);
+  }, [affinityIds, byId, merchConfig, product, products, scoreMap]);
 
   const frequentlyIds = useMemo(
     () => new Set(frequentlyAddOns.map((p) => p.id)),
@@ -301,32 +316,41 @@ export default function ProductPage({
         .filter((p: Product) => p.id !== product.id && p.isActive)
         .slice(0, 8);
     }
-    // Affinité d'abord, puis même catégorie/event, puis le reste.
-    const pool = [
+    // Affinité d'abord (ordre co-achats), puis même catégorie/event et reste
+    // triés par score pré-calculé quand il est frais (sinon ordre catalogue).
+    const byScore = (a: Product, b: Product) =>
+      (scoreMap?.get(b.id) ?? 0) - (scoreMap?.get(a.id) ?? 0);
+    const sameCat = products.filter(
+      (p: Product) =>
+        p.id !== product.id &&
+        (p.category === product.category ||
+          p.eventType === product.eventType) &&
+        isMerchEligible(p) &&
+        !affinityIds.includes(p.id),
+    );
+    const rest = products.filter(
+      (p: Product) =>
+        p.id !== product.id &&
+        p.isActive &&
+        p.category !== product.category &&
+        p.eventType !== product.eventType &&
+        !affinityIds.includes(p.id),
+    );
+    if (scoreMap) {
+      sameCat.sort(byScore);
+      rest.sort(byScore);
+    }
+    const eligiblePool = [
       ...affinityIds
         .map(byId)
         .filter(
           (p): p is Product =>
             !!p && p.id !== product.id && isMerchEligible(p),
         ),
-      ...products.filter(
-        (p: Product) =>
-          p.id !== product.id &&
-          (p.category === product.category ||
-            p.eventType === product.eventType) &&
-          isMerchEligible(p) &&
-          !affinityIds.includes(p.id),
-      ),
-      ...products.filter(
-        (p: Product) =>
-          p.id !== product.id &&
-          p.isActive &&
-          p.category !== product.category &&
-          p.eventType !== product.eventType &&
-          !affinityIds.includes(p.id),
-      ),
+      ...sameCat,
+      ...rest,
     ];
-    return applyMerchList(pool, {
+    const list = applyMerchList(eligiblePool, {
       pins: cfg?.pins,
       excludes: cfg?.excludes,
       excludeIds: seen,
@@ -336,6 +360,9 @@ export default function ProductPage({
         return p && p.id !== product.id && isMerchEligible(p) ? p : undefined;
       },
     });
+    // Filet anti-vide : si la dédup a trop réduit, remplit depuis le pool
+    // éligible (jamais d'inéligible réintroduit).
+    return ensureMin(list, eligiblePool, Math.min(3, eligiblePool.length));
   }, [
     affinityIds,
     byId,
@@ -344,6 +371,7 @@ export default function ProductPage({
     product,
     products,
     recentlyProducts,
+    scoreMap,
   ]);
 
   const canAdd =

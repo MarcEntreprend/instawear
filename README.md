@@ -54,6 +54,7 @@ npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy delete-account --no-verify-jwt
 npx supabase functions deploy contact-message --no-verify-jwt
 npx supabase functions deploy auth-welcome --no-verify-jwt
+npx supabase functions deploy merch-scorer --no-verify-jwt
 ```
 
 ---

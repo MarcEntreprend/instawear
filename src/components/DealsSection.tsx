@@ -1,8 +1,11 @@
 // src/components/DealsSection.tsx — V2 4 blocks + V1 live data
+import { useEffect, useState } from "react";
 import { ArrowRight, Truck, Percent, Gift } from "lucide-react";
 import type { Product } from "../types";
 import StoreProductCard from "./StoreProductCard";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { isMerchEligible } from "../utils/merch";
+import { merchApi } from "../api/supabaseApi";
 
 interface DealsSectionProps {
   dealExpired: boolean;
@@ -31,9 +34,30 @@ export default function DealsSection({
   onToggleFavorite,
   onAddToCart,
 }: DealsSectionProps) {
-  const newArrivals = [...products]
-    .filter((p) => p.isActive)
-    .sort((a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0))
+  // Phase 4 : ordre par score pré-calculé quand il est frais, sinon legacy.
+  // Éligibles d'abord, mais jamais de section rétrécie : si < 4 éligibles,
+  // on retombe sur les actifs (même règle qu'avant).
+  const [newScores, setNewScores] = useState<Map<string, number> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    merchApi
+      .getScores("new")
+      .then((r) => {
+        if (!cancelled && r) setNewScores(r.scores);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const eligibleNew = products.filter((p) => p.isActive && isMerchEligible(p));
+  const newPool = eligibleNew.length >= 4 ? eligibleNew : products.filter((p) => p.isActive);
+  const newArrivals = [...newPool]
+    .sort((a, b) =>
+      newScores
+        ? (newScores.get(b.id) ?? 0) - (newScores.get(a.id) ?? 0)
+        : (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
+    )
     .slice(0, 8);
   const handleSelectCategory = (
     eventType: string | null,

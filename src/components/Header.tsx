@@ -27,6 +27,7 @@ import { CART_PLUS_ICON } from "../constants/assets";
 import { useTheme } from "../hooks/useTheme";
 import { useCurrency } from "../hooks/useCurrency";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { merchApi } from "../api/supabaseApi";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -322,7 +323,27 @@ export default function Header({
   const [isDesktopSuggestOpen, setIsDesktopSuggestOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [query, setQuery] = useState(currentSearchTerm);
+  const [trending, setTrending] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // Tendances réelles (edge merch-scorer) — silence si absent/périmé
+  useEffect(() => {
+    let cancelled = false;
+    merchApi
+      .getTrending(6)
+      .then((t) => {
+        if (!cancelled) setTrending(t);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const pickTrending = (term: string) => {
+    setQuery(term);
+    onSearch(term);
+    setIsDesktopSuggestOpen(false);
+    setIsSearchOpen(false);
+  };
   const suggestions = useMemo(
     () => getSuggestions(query, products),
     [query, products],
@@ -567,7 +588,8 @@ export default function Header({
                 style={{ color: "var(--color-ink)", outline: "none" }}
               />
             </form>
-            {isDesktopSuggestOpen && query.trim().length > 0 && (
+            {isDesktopSuggestOpen &&
+              (query.trim().length > 0 || trending.length > 0) && (
               <div
                 className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden animate-scale-in origin-top z-50 max-h-96 overflow-y-auto"
                 style={{
@@ -576,8 +598,34 @@ export default function Header({
                   boxShadow: "var(--shadow-lg)",
                 }}
               >
-                {suggestions.categories.length === 0 &&
-                suggestions.products.length === 0 ? (
+                {query.trim().length === 0 ? (
+                  <div className="flex flex-col py-2 px-2">
+                    <p
+                      className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      Trending
+                    </p>
+                    {trending.map((term) => (
+                      <button
+                        key={term}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickTrending(term)}
+                        className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left hover:bg-(--color-surface2)"
+                      >
+                        <Search size={14} style={{ color: "var(--color-ink3)" }} />
+                        <span
+                          className="text-sm font-semibold flex-1 truncate"
+                          style={{ color: "var(--color-ink)" }}
+                        >
+                          {term}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : suggestions.categories.length === 0 &&
+                  suggestions.products.length === 0 ? (
                   <p
                     className="px-4 py-4 text-sm text-center"
                     style={{ color: "var(--color-ink3)" }}
@@ -742,13 +790,40 @@ export default function Header({
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
-            {query.trim().length > 0 && (
-              <SuggestionsList
-                categories={suggestions.categories}
-                products={suggestions.products}
-                onPickCategory={handlePickCategorySuggestion}
-                onPickProduct={handlePickProductSuggestion}
-              />
+            {query.trim().length === 0 && trending.length > 0 ? (
+              <div className="flex flex-col py-2">
+                <p
+                  className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: "var(--color-ink4)" }}
+                >
+                  Trending
+                </p>
+                {trending.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => pickTrending(term)}
+                    className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left"
+                  >
+                    <Search size={14} style={{ color: "var(--color-ink3)" }} />
+                    <span
+                      className="text-sm font-semibold flex-1 truncate"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {term}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              query.trim().length > 0 && (
+                <SuggestionsList
+                  categories={suggestions.categories}
+                  products={suggestions.products}
+                  onPickCategory={handlePickCategorySuggestion}
+                  onPickProduct={handlePickProductSuggestion}
+                />
+              )
             )}
           </div>
         </div>

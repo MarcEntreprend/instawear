@@ -70,3 +70,23 @@ export function applyMerchList<T extends { id: string }>(
   }
   return out;
 }
+
+/**
+ * Filet anti-vide : si la dédup/excludes a trop réduit la liste, remplit
+ * depuis le pool éligible (jamais d'inéligible réintroduit).
+ */
+export function ensureMin<T extends { id: string }>(
+  list: T[],
+  pool: T[],
+  min: number,
+): T[] {
+  if (list.length >= min) return list;
+  const have = new Set(list.map((x) => x.id));
+  for (const c of pool) {
+    if (list.length >= min) break;
+    if (have.has(c.id)) continue;
+    list.push(c);
+    have.add(c.id);
+  }
+  return list;
+}

@@ -2361,4 +2361,38 @@ export const merchApi = {
     if (error) throw error;
     return (data ?? []).map((r: any) => r.product_id);
   },
+  /**
+   * Scores pré-calculés (edge merch-scorer) pour une section.
+   * Retourne null si absents ou périmés (>48h) → l'appelant utilise la règle legacy.
+   */
+  async getScores(
+    section: string,
+    maxAgeH = 48,
+  ): Promise<{ scores: Map<string, number>; fresh: boolean } | null> {
+    const { data, error } = await supabase
+      .from("product_scores")
+      .select("product_id, score, computed_at")
+      .eq("section", section);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    const ages = data.map((r: any) =>
+      Date.now() - new Date(r.computed_at).getTime(),
+    );
+    const fresh = Math.max(...ages) < maxAgeH * 3600000;
+    if (!fresh) return null;
+    return {
+      scores: new Map(data.map((r: any) => [r.product_id, Number(r.score) || 0])),
+      fresh: true,
+    };
+  },
+  /** Termes de recherche tendances (agrégés, jamais de PII). */
+  async getTrending(limit = 6): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("search_trends")
+      .select("term")
+      .order("hits", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.term);
+  },
 };
