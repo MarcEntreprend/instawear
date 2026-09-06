@@ -232,12 +232,12 @@ function SuggestionsList({
               : undefined
           }
         >
-            <p
-              className="px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider"
-              style={{ color: "var(--color-ink4)" }}
-            >
-              Products
-            </p>
+          <p
+            className="px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: "var(--color-ink4)" }}
+          >
+            Products
+          </p>
           {products.map((p) => (
             <button
               key={p.id}
@@ -264,12 +264,12 @@ function SuggestionsList({
                   {p.title}
                 </span>
               </span>
-                <span
-                  className="text-[10px] font-semibold shrink-0"
-                  style={{ color: "var(--color-ink4)" }}
-                >
-                  Product
-                </span>
+              <span
+                className="text-[10px] font-semibold shrink-0"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                Product
+              </span>
             </button>
           ))}
         </div>
@@ -444,69 +444,30 @@ export default function Header({
 
   return (
     <>
+      {/* Promo bar — marquee scrolling */}
       <div
-        className="hidden md:block text-xs"
-        style={{ background: "var(--color-ink)", color: "var(--color-ink4)" }}
+        className="w-full py-2 overflow-hidden"
+        style={{ background: "var(--color-accent)" }}
       >
-        <div className="max-w-350 mx-auto px-6 h-10 flex items-center justify-between">
-          <div className="relative">
-            <button
-              onClick={() => setIsShipMenuOpen((v) => !v)}
-              className="flex items-center gap-1.5 font-medium"
-              style={{ color: "var(--color-bg)" }}
-            >
-              <MapPin size={13} strokeWidth={2} /> Shipping to {shipTo}{" "}
-              <ChevronDown size={13} strokeWidth={2} />
-            </button>
-            {isShipMenuOpen && (
-              <div
-                className="absolute top-full left-0 mt-2 w-44 rounded-xl overflow-hidden animate-scale-in origin-top-left"
-                style={{
-                  background: "var(--color-surface)",
-                  boxShadow: "var(--shadow-lg)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                {SHIP_LOCATIONS.map((loc) => (
-                  <button
-                    key={loc}
-                    onClick={() => {
-                      onShipToChange(loc);
-                      setIsShipMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm font-medium flex items-center justify-between gap-3"
-                    style={{
-                      color:
-                        loc === shipTo
-                          ? "var(--color-accent)"
-                          : "var(--color-ink2)",
-                    }}
-                  >
-                    {loc}{" "}
-                    {loc === shipTo && (
-                      <span
-                        className="text-[10px] font-bold font-mono-num"
-                        style={{ color: "var(--color-ink4)" }}
-                      >
-                        {currency.code}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5">
-              <Truck size={13} /> Fast delivery
-            </span>
-            <span className="flex items-center gap-1.5">
-              <RotateCcw size={13} /> 30-day returns
-            </span>
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck size={13} /> Secure payment
-            </span>
-          </div>
+        <div className="flex animate-marquee whitespace-nowrap w-max">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-8 pr-8">
+              {[
+                "New Collection 2026",
+                "Zero Waste Printing",
+                "Free Shipping $35+",
+                "Printed in 24h",
+                "Made-to-order fashion",
+              ].map((text) => (
+                <span
+                  key={text}
+                  className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white"
+                >
+                  <span className="text-white/60">✦</span> {text}
+                </span>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -659,11 +620,7 @@ export default function Header({
                 <span className="icon-count">{favoriteCount}</span>
               )}
             </button>
-            <button
-              className="btn-icon"
-              aria-label="Cart"
-              onClick={onOpenCart}
-            >
+            <button className="btn-icon" aria-label="Cart" onClick={onOpenCart}>
               <ShoppingBag size={18} />
               {totalQty > 0 && <span className="icon-count">{totalQty}</span>}
             </button>
