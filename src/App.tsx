@@ -5,11 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
-import AccountPage from "./components/AccountPage";
-import CheckoutFlow from "./components/CheckoutFlow";
+// Blocs lourds en lazy : chargés uniquement à l'ouverture (admin jamais
+// téléchargé pour un visiteur non-admin, Stripe uniquement au checkout).
+const AccountPage = lazy(() => import("./components/AccountPage"));
+const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
@@ -23,7 +25,17 @@ import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
-import AdminDashboardNew from "./admin/AdminDashboardNew";
+// Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
+const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+
+// Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
+function LazyFallback() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg)" }} aria-label="Chargement">
+      <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-border)", borderTopColor: "var(--color-accent)" }} />
+    </div>
+  );
+}
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { useCookieConsent } from "./hooks/useCookieConsent";
@@ -1156,9 +1168,11 @@ export default function App() {
         </main>
       )}
 
-      {/* Admin Creator Dashboard Screen 2 */}
-      {activeTab === "admin" && (
-        <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+      {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
+      {activeTab === "admin" && isAdmin && (
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+        </Suspense>
       )}
 
       {/* Product Page (V2) — replaces modal, with URL pushState */}
@@ -1341,54 +1355,62 @@ export default function App() {
       )}
 
       {showAccountPage && (
-        <AccountPage
-          onClose={() => setShowAccountPage(false)}
-          onViewProduct={(productId, initialColor, initialSize) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
-            }
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <AccountPage
+            onClose={() => setShowAccountPage(false)}
+            onViewProduct={(productId, initialColor, initialSize) => {
+              const product = products.find((p) => p.id === productId);
+              if (product) {
+                setSelectedProductInitialColor(initialColor || null);
+                setSelectedProductInitialSize(initialSize || null);
+                setSelectedProduct(product);
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/*  rendu du nouveau Admin en dehors du flux normal */}
       {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
       {showNewAdmin && isAdmin && (
-        <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        </Suspense>
       )}
 
       {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
       {checkoutOpen && (
-        <CheckoutFlow
-          cart={cart}
-          detectedCountry={detectedCountry}
-          onUpdateQty={updateCartQty}
-          onRemoveItem={removeFromCart}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => {
-            setCart([]);
-            showToast(
-              "🎉 Order confirmed! A confirmation email has been sent.",
-              "success",
-            );
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={cart}
+            detectedCountry={detectedCountry}
+            onUpdateQty={updateCartQty}
+            onRemoveItem={removeFromCart}
+            onClose={() => setCheckoutOpen(false)}
+            onSuccess={() => {
+              setCart([]);
+              showToast(
+                "🎉 Order confirmed! A confirmation email has been sent.",
+                "success",
+              );
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Confirmation mode after Stripe return */}
       {stripeConfirmOrderId && (
-        <CheckoutFlow
-          cart={[]}
-          detectedCountry={detectedCountry}
-          onUpdateQty={() => {}}
-          onRemoveItem={() => {}}
-          onClose={() => setStripeConfirmOrderId(null)}
-          onSuccess={() => {}}
-          confirmModeOrderId={stripeConfirmOrderId}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={[]}
+            detectedCountry={detectedCountry}
+            onUpdateQty={() => {}}
+            onRemoveItem={() => {}}
+            onClose={() => setStripeConfirmOrderId(null)}
+            onSuccess={() => {}}
+            confirmModeOrderId={stripeConfirmOrderId}
+          />
+        </Suspense>
       )}
 
       {/* Order Tracking Modal */}
