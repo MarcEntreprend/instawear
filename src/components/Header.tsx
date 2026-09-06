@@ -622,7 +622,7 @@ export default function Header({
             </button>
             <button className="btn-icon" aria-label="Cart" onClick={onOpenCart}>
               <ShoppingBag size={18} />
-              {totalQty > 0 && <span className="icon-count">{totalQty}</span>}
+              {totalQty > 0 && <span key={totalQty} className="icon-count icon-bump">{totalQty}</span>}
             </button>
             <button
               className="hidden sm:flex items-center gap-2 pl-2 pr-3.5 h-11 rounded-full transition-colors hover:border-(--color-ink)"

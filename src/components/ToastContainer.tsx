@@ -3,18 +3,27 @@
 /**
  * ToastContainer – Notification queue system
  * Supports types: success, error, info, warning
- * Icons, progress bar, close button
+ * Icons, progress bar, close button.
+ * - Auto-dismiss après `duration` (défaut 4500ms, erreurs 6000ms).
+ * - Action optionnelle : toast cliquable (ex. "View cart" → ouvre le panier),
+ *   avec indice visuel ; le X ferme sans déclencher l'action.
  */
-import React, { useState, useCallback, useEffect, useRef } from "react";
-import { CheckCircle, XCircle, AlertCircle, Info, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { CheckCircle, XCircle, AlertCircle, Info, X, ArrowRight } from "lucide-react";
 
 export type ToastType = "success" | "error" | "info" | "warning";
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 
 export interface Toast {
   id: number;
   text: string;
   type: ToastType;
-  duration?: number; // ms, default 4500
+  duration?: number; // ms — défaut 4500 (6000 pour error/warning)
+  action?: ToastAction;
 }
 
 interface ToastContainerProps {
@@ -43,6 +52,13 @@ const BG_MAP: Record<ToastType, string> = {
   info: "var(--color-accent-bg)",
 };
 
+const DEFAULT_DURATION: Record<ToastType, number> = {
+  success: 4500,
+  info: 4500,
+  warning: 6000,
+  error: 6000,
+};
+
 function ToastItem({
   toast,
   onRemove,
@@ -51,26 +67,53 @@ function ToastItem({
   onRemove: (id: number) => void;
 }) {
   const [exiting, setExiting] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const onRemoveRef = useRef(onRemove);
+  onRemoveRef.current = onRemove;
 
-  const handleRemove = useCallback(() => {
-    setExiting(true);
-    setTimeout(() => onRemove(toast.id), 300);
-  }, [toast.id, onRemove]);
-
+  // Auto-dismiss garanti : un seul timer, cleanup stricte, pas de dépendance
+  // à des callbacks recréés (cause d'annulations silencieuses en StrictMode).
   useEffect(() => {
-    const duration = toast.duration ?? 4500;
-    timerRef.current = window.setTimeout(handleRemove, duration);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [handleRemove, toast.duration]);
+    const ms = toast.duration ?? DEFAULT_DURATION[toast.type];
+    const t = window.setTimeout(() => {
+      setExiting(true);
+      window.setTimeout(() => onRemoveRef.current(toast.id), 300);
+    }, ms);
+    return () => window.clearTimeout(t);
+  }, [toast.id, toast.type, toast.duration]);
+
+  const handleAction = () => {
+    toast.action?.onClick();
+    setExiting(true);
+    window.setTimeout(() => onRemoveRef.current(toast.id), 250);
+  };
+
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExiting(true);
+    window.setTimeout(() => onRemoveRef.current(toast.id), 250);
+  };
+
+  const clickable = !!toast.action;
 
   return (
     <div
+      onClick={clickable ? handleAction : undefined}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleAction();
+              }
+            }
+          : undefined
+      }
+      title={clickable ? toast.action!.label : undefined}
       className={`animate-fade-up flex items-start gap-3 p-4 rounded-xl shadow-lg border max-w-sm w-full transition-all duration-300 ${
         exiting ? "opacity-0 translate-x-4" : "opacity-100"
-      }`}
+      } ${clickable ? "cursor-pointer hover:-translate-y-0.5" : ""}`}
       style={{
         background: "var(--color-surface)",
         borderColor: "var(--color-border)",
@@ -81,14 +124,25 @@ function ToastItem({
       >
         {ICON_MAP[toast.type]}
       </span>
-      <p
-        className="flex-1 text-sm font-medium leading-snug"
-        style={{ color: "var(--color-ink)" }}
-      >
-        {toast.text}
-      </p>
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-sm font-medium leading-snug"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {toast.text}
+        </p>
+        {clickable && (
+          <span
+            className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold"
+            style={{ color: "var(--color-accent)" }}
+          >
+            {toast.action!.label} <ArrowRight size={12} strokeWidth={2.5} />
+          </span>
+        )}
+      </div>
       <button
-        onClick={handleRemove}
+        onClick={handleClose}
+        aria-label="Dismiss"
         className="shrink-0 p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         style={{ color: "var(--color-ink4)" }}
       >
@@ -106,6 +160,8 @@ function ToastItem({
     </div>
   );
 }
+
+export const MAX_TOASTS = 4;
 
 export default function ToastContainer({
   toasts,

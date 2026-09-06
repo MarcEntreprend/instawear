@@ -83,14 +83,14 @@ export default function CartDrawer({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 animate-fade-in"
+        className="fixed inset-0 z-[70] animate-fade-in"
         style={{ background: "rgba(26,25,22,.5)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
       {/* Drawer */}
       <div
-        className="fixed inset-y-0 right-0 z-40 w-full max-w-100 flex flex-col animate-slide-right"
+        className="fixed inset-y-0 right-0 z-[70] w-full max-w-100 flex flex-col animate-slide-right"
         style={{
           background: "var(--color-bg)",
           borderLeft: "1px solid var(--color-border)",
