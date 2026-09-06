@@ -29,6 +29,9 @@
     },
     "/send-email": {
       "post": { "summary": "Resend transactional email (service_role only)", "x-roles": ["service_role"], "x-edges": ["send-email"] }
+    },
+    "/contact-message": {
+      "post": { "summary": "Public contact form: store ticket + notify admin via Resend (rate-limited 5/min)", "x-roles": ["public"], "x-edges": ["contact-message"] }
     }
   }
 }

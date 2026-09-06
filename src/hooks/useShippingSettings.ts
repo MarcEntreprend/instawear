@@ -1,5 +1,6 @@
 // src/hooks/useShippingSettings.ts
-
+// Source de vérité : store_settings (admin) pour le coût/seuil/devises de base.
+// shippingRates.ts = surcharges par pays (fallback = valeurs admin).
 import { useState, useEffect } from "react";
 import { SHIPPING_RATES, DEFAULT_SHIPPING } from "../data/shippingRates";
 
@@ -11,49 +12,56 @@ interface ShippingSettings {
 }
 
 export function useShippingSettings(countryCode?: string): ShippingSettings {
-  const getRate = () =>
-    countryCode
-      ? SHIPPING_RATES[countryCode] || DEFAULT_SHIPPING
-      : DEFAULT_SHIPPING;
-
   const [settings, setSettings] = useState<ShippingSettings>(() => {
-    const rate = getRate();
+    const rate =
+      (countryCode && SHIPPING_RATES[countryCode]) || DEFAULT_SHIPPING;
     return {
       cost: rate.cost,
       threshold: rate.freeThreshold,
       currencyCode: "usd",
-      ready: true,
+      ready: false,
     };
   });
 
-  // Met à jour immédiatement quand le pays change (sans attendre l'API)
   useEffect(() => {
-    const rate = getRate();
+    let cancelled = false;
+    // Base immédiate : override pays si présent, sinon défauts statiques
+    const rate =
+      (countryCode && SHIPPING_RATES[countryCode]) || DEFAULT_SHIPPING;
     setSettings((prev) => ({
       ...prev,
       cost: rate.cost,
       threshold: rate.freeThreshold,
     }));
-  }, [countryCode]);
 
-  // ⚠️ Désactivé pour le MVP – les tarifs sont pilotés par shippingRates.ts
-  // Charge les settings depuis Supabase (optionnel, peut écraser les valeurs si configuré)
-  // useEffect(() => {
-  //   import("../api/supabaseApi").then(({ storeSettingsApi }) => {
-  //     storeSettingsApi
-  //       .get()
-  //       .then((s) => {
-  //         const rate = getRate();
-  //         setSettings({
-  //           cost: s.shippingCost ?? rate.cost,
-  //           threshold: s.freeShippingThreshold ?? rate.freeThreshold,
-  //           currencyCode: (s.currency || "usd").toLowerCase(),
-  //           ready: true,
-  //         });
-  //       })
-  //       .catch(() => {});
-  //   });
-  // }, [countryCode]);
+    // Source de vérité admin : écrase les défauts (pas les overrides pays)
+    import("../api/supabaseApi").then(({ storeSettingsApi }) => {
+      storeSettingsApi
+        .get()
+        .then((s) => {
+          if (cancelled) return;
+          const hasCountryOverride =
+            !!countryCode && !!SHIPPING_RATES[countryCode];
+          setSettings({
+            cost: hasCountryOverride
+              ? SHIPPING_RATES[countryCode!].cost
+              : (s.shippingCost ?? rate.cost),
+            threshold: hasCountryOverride
+              ? SHIPPING_RATES[countryCode!].freeThreshold
+              : (s.freeShippingThreshold ?? rate.freeThreshold),
+            currencyCode: (s.currency || "usd").toLowerCase(),
+            ready: true,
+          });
+        })
+        .catch(() => {
+          if (!cancelled)
+            setSettings((prev) => ({ ...prev, ready: true }));
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode]);
 
   return settings;
 }

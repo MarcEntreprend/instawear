@@ -842,15 +842,51 @@ export default function App() {
   }, []);
 
   // Detect user country via IP (free, no API key, CORS-friendly)
+  // Cache 7j en localStorage + fallback silencieux (CheckoutFlow utilise
+  // store_settings.country si detectedCountry est null).
   useEffect(() => {
-    fetch("https://api.country.is/")
-      .then((res) => res.json())
+    const KEY = "instawear-country";
+    const TTL = 7 * 86400000;
+    try {
+      const cached = window.localStorage.getItem(KEY);
+      if (cached) {
+        const { code, at } = JSON.parse(cached);
+        if (code && Date.now() - at < TTL) {
+          setDetectedCountry(code);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    let cancelled = false;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch("https://api.country.is/", { signal: ctrl.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`geo ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
+        if (cancelled) return;
         if (data?.country) {
           setDetectedCountry(data.country);
+          try {
+            window.localStorage.setItem(
+              KEY,
+              JSON.stringify({ code: data.country, at: Date.now() }),
+            );
+          } catch { /* ignore */ }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback silencieux : detectedCountry reste null,
+        // CheckoutFlow utilisera store_settings.country.
+      })
+      .finally(() => clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, []);
 
   // Auto-scroll to filters or catalog when a filter changes

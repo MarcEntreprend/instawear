@@ -2130,6 +2130,40 @@ export const interactionApi = {
     return data ?? [];
   },
 
+  async create(ticket: {
+    customerId?: string | null;
+    customerName: string;
+    customerEmail: string;
+    type: string;
+    subject: string;
+    message: string;
+    metadata?: any;
+  }): Promise<any> {
+    const { data: inter, error } = await supabase
+      .from("interactions")
+      .insert({
+        customer_id: ticket.customerId || ticket.customerEmail,
+        customer_name: ticket.customerName,
+        customer_email: ticket.customerEmail,
+        type: ticket.type,
+        status: "open",
+        subject: ticket.subject,
+        last_message: ticket.message,
+        metadata: ticket.metadata || {},
+      })
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (inter) {
+      await supabase.from("interaction_messages").insert({
+        interaction_id: inter.id,
+        from_field: "customer",
+        text: ticket.message,
+      });
+    }
+    return inter;
+  },
+
   async updateStatus(id: string, status: string): Promise<void> {
     const { error } = await supabase
       .from("interactions")

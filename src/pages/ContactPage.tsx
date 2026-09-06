@@ -1,11 +1,79 @@
-// src/pages/ContactPage.tsx — V2 visuals
-import { useState } from "react";
-import { ChevronLeft, Mail, Send, Check } from "lucide-react";
+// src/pages/ContactPage.tsx — V2 visuals + real backend (interactions ticket)
+import { useEffect, useState } from "react";
+import { ChevronLeft, Mail, Send, Check, AlertCircle } from "lucide-react";
+import { supabase } from "../lib/supabaseClient";
+
+const COOLDOWN_KEY = "instawear-contact-last";
+const COOLDOWN_MS = 60_000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ContactPage({ onBack }: { onBack: () => void }) {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Pré-remplir l'email si connecté
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setEmail(data.user.email);
+    });
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const cleanEmail = email.trim();
+    const cleanMsg = message.trim();
+    if (!EMAIL_RE.test(cleanEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (cleanMsg.length < 10) {
+      setError("Please write at least 10 characters so we can help you.");
+      return;
+    }
+    // Anti-spam : 1 envoi / 60s
+    try {
+      const last = Number(window.localStorage.getItem(COOLDOWN_KEY) || 0);
+      if (Date.now() - last < COOLDOWN_MS) {
+        setError("Please wait a minute before sending another message.");
+        return;
+      }
+    } catch { /* localStorage indisponible : on continue */ }
+
+    setSending(true);
+    try {
+      // Via l'Edge Function : stocke le ticket (service_role, contourne le RLS)
+      // + notifie l'admin par email via Resend (avec statut inscrit/non inscrit).
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/contact-message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ email: cleanEmail, message: cleanMsg }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Envoi impossible pour le moment.");
+      try {
+        window.localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+      } catch { /* ignore */ }
+      setSent(true);
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          "Envoi impossible pour le moment. Écrivez-nous à bonjour@instawear.com.",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center gap-2">
@@ -23,7 +91,13 @@ export default function ContactPage({ onBack }: { onBack: () => void }) {
             <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>Nous vous répondons très vite.</p>
           </div>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="card-premium p-6 flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="card-premium p-6 flex flex-col gap-4">
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-xl text-xs font-medium" style={{ background: "var(--notif-negative-bg)", color: "var(--notif-negative)", border: "1px solid var(--notif-negative)" }}>
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                {error}
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Email</label>
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
@@ -33,9 +107,9 @@ export default function ContactPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Message</label>
-              <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={5} placeholder="Votre message..." className="w-full px-3.5 py-3 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)", color: "var(--color-ink)" }} />
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={5} minLength={10} placeholder="Votre message... (10 caractères minimum)" className="w-full px-3.5 py-3 rounded-xl text-sm outline-none resize-none" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)", color: "var(--color-ink)" }} />
             </div>
-            <button type="submit" className="btn btn-accent self-start"><Send size={14} /> Envoyer</button>
+            <button type="submit" disabled={sending} className="btn btn-accent self-start disabled:opacity-60"><Send size={14} /> {sending ? "Envoi…" : "Envoyer"}</button>
           </form>
         )}
       </div>
