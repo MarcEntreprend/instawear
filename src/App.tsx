@@ -1287,6 +1287,7 @@ export default function App() {
         onOpenFaq={openFaqPage}
         onOpenContact={openContactPage}
         onOpenPromotions={openPromotionsPage}
+        onManageCookies={cookieConsent.resetConsent}
       />
 
       {showAuthModal && (
@@ -1414,7 +1415,6 @@ export default function App() {
         isVisible={!cookieConsent.hasResponded}
         onAcceptAll={cookieConsent.acceptAll}
         onRejectNonEssential={cookieConsent.rejectNonEssential}
-        onSavePreferences={cookieConsent.savePreferences}
         onNavigateLegal={() => openLegal("cookies")}
       />
 

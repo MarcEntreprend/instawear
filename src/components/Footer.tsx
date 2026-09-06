@@ -23,6 +23,7 @@ interface FooterProps {
   onOpenFaq?: () => void;
   onOpenContact?: () => void;
   onOpenPromotions?: () => void;
+  onManageCookies?: () => void;
 }
 
 export default function Footer({
@@ -34,6 +35,7 @@ export default function Footer({
   onOpenFaq,
   onOpenContact,
   onOpenPromotions,
+  onManageCookies,
 }: FooterProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -432,6 +434,13 @@ export default function Footer({
               style={{ color: "var(--color-ink3)" }}
             >
               Cookies
+            </button>
+            <button
+              onClick={() => onManageCookies?.()}
+              className="hover:underline bg-transparent border-none cursor-pointer text-xs"
+              style={{ color: "var(--color-ink3)" }}
+            >
+              Gérer les cookies
             </button>
             {isAdmin && (
               <button
