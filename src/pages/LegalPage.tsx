@@ -1,5 +1,6 @@
 // src/pages/LegalPage.tsx — V2 visuals, V1 static content
 import { ChevronLeft, FileText } from "lucide-react";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const DOCS: Record<string, { title: string; intro: string; sections: { heading: string; body: string[] }[] }> = {
   cgv: {
@@ -31,6 +32,11 @@ const DOCS: Record<string, { title: string; intro: string; sections: { heading: 
 
 export default function LegalPage({ slug, onBack }: { slug: string; onBack: () => void }) {
   const doc = DOCS[slug] || DOCS.cgv;
+  usePageMeta({
+    title: doc.title,
+    description: doc.intro.slice(0, 158),
+    url: `https://instawear.vercel.app/legal/${slug}`,
+  });
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center gap-2">

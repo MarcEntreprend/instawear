@@ -4,11 +4,17 @@ import { ChevronLeft, Search, PackageSearch, Truck, ExternalLink } from "lucide-
 import { supabase } from "../lib/supabaseClient";
 import CopyID from "../components/CopyID";
 import OrderStatusStepper from "../components/OrderStatusStepper";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function OrderTrackingPage({ initialCode = "", onBack }: { initialCode?: string; onBack: () => void }) {
   const [code, setCode] = useState(initialCode);
   const [result, setResult] = useState<any | null | "not-found">(null);
   const [loading, setLoading] = useState(false);
+  usePageMeta({
+    title: "Suivi de commande",
+    description: "Suivez votre commande InstaWear en temps réel avec votre numéro ORD.",
+    url: "https://instawear.vercel.app/suivi",
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, Mail, Send, Check, AlertCircle } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const COOLDOWN_KEY = "instawear-contact-last";
 const COOLDOWN_MS = 60_000;
@@ -13,6 +14,11 @@ export default function ContactPage({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  usePageMeta({
+    title: "Contact",
+    description: "Contactez InstaWear : réponse sous 24h ouvrées. Email bonjour@instawear.com.",
+    url: "https://instawear.vercel.app/contact",
+  });
 
   // Pré-remplir l'email si connecté
   useEffect(() => {

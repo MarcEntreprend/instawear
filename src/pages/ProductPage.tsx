@@ -82,6 +82,66 @@ export default function ProductPage({
     type: "product",
   });
 
+  // Schema.org Product (Offer + AggregateRating) + BreadcrumbList
+  useEffect(() => {
+    const id = "jsonld-product";
+    let el = document.head.querySelector(`#${id}`) as HTMLScriptElement | null;
+    if (!el) {
+      el = document.createElement("script");
+      el.id = id;
+      el.type = "application/ld+json";
+      document.head.appendChild(el);
+    }
+    const price = product.dealActive && product.dealPrice != null ? product.dealPrice : product.price;
+    const schema: any = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      description: (product.description || product.fullDescription || "").slice(0, 500),
+      image: [product.image, ...(product.gallery || [])].filter(Boolean),
+      brand: { "@type": "Brand", name: product.brand || "InstaWear" },
+      offers: {
+        "@type": "Offer",
+        url: `https://instawear.vercel.app/produit/${product.id}`,
+        priceCurrency: currency.code,
+        price: Number(price).toFixed(2),
+        availability: product.inStock !== false
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      },
+    };
+    if (product.ratings?.count > 0) {
+      schema.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: Number(product.ratings.score).toFixed(1),
+        reviewCount: product.ratings.count,
+      };
+    }
+    el.textContent = JSON.stringify(schema);
+
+    const bcId = "jsonld-breadcrumb";
+    let bc = document.head.querySelector(`#${bcId}`) as HTMLScriptElement | null;
+    if (!bc) {
+      bc = document.createElement("script");
+      bc.id = bcId;
+      bc.type = "application/ld+json";
+      document.head.appendChild(bc);
+    }
+    bc.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Accueil", item: "https://instawear.vercel.app/" },
+        { "@type": "ListItem", position: 2, name: "Boutique", item: "https://instawear.vercel.app/#section-catalog" },
+        { "@type": "ListItem", position: 3, name: product.title, item: `https://instawear.vercel.app/produit/${product.id}` },
+      ],
+    });
+    return () => {
+      document.head.querySelector(`#${id}`)?.remove();
+      document.head.querySelector(`#${bcId}`)?.remove();
+    };
+  }, [product, currency]);
+
   const hasVariants = product.variants && product.variants.length > 0;
   const dispColors = hasVariants
     ? product.variants!.map((v: any) => v.color)

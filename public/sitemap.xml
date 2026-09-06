@@ -7,4 +7,9 @@
   <url><loc>https://instawear.vercel.app/legal/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://instawear.vercel.app/legal/cookies</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://instawear.vercel.app/promotions</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://instawear.vercel.app/produit/prod-printful-452127947</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://instawear.vercel.app/produit/prod-printful-452224559</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://instawear.vercel.app/produit/8af2a897-d8ee-4a0f-a21d-34aca74c70b3</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://instawear.vercel.app/produit/297f70cd-5acd-40eb-b6f1-80c68a6026eb</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://instawear.vercel.app/produit/72ced7ce-9aba-4dd0-add5-9db4542b3b8a</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>

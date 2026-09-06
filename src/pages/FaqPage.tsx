@@ -1,10 +1,37 @@
 // src/pages/FaqPage.tsx — V2 visuals, V1 faq data
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronDown } from "lucide-react";
 import { FAQS as FAQ_ITEMS } from "../data/faq";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function FaqPage({ onBack }: { onBack: () => void }) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
+  usePageMeta({
+    title: "Questions fréquentes",
+    description: "Livraison, retours, personnalisation : les réponses aux questions fréquentes InstaWear.",
+    url: "https://instawear.vercel.app/faq",
+  });
+  // Schema.org FAQPage pour rich snippets Google + IA
+  useEffect(() => {
+    const id = "jsonld-faqpage";
+    let el = document.head.querySelector(`#${id}`) as HTMLScriptElement | null;
+    if (!el) {
+      el = document.createElement("script");
+      el.id = id;
+      el.type = "application/ld+json";
+      document.head.appendChild(el);
+    }
+    el.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQ_ITEMS.map((item) => ({
+        "@type": "Question",
+        name: item.question,
+        acceptedAnswer: { "@type": "Answer", text: item.answer },
+      })),
+    });
+    return () => { document.head.querySelector(`#${id}`)?.remove(); };
+  }, []);
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center gap-2">

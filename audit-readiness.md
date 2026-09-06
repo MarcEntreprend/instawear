@@ -28,9 +28,9 @@
 ### 4. Cookies
 
 - ✅ Fait : `useCookieConsent.ts` 4 catégories (`necessary/analytics/performance/functionality`) + `version:1` + expiry 365j + migration ancien format + `resetConsent`. `CookieConsentBanner.tsx` 4 toggles (nécessaires disabled).
-- Bannière (CookieConsentBanner.tsx) : texte unique « Nous utilisons des cookies pour améliorer votre expérience. En savoir plus » + 2 boutons [Tout accepter] [Refuser les non-essentiels]. Toggles et écran Personnaliser supprimés.
-- Catégories cachées (useCookieConsent.ts v2) : necessary: true toujours ON + nonEssential (tout le reste : analytics, perf, pub) + expiry 365j + version: 2. Migration auto des anciens consentements v1 (analytics || performance → nonEssential).
-- Footer → Gérer : nouveau lien Gérer les cookies (à côté de Cookies) via prop onManageCookies, branché sur cookieConsent.resetConsent() dans App.tsx → rouvre la bannière.
+- ✅Bannière (CookieConsentBanner.tsx) : texte unique « Nous utilisons des cookies pour améliorer votre expérience. En savoir plus » + 2 boutons [Tout accepter] [Refuser les non-essentiels]. Toggles et écran Personnaliser supprimés.
+- ✅Catégories cachées (useCookieConsent.ts v2) : necessary: true toujours ON + nonEssential (tout le reste : analytics, perf, pub) + expiry 365j + version: 2. Migration auto des anciens consentements v1 (analytics || performance → nonEssential).
+- ✅ Footer → Gérer : nouveau lien Gérer les cookies (à côté de Cookies) via prop onManageCookies, branché sur cookieConsent.resetConsent() dans App.tsx → rouvre la bannière.
 
 ### 5. SEO — ⚠️ gros progrès, dynamique incomplète
 

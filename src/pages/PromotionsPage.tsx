@@ -2,12 +2,18 @@
 import { ChevronLeft } from "lucide-react";
 import type { Product } from "../types";
 import StoreProductCard from "../components/StoreProductCard";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function PromotionsPage({ products, favorites, dealExpired, dealFadingOut, countdownString, currencySymbol, onToggleFavorite, onAddToCart, onSelectProduct, onBack }: {
   products: Product[]; favorites: string[]; dealExpired: boolean; dealFadingOut: boolean; countdownString: string; currencySymbol: string;
   onToggleFavorite: (id: string) => void; onAddToCart: (p: Product, c: string, s: string) => void; onSelectProduct: (p: Product) => void; onBack: () => void;
 }) {
   const deals = products.filter((p) => p.dealActive && p.isActive);
+  usePageMeta({
+    title: "Promotions en cours",
+    description: "Offres et deals print-on-demand InstaWear : t-shirts, hoodies et accessoires événementiels en promotion.",
+    url: "https://instawear.vercel.app/promotions",
+  });
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-bg)] animate-fade-in">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center gap-2">
