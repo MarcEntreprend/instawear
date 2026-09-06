@@ -1,6 +1,6 @@
-// supabase/functions/_shared/rateLimit.ts
-// P-F Rate Limiting distribue: en memoire par instance (dev),
-// upgradable vers Upstash Redis/KV en prod. Quotas par path.
+// supabase/functions/auth-welcome/_shared/rateLimit.ts
+// Copie locale (le bundler n'inclut que le dossier de la fonction).
+// Miroir de supabase/functions/_shared/rateLimit.ts
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 

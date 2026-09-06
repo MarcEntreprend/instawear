@@ -13,12 +13,12 @@ test("inventory-check.ts existe", () => {
   assert.ok(existsSync(join(root, "scripts/inventory-check.ts")));
 });
 
-test("openapi.json liste 9 paths", () => {
+test("openapi.json liste 10 paths", () => {
   const spec = JSON.parse(readFileSync(join(root, "supabase/functions/openapi.json"), "utf-8"));
   const paths = Object.keys(spec.paths).sort();
-  assert.equal(paths.length, 9, `paths=${JSON.stringify(paths)}`);
+  assert.equal(paths.length, 10, `paths=${JSON.stringify(paths)}`);
   const attendu = [
-    "/contact-message", "/create-printful-order", "/delete-account", "/health",
+    "/auth-welcome", "/contact-message", "/create-printful-order", "/delete-account", "/health",
     "/printful-webhook", "/send-email", "/stripe-checkout",
     "/stripe-webhook", "/sync-printful",
   ].sort();

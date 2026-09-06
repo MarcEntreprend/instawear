@@ -1313,6 +1313,7 @@ export default function App() {
       {showAuthModal && (
         <AuthModal
           initialMode={authInitialMode}
+          onOpenLegal={openLegal}
           onClose={() => setShowAuthModal(false)}
           onLoginSuccess={(isAdminLogin, name) => {
             if (isAdminLogin) {

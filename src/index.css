@@ -1429,6 +1429,20 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   scrollbar-width: none;
 }
 
+/* Mobile overflow guard — empêche le scroll horizontal page sans toucher desktop */
+@media (max-width: 640px) {
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  #view-customer-storefront,
+  main {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
+
 /* Diagnostic : bordures rouges sur tous les éléments pour trouver le débordement */
 /* * {
   outline: 1px solid red !important;

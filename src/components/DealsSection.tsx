@@ -92,7 +92,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
         <div className="flex items-end justify-between mb-8">
           <div>
             <span className="eyebrow mb-2 block">Freshly printed</span>
@@ -110,11 +110,11 @@ export default function DealsSection({
             View all <ArrowRight size={15} />
           </button>
         </div>
-        <div className="flex sm:grid sm:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex sm:grid sm:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 min-w-0 max-w-[100vw] w-[calc(100%+2rem)] sm:w-full sm:max-w-none snap-x snap-mandatory sm:snap-none">
           {newArrivals.map((product) => (
             <div
               key={product.id}
-              className="w-[72vw] sm:w-auto shrink-0 sm:shrink"
+              className="w-[72vw] max-w-[300px] sm:w-auto shrink-0 sm:shrink snap-start min-w-0"
             >
               <StoreProductCard
                 product={product}
@@ -253,11 +253,11 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
         <div className="flex items-end justify-between mb-8">
           <span className="eyebrow">By product type</span>
         </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar">
+        <div className="flex gap-3 overflow-x-auto no-scrollbar min-w-0 max-w-full w-full pb-1">
           {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
