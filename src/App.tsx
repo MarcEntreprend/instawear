@@ -14,7 +14,7 @@ const AccountPage = lazy(() => import("./components/AccountPage"));
 const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
-import ToastContainer, { type Toast } from "./components/ToastContainer";
+import ToastContainer, { type Toast, MAX_TOASTS } from "./components/ToastContainer";
 import LegalPage from "./pages/LegalPage";
 import FaqPage from "./pages/FaqPage";
 import ContactPage from "./pages/ContactPage";
@@ -566,10 +566,17 @@ export default function App() {
     text: string,
     type: "success" | "info" | "error" | "warning" = "success",
     duration?: number,
+    action?: { label: string; onClick: () => void },
   ) => {
     const id = ++toastIdCounter.current;
-    setToasts((prev) => [...prev, { id, text, type, duration }]);
+    // Plafond anti-spam visuel : on garde les plus récents.
+    setToasts((prev) => [...prev, { id, text, type, duration, action }].slice(-MAX_TOASTS));
   };
+
+  const viewCartAction = () => ({
+    label: "View cart",
+    onClick: () => setCartOpen(true),
+  });
 
   const removeToast = (id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -729,7 +736,7 @@ export default function App() {
     }
     setCart((prev) => mergeLinesIntoCart(prev, [resolved.line]));
 
-    showToast(`🛒 "${product.title}" added to cart!`, "success");
+    showToast(`🛒 "${product.title}" added to cart!`, "success", undefined, viewCartAction());
   };
 
   // Ajout en lot (ex. Frequently Bought Together) : UN SEUL passage par le
@@ -777,6 +784,8 @@ export default function App() {
     showToast(
       `🛒 ${lines.length} item${lines.length > 1 ? "s" : ""} added to cart!`,
       "success",
+      undefined,
+      viewCartAction(),
     );
     if (blockedCount > 0) {
       showToast(
