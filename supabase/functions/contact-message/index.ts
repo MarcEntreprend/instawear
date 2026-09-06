@@ -35,10 +35,18 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+function json(
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      ...extraHeaders,
+    },
   });
 }
 
@@ -55,7 +63,11 @@ export default {
       const path = "contact-message";
       const key = rateLimitKey(req, path);
       if (await isRateLimited(req, key)) {
-        return json({ error: "Trop de requêtes. Réessayez dans une minute." }, 429, { "Retry-After": "60" });
+        return json(
+          { error: "Trop de requêtes. Réessayez dans une minute." },
+          429,
+          { "Retry-After": "60" },
+        );
       }
 
       const rawBody = await req.text();
@@ -70,12 +82,18 @@ export default {
       }
 
       const email = typeof body.email === "string" ? body.email.trim() : "";
-      const message = typeof body.message === "string" ? body.message.trim() : "";
+      const message =
+        typeof body.message === "string" ? body.message.trim() : "";
       if (!isValidEmail(email)) {
-        return json({ error: "Adresse email invalide" }, 400);
+        return json({ error: "Invalid email address" }, 400);
       }
       if (message.length < MIN_MSG || message.length > MAX_MSG) {
-        return json({ error: `Le message doit contenir entre ${MIN_MSG} et ${MAX_MSG} caractères` }, 400);
+        return json(
+          {
+            error: `Le message doit contenir entre ${MIN_MSG} et ${MAX_MSG} caractères`,
+          },
+          400,
+        );
       }
 
       const supabaseAdmin = createClient(
@@ -92,7 +110,8 @@ export default {
         .maybeSingle();
 
       // 2. Ticket support (file admin existante)
-      const subjectBase = message.length > 60 ? message.slice(0, 60) + "…" : message;
+      const subjectBase =
+        message.length > 60 ? message.slice(0, 60) + "…" : message;
       const { data: inter, error: interError } = await supabaseAdmin
         .from("interactions")
         .insert({
@@ -109,7 +128,10 @@ export default {
         .single();
       if (interError || !inter) {
         console.error("contact-message insert:", logSafe(interError));
-        return json({ error: "Envoi impossible pour le moment. Réessayez plus tard." }, 500);
+        return json(
+          { error: "Envoi impossible pour le moment. Réessayez plus tard." },
+          500,
+        );
       }
 
       const { error: msgError } = await supabaseAdmin
@@ -180,26 +202,32 @@ export default {
           const userLine = customer
             ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
             : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
-          const { data: mailData, error: mailError } = await resend.emails.send({
-            from: Deno.env.get("RESEND_FROM_EMAIL")!,
-            to: [adminEmail],
-            subject: `[Contact InstaWear] ${email}`,
-            html: `<div style="font-family:sans-serif;max-width:600px">` +
-              `<h2>Nouveau message — /contact</h2>` +
-              `<p><b>De :</b> ${safeEmail}</p>` +
-              `<p><b>Profil :</b> ${userLine}</p>` +
-              `<hr>` +
-              `<p>${safeMsg}</p>` +
-              `<hr>` +
-              `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions.</p>` +
-              `</div>`,
-          });
+          const { data: mailData, error: mailError } = await resend.emails.send(
+            {
+              from: Deno.env.get("RESEND_FROM_EMAIL")!,
+              to: [adminEmail],
+              subject: `[Contact InstaWear] ${email}`,
+              html:
+                `<div style="font-family:sans-serif;max-width:600px">` +
+                `<h2>Nouveau message — /contact</h2>` +
+                `<p><b>De :</b> ${safeEmail}</p>` +
+                `<p><b>Profil :</b> ${userLine}</p>` +
+                `<hr>` +
+                `<p>${safeMsg}</p>` +
+                `<hr>` +
+                `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions.</p>` +
+                `</div>`,
+            },
+          );
           if (mailError) {
             mailErrorMsg = logSafe(mailError);
             console.error("contact-message resend:", mailErrorMsg);
           } else {
             mailSent = true;
-            console.log("contact-message mail sent:", (mailData as any)?.id || "ok");
+            console.log(
+              "contact-message mail sent:",
+              (mailData as any)?.id || "ok",
+            );
           }
         } catch (e) {
           // Le SDK peut throw (réseau) : ticket déjà stocké, on logge seulement.

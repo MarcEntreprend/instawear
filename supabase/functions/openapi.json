@@ -32,6 +32,9 @@
     },
     "/contact-message": {
       "post": { "summary": "Public contact form: store ticket + notify admin via Resend (rate-limited 5/min)", "x-roles": ["public"], "x-edges": ["contact-message"] }
+    },
+    "/auth-welcome": {
+      "post": { "summary": "Welcome email after signup via Resend (recent account only, rate-limited 3/min)", "x-roles": ["public"], "x-edges": ["auth-welcome"] }
     }
   }
 }

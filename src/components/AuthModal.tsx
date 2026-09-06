@@ -265,36 +265,23 @@ export default function AuthModal({
             );
           if (insertError)
             console.warn("Customer creation error:", insertError);
-          else {
-            // Create a "New customer" notification (uniquement si utilisateur connecté)
-            const {
-              data: { user: currentUser },
-            } = await supabase.auth.getUser();
-            if (currentUser) {
-              import("../api/supabaseApi").then(({ notificationApi }) => {
-                notificationApi
-                  .create({
-                    title: "New customer registered",
-                    description: `${name || email} signed up on the store`,
-                    category: "customers",
-                    priority: "low",
-                    metadata: {
-                      customerId: data.user?.id ?? undefined,
-                      customerName: name || email,
-                      linkTo: "/admin/customers",
-                      source: "Client",
-                    },
-                    action_label: "View profile",
-                  })
-                  .catch((e) =>
-                    console.warn(
-                      "Failed to create new customer notification",
-                      e,
-                    ),
-                  );
-              });
-            }
-          }
+          // Note: la notification admin "New customer registered" est créée
+          // côté edge auth-welcome (service_role) — l'insert direct ici
+          // échoue en RLS 403 pour un compte frais.
+        }
+
+        // Welcome email via Resend (edge backend, fire-and-forget — never blocks signup)
+        try {
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth-welcome`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ email, name }),
+          }).catch(() => {});
+        } catch {
+          // silent
         }
 
         onSignUpSuccess(name || email);
