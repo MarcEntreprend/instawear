@@ -1,4 +1,4 @@
-# Algorithme de Merchandising InstaWear — FEEDBACK D'UN COLLEGUE
+# c InstaWear — FEEDBACK D'UN COLLEGUE
 
 > Il n'existe **aucune table de tracking comportemental** aujourd'hui. C'est le vrai trou à combler. Mais tu as déjà : `product_sales_stats` (ventes totales + 30 jours, par produit), `product_reviews` avec recalcul automatique de `ratings_score`/`ratings_count` par trigger, `cart_items` et `favourites` **persistés côté serveur** (pas juste du mock localStorage — un vrai signal exploitable dès aujourd'hui), et surtout l'historique complet de `order_items` : le panier "Fréquemment achetés ensemble" peut être construit **dès maintenant** à partir des vraies commandes passées, sans attendre la moindre nouvelle instrumentation.
 
