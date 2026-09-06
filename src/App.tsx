@@ -41,7 +41,7 @@ import { useTabBadge } from "./hooks/useTabBadge";
 import { useCookieConsent } from "./hooks/useCookieConsent";
 import { applyConsent } from "./lib/analytics";
 import { Product, CartItem } from "./types";
-import { getVariantAvailability } from "./hooks/useProductAvailability";
+import { getVariantAvailability, pickAvailableVariant } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
 import {
   productApi,
@@ -609,14 +609,25 @@ export default function App() {
   );
 
   // Shopping cart managers
-  const addToCart = (product: Product, color: string, size: string) => {
-    // P-B anti-race: debounced lock 400ms (évite race TOCTOU double-clic → 2 items)
-    if (addToCartLock.current) return;
-    addToCartLock.current = true;
-    setTimeout(() => {
-      addToCartLock.current = false;
-    }, 400);
-
+  // Résout une ligne de panier (variante + prix) ou le motif de blocage.
+  // Partagé par addToCart (1 item) et addManyToCart (bundle) pour un
+  // calcul de prix strictement identique.
+  const resolveCartLine = (
+    product: Product,
+    color?: string,
+    size?: string,
+    quantity = 1,
+  ):
+    | {
+        line: {
+          product: Product;
+          selectedColor: string;
+          selectedSize: string;
+          quantity: number;
+          unitPrice: number;
+        };
+      }
+    | { blocked: string; targetColor: string; targetSize: string } => {
     const targetColor = color || product.colors[0];
     const targetSize = size || product.sizes[0];
     // P3 POD: bloquer ajout si variante indisponible (admin désactivé ou Printful)
@@ -632,8 +643,7 @@ export default function App() {
           : avail === "discontinued"
             ? "Variante supprimée par le fournisseur"
             : "Rupture temporaire par le fournisseur";
-      showToast(`⛔ ${msg} — ${targetColor} / ${targetSize}`, "error");
-      return;
+      return { blocked: msg, targetColor, targetSize };
     }
     const basePrice =
       product.dealActive && !dealExpired && product.dealPrice
@@ -660,31 +670,121 @@ export default function App() {
       }
     }
 
-    const existingIndex = cart.findIndex(
-      (item) =>
-        item.product.id === product.id &&
-        item.selectedColor === targetColor &&
-        item.selectedSize === targetSize,
-    );
+    return {
+      line: {
+        product,
+        selectedColor: targetColor,
+        selectedSize: targetSize,
+        quantity,
+        unitPrice,
+      },
+    };
+  };
 
-    if (existingIndex > -1) {
-      const updatedCart = [...cart];
-      updatedCart[existingIndex].quantity += 1;
-      setCart(updatedCart);
-    } else {
-      setCart([
-        ...cart,
-        {
-          product,
-          selectedColor: targetColor,
-          selectedSize: targetSize,
-          quantity: 1,
-          unitPrice,
-        },
-      ]);
+  const mergeLinesIntoCart = (
+    prev: CartItem[],
+    lines: {
+      product: Product;
+      selectedColor: string;
+      selectedSize: string;
+      quantity: number;
+      unitPrice: number;
+    }[],
+  ): CartItem[] => {
+    const next = [...prev];
+    for (const line of lines) {
+      const existingIndex = next.findIndex(
+        (item) =>
+          item.product.id === line.product.id &&
+          item.selectedColor === line.selectedColor &&
+          item.selectedSize === line.selectedSize,
+      );
+      if (existingIndex > -1) {
+        next[existingIndex] = {
+          ...next[existingIndex],
+          quantity: next[existingIndex].quantity + line.quantity,
+        };
+      } else {
+        next.push({ ...line });
+      }
     }
+    return next;
+  };
+
+  const addToCart = (product: Product, color: string, size: string) => {
+    // P-B anti-race: debounced lock 400ms (évite race TOCTOU double-clic → 2 items)
+    if (addToCartLock.current) return;
+    addToCartLock.current = true;
+    setTimeout(() => {
+      addToCartLock.current = false;
+    }, 400);
+
+    const resolved = resolveCartLine(product, color, size);
+    if ("blocked" in resolved) {
+      showToast(
+        `⛔ ${resolved.blocked} — ${resolved.targetColor} / ${resolved.targetSize}`,
+        "error",
+      );
+      return;
+    }
+    setCart((prev) => mergeLinesIntoCart(prev, [resolved.line]));
 
     showToast(`🛒 "${product.title}" added to cart!`, "success");
+  };
+
+  // Ajout en lot (ex. Frequently Bought Together) : UN SEUL passage par le
+  // lock anti-race. Sans ça, N appels synchrones à addToCart ne laissent
+  // passer que le 1er — les autres sont silencieusement ignorés.
+  const addManyToCart = (
+    items: { product: Product; color?: string; size?: string; quantity?: number }[],
+  ): { addedIds: string[]; blockedCount: number } => {
+    if (addToCartLock.current) return { addedIds: [], blockedCount: items.length };
+    addToCartLock.current = true;
+    setTimeout(() => {
+      addToCartLock.current = false;
+    }, 400);
+
+    const lines: {
+      product: Product;
+      selectedColor: string;
+      selectedSize: string;
+      quantity: number;
+      unitPrice: number;
+    }[] = [];
+    let blockedCount = 0;
+    for (const it of items) {
+      // Défauts intelligents : première variante dispo (pas "M" en dur,
+      // qui n'existe pas sur mugs/accessoires).
+      const fallback = pickAvailableVariant(it.product as any);
+      const resolved = resolveCartLine(
+        it.product,
+        it.color || fallback?.color,
+        it.size || fallback?.size,
+        it.quantity ?? 1,
+      );
+      if ("blocked" in resolved) {
+        blockedCount += 1;
+      } else {
+        lines.push(resolved.line);
+      }
+    }
+    if (lines.length === 0) {
+      showToast("⛔ These items are currently unavailable.", "error");
+      return { addedIds: [], blockedCount };
+    }
+    setCart((prev) => mergeLinesIntoCart(prev, lines));
+    const addedIds = lines.map((l) => l.product.id);
+    showToast(
+      `🛒 ${lines.length} item${lines.length > 1 ? "s" : ""} added to cart!`,
+      "success",
+    );
+    if (blockedCount > 0) {
+      showToast(
+        `⚠️ ${blockedCount} item${blockedCount > 1 ? "s" : ""} unavailable — skipped.`,
+        "warning",
+      );
+    }
+    return { addedIds, blockedCount };
   };
 
   const removeFromCart = (index: number) => {
@@ -1197,6 +1297,7 @@ export default function App() {
           onAddToCart={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
           }}
+          onAddMany={addManyToCart}
           onBuyNow={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
             setCheckoutOpen(true);

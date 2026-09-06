@@ -58,6 +58,41 @@ export function getVariantAvailability(
 }
 
 /**
+ * Choisit la première variante disponible (couleur × taille).
+ * Utilisé pour les ajouts rapides (Frequently Bought Together, Related...)
+ * au lieu d'une taille codée en dur qui peut ne pas exister (ex. "M"
+ * sur un mug) et provoquer un blocage "discontinued" trompeur.
+ */
+export function pickAvailableVariant(
+  product: ProductLike | null | undefined,
+): { color: string; size: string } | null {
+  if (!product || (product as any).isActive === false) return null;
+  const p = product as any;
+  const colors: string[] =
+    p.variants?.length > 0
+      ? p.variants.map((v: any) => v.color)
+      : (p.colors ?? []);
+  const sizesOf = (color: string): string[] => {
+    if (p.variants?.length > 0) {
+      const v = p.variants.find(
+        (vv: any) =>
+          String(vv.color).toLowerCase() === String(color).toLowerCase(),
+      );
+      return v ? Object.keys(v.sizes ?? {}) : [];
+    }
+    return p.sizes ?? [];
+  };
+  for (const c of colors) {
+    for (const s of sizesOf(c)) {
+      if (getVariantAvailability(product, c, s) === "available") {
+        return { color: c, size: s };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Détermine le statut de disponibilité d'un produit.
  * Un produit est "unavailable" s'il est inactif OU explicitement en rupture.
  */

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
-import { getVariantAvailability } from "../hooks/useProductAvailability";
+import { getVariantAvailability, pickAvailableVariant } from "../hooks/useProductAvailability";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrency } from "../hooks/useCurrency";
@@ -37,6 +37,7 @@ export default function ProductPage({
   onClose,
   onToggleFavorite,
   onAddToCart,
+  onAddMany,
   onBuyNow,
   onSelectProduct,
   dealExpired = false,
@@ -239,6 +240,27 @@ export default function ProductPage({
   const handleBuyNow = () => {
     if (!canAdd || !pickedSize) return;
     onBuyNow(product, pickedColor || dispColors[0] || "#000000", pickedSize);
+  };
+  // Ajout rapide : première variante dispo (pas "M" en dur — inexistant
+  // sur mugs/accessoires). Si rien de dispo, on laisse App répondre
+  // avec le vrai motif de blocage via le toast d'erreur.
+  const quickAdd = (p: any) => {
+    const v = pickAvailableVariant(p);
+    onAddToCart(
+      p,
+      v?.color ?? p.colors?.[0] ?? "#000000",
+      v?.size ?? "M",
+    );
+  };
+  // Bundle Frequently Bought Together : 1 seul appel (voir addManyToCart).
+  const handleBundleAdd = (
+    items: { product: any; color?: string; size?: string }[],
+  ) => {
+    if (!onAddMany) {
+      items.forEach((it) => quickAdd(it.product));
+      return { addedIds: items.map((it) => it.product.id), blockedCount: 0 };
+    }
+    return onAddMany(items);
   };
 
   return (
@@ -578,11 +600,12 @@ export default function ProductPage({
           mainImage={displayImage}
           mainUnitPrice={unitPrice}
           mainCanAdd={!!canAdd}
+          mainColor={pickedColor || dispColors[0] || "#000000"}
+          mainSize={pickedSize}
           addOns={frequentlyAddOns}
           onAddMain={handleAdd}
-          onQuickAddProduct={(p: Product) =>
-            onAddToCart(p, p.colors?.[0] || "#000", "M")
-          }
+          onAddBundle={handleBundleAdd}
+          onQuickAddProduct={quickAdd}
         />
         <RecentlyViewedSection
           products={recentlyProducts}
@@ -590,9 +613,7 @@ export default function ProductPage({
             onClose();
             setTimeout(() => onSelectProduct?.(p), 100);
           }}
-          onQuickAdd={(p: Product) =>
-            onAddToCart(p, p.colors?.[0] || "#000", "M")
-          }
+          onQuickAdd={quickAdd}
         />
         <ProductReviews productId={product.id} />
 
@@ -607,9 +628,7 @@ export default function ProductPage({
                   onClose();
                   setTimeout(() => onSelectProduct?.(prod), 100);
                 }}
-                onQuickAdd={(prod) =>
-                  onAddToCart(prod, prod.colors?.[0] || "#000", "M")
-                }
+                onQuickAdd={quickAdd}
               />
             ))}
           </div>
