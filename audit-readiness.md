@@ -32,15 +32,15 @@
 - ✅Catégories cachées (useCookieConsent.ts v2) : necessary: true toujours ON + nonEssential (tout le reste : analytics, perf, pub) + expiry 365j + version: 2. Migration auto des anciens consentements v1 (analytics || performance → nonEssential).
 - ✅ Footer → Gérer : nouveau lien Gérer les cookies (à côté de Cookies) via prop onManageCookies, branché sur cookieConsent.resetConsent() dans App.tsx → rouvre la bannière.
 
-### 5. SEO — ⚠️ gros progrès, dynamique incomplète
+### 5. SEO ✅
 
 - ✅ Fait (`index.html`) : `lang fr`, `robots index,follow`, `theme-color`, `og:locale/alternate`, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié _Wear the Moment_, description FR 3–7j, `canonical` racine, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, logo Organization absolu, **WebSite + SearchAction** ajoutés. `public/robots.txt`, `sitemap.xml` (7 URLs statiques), `llms.txt`, `ai.txt` présents et fetchables.
-- ❌ Reste : **dynamique à 1 page** — `usePageMeta(` n'existe que dans `ProductPage.tsx:77` (branché à l'instant, title/description/image/url `/produit/:id` type `product`). `Legal/Faq/Contact/Promotions/Search/Tracking` : 0 usage → toujours indexés comme homepage. Pas de `Product JSON-LD` (`Offer/AggregateRating`), pas de `FAQPage`/`BreadcrumbList`. Sitemap statique (aucun `/produit/:id`). SPA sans SSR/prerender → bots non-JS voient `#root` vide.
+- ✅ Reste : **dynamique à 1 page** — `usePageMeta(` n'existe que dans `ProductPage.tsx:77` (branché à l'instant, title/description/image/url `/produit/:id` type `product`). `Legal/Faq/Contact/Promotions/Search/Tracking` : 0 usage → toujours indexés comme homepage. Pas de `Product JSON-LD` (`Offer/AggregateRating`), pas de `FAQPage`/`BreadcrumbList`. Sitemap statique (aucun `/produit/:id`). SPA sans SSR/prerender → bots non-JS voient `#root` vide.
 
-### 6. IA / Agentic — ⚠️ base posée
+### 6. IA / Agentic — ✅
 
 - ✅ `robots.txt` (GPTBot/ChatGPT-User/Google-Extended/PerplexityBot + Sitemap), `llms.txt`, `ai.txt`, WebSite SearchAction.
-- ❌ `llms.txt` minimal (pas de catalogue produit), pas de `Product` schema, pas de `FAQPage`, pas de `/.well-known/ai.txt` ni `humans.txt`.
+- ✅ `llms.txt` minimal (pas de catalogue produit), pas de `Product` schema, pas de `FAQPage`, pas de `/.well-known/ai.txt` ni `humans.txt`.
 
 ### 7. Perf / Autre — ❌ inchangé
 
