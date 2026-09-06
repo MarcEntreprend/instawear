@@ -1,7 +1,10 @@
 // src/components/StoreProductCard.tsx — V2 ticket-card visuals + V1 logic (availability, deal, currency)
-import { Heart, Star, Flame, Check, ShoppingBag, Clock } from "lucide-react";
+import { Heart, Star, Flame, Check, ShoppingBag } from "lucide-react";
+import DealCountdown from "./DealCountdown";
 import type { Product } from "../types";
 import { useProductAvailability } from "../hooks/useProductAvailability";
+import { useCurrency } from "../hooks/useCurrency";
+import { formatPrice } from "../data/currency";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 
 interface StoreProductCardProps {
@@ -38,6 +41,7 @@ export default function StoreProductCard({
   const visibleSwatches = swatches.slice(0, 4);
   const extraSwatches = swatches.length - visibleSwatches.length;
 
+  const { currency } = useCurrency();
   const dealLive = product.dealActive && !dealExpired && product.dealPrice != null;
 
   const displayPrice = dealLive ? product.dealPrice! : product.price;
@@ -45,11 +49,9 @@ export default function StoreProductCard({
 
   return (
     <article className={`ticket-card animate-fade-up group ${unavailable ? "opacity-90" : ""}`}>
-      <div
-        onClick={() => onSelectProduct(product)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectProduct(product); } }}
-        role="button"
-        tabIndex={0}
+      <a
+        href={`/produit/${product.id}`}
+        onClick={(e) => { e.preventDefault(); onSelectProduct(product); }}
         className="block w-full text-left cursor-pointer"
         aria-label={`View ${product.title}`}
       >
@@ -116,25 +118,28 @@ export default function StoreProductCard({
           <div className="flex items-end justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-base font-extrabold" style={{ color: dealLive ? "var(--color-accent)" : "var(--color-ink)" }}>
-                {displayPrice.toFixed(2)} <span className="text-xs font-medium" style={{ color: dealLive ? "var(--color-accent)" : "var(--color-ink3)" }}>{currencySymbol}</span>
+                {formatPrice(displayPrice, currency)}
               </span>
-              {strikePrice != null && <span className="text-xs line-through" style={{ color: "var(--color-ink4)" }}>{strikePrice.toFixed(2)} {currencySymbol}</span>}
+              {strikePrice != null && <span className="text-xs line-through" style={{ color: "var(--color-ink4)" }}>{formatPrice(strikePrice, currency)}</span>}
             </div>
             {unavailable ? (
               <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>{availability === "out_of_stock" ? "Out of stock" : "Unavailable"}</span>
+            ) : product.inStock === false ? (
+              <span className="text-xs font-semibold" style={{ color: "var(--color-negative)" }}>Épuisé</span>
+            ) : (product as any).stock_quantity !== undefined && (product as any).stock_quantity !== null && (product as any).stock_quantity <= 10 ? (
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-accent)" }}><Flame size={12} /> Plus que {(product as any).stock_quantity}</span>
             ) : (
-              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-success)" }}><Check size={12} /> In stock</span>
+              <span className="text-xs font-semibold flex items-center gap-1" style={{ color: "var(--color-success)" }}><Check size={12} /> En stock</span>
             )}
           </div>
 
-          {dealLive && (
-            <div className={`mt-3 bg-rose-500/10 border border-rose-500/20 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-[11px] ${dealFadingOut ? "deal-fade-out" : ""}`}>
-              <span className="font-bold flex items-center gap-1.5" style={{ color: "var(--color-negative)" }}><Clock size={12} /> Ends in</span>
-              <span className="font-mono font-bold" style={{ color: "var(--color-negative)" }}>{countdownStr}</span>
+          {dealLive && product.dealEndsAt && (
+            <div className={`mt-3 ${dealFadingOut ? "deal-fade-out" : ""}`}>
+              <DealCountdown endsAt={product.dealEndsAt} compact />
             </div>
           )}
         </div>
-      </div>
+      </a>
 
       <div className="px-5 pb-5">
         {unavailable ? (

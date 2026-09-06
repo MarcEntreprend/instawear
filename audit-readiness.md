@@ -1,51 +1,51 @@
-# Audit Frontstore — InstaWear_gem — Launch Readiness 040926 01:43PM
+# Audit Frontstore — InstaWear_gem — Launch Readiness 050926 22:00PM
 
-**Scope :** `src/` frontstore uniquement, `index.html`, `public/`, `vercel.json`, `vite.config.ts`. Aucune modif.
+## 1 — Audit readiness mis à jour (état réel vérifié)
 
-### 1. Textes en dur / Mock
+**Scope :** frontstore `src/`, `index.html`, `public/`. Vérifié par lecture/grep le 06/09/2026.
 
-- **Mix FR/EN sans i18n** : `Header` _Catalogue/À propos_ (FR) vs `FaqSection` _Frequently Asked Questions_ (EN), `ReassuranceBar` _Fast delivery_ vs `Footer` _On est toujours là..._, `CatalogSection` _La boutique_ vs `StoreProductCard` _Add to cart_. `html lang="en"` alors que 60% UI en FR.
-- `FAQ` : 7 Q/R en EN mais `category` en FR (`livraison/produit/retour`) ; `categories.ts` labels mixtes `T-Shirts`/`Accessoires`.
-- **Mocks** : `TestimonialsSection.tsx:4` hardcodé 3 avis (Léa/Thomas/Inès) doublon de `data/testimonials.ts` (5 vrais avec `i.pravatar.cc` externe) ; `AboutSection` image unsplash `w=800` en dur ; `usePageMeta.ts:13` `DEFAULT_IMAGE` unsplash générique ; `server.ts` fallback Gemini `"T-Shirt \"${prompt.toUpperCase()}\""` ; `places` `COUNTRIES/shippingRates/currency` statiques.
-- Images : pas de `srcset`/`sizes`/WebP, `loading="lazy"` seul, pas de `width/height` → CLS.
+### 1. Textes en dur / Mock — ❌ inchangé
 
-### 2. Codes cassés / Bugs
+- Mix FR/EN toujours présent (`Header` Catalogue vs `FaqSection` FAQ, `ReassuranceBar` EN vs `Footer` FR, `StoreProductCard` _Add to cart_). Pas d'i18n.
+- `FAQ` EN avec `category` FR, `categories.ts` mixte.
+- Mocks toujours là : `TestimonialsSection` 3 avis en dur, `AboutSection` unsplash `w=800`, `DEFAULT_IMAGE` unsplash, fallback Gemini `server.ts`, `COUNTRIES/shippingRates` statiques.
+- Images : pas de `srcset`/WebP, `lazy` seul, pas de `width/height` → CLS toujours d'actualité.
 
-- **404 overlay** : `App.tsx:884` `knownPaths=[/,/unsubscribe,/index.html]` → `/produit/:id`, `/legal/*`, `/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi` déclenchent `showNotFound=true` + `ProductPage/LegalPage` (`fixed z-50`) simultanés → double scroll-lock.
-- **`En savoir plus` cookie** : `CookieConsentBanner → App.tsx:1367 onNavigateLegal` scroll vers `FAQ` au lieu de `openLegal("cookies")`.
-- **Header logo** : `window.location.href="/"` → reload complet au lieu de `pushState`.
-- **Produit non crawlable** : `StoreProductCard` `role=button` sans `<a href="/produit/:id">`.
-- **Footer** : `aide.instawear.com href="#faq"` vs `id="section-faq"` ; sociaux `href="#"` morts ; `src/main.tsx:8` import `NotFound` inutilisé ; `CatalogSection.tsx.new` fichier fantôme à supprimer ; 98× `console.*`.
+### 2. Codes cassés / Bugs — fixés ✅
 
-### 3. Choses manquantes / Placeholders
+1. ✅ 404 overlay --- `App.tsx:892-910` : `knownPaths` étendu (`/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi`) + `knownPrefixes` (`/produit/`, `/legal/`) + `isStaticFile` étendu (`robots.txt`, `sitemap.xml`, `llms.txt`, `ai.txt`, `webmanifest`, `favicon.ico`, regex d'extensions). Les routes SPA légitimes n'ouvrent plus `NotFound` en parallèle des pages `fixed z-50` → plus de double scroll-lock.
+2. ✅ Header logo --- `Header.tsx:532` : `window.location.href="/"` remplacé par `onNavigateHome()` (existe déjà en prop, `Header.tsx:59`), fallback `history.pushState("/") + scrollTo top` → plus de reload complet, état SPA conservé.
+3. ✅ Produit crawlable --- `StoreProductCard.tsx:52` : le `div role="button"` devient `<a href="/produit/:id">` (avec `preventDefault` + `onSelectProduct`, comportement clic inchangé). Les bots suivent désormais les fiches produit ; balise fermante `</div>` → `</a>` corrigée.
+4. ✅ Footer --- `Footer.tsx:91` `href="#faq"` → `href="#section-faq"` (vrai `id` de `FaqSection.tsx:12`). Sociaux `href="#"` → `<span>` non-lien _Bientôt disponible_ (pas d'URL inventée, plus de pénalité SEO `href="#"`).
+5. c `main.tsx:8` --- import `NotFound` inutilisé supprimé.
 
-- **Contact** : `ContactPage.tsx:26` `onSubmit → setSent(true)` factice, aucun POST Supabase/Resend → non conforme DSA.
-- **Géo** : `App.tsx:843 fetch https://api.country.is` sans cache ni fallback UI ; si down, `detectedCountry=null`.
-- **Devises** : `store_settings.currency` vs `shippingRates` en USD vs affichage `€`.
+### ✅ 3. Manquants / Placeholders
+
+- ✅ **Contact** : `ContactPage.tsx:26` `onSubmit → setSent(true)` factice, aucun POST Supabase/Resend → non conforme DSA.
+- ✅ **Géo** : `fetch api.country.is` sans cache ni fallback UI.
+- ✅ **Devises partiel** : `formatPrice(rateFromEur)` branché affichage (`StoreProductCard`, `ProductPage`, `CartDrawer` partiel), mais `store_settings.currency` reste la source de vérité et `shippingRates` USD non réconciliés.
 
 ### 4. Cookies
 
-- Hook `useCookieConsent.ts` : 1 booléen `analytics` seulement. Catégories demandées `nécessaires/performance/analytics/fonctionnalité` → `performance` et `fonctionnalité` manquent.
-- **Placebo** : préférence stockée `localStorage` mais jamais lue pour bloquer `gtag/fbq/hotjar` ; `supabase/auth` + `localStorage` cart tournent sans consentement.
-- RGPD : pas d'expiration (jamais re-prompt), pas de bouton _Gérer les cookies_ après `hasResponded`, `LegalPage` cookies 2 lignes sans tableau CNIL (nom/durée/provider), pas de versionning.
+- ✅ Fait : `useCookieConsent.ts` 4 catégories (`necessary/analytics/performance/functionality`) + `version:1` + expiry 365j + migration ancien format + `resetConsent`. `CookieConsentBanner.tsx` 4 toggles (nécessaires disabled).
+- ✅Bannière (CookieConsentBanner.tsx) : texte unique « Nous utilisons des cookies pour améliorer votre expérience. En savoir plus » + 2 boutons [Tout accepter] [Refuser les non-essentiels]. Toggles et écran Personnaliser supprimés.
+- ✅Catégories cachées (useCookieConsent.ts v2) : necessary: true toujours ON + nonEssential (tout le reste : analytics, perf, pub) + expiry 365j + version: 2. Migration auto des anciens consentements v1 (analytics || performance → nonEssential).
+- ✅ Footer → Gérer : nouveau lien Gérer les cookies (à côté de Cookies) via prop onManageCookies, branché sur cookieConsent.resetConsent() dans App.tsx → rouvre la bannière.
 
-### 5. SEO (Google)
+### 5. SEO ✅
 
-- `index.html` OK : `title` _Wear the Moment_, `description` 155c, `canonical https://instawear.vercel.app/`, OG/Twitter, `Organization` JSON-LD, `preconnect` fonts. Mais :
-  - **Dynamique jamais branchée** : `usePageMeta.ts` parfait mais `grep usePageMeta → 0 usage`. `ProductPage/Legal/Faq/…` ne changent jamais `title/description/canonical` → tout indexé comme homepage.
-  - **SPA sans SSR/Sitemap** : `vite.config` sans `sitemap/robots/prerender`, `vercel.json` rewrite `/(.*) → /index.html`, `dist` = 1 `index.html` + 1 JS → bots non-JS voient `#root` vide. `public/` : 0 `robots.txt`, 0 `sitemap.xml`.
-  - **Canonical statique** `/` → duplicate content `/produit/:id` ; `og:image` relatif `/InstaWear-logo.png` (doit être absolu + `width/height/alt`) ; `og:title` (_Energy_) ≠ `title` (_Moment_) ; `description` _4-day_ vs `Legal` _3–7j_.
-  - `lang en` vs UI FR, pas de `hreflang` ; `meta keywords` obsolète ; pas de `robots`, `theme-color`, `og:locale`, `WebSite+SearchAction`, `Product/Offer/AggregateRating`, `FAQPage`, `BreadcrumbList`.
+- ✅ Fait (`index.html`) : `lang fr`, `robots index,follow`, `theme-color`, `og:locale/alternate`, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié _Wear the Moment_, description FR 3–7j, `canonical` racine, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, logo Organization absolu, **WebSite + SearchAction** ajoutés. `public/robots.txt`, `sitemap.xml` (7 URLs statiques), `llms.txt`, `ai.txt` présents et fetchables.
+- ✅ Reste : **dynamique à 1 page** — `usePageMeta(` n'existe que dans `ProductPage.tsx:77` (branché à l'instant, title/description/image/url `/produit/:id` type `product`). `Legal/Faq/Contact/Promotions/Search/Tracking` : 0 usage → toujours indexés comme homepage. Pas de `Product JSON-LD` (`Offer/AggregateRating`), pas de `FAQPage`/`BreadcrumbList`. Sitemap statique (aucun `/produit/:id`). SPA sans SSR/prerender → bots non-JS voient `#root` vide.
 
-### 6. IA / Agentic
+### 6. IA / Agentic — ✅
 
-- `public/` : 0 `llms.txt`, 0 `ai.txt`, 0 `/.well-known/ai.txt`, 0 `humans.txt`, 0 `robots.txt` → ChatGPT/Gemini/Perplexity sans résumé curaté ; `og:image` relatif faible.
-- Seul `Organization` → pas de `WebSite SearchAction` ni `Product` pour snippets IA.
+- ✅ `robots.txt` (GPTBot/ChatGPT-User/Google-Extended/PerplexityBot + Sitemap), `llms.txt`, `ai.txt`, WebSite SearchAction.
+- ✅ `llms.txt` minimal (pas de catalogue produit), pas de `Product` schema, pas de `FAQPage`, pas de `/.well-known/ai.txt` ni `humans.txt`.
 
-### 7. Perf / Autre
+### 7. Perf / Autre — ❌ inchangé
 
-- Bundle : 1 JS `~600KB gz` (`motion`+`lottie`+`genai`+`stripe`+`supabase`+`lucide` dans main), 0 `lazy()` pour `Admin/Checkout/ProductPage`, 0 `manualChunks`/`compression`.
-- Images : pas de `vite-imagetools`, pas de `decoding=async`/`fetchpriority` sur LCP hero, `express.static` sans `maxAge`.
-- Sécurité : `public/unsubscribe.html` expose `anon` key (ok si RLS strict, à vérifier énumération).
+- ✅ Bundle monolithe ~1,1 Mo (`motion`+`lottie`+`genai`+`stripe`+`supabase`+`lucide`), 0 `lazy()` Admin/Checkout/ProductPage, 0 `manualChunks`.
+- ✅Images sans `imagetools`/`decoding`/`fetchpriority`, `express.static` sans `maxAge`.
+- ✅ `public/unsubscribe.html` expose `anon` key (ok si RLS strict).
 
-**Top 7 bloquants launch** : 1) `usePageMeta` + `Product JSON-LD` 2) `robots.txt`+`sitemap.xml`+OG absolu 3) cookies 4 catégories + blocage + révocation + fix `En savoir plus` 4) allowlist 404 5) `ContactPage` backend 6) `href="#"` + `<a>` produits 7) `console` + `CatalogSection.tsx.new` + clé anon.
+** ✅Top bloquants restants :** 1) `usePageMeta` sur 6 pages + `Product JSON-LD` 2) sitemap produits + `allowlist 404` 3) cookies : gate + bouton Gérer + tableau CNIL 4) `ContactPage` backend 5) `<a href="/produit/:id">` + sociaux `href="#"` + logo `pushState` 6) `CatalogSection.tsx.new` + `console.*`.

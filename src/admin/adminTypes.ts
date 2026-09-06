@@ -299,6 +299,23 @@ export interface HeroPromotion {
   showTitle?: boolean; // whether to display the product title
   isActive?: Boolean;
 }
+// ─── Product Review (Phase 1) ───────────────────────────────────────────
+export interface ProductReview {
+  id: string;
+  productId: string;
+  customerId: string;
+  customerName: string;
+  rating: number;
+  title?: string | null;
+  body?: string | null;
+  comment?: string | null;
+  helpful: number;
+  verified: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+export interface ReviewHelpful { reviewId: string; customerId: string; createdAt: string; }
+
 // ─── Shared filter / sort types ───────────────────────────────────────────
 export interface ProductFilters {
   search: string;

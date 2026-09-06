@@ -12,7 +12,7 @@ interface AuthModalProps {
   onSignUpSuccess: (name: string) => void;
 }
 
-type Mode = "login" | "signup" | "resetPassword";
+type Mode = "login" | "signup" | "resetPassword" | "otp" | "verifyOtp";
 type ResetStep = "email" | "sent" | "newPassword";
 
 const RESEND_COOLDOWN_SEC = 30;
@@ -27,6 +27,10 @@ export default function AuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [dob, setDob] = useState("");
+  const [newsletter, setNewsletter] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -206,9 +210,11 @@ export default function AuthModal({
                 id: data.user.id,
                 email,
                 name,
+                date_of_birth: dob || null,
+                email_preferences: { order_confirmation: true, shipping_update: true, promotions: newsletter },
                 registration_date: new Date().toISOString(),
                 last_login_date: new Date().toISOString(),
-              },
+              } as any,
               { onConflict: "id" },
             );
           if (insertError)
@@ -286,20 +292,50 @@ export default function AuthModal({
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!otpEmail.trim()) { setError("Enter your email"); return; }
+    setLoading(true); setError("");
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email: otpEmail.trim() });
+      if (error) throw error;
+      setMode("verifyOtp");
+    } catch (err: any) { setError(err.message || "Failed to send OTP"); }
+    finally { setLoading(false); }
+  };
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim()) { setError("Enter the 6-digit code"); return; }
+    setLoading(true); setError("");
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ email: otpEmail.trim(), token: otpCode.trim(), type: "email" });
+      if (error) throw error;
+      if (data.user) {
+        const { data: isAdminUser } = await supabase.rpc("is_admin");
+        onLoginSuccess(!!isAdminUser, data.user.email || otpEmail);
+        onClose();
+      }
+    } catch (err: any) { setError(err.message || "Invalid code"); }
+    finally { setLoading(false); }
+  };
+
   // Login/signup form
   const renderAuthForm = () => (
     <form onSubmit={handleSubmit} className="space-y-4">
       {mode === "signup" && (
-        <div>
-          <label className="block text-xs font-bold mb-1">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 border rounded-lg text-sm"
-            required
-          />
-        </div>
+        <>
+          <div>
+            <label className="block text-xs font-bold mb-1">Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border rounded-lg text-sm" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold mb-1">Date of birth</label>
+              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full p-2 border rounded-lg text-sm" />
+            </div>
+            <label className="flex items-center gap-2 text-xs mt-6">
+              <input type="checkbox" checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} /> Newsletter
+            </label>
+          </div>
+        </>
       )}
       <div>
         <label className="block text-xs font-bold mb-1">Email</label>
@@ -486,30 +522,51 @@ export default function AuthModal({
         )}
 
         {/* Content per mode */}
-        {mode === "resetPassword" ? renderResetPassword() : renderAuthForm()}
+        {mode === "resetPassword" ? renderResetPassword() : mode === "otp" ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold">Sign in with OTP</h2>
+            <input type="email" value={otpEmail} onChange={(e) => setOtpEmail(e.target.value)} placeholder="you@email.com" className="w-full p-2 border rounded-lg text-sm" />
+            <button onClick={handleSendOtp} disabled={loading} className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold">Send code</button>
+            <button onClick={() => setMode("login")} className="text-xs text-gray-500 hover:underline">Back to password</button>
+          </div>
+        ) : mode === "verifyOtp" ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold">Enter code</h2>
+            <p className="text-sm text-gray-500">Code sent to {otpEmail}</p>
+            <input type="text" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="123456" maxLength={6} className="w-full p-2 border rounded-lg text-sm tracking-widest text-center" />
+            <button onClick={handleVerifyOtp} disabled={loading} className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold">Verify</button>
+          </div>
+        ) : renderAuthForm()}
 
         {/* Bottom links (login/signup only) */}
-        {mode !== "resetPassword" && (
-          <div className="mt-3 flex justify-between text-sm">
-            <button
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-              }}
-              className="text-orange-500 hover:underline"
-            >
-              {mode === "login"
-                ? "Create an account"
-                : "Already have an account? Sign in"}
-            </button>
-            {mode === "login" && (
+        {mode !== "resetPassword" && mode !== "otp" && mode !== "verifyOtp" && (
+          <div className="mt-3 flex flex-col gap-2 text-sm">
+            <div className="flex justify-between">
               <button
                 onClick={() => {
-                  setMode("resetPassword");
-                  setResetEmail(email); // Pre-fill with email from login form
+                  setMode(mode === "login" ? "signup" : "login");
                 }}
-                className="text-gray-500 hover:text-orange-500 hover:underline"
+                className="text-orange-500 hover:underline"
               >
-                Forgot password?
+                {mode === "login"
+                  ? "Create an account"
+                  : "Already have an account? Sign in"}
+              </button>
+              {mode === "login" && (
+                <button
+                  onClick={() => {
+                    setMode("resetPassword");
+                    setResetEmail(email); // Pre-fill with email from login form
+                  }}
+                  className="text-gray-500 hover:text-orange-500 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
+            {mode === "login" && (
+              <button onClick={() => { setMode("otp"); setOtpEmail(email); }} className="text-xs text-orange-500 hover:underline text-center">
+                Sign in with OTP code
               </button>
             )}
           </div>

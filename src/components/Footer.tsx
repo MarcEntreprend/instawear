@@ -23,6 +23,7 @@ interface FooterProps {
   onOpenFaq?: () => void;
   onOpenContact?: () => void;
   onOpenPromotions?: () => void;
+  onManageCookies?: () => void;
 }
 
 export default function Footer({
@@ -34,6 +35,7 @@ export default function Footer({
   onOpenFaq,
   onOpenContact,
   onOpenPromotions,
+  onManageCookies,
 }: FooterProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -88,7 +90,7 @@ export default function Footer({
               Choisissez le canal le plus rapide pour vous.
             </p>
           </div>
-          <a href="#faq" className="flex items-center gap-3">
+          <a href="#section-faq" className="flex items-center gap-3">
             <span
               className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
               style={{
@@ -174,14 +176,14 @@ export default function Footer({
           </p>
           <div className="flex items-center gap-2">
             {[Instagram, Facebook, Twitter].map((Icon, i) => (
-              <a
+              <span
                 key={i}
-                href="#"
-                aria-label="Réseau social"
-                className="btn-icon"
+                title="Bientôt disponible"
+                aria-label="Réseau social (bientôt disponible)"
+                className="btn-icon opacity-60 cursor-default"
               >
                 <Icon size={16} />
-              </a>
+              </span>
             ))}
           </div>
         </div>
@@ -432,6 +434,13 @@ export default function Footer({
               style={{ color: "var(--color-ink3)" }}
             >
               Cookies
+            </button>
+            <button
+              onClick={() => onManageCookies?.()}
+              className="hover:underline bg-transparent border-none cursor-pointer text-xs"
+              style={{ color: "var(--color-ink3)" }}
+            >
+              Gérer les cookies
             </button>
             {isAdmin && (
               <button

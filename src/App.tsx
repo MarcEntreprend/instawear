@@ -5,11 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
-import AccountPage from "./components/AccountPage";
-import CheckoutFlow from "./components/CheckoutFlow";
+// Blocs lourds en lazy : chargés uniquement à l'ouverture (admin jamais
+// téléchargé pour un visiteur non-admin, Stripe uniquement au checkout).
+const AccountPage = lazy(() => import("./components/AccountPage"));
+const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
 import ToastContainer, { type Toast } from "./components/ToastContainer";
@@ -19,13 +21,25 @@ import ContactPage from "./pages/ContactPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
+import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
-import AdminDashboardNew from "./admin/AdminDashboardNew";
+// Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
+const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+
+// Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
+function LazyFallback() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg)" }} aria-label="Chargement">
+      <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-border)", borderTopColor: "var(--color-accent)" }} />
+    </div>
+  );
+}
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { useCookieConsent } from "./hooks/useCookieConsent";
+import { applyConsent } from "./lib/analytics";
 import { Product, CartItem } from "./types";
 import { getVariantAvailability } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
@@ -150,6 +164,7 @@ export default function App() {
     setSelectedProductInitialColor(color || null);
     setSelectedProductInitialSize(size || null);
     setSelectedProduct(p);
+    addViewed(p.id);
     try {
       history.pushState({}, "", `/produit/${p.id}`);
     } catch {}
@@ -219,6 +234,12 @@ export default function App() {
 
   const currencySymbol = useCurrencySymbol();
   const cookieConsent = useCookieConsent();
+  const { addViewed } = useRecentlyViewed();
+
+  // Traceurs : chargés uniquement après consentement non-essentiels
+  useEffect(() => {
+    applyConsent(cookieConsent.consent);
+  }, [cookieConsent.consent]);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -839,15 +860,51 @@ export default function App() {
   }, []);
 
   // Detect user country via IP (free, no API key, CORS-friendly)
+  // Cache 7j en localStorage + fallback silencieux (CheckoutFlow utilise
+  // store_settings.country si detectedCountry est null).
   useEffect(() => {
-    fetch("https://api.country.is/")
-      .then((res) => res.json())
+    const KEY = "instawear-country";
+    const TTL = 7 * 86400000;
+    try {
+      const cached = window.localStorage.getItem(KEY);
+      if (cached) {
+        const { code, at } = JSON.parse(cached);
+        if (code && Date.now() - at < TTL) {
+          setDetectedCountry(code);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    let cancelled = false;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    fetch("https://api.country.is/", { signal: ctrl.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`geo ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
+        if (cancelled) return;
         if (data?.country) {
           setDetectedCountry(data.country);
+          try {
+            window.localStorage.setItem(
+              KEY,
+              JSON.stringify({ code: data.country, at: Date.now() }),
+            );
+          } catch { /* ignore */ }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback silencieux : detectedCountry reste null,
+        // CheckoutFlow utilisera store_settings.country.
+      })
+      .finally(() => clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, []);
 
   // Auto-scroll to filters or catalog when a filter changes
@@ -885,20 +942,31 @@ export default function App() {
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname;
-      // Routes connues
-      const knownPaths = ["/", "/unsubscribe", "/index.html"];
+      // Routes connues (SPA : pages produit / légales / aide / suivi)
+      const knownPaths = ["/", "/unsubscribe", "/index.html", "/faq", "/contact", "/promotions", "/recherche", "/suivi"];
+      const knownPrefixes = ["/produit/", "/legal/"];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
         path.startsWith("/flags/") ||
         path.startsWith("/InstaWear-") ||
         path === "/globe-off.svg" ||
-        path === "/unsubscribe.html";
+        path === "/unsubscribe.html" ||
+        path === "/robots.txt" ||
+        path === "/sitemap.xml" ||
+        path === "/llms.txt" ||
+        path === "/ai.txt" ||
+        path === "/site.webmanifest" ||
+        path === "/manifest.json" ||
+        path === "/favicon.ico" ||
+        /\.(png|jpe?g|svg|webp|ico|css|js|map|json|webmanifest)$/.test(path);
 
-      if (!knownPaths.includes(path) && !isStaticFile && path !== "/") {
-        setShowNotFound(true);
-      } else {
-        setShowNotFound(false);
-      }
+      const isKnown =
+        knownPaths.includes(path) ||
+        knownPrefixes.some((p) => path.startsWith(p)) ||
+        isStaticFile ||
+        path === "/";
+
+      setShowNotFound(!isKnown);
     };
 
     checkRoute();
@@ -1100,9 +1168,11 @@ export default function App() {
         </main>
       )}
 
-      {/* Admin Creator Dashboard Screen 2 */}
-      {activeTab === "admin" && (
-        <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+      {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
+      {activeTab === "admin" && isAdmin && (
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+        </Suspense>
       )}
 
       {/* Product Page (V2) — replaces modal, with URL pushState */}
@@ -1124,15 +1194,16 @@ export default function App() {
           initialColor={selectedProductInitialColor || undefined}
           initialSize={selectedProductInitialSize || undefined}
           onToggleFavorite={toggleFavorite}
-          onAddToCart={(p, c, s) => {
+          onAddToCart={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
           }}
-          onBuyNow={(p, c, s) => {
+          onBuyNow={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
             setCheckoutOpen(true);
             history.pushState({}, "", "/");
             setSelectedProduct(null);
           }}
+          onSelectProduct={(p: Product) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
         />
       )}
@@ -1236,6 +1307,7 @@ export default function App() {
         onOpenFaq={openFaqPage}
         onOpenContact={openContactPage}
         onOpenPromotions={openPromotionsPage}
+        onManageCookies={cookieConsent.resetConsent}
       />
 
       {showAuthModal && (
@@ -1283,54 +1355,62 @@ export default function App() {
       )}
 
       {showAccountPage && (
-        <AccountPage
-          onClose={() => setShowAccountPage(false)}
-          onViewProduct={(productId, initialColor, initialSize) => {
-            const product = products.find((p) => p.id === productId);
-            if (product) {
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
-            }
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <AccountPage
+            onClose={() => setShowAccountPage(false)}
+            onViewProduct={(productId, initialColor, initialSize) => {
+              const product = products.find((p) => p.id === productId);
+              if (product) {
+                setSelectedProductInitialColor(initialColor || null);
+                setSelectedProductInitialSize(initialSize || null);
+                setSelectedProduct(product);
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/*  rendu du nouveau Admin en dehors du flux normal */}
       {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
       {showNewAdmin && isAdmin && (
-        <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        <Suspense fallback={<LazyFallback />}>
+          <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+        </Suspense>
       )}
 
       {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
       {checkoutOpen && (
-        <CheckoutFlow
-          cart={cart}
-          detectedCountry={detectedCountry}
-          onUpdateQty={updateCartQty}
-          onRemoveItem={removeFromCart}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => {
-            setCart([]);
-            showToast(
-              "🎉 Order confirmed! A confirmation email has been sent.",
-              "success",
-            );
-          }}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={cart}
+            detectedCountry={detectedCountry}
+            onUpdateQty={updateCartQty}
+            onRemoveItem={removeFromCart}
+            onClose={() => setCheckoutOpen(false)}
+            onSuccess={() => {
+              setCart([]);
+              showToast(
+                "🎉 Order confirmed! A confirmation email has been sent.",
+                "success",
+              );
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Confirmation mode after Stripe return */}
       {stripeConfirmOrderId && (
-        <CheckoutFlow
-          cart={[]}
-          detectedCountry={detectedCountry}
-          onUpdateQty={() => {}}
-          onRemoveItem={() => {}}
-          onClose={() => setStripeConfirmOrderId(null)}
-          onSuccess={() => {}}
-          confirmModeOrderId={stripeConfirmOrderId}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <CheckoutFlow
+            cart={[]}
+            detectedCountry={detectedCountry}
+            onUpdateQty={() => {}}
+            onRemoveItem={() => {}}
+            onClose={() => setStripeConfirmOrderId(null)}
+            onSuccess={() => {}}
+            confirmModeOrderId={stripeConfirmOrderId}
+          />
+        </Suspense>
       )}
 
       {/* Order Tracking Modal */}
@@ -1363,10 +1443,7 @@ export default function App() {
         isVisible={!cookieConsent.hasResponded}
         onAcceptAll={cookieConsent.acceptAll}
         onRejectNonEssential={cookieConsent.rejectNonEssential}
-        onSavePreferences={cookieConsent.savePreferences}
-        onNavigateLegal={() =>
-          document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })
-        }
+        onNavigateLegal={() => openLegal("cookies")}
       />
 
       {/* V2: Mobile tab bar (store view only) */}

@@ -4,6 +4,7 @@ import { ChevronLeft, Search, SearchX } from "lucide-react";
 import type { Product } from "../types";
 import { EVENT_TYPES } from "../data/categories";
 import StoreProductCard from "../components/StoreProductCard";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 function normalize(text: string): string { return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
 function matchesQuery(product: Product, nq: string): boolean {
@@ -16,6 +17,11 @@ export default function SearchResultsPage({ query, products, favouriteIds = [], 
 }) {
   const [draft, setDraft] = useState(query);
   const [activeEventType, setActiveEventType] = useState<string | null>(null);
+  usePageMeta({
+    title: query.trim() ? `Recherche : ${query.trim()}` : "Recherche",
+    description: "Recherchez t-shirts, hoodies et accessoires InstaWear pour votre prochain événement.",
+    url: `https://instawear.vercel.app/recherche?q=${encodeURIComponent(query.trim())}`,
+  });
   const nq = normalize(query.trim());
   const baseResults = useMemo(() => (nq ? products.filter((p) => matchesQuery(p, nq)) : []), [products, nq]);
   const results = activeEventType ? baseResults.filter((p) => p.eventType === activeEventType) : baseResults;
