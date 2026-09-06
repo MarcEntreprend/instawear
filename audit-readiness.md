@@ -11,14 +11,13 @@
 - Mocks toujours là : `TestimonialsSection` 3 avis en dur, `AboutSection` unsplash `w=800`, `DEFAULT_IMAGE` unsplash, fallback Gemini `server.ts`, `COUNTRIES/shippingRates` statiques.
 - Images : pas de `srcset`/WebP, `lazy` seul, pas de `width/height` → CLS toujours d'actualité.
 
-### 2. Codes cassés / Bugs — ⚠️ 1 fixé, reste 6
+### 2. Codes cassés / Bugs — fixés ✅
 
-- **404 overlay — ❌ toujours ouvert** : `App.tsx:892` `knownPaths=[/,/unsubscribe,/index.html]` inchangé. `/produit/:id`, `/legal/*`, `/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi` déclenchent toujours `showNotFound` en parallèle des pages `fixed z-50`.
-- **`En savoir plus` cookie — ✅ vient d'être fixé** (voir §4) : `App.tsx` passait `scrollIntoView(#faq)`, passe maintenant `openLegal` → ouvre `/legal/cookies`.
-- **Header logo — ❌ toujours** : `Header.tsx:534` `window.location.href="/"` → reload complet.
-- **Produit non crawlable — ❌ toujours** : `StoreProductCard.tsx:55` `role="button"`, aucun `<a href="/produit/:id">`.
-- **Footer — ❌ toujours** : `Footer.tsx:179` sociaux `href="#"` morts. `CatalogSection.tsx.new` existe toujours (fichier fantôme à supprimer). `console.*` non nettoyés.
-- `src/main.tsx:8` import `NotFound` : à revérifier, non bloquant.
+1. ✅ 404 overlay --- `App.tsx:892-910` : `knownPaths` étendu (`/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi`) + `knownPrefixes` (`/produit/`, `/legal/`) + `isStaticFile` étendu (`robots.txt`, `sitemap.xml`, `llms.txt`, `ai.txt`, `webmanifest`, `favicon.ico`, regex d'extensions). Les routes SPA légitimes n'ouvrent plus `NotFound` en parallèle des pages `fixed z-50` → plus de double scroll-lock.
+2. ✅ Header logo --- `Header.tsx:532` : `window.location.href="/"` remplacé par `onNavigateHome()` (existe déjà en prop, `Header.tsx:59`), fallback `history.pushState("/") + scrollTo top` → plus de reload complet, état SPA conservé.
+3. ✅ Produit crawlable --- `StoreProductCard.tsx:52` : le `div role="button"` devient `<a href="/produit/:id">` (avec `preventDefault` + `onSelectProduct`, comportement clic inchangé). Les bots suivent désormais les fiches produit ; balise fermante `</div>` → `</a>` corrigée.
+4. ✅ Footer --- `Footer.tsx:91` `href="#faq"` → `href="#section-faq"` (vrai `id` de `FaqSection.tsx:12`). Sociaux `href="#"` → `<span>` non-lien _Bientôt disponible_ (pas d'URL inventée, plus de pénalité SEO `href="#"`).
+5. ✅ `main.tsx:8` --- import `NotFound` inutilisé supprimé.
 
 ### 3. Manquants / Placeholders — ❌ inchangé
 

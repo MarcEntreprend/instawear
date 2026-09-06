@@ -531,7 +531,15 @@ export default function Header({
 
             <button
               onClick={() => {
-                window.location.href = "/";
+                if (onNavigateHome) onNavigateHome();
+                else {
+                  try {
+                    history.pushState({}, "", "/");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  } catch {
+                    window.location.href = "/";
+                  }
+                }
               }}
               className="flex items-center gap-2 bg-transparent border-none cursor-pointer"
               aria-label="InstaWear — accueil"

@@ -888,20 +888,31 @@ export default function App() {
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname;
-      // Routes connues
-      const knownPaths = ["/", "/unsubscribe", "/index.html"];
+      // Routes connues (SPA : pages produit / légales / aide / suivi)
+      const knownPaths = ["/", "/unsubscribe", "/index.html", "/faq", "/contact", "/promotions", "/recherche", "/suivi"];
+      const knownPrefixes = ["/produit/", "/legal/"];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
         path.startsWith("/flags/") ||
         path.startsWith("/InstaWear-") ||
         path === "/globe-off.svg" ||
-        path === "/unsubscribe.html";
+        path === "/unsubscribe.html" ||
+        path === "/robots.txt" ||
+        path === "/sitemap.xml" ||
+        path === "/llms.txt" ||
+        path === "/ai.txt" ||
+        path === "/site.webmanifest" ||
+        path === "/manifest.json" ||
+        path === "/favicon.ico" ||
+        /\.(png|jpe?g|svg|webp|ico|css|js|map|json|webmanifest)$/.test(path);
 
-      if (!knownPaths.includes(path) && !isStaticFile && path !== "/") {
-        setShowNotFound(true);
-      } else {
-        setShowNotFound(false);
-      }
+      const isKnown =
+        knownPaths.includes(path) ||
+        knownPrefixes.some((p) => path.startsWith(p)) ||
+        isStaticFile ||
+        path === "/";
+
+      setShowNotFound(!isKnown);
     };
 
     checkRoute();

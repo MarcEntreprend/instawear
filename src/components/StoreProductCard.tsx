@@ -49,11 +49,9 @@ export default function StoreProductCard({
 
   return (
     <article className={`ticket-card animate-fade-up group ${unavailable ? "opacity-90" : ""}`}>
-      <div
-        onClick={() => onSelectProduct(product)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectProduct(product); } }}
-        role="button"
-        tabIndex={0}
+      <a
+        href={`/produit/${product.id}`}
+        onClick={(e) => { e.preventDefault(); onSelectProduct(product); }}
         className="block w-full text-left cursor-pointer"
         aria-label={`View ${product.title}`}
       >
@@ -141,7 +139,7 @@ export default function StoreProductCard({
             </div>
           )}
         </div>
-      </div>
+      </a>
 
       <div className="px-5 pb-5">
         {unavailable ? (
