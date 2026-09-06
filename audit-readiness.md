@@ -23,13 +23,13 @@
 - **Géo** : `App.tsx:843 fetch https://api.country.is` sans cache ni fallback UI ; si down, `detectedCountry=null`.
 - **Devises** : `store_settings.currency` vs `shippingRates` en USD vs affichage `€`.
 
-### 4. Cookies
+### 4. Cookies ✅
 
 - Hook `useCookieConsent.ts` : 1 booléen `analytics` seulement. Catégories demandées `nécessaires/performance/analytics/fonctionnalité` → `performance` et `fonctionnalité` manquent.
 - **Placebo** : préférence stockée `localStorage` mais jamais lue pour bloquer `gtag/fbq/hotjar` ; `supabase/auth` + `localStorage` cart tournent sans consentement.
 - RGPD : pas d'expiration (jamais re-prompt), pas de bouton _Gérer les cookies_ après `hasResponded`, `LegalPage` cookies 2 lignes sans tableau CNIL (nom/durée/provider), pas de versionning.
 
-### 5. SEO (Google)
+### 5. SEO (Google) ✅
 
 - `index.html` OK : `title` _Wear the Moment_, `description` 155c, `canonical https://instawear.vercel.app/`, OG/Twitter, `Organization` JSON-LD, `preconnect` fonts. Mais :
   - **Dynamique jamais branchée** : `usePageMeta.ts` parfait mais `grep usePageMeta → 0 usage`. `ProductPage/Legal/Faq/…` ne changent jamais `title/description/canonical` → tout indexé comme homepage.
@@ -37,7 +37,7 @@
   - **Canonical statique** `/` → duplicate content `/produit/:id` ; `og:image` relatif `/InstaWear-logo.png` (doit être absolu + `width/height/alt`) ; `og:title` (_Energy_) ≠ `title` (_Moment_) ; `description` _4-day_ vs `Legal` _3–7j_.
   - `lang en` vs UI FR, pas de `hreflang` ; `meta keywords` obsolète ; pas de `robots`, `theme-color`, `og:locale`, `WebSite+SearchAction`, `Product/Offer/AggregateRating`, `FAQPage`, `BreadcrumbList`.
 
-### 6. IA / Agentic
+### 6. IA / Agentic ✅
 
 - `public/` : 0 `llms.txt`, 0 `ai.txt`, 0 `/.well-known/ai.txt`, 0 `humans.txt`, 0 `robots.txt` → ChatGPT/Gemini/Perplexity sans résumé curaté ; `og:image` relatif faible.
 - Seul `Organization` → pas de `WebSite SearchAction` ni `Product` pour snippets IA.
