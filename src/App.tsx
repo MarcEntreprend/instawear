@@ -27,6 +27,7 @@ import AdminDashboardNew from "./admin/AdminDashboardNew";
 import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { useCookieConsent } from "./hooks/useCookieConsent";
+import { applyConsent } from "./lib/analytics";
 import { Product, CartItem } from "./types";
 import { getVariantAvailability } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
@@ -222,6 +223,11 @@ export default function App() {
   const currencySymbol = useCurrencySymbol();
   const cookieConsent = useCookieConsent();
   const { addViewed } = useRecentlyViewed();
+
+  // Traceurs : chargés uniquement après consentement non-essentiels
+  useEffect(() => {
+    applyConsent(cookieConsent.consent);
+  }, [cookieConsent.consent]);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {

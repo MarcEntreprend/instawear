@@ -25,10 +25,12 @@
 - ✅ **Géo** : `fetch api.country.is` sans cache ni fallback UI.
 - ✅ **Devises partiel** : `formatPrice(rateFromEur)` branché affichage (`StoreProductCard`, `ProductPage`, `CartDrawer` partiel), mais `store_settings.currency` reste la source de vérité et `shippingRates` USD non réconciliés.
 
-### 4. Cookies — ⚠️ partiellement corrigé
+### 4. Cookies
 
 - ✅ Fait : `useCookieConsent.ts` 4 catégories (`necessary/analytics/performance/functionality`) + `version:1` + expiry 365j + migration ancien format + `resetConsent`. `CookieConsentBanner.tsx` 4 toggles (nécessaires disabled).
-- ❌ Reste : **placebo persistant** — consent stocké mais jamais lu pour bloquer un tracker (`gtag/fbq` absents, mais `supabase/auth` + `localStorage` panier tournent sans gate). Pas de bouton **Gérer les cookies** branché (`resetConsent` existe mais non câblé dans `App/Footer`). `LegalPage` cookies toujours 2 lignes, pas de tableau CNIL (nom/durée/provider/tiers Stripe-Supabase-Printful-Resend, droits, DPO).
+- Bannière (CookieConsentBanner.tsx) : texte unique « Nous utilisons des cookies pour améliorer votre expérience. En savoir plus » + 2 boutons [Tout accepter] [Refuser les non-essentiels]. Toggles et écran Personnaliser supprimés.
+- Catégories cachées (useCookieConsent.ts v2) : necessary: true toujours ON + nonEssential (tout le reste : analytics, perf, pub) + expiry 365j + version: 2. Migration auto des anciens consentements v1 (analytics || performance → nonEssential).
+- Footer → Gérer : nouveau lien Gérer les cookies (à côté de Cookies) via prop onManageCookies, branché sur cookieConsent.resetConsent() dans App.tsx → rouvre la bannière.
 
 ### 5. SEO — ⚠️ gros progrès, dynamique incomplète
 
