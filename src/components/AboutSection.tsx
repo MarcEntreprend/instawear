@@ -1,5 +1,5 @@
 // src/components/AboutSection.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { TESTIMONIALS } from "../data/testimonials";
 
@@ -82,10 +82,20 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 function TestimonialsCarousel() {
   const [index, setIndex] = useState(0);
+
+  // Auto-spin toutes les 5 secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((i) => (i + 1) % TESTIMONIALS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const testimonial = TESTIMONIALS[index];
 
-  const go = (dir: 1 | -1) =>
+  const go = (dir: 1 | -1) => {
     setIndex((i) => (i + dir + TESTIMONIALS.length) % TESTIMONIALS.length);
+  };
 
   return (
     <section id="testimonials" style={{ background: "var(--color-surface2)" }}>
@@ -130,11 +140,12 @@ function TestimonialsCarousel() {
             “{testimonial.text}”
           </p>
           <div className="flex items-center gap-3">
-            <img
-              src={testimonial.avatar}
-              alt=""
-              className="w-11 h-11 rounded-full object-cover"
-            />
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm"
+              style={{ background: "var(--color-accent)" }}
+            >
+              {testimonial.name.charAt(0)}
+            </div>
             <div>
               <p
                 className="text-sm font-bold"

@@ -73,9 +73,8 @@ export default function DealsSection({
     eventType: string | null,
     category: string | null,
   ) => {
-    if (eventType) onSelectEventType(eventType);
-    if (category && onSelectCategory) onSelectCategory(category);
-    if (!eventType && !category) onSelectEventType(null);
+    onSelectEventType(eventType);
+    onSelectCategory?.(category);
     document
       .getElementById("section-catalog")
       ?.scrollIntoView({ behavior: "smooth" });
@@ -103,7 +102,7 @@ export default function DealsSection({
           {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
-              onClick={() => onSelectCategory?.(value)}
+              onClick={() => handleSelectCategory(value, null)}
               className="card-premium flex flex-col items-center gap-3 py-7 px-4"
             >
               <span

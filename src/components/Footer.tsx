@@ -16,12 +16,14 @@ import { LOGO_URL } from "../constants/assets";
 
 interface FooterProps {
   isAdmin: boolean;
-  onSelectEventType: (type: string) => void;
+  onSelectEventType: (type: string | null) => void;
+  onSelectCategory?: (cat: string | null) => void;
   onNavigate: (tab: "store" | "admin") => void;
   onOpenAdmin?: () => void;
   onOpenLegal?: (slug: string) => void;
   onOpenFaq?: () => void;
   onOpenContact?: () => void;
+  onOpenTracking?: () => void;
   onOpenPromotions?: () => void;
   onManageCookies?: () => void;
 }
@@ -29,11 +31,13 @@ interface FooterProps {
 export default function Footer({
   isAdmin,
   onSelectEventType,
+  onSelectCategory,
   onNavigate,
   onOpenAdmin,
   onOpenLegal,
   onOpenFaq,
   onOpenContact,
+  onOpenTracking,
   onOpenPromotions,
   onManageCookies,
 }: FooterProps) {
@@ -146,9 +150,9 @@ export default function Footer({
         </div>
       </div>
 
-      {/* Grille principale V2 + Creator Hub V1 */}
+      {/* Grille principale */}
       <div
-        className={`max-w-350 mx-auto px-6 py-14 grid gap-x-6 gap-y-10 ${isAdmin ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}
+        className="max-w-350 mx-auto px-6 py-14 grid gap-x-6 gap-y-10 grid-cols-2 md:grid-cols-4"
       >
         <div className="col-span-2 md:col-span-1">
           <button
@@ -201,8 +205,10 @@ export default function Footer({
             <li>
               <button
                 onClick={() => {
+                  onSelectEventType(null);
+                  onSelectCategory?.(null);
                   onNavigate("store");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -211,7 +217,12 @@ export default function Footer({
             </li>
             <li>
               <button
-                onClick={() => onSelectEventType("culture")}
+                onClick={() => {
+                  onSelectEventType("festival");
+                  onSelectCategory?.(null);
+                  onNavigate("store");
+                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                }}
                 className="hover:text-(--color-accent) text-left"
               >
                 Festivals
@@ -219,7 +230,12 @@ export default function Footer({
             </li>
             <li>
               <button
-                onClick={() => onSelectEventType("sport")}
+                onClick={() => {
+                  onSelectEventType("sport");
+                  onSelectCategory?.(null);
+                  onNavigate("store");
+                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                }}
                 className="hover:text-(--color-accent) text-left"
               >
                 Sport
@@ -227,7 +243,12 @@ export default function Footer({
             </li>
             <li>
               <button
-                onClick={() => onSelectEventType("saisonnier")}
+                onClick={() => {
+                  onSelectEventType("saisonnier");
+                  onSelectCategory?.(null);
+                  onNavigate("store");
+                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                }}
                 className="hover:text-(--color-accent) text-left"
               >
                 Seasonal
@@ -249,11 +270,10 @@ export default function Footer({
           >
             <li>
               <button
-                onClick={() =>
-                  document
-                    .getElementById("faq")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
+                onClick={() => {
+                  onNavigate("store");
+                  setTimeout(() => document.getElementById("section-faq")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                }}
                 className="hover:text-(--color-accent) text-left"
               >
                 FAQ
@@ -261,57 +281,25 @@ export default function Footer({
             </li>
             <li>
               <button
-                onClick={() =>
-                  document
-                    .getElementById("faq")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="hover:text-(--color-accent) text-left"
+                onClick={() => onOpenTracking?.()}
+                className="hover:text-(--color-accent) text-left inline-flex items-center gap-1.5"
               >
-                Shipping & Returns
+                <span>📦</span> My Order
               </button>
             </li>
             <li>
-              <a
-                href="mailto:bonjour@instawear.com"
-                className="hover:text-(--color-accent)"
+              <button
+                onClick={() => {
+                  if (onOpenContact) onOpenContact();
+                  else document.getElementById("contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="hover:text-(--color-accent) text-left"
               >
                 Contact
-              </a>
+              </button>
             </li>
           </ul>
         </div>
-
-        {isAdmin && (
-          <div>
-            <h4
-              className="text-xs font-bold uppercase tracking-wider mb-4"
-              style={{ color: "var(--color-ink3)" }}
-            >
-              Creator Hub
-            </h4>
-            <ul
-              className="flex flex-col gap-2.5 text-sm"
-              style={{ color: "var(--color-ink2)" }}
-            >
-              {[
-                "POD Design Form",
-                "Printful API Setup",
-                "Zero Budget Guide",
-                "Gemini AI Generator",
-              ].map((item) => (
-                <li key={item}>
-                  <button
-                    onClick={() => onNavigate("admin")}
-                    className="hover:text-(--color-accent) text-left"
-                  >
-                    {item}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <div className="col-span-2 md:col-span-1">
           <h4

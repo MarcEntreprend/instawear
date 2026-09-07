@@ -1497,11 +1497,16 @@ export default function App() {
       <Footer
         isAdmin={isAdmin}
         onSelectEventType={setSelectedEventType}
+        onSelectCategory={setSelectedCategory}
         onNavigate={setActiveTab}
         onOpenAdmin={() => setShowNewAdmin(true)}
         onOpenLegal={openLegal}
         onOpenFaq={openFaqPage}
         onOpenContact={openContactPage}
+        onOpenTracking={() => {
+          setTrackingOpen(true);
+          setTrackingInitialCode(null);
+        }}
         onOpenPromotions={openPromotionsPage}
         onManageCookies={cookieConsent.resetConsent}
       />
