@@ -333,7 +333,9 @@ export default function AuthModal({
         message = "Sign-in error. Please check your credentials.";
       }
       setError(message);
-      console.error("Auth error details:", err);
+      // Diagnostic dev uniquement : en prod, l'utilisateur voit déjà
+      // le message ci-dessus, et la console ne doit rien exposer.
+      if (import.meta.env.DEV) console.error("Auth error details:", err);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 // src/lib/engagement.ts — Phase 2 Merchandising : capteurs silencieux.
-// Aucun changement visuel. Batch + sendBeacon + requestIdleCallback :
+// Aucun changement visuel. Batch + fetch keepalive + requestIdleCallback :
 // jamais sur le chemin critique du rendu. Gate consentement : sans
 // acceptation des non-essentiels, rien n'est envoyé (panier/session seuls).
 import { supabase } from "./supabaseClient";
@@ -96,19 +96,19 @@ async function flush() {
       context: e.context,
     }));
     const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/engagement_events?apikey=${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-    const blob = new Blob([JSON.stringify(rows)], { type: "application/json" });
-    const sent =
-      typeof navigator.sendBeacon === "function" && navigator.sendBeacon(url, blob);
-    if (!sent) {
-      await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify(rows),
-      }).catch(() => {});
-    }
+    // Pas de sendBeacon : il envoie credentials:include, ce que le
+    // Access-Control-Allow-Origin: * de PostgREST refuse (CORS bloqué).
+    // fetch keepalive survit à la fermeture de page, sans credentials.
+    await fetch(url, {
+      method: "POST",
+      credentials: "omit",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(rows),
+    }).catch(() => {});
   } catch {
     // Silencieux : le tracking ne doit jamais casser le site.
   }
