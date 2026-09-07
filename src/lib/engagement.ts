@@ -114,6 +114,21 @@ async function flush() {
   }
 }
 
+/**
+ * Variante A/B stable par session (50/50) pour les sections en test.
+ * La variante voyage dans `context.v` des events produit/panier.
+ */
+export function getVariant(): "A" | "B" {
+  try {
+    const sid = getSessionId();
+    let h = 0;
+    for (let i = 0; i < sid.length; i++) h = (h * 31 + sid.charCodeAt(i)) >>> 0;
+    return h % 2 === 0 ? "A" : "B";
+  } catch {
+    return "A";
+  }
+}
+
 export function track(
   event_type: QueuedEvent["event_type"],
   entity_type: QueuedEvent["entity_type"],

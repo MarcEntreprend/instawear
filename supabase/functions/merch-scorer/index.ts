@@ -23,13 +23,13 @@ const SCORE_SECTIONS = ["new", "catalog", "search", "related", "frequently"] as 
 
 // Poids par défaut (somme ≈ 1 par section). Surcharge via merch_config.weights.
 const DEFAULT_WEIGHTS: Record<string, Record<string, number>> = {
-  new: { freshness: 0.5, popularity: 0.2, attention: 0.2, quality: 0.1, discount: 0 },
-  catalog: { popularity: 0.35, attention: 0.25, quality: 0.2, freshness: 0.1, discount: 0.1 },
-  search: { popularity: 0.4, attention: 0.3, quality: 0.2, freshness: 0.1, discount: 0 },
-  related: { popularity: 0.25, attention: 0.2, quality: 0.25, freshness: 0.05, discount: 0.1 },
-  frequently: { popularity: 0.3, attention: 0.2, quality: 0.2, freshness: 0.05, discount: 0.1 },
+  new: { freshness: 0.45, popularity: 0.2, attention: 0.2, quality: 0.1, discount: 0, event: 0.05 },
+  catalog: { popularity: 0.3, attention: 0.25, quality: 0.2, freshness: 0.1, discount: 0.1, event: 0.05 },
+  search: { popularity: 0.4, attention: 0.25, quality: 0.2, freshness: 0.1, discount: 0, event: 0.05 },
+  related: { popularity: 0.25, attention: 0.2, quality: 0.25, freshness: 0.05, discount: 0.1, event: 0.05 },
+  frequently: { popularity: 0.3, attention: 0.2, quality: 0.2, freshness: 0.05, discount: 0.1, event: 0.05 },
 };
-const WEIGHT_KEYS = ["popularity", "freshness", "quality", "attention", "discount"];
+const WEIGHT_KEYS = ["popularity", "freshness", "quality", "attention", "discount", "event"];
 const FRESHNESS_HALF_LIFE_DAYS = 60;
 const BAYES_M = 10;
 const ENGAGEMENT_WINDOW_DAYS = 30;
@@ -194,6 +194,22 @@ export default {
       };
       const normDisc = minMax(eligible.map(discountOf));
 
+      // ── 4b. Calendrier events (boost à l'approche, rien après) ──
+      const { data: eventRows } = await supabaseAdmin
+        .from("event_dates")
+        .select("event_type, event_date");
+      const eventBoost = new Map<string, number>();
+      for (const r of eventRows || []) {
+        if (!r.event_date) continue;
+        const days = Math.ceil(
+          (new Date(r.event_date).getTime() - now) / 86400000,
+        );
+        if (days >= 0 && days <= 60) {
+          eventBoost.set(r.event_type, 1 - days / 60);
+        }
+      }
+      const normEvent = (p: any) => eventBoost.get(p.event_type) || 0;
+
       // ── 5. Poids (config admin, clés whitelistées, clamp 0..1) ──
       const { data: configs } = await supabaseAdmin
         .from("merch_config")
@@ -221,12 +237,14 @@ export default {
             const qual = normQual(bayes(p));
             const fresh = normFresh(p);
             const disc = normDisc(discountOf(p));
+            const evt = normEvent(p);
             const score =
               w.popularity * pop +
               w.attention * att +
               w.quality * qual +
               w.freshness * fresh +
-              w.discount * disc;
+              w.discount * disc +
+              (w.event || 0) * evt;
             return { id: p.id, score };
           })
           .sort((a, b) => b.score - a.score);

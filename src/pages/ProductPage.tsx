@@ -30,6 +30,7 @@ import DealCountdown from "../components/DealCountdown";
 import StoreProductCard from "../components/StoreProductCard";
 import { isMerchEligible, applyMerchList, ensureMin, type MerchSectionConfig } from "../utils/merch";
 import { merchApi } from "../api/supabaseApi";
+import { getVariant } from "../lib/engagement";
 
 export default function ProductPage({
   product,
@@ -251,6 +252,8 @@ export default function ProductPage({
         )
         .slice(0, 3);
     if (cfg && cfg.enabled === false) return legacy();
+    // A/B : variante A = règle legacy pure (mesure l'apport réel de l'affinité).
+    if ((cfg?.settings as any)?.ab === true && getVariant() === "A") return legacy();
     // Réel d'abord (affinité, catégorie différente = complément), puis règle
     // triée par score pré-calculé quand il est frais.
     const ruleFill = products.filter(
@@ -262,7 +265,8 @@ export default function ProductPage({
     );
     if (scoreMap) {
       ruleFill.sort(
-        (a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0),
+        (a: Product, b: Product) =>
+          (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0),
       );
     }
     const pool = [
@@ -291,7 +295,7 @@ export default function ProductPage({
   }, [affinityIds, byId, merchConfig, product, products, scoreMap]);
 
   const frequentlyIds = useMemo(
-    () => new Set(frequentlyAddOns.map((p) => p.id)),
+    () => new Set(frequentlyAddOns.map((p: Product) => p.id)),
     [frequentlyAddOns],
   );
 
@@ -318,8 +322,11 @@ export default function ProductPage({
     }
     // Affinité d'abord (ordre co-achats), puis même catégorie/event et reste
     // triés par score pré-calculé quand il est frais (sinon ordre catalogue).
+    // A/B : variante A = ordre legacy (sans scores).
+    const useScores =
+      !!scoreMap && !((cfg?.settings as any)?.ab === true && getVariant() === "A");
     const byScore = (a: Product, b: Product) =>
-      (scoreMap?.get(b.id) ?? 0) - (scoreMap?.get(a.id) ?? 0);
+      (useScores && scoreMap ? (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0) : 0);
     const sameCat = products.filter(
       (p: Product) =>
         p.id !== product.id &&

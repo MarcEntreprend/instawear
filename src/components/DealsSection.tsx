@@ -6,6 +6,7 @@ import StoreProductCard from "./StoreProductCard";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { isMerchEligible } from "../utils/merch";
 import { merchApi } from "../api/supabaseApi";
+import { getVariant } from "../lib/engagement";
 
 interface DealsSectionProps {
   dealExpired: boolean;
@@ -38,6 +39,7 @@ export default function DealsSection({
   // Éligibles d'abord, mais jamais de section rétrécie : si < 4 éligibles,
   // on retombe sur les actifs (même règle qu'avant).
   const [newScores, setNewScores] = useState<Map<string, number> | null>(null);
+  const [newAb, setNewAb] = useState(false);
   useEffect(() => {
     let cancelled = false;
     merchApi
@@ -46,15 +48,23 @@ export default function DealsSection({
         if (!cancelled && r) setNewScores(r.scores);
       })
       .catch(() => {});
+    merchApi
+      .getConfigs()
+      .then((c) => {
+        if (!cancelled) setNewAb((c["new"]?.settings as any)?.ab === true);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
   const eligibleNew = products.filter((p) => p.isActive && isMerchEligible(p));
   const newPool = eligibleNew.length >= 4 ? eligibleNew : products.filter((p) => p.isActive);
+  // A/B : variante A = ordre legacy (mesure l'apport réel des scores).
+  const useScores = !!newScores && !(newAb && getVariant() === "A");
   const newArrivals = [...newPool]
     .sort((a, b) =>
-      newScores
+      useScores && newScores
         ? (newScores.get(b.id) ?? 0) - (newScores.get(a.id) ?? 0)
         : (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
     )

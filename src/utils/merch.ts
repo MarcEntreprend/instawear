@@ -6,7 +6,20 @@ export interface MerchSectionConfig {
   enabled: boolean;
   pins: string[];
   excludes: string[];
+  settings?: Record<string, unknown>;
+  weights?: Record<string, number>;
 }
+
+// Miroir des DEFAULT_WEIGHTS de l'edge merch-scorer (affichage admin uniquement,
+// la vérité de calcul vit côté edge). Sommes ≈ 1 par section.
+export const DEFAULT_WEIGHTS: Record<string, Record<string, number>> = {
+  new: { freshness: 0.45, popularity: 0.2, attention: 0.2, quality: 0.1, discount: 0, event: 0.05 },
+  catalog: { popularity: 0.3, attention: 0.25, quality: 0.2, freshness: 0.1, discount: 0.1, event: 0.05 },
+  search: { popularity: 0.4, attention: 0.25, quality: 0.2, freshness: 0.1, discount: 0, event: 0.05 },
+  related: { popularity: 0.25, attention: 0.2, quality: 0.25, freshness: 0.05, discount: 0.1, event: 0.05 },
+  frequently: { popularity: 0.3, attention: 0.2, quality: 0.2, freshness: 0.05, discount: 0.1, event: 0.05 },
+};
+export const WEIGHT_KEYS = ["popularity", "freshness", "quality", "attention", "discount", "event"];
 
 /** Éligible au merchandising : actif, en stock, non affilié, ≥1 variante dispo. */
 export function isMerchEligible(p: any): boolean {

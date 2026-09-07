@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Mail,
   Truck,
+  Sparkles,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -41,6 +42,7 @@ export type AdminSection =
   | "integrations"
   | "settings"
   | "admin-users"
+  | "merchandising"
   | "help";
 
 interface NavItem {
@@ -58,6 +60,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "customers", label: "Clients", icon: Users },
   { id: "interactions", label: "Interactions", icon: MessageSquare },
   { id: "promotions", label: "Promotions & Deals", icon: Tag },
+  { id: "merchandising", label: "Merchandising", icon: Sparkles },
   { id: "email-marketing", label: "Email Marketing", icon: Mail },
   { id: "reports", label: "Rapports", icon: BarChart3 },
   "separator",
