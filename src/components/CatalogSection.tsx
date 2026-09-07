@@ -12,7 +12,14 @@ import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
-import { EVENT_TYPES, PRODUCT_CATEGORIES, STYLE_OPTIONS, MATERIAL_OPTIONS, SORT_OPTIONS, type SortValue } from "../data/categories";
+import {
+  EVENT_TYPES,
+  PRODUCT_CATEGORIES,
+  STYLE_OPTIONS,
+  MATERIAL_OPTIONS,
+  SORT_OPTIONS,
+  type SortValue,
+} from "../data/categories";
 
 interface CatalogSectionProps {
   filteredProducts: Product[];
@@ -40,26 +47,61 @@ interface CatalogSectionProps {
 }
 const PAGE_SIZE = 12;
 type FilterState = {
-  search: string; category: string | null; eventType: string | null; style: string | null; material: string | null;
-  priceMin: number; priceMax: number; inStockOnly: boolean; size: string | null; color: string | null;
+  search: string;
+  category: string | null;
+  eventType: string | null;
+  style: string | null;
+  material: string | null;
+  priceMin: number;
+  priceMax: number;
+  inStockOnly: boolean;
+  size: string | null;
+  color: string | null;
 };
-const DEFAULT_FILTERS: FilterState = { search: "", category: null, eventType: null, style: null, material: null, priceMin: 0, priceMax: 200, inStockOnly: false, size: null, color: null };
+const DEFAULT_FILTERS: FilterState = {
+  search: "",
+  category: null,
+  eventType: null,
+  style: null,
+  material: null,
+  priceMin: 0,
+  priceMax: 200,
+  inStockOnly: false,
+  size: null,
+  color: null,
+};
 const DEFAULT_SORT: SortValue = "popular";
 const DEFAULT_VIEW: "grid" | "list" = "grid";
-function parseFiltersFromSearch(search: string, fallbackEventType: string | null, fallbackCategory: string | null): { filters: FilterState; sort: SortValue; view: "grid" | "list" } {
+function parseFiltersFromSearch(
+  search: string,
+  fallbackEventType: string | null,
+  fallbackCategory: string | null,
+): { filters: FilterState; sort: SortValue; view: "grid" | "list" } {
   const params = new URLSearchParams(search);
   const filters: FilterState = {
-    search: params.get("q") ?? "", eventType: params.get("event") ?? fallbackEventType, category: params.get("cat") ?? fallbackCategory,
-    style: params.get("style") ?? null, material: params.get("material") ?? null,
-    priceMin: params.has("pmin") ? Number(params.get("pmin")) : 0, priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
-    inStockOnly: params.get("stock") === "1", size: params.get("size") ?? null, color: params.get("color") ? `#${params.get("color")}` : null,
+    search: params.get("q") ?? "",
+    eventType: params.get("event") ?? fallbackEventType,
+    category: params.get("cat") ?? fallbackCategory,
+    style: params.get("style") ?? null,
+    material: params.get("material") ?? null,
+    priceMin: params.has("pmin") ? Number(params.get("pmin")) : 0,
+    priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
+    inStockOnly: params.get("stock") === "1",
+    size: params.get("size") ?? null,
+    color: params.get("color") ? `#${params.get("color")}` : null,
   };
   const sortParam = params.get("sort");
-  const sort = SORT_OPTIONS.some((o) => o.value === sortParam) ? (sortParam as SortValue) : DEFAULT_SORT;
+  const sort = SORT_OPTIONS.some((o) => o.value === sortParam)
+    ? (sortParam as SortValue)
+    : DEFAULT_SORT;
   const view = params.get("view") === "list" ? "list" : DEFAULT_VIEW;
   return { filters, sort, view };
 }
-function serializeFiltersToSearch(filters: FilterState, sort: SortValue, view: "grid" | "list"): string {
+function serializeFiltersToSearch(
+  filters: FilterState,
+  sort: SortValue,
+  view: "grid" | "list",
+): string {
   const params = new URLSearchParams();
   if (filters.search.trim()) params.set("q", filters.search.trim());
   if (filters.eventType) params.set("event", filters.eventType);
@@ -110,19 +152,46 @@ export default function CatalogSection({
   onClearFavorites,
 }: CatalogSectionProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).view;
+    if (typeof window !== "undefined" && window.location.search.length > 1)
+      return parseFiltersFromSearch(
+        window.location.search,
+        selectedEventType,
+        selectedCategory,
+      ).view;
     return DEFAULT_VIEW;
   });
   const [sort, setSort] = useState<SortValue>(() => {
-    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).sort;
+    if (typeof window !== "undefined" && window.location.search.length > 1)
+      return parseFiltersFromSearch(
+        window.location.search,
+        selectedEventType,
+        selectedCategory,
+      ).sort;
     return DEFAULT_SORT;
   });
   const [filters, setFilters] = useState<FilterState>(() => {
-    if (typeof window !== "undefined" && window.location.search.length > 1) return parseFiltersFromSearch(window.location.search, selectedEventType, selectedCategory).filters;
-    return { ...DEFAULT_FILTERS, eventType: selectedEventType, category: selectedCategory, search: searchTerm };
+    if (typeof window !== "undefined" && window.location.search.length > 1)
+      return parseFiltersFromSearch(
+        window.location.search,
+        selectedEventType,
+        selectedCategory,
+      ).filters;
+    return {
+      ...DEFAULT_FILTERS,
+      eventType: selectedEventType,
+      category: selectedCategory,
+      search: searchTerm,
+    };
   });
   // Sync App's search/category/event into local filters when they change externally (header)
-  useEffect(() => { setFilters((f) => ({ ...f, search: searchTerm, category: selectedCategory, eventType: selectedEventType })); }, [searchTerm, selectedCategory, selectedEventType]);
+  useEffect(() => {
+    setFilters((f) => ({
+      ...f,
+      search: searchTerm,
+      category: selectedCategory,
+      eventType: selectedEventType,
+    }));
+  }, [searchTerm, selectedCategory, selectedEventType]);
   useEffect(() => {
     const qs = serializeFiltersToSearch(filters, sort, viewMode);
     const url = qs ? `/?${qs}` : "/";
@@ -137,12 +206,14 @@ export default function CatalogSection({
   useEffect(() => {
     if (isFilterDrawerOpen) {
       const prevOverflow = document.body.style.overflow;
-      const prevOverscroll = (document.documentElement.style as any).overscrollBehavior;
+      const prevOverscroll = (document.documentElement.style as any)
+        .overscrollBehavior;
       document.body.style.overflow = "hidden";
       (document.documentElement.style as any).overscrollBehavior = "contain";
       return () => {
         document.body.style.overflow = prevOverflow;
-        (document.documentElement.style as any).overscrollBehavior = prevOverscroll;
+        (document.documentElement.style as any).overscrollBehavior =
+          prevOverscroll;
       };
     } else {
       document.body.style.overflow = "";
@@ -152,7 +223,8 @@ export default function CatalogSection({
 
   const extraFiltered = useMemo(() => {
     let list = filteredProducts.filter((p) => {
-      if (p.price < filters.priceMin || p.price > filters.priceMax) return false;
+      if (p.price < filters.priceMin || p.price > filters.priceMax)
+        return false;
       if (filters.size && !p.sizes.includes(filters.size)) return false;
       if (filters.color && !p.colors.includes(filters.color)) return false;
       if (filters.inStockOnly && p.inStock === false) return false;
@@ -161,11 +233,22 @@ export default function CatalogSection({
       return true;
     });
     switch (sort) {
-      case "price-asc": list = [...list].sort((a, b) => a.price - b.price); break;
-      case "price-desc": list = [...list].sort((a, b) => b.price - a.price); break;
-      case "rating": list = [...list].sort((a, b) => b.ratings.score - a.ratings.score); break;
-      case "new": list = [...list].sort((a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0)); break;
-      default: list = [...list].sort((a, b) => b.boughtLastMonth - a.boughtLastMonth);
+      case "price-asc":
+        list = [...list].sort((a, b) => a.price - b.price);
+        break;
+      case "price-desc":
+        list = [...list].sort((a, b) => b.price - a.price);
+        break;
+      case "rating":
+        list = [...list].sort((a, b) => b.ratings.score - a.ratings.score);
+        break;
+      case "new":
+        list = [...list].sort(
+          (a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
+        );
+        break;
+      default:
+        list = [...list].sort((a, b) => b.boughtLastMonth - a.boughtLastMonth);
     }
     return list;
   }, [filteredProducts, filters, sort]);
@@ -229,8 +312,8 @@ export default function CatalogSection({
             className="text-2xl sm:text-3xl font-extrabold"
             style={{ color: "var(--color-ink)" }}
           >
-            {extraFiltered.length} item{extraFiltered.length > 1 ? "s" : ""}{" "}
-            for your next event
+            {extraFiltered.length} item{extraFiltered.length > 1 ? "s" : ""} for
+            your next event
           </h2>
         </div>
       </div>
@@ -337,7 +420,12 @@ export default function CatalogSection({
                     type="number"
                     min={0}
                     value={filters.priceMin}
-                    onChange={(e) => setFilters((f) => ({ ...f, priceMin: Number(e.target.value) || 0 }))}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        priceMin: Number(e.target.value) || 0,
+                      }))
+                    }
                     className="w-full bg-transparent outline-none text-sm"
                     style={{ color: "var(--color-ink)" }}
                   />
@@ -357,7 +445,12 @@ export default function CatalogSection({
                     type="number"
                     min={0}
                     value={filters.priceMax}
-                    onChange={(e) => setFilters((f) => ({ ...f, priceMax: Number(e.target.value) || 0 }))}
+                    onChange={(e) =>
+                      setFilters((f) => ({
+                        ...f,
+                        priceMax: Number(e.target.value) || 0,
+                      }))
+                    }
                     className="w-full bg-transparent outline-none text-sm"
                     style={{ color: "var(--color-ink)" }}
                   />
@@ -369,10 +462,18 @@ export default function CatalogSection({
                 {STYLE_OPTIONS.map((s) => (
                   <button
                     key={s}
-                    onClick={() => setFilters((f) => ({ ...f, style: f.style === s ? null : s }))}
+                    onClick={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        style: f.style === s ? null : s,
+                      }))
+                    }
                     className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
                     style={{
-                      background: filters.style === s ? "var(--color-accent)" : "var(--color-surface2)",
+                      background:
+                        filters.style === s
+                          ? "var(--color-accent)"
+                          : "var(--color-surface2)",
                       color: filters.style === s ? "#fff" : "var(--color-ink3)",
                       border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
                     }}
@@ -387,11 +488,20 @@ export default function CatalogSection({
                 {MATERIAL_OPTIONS.map((m) => (
                   <button
                     key={m}
-                    onClick={() => setFilters((f) => ({ ...f, material: f.material === m ? null : m }))}
+                    onClick={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        material: f.material === m ? null : m,
+                      }))
+                    }
                     className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
                     style={{
-                      background: filters.material === m ? "var(--color-accent)" : "var(--color-surface2)",
-                      color: filters.material === m ? "#fff" : "var(--color-ink3)",
+                      background:
+                        filters.material === m
+                          ? "var(--color-accent)"
+                          : "var(--color-surface2)",
+                      color:
+                        filters.material === m ? "#fff" : "var(--color-ink3)",
                       border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
                     }}
                   >
@@ -406,7 +516,10 @@ export default function CatalogSection({
                   <button
                     key={size}
                     onClick={() =>
-                      setFilters((f) => ({ ...f, size: f.size === size ? null : size }))
+                      setFilters((f) => ({
+                        ...f,
+                        size: f.size === size ? null : size,
+                      }))
                     }
                     className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
                     style={{
@@ -414,7 +527,8 @@ export default function CatalogSection({
                         filters.size === size
                           ? "var(--color-accent)"
                           : "var(--color-surface2)",
-                      color: filters.size === size ? "#fff" : "var(--color-ink3)",
+                      color:
+                        filters.size === size ? "#fff" : "var(--color-ink3)",
                       border: `1px solid ${filters.size === size ? "var(--color-accent)" : "var(--color-border)"}`,
                     }}
                   >
@@ -438,7 +552,9 @@ export default function CatalogSection({
                 In stock only
               </span>
               <span
-                onClick={() => setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))}
+                onClick={() =>
+                  setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))
+                }
                 className="w-11 h-6 rounded-full relative transition-colors"
                 style={{
                   background: filters.inStockOnly
@@ -485,41 +601,48 @@ export default function CatalogSection({
                 >
                   <button
                     onClick={() => setViewMode("grid")}
-                  aria-pressed={viewMode === "grid"}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{
-                    background:
-                      viewMode === "grid"
-                        ? "var(--color-surface)"
-                        : "transparent",
-                    boxShadow:
-                      viewMode === "grid" ? "var(--shadow-sm)" : "none",
-                  }}
-                >
-                  <LayoutGrid size={14} style={{ color: "var(--color-ink)" }} />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  aria-pressed={viewMode === "list"}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{
-                    background:
-                      viewMode === "list"
-                        ? "var(--color-surface)"
-                        : "transparent",
-                    boxShadow:
-                      viewMode === "list" ? "var(--shadow-sm)" : "none",
-                  }}
-                >
-                  <List size={14} style={{ color: "var(--color-ink)" }} />
-                </button>
+                    aria-pressed={viewMode === "grid"}
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      background:
+                        viewMode === "grid"
+                          ? "var(--color-surface)"
+                          : "transparent",
+                      boxShadow:
+                        viewMode === "grid" ? "var(--shadow-sm)" : "none",
+                    }}
+                  >
+                    <LayoutGrid
+                      size={14}
+                      style={{ color: "var(--color-ink)" }}
+                    />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    aria-pressed={viewMode === "list"}
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      background:
+                        viewMode === "list"
+                          ? "var(--color-surface)"
+                          : "transparent",
+                      boxShadow:
+                        viewMode === "list" ? "var(--shadow-sm)" : "none",
+                    }}
+                  >
+                    <List size={14} style={{ color: "var(--color-ink)" }} />
+                  </button>
                 </div>
                 <div className="relative">
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortValue)}
                     className="appearance-none rounded-full pl-4 pr-9 h-9 text-xs font-semibold outline-none"
-                    style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-ink)" }}
+                    style={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-ink)",
+                    }}
                   >
                     {SORT_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -527,7 +650,12 @@ export default function CatalogSection({
                       </option>
                     ))}
                   </select>
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "var(--color-ink3)" }}>▼</span>
+                  <span
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    ▼
+                  </span>
                 </div>
               </div>
             </div>
@@ -608,12 +736,24 @@ export default function CatalogSection({
                   </span>
                 )}
                 {filters.style && (
-                  <span className="chip" data-active="true" onClick={() => setFilters((f) => ({ ...f, style: null }))} style={{ cursor: "pointer" }}>
+                  <span
+                    className="chip"
+                    data-active="true"
+                    onClick={() => setFilters((f) => ({ ...f, style: null }))}
+                    style={{ cursor: "pointer" }}
+                  >
                     {filters.style} <X size={12} />
                   </span>
                 )}
                 {filters.material && (
-                  <span className="chip" data-active="true" onClick={() => setFilters((f) => ({ ...f, material: null }))} style={{ cursor: "pointer" }}>
+                  <span
+                    className="chip"
+                    data-active="true"
+                    onClick={() =>
+                      setFilters((f) => ({ ...f, material: null }))
+                    }
+                    style={{ cursor: "pointer" }}
+                  >
                     {filters.material} <X size={12} />
                   </span>
                 )}
@@ -621,7 +761,9 @@ export default function CatalogSection({
                   <span
                     className="chip"
                     data-active="true"
-                    onClick={() => setFilters((f) => ({ ...f, inStockOnly: false }))}
+                    onClick={() =>
+                      setFilters((f) => ({ ...f, inStockOnly: false }))
+                    }
                     style={{ cursor: "pointer" }}
                   >
                     In stock <X size={12} />
@@ -718,24 +860,27 @@ export default function CatalogSection({
       </div>
 
       {isFilterDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
           <div
             className="absolute inset-0 animate-fade-in"
             style={{ background: "rgba(15,13,10,.5)" }}
             onClick={() => setIsFilterDrawerOpen(false)}
           />
           <div
-            className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-4xl animate-fade-up"
+            className="relative flex flex-col max-h-[85vh] rounded-t-4xl animate-fade-up"
             style={{
               background: "var(--color-bg)",
               boxShadow: "var(--shadow-xl)",
+              zIndex: 1,
             }}
           >
+            {/* Header sticky */}
             <div
-              className="sticky top-0 flex items-center justify-between px-5 h-16"
+              className="sticky top-0 flex items-center justify-between px-5 h-16 shrink-0"
               style={{
                 background: "var(--color-bg)",
                 borderBottom: "1px solid var(--color-border)",
+                zIndex: 2,
               }}
             >
               <span
@@ -751,108 +896,289 @@ export default function CatalogSection({
                 <X size={20} style={{ color: "var(--color-ink2)" }} />
               </button>
             </div>
-            <div className="p-5 flex flex-col gap-6 overscroll-contain touch-pan-y">
-              <div className="flex items-center justify-between">
-                <h3
-                  className="text-sm font-bold"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  Filters
-                </h3>
-                {activeFilterCount > 0 && (
-                  <button
-                    onClick={handleResetAll}
-                    className="text-xs font-semibold flex items-center gap-1"
-                    style={{ color: "var(--color-accent)" }}
+
+            {/* Contenu scrollable */}
+            <div className="flex-1 overflow-y-auto px-5 pt-2 pb-4 overscroll-contain touch-pan-y">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <h3
+                    className="text-sm font-bold"
+                    style={{ color: "var(--color-ink)" }}
                   >
-                    <RotateCcw size={12} /> Reset
-                  </button>
-                )}
+                    Filters
+                  </h3>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={handleResetAll}
+                      className="text-xs font-semibold flex items-center gap-1"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      <RotateCcw size={12} /> Reset
+                    </button>
+                  )}
+                </div>
+
+                <FilterGroup title="Event">
+                  <div className="flex flex-col gap-0.5">
+                    {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedEventType === value}
+                          onChange={() =>
+                            setSelectedEventType(
+                              selectedEventType === value ? null : value,
+                            )
+                          }
+                          className="w-4 h-4 accent-(--color-accent)"
+                        />
+                        <Icon
+                          size={14}
+                          style={{ color: "var(--color-ink3)" }}
+                        />
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--color-ink2)" }}
+                        >
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Category">
+                  <div className="flex flex-col gap-0.5">
+                    {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedCategory === value ||
+                            selectedCategory ===
+                              value
+                                .replace("t-shirts", "tshirt")
+                                .replace("hoodies", "hoodie")
+                                .replace("accessories", "accessory")
+                          }
+                          onChange={() =>
+                            setSelectedCategory(
+                              selectedCategory === value ? null : value,
+                            )
+                          }
+                          className="w-4 h-4 accent-(--color-accent)"
+                        />
+                        <Icon
+                          size={14}
+                          style={{ color: "var(--color-ink3)" }}
+                        />
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--color-ink2)" }}
+                        >
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Price">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center rounded-xl px-3 h-10 flex-1"
+                      style={{ border: "1px solid var(--color-border)" }}
+                    >
+                      <span
+                        className="text-xs mr-1"
+                        style={{ color: "var(--color-ink4)" }}
+                      >
+                        €
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={filters.priceMin}
+                        onChange={(e) =>
+                          setFilters((f) => ({
+                            ...f,
+                            priceMin: Number(e.target.value) || 0,
+                          }))
+                        }
+                        className="w-full bg-transparent outline-none text-sm"
+                        style={{ color: "var(--color-ink)" }}
+                      />
+                    </div>
+                    <span style={{ color: "var(--color-ink4)" }}>—</span>
+                    <div
+                      className="flex items-center rounded-xl px-3 h-10 flex-1"
+                      style={{ border: "1px solid var(--color-border)" }}
+                    >
+                      <span
+                        className="text-xs mr-1"
+                        style={{ color: "var(--color-ink4)" }}
+                      >
+                        €
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={filters.priceMax}
+                        onChange={(e) =>
+                          setFilters((f) => ({
+                            ...f,
+                            priceMax: Number(e.target.value) || 0,
+                          }))
+                        }
+                        className="w-full bg-transparent outline-none text-sm"
+                        style={{ color: "var(--color-ink)" }}
+                      />
+                    </div>
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Style">
+                  <div className="flex flex-wrap gap-1.5">
+                    {STYLE_OPTIONS.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            style: f.style === s ? null : s,
+                          }))
+                        }
+                        className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                        style={{
+                          background:
+                            filters.style === s
+                              ? "var(--color-accent)"
+                              : "var(--color-surface2)",
+                          color:
+                            filters.style === s ? "#fff" : "var(--color-ink3)",
+                          border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Material">
+                  <div className="flex flex-wrap gap-1.5">
+                    {MATERIAL_OPTIONS.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            material: f.material === m ? null : m,
+                          }))
+                        }
+                        className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                        style={{
+                          background:
+                            filters.material === m
+                              ? "var(--color-accent)"
+                              : "var(--color-surface2)",
+                          color:
+                            filters.material === m
+                              ? "#fff"
+                              : "var(--color-ink3)",
+                          border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Size">
+                  <div className="flex flex-wrap gap-1.5">
+                    {SIZE_OPTIONS.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() =>
+                          setFilters((f) => ({
+                            ...f,
+                            size: f.size === size ? null : size,
+                          }))
+                        }
+                        className="chip"
+                        data-active={filters.size === size}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </FilterGroup>
+
+                <FilterGroup title="Color">
+                  <ColorPicker
+                    colors={COLOR_OPTIONS}
+                    selectedColor={filters.color}
+                    onSelect={(hex) =>
+                      setFilters((f) => ({ ...f, color: hex }))
+                    }
+                  />
+                </FilterGroup>
+
+                <label
+                  className="flex items-center justify-between cursor-pointer pt-2"
+                  style={{ borderTop: "1px solid var(--color-border)" }}
+                >
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    In stock only
+                  </span>
+                  <span
+                    onClick={() =>
+                      setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))
+                    }
+                    className="w-11 h-6 rounded-full relative transition-colors"
+                    style={{
+                      background: filters.inStockOnly
+                        ? "var(--color-accent)"
+                        : "var(--color-border2)",
+                    }}
+                  >
+                    <span
+                      className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                      style={{
+                        transform: filters.inStockOnly
+                          ? "translateX(22px)"
+                          : "translateX(2px)",
+                      }}
+                    />
+                  </span>
+                </label>
               </div>
-
-              <FilterGroup title="Event">
-                <div className="flex flex-col gap-0.5">
-                  {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
-                    <label key={value} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
-                      <input type="checkbox" checked={selectedEventType === value} onChange={() => setSelectedEventType(selectedEventType === value ? null : value)} className="w-4 h-4 accent-(--color-accent)" />
-                      <Icon size={14} style={{ color: "var(--color-ink3)" }} />
-                      <span className="text-sm" style={{ color: "var(--color-ink2)" }}>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Category">
-                <div className="flex flex-col gap-0.5">
-                  {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
-                    <label key={value} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
-                      <input type="checkbox" checked={selectedCategory === value || selectedCategory === value.replace("t-shirts","tshirt").replace("hoodies","hoodie").replace("accessories","accessory")} onChange={() => setSelectedCategory(selectedCategory === value ? null : value)} className="w-4 h-4 accent-(--color-accent)" />
-                      <Icon size={14} style={{ color: "var(--color-ink3)" }} />
-                      <span className="text-sm" style={{ color: "var(--color-ink2)" }}>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Price">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center rounded-xl px-3 h-10 flex-1" style={{ border: "1px solid var(--color-border)" }}>
-                    <span className="text-xs mr-1" style={{ color: "var(--color-ink4)" }}>€</span>
-                    <input type="number" min={0} value={filters.priceMin} onChange={(e) => setFilters((f) => ({ ...f, priceMin: Number(e.target.value) || 0 }))} className="w-full bg-transparent outline-none text-sm" style={{ color: "var(--color-ink)" }} />
-                  </div>
-                  <span style={{ color: "var(--color-ink4)" }}>—</span>
-                  <div className="flex items-center rounded-xl px-3 h-10 flex-1" style={{ border: "1px solid var(--color-border)" }}>
-                    <span className="text-xs mr-1" style={{ color: "var(--color-ink4)" }}>€</span>
-                    <input type="number" min={0} value={filters.priceMax} onChange={(e) => setFilters((f) => ({ ...f, priceMax: Number(e.target.value) || 0 }))} className="w-full bg-transparent outline-none text-sm" style={{ color: "var(--color-ink)" }} />
-                  </div>
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Style">
-                <div className="flex flex-wrap gap-1.5">
-                  {STYLE_OPTIONS.map((s) => (
-                    <button key={s} onClick={() => setFilters((f) => ({ ...f, style: f.style === s ? null : s }))} className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" style={{ background: filters.style === s ? "var(--color-accent)" : "var(--color-surface2)", color: filters.style === s ? "#fff" : "var(--color-ink3)", border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}` }}>{s}</button>
-                  ))}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Material">
-                <div className="flex flex-wrap gap-1.5">
-                  {MATERIAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setFilters((f) => ({ ...f, material: f.material === m ? null : m }))} className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" style={{ background: filters.material === m ? "var(--color-accent)" : "var(--color-surface2)", color: filters.material === m ? "#fff" : "var(--color-ink3)", border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}` }}>{m}</button>
-                  ))}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Size">
-                <div className="flex flex-wrap gap-1.5">
-                  {SIZE_OPTIONS.map((size) => (
-                    <button key={size} onClick={() => setFilters((f) => ({ ...f, size: f.size === size ? null : size }))} className="chip" data-active={filters.size === size}>{size}</button>
-                  ))}
-                </div>
-              </FilterGroup>
-
-              <FilterGroup title="Color">
-                <ColorPicker colors={COLOR_OPTIONS} selectedColor={filters.color} onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))} />
-              </FilterGroup>
-
-              <label className="flex items-center justify-between cursor-pointer pt-2" style={{ borderTop: "1px solid var(--color-border)" }}>
-                <span className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>In stock only</span>
-                <span onClick={() => setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))} className="w-11 h-6 rounded-full relative transition-colors" style={{ background: filters.inStockOnly ? "var(--color-accent)" : "var(--color-border2)" }}>
-                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: filters.inStockOnly ? "translateX(22px)" : "translateX(2px)" }} />
-                </span>
-              </label>
             </div>
+
+            {/* Bouton sticky en bas - centré verticalement */}
             <div
-              className="sticky bottom-0 px-5 py-5 safe-bottom flex items-center"
+              className="sticky bottom-0 px-5 safe-bottom flex items-center justify-center shrink-0"
               style={{
                 background: "var(--color-bg)",
                 borderTop: "1px solid var(--color-border)",
+                minHeight: "64px",
+                paddingTop: "10px",
+                paddingBottom: "10px",
               }}
             >
               <button
                 onClick={() => setIsFilterDrawerOpen(false)}
-                className="btn btn-accent w-full"
+                className="btn btn-accent w-full max-w-md"
               >
                 View {extraFiltered.length} items
               </button>
