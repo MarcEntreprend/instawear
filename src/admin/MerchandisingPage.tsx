@@ -2,12 +2,82 @@
 // Poids par section, pins/excludes, kill switches, A/B, calendrier events,
 // dernier run du scorer + déclenchement manuel, relance paniers (dry-run).
 import { useEffect, useMemo, useState } from "react";
-import { Play, Save, RotateCcw, Mail } from "lucide-react";
+import { Play, Save, RotateCcw, Mail, Info } from "lucide-react";
 import { merchApi, productApi, type MerchConfig } from "../api/supabaseApi";
 import { DEFAULT_WEIGHTS, WEIGHT_KEYS } from "../utils/merch";
 import type { AdminProduct } from "./adminTypes";
+import MerchandisingInfoModal from "./MerchandisingInfoModal";
+
+// Short per-section explanations (full lexicon lives in the modal above).
+const SECTION_BLURBS: Record<string, string> = {
+  frequently: "Product page → “Frequently bought together”. Real co-purchases first (different category), then rule-based fill. Empty = hidden.",
+  related: "Product page → “You might also like”. Affinity first, then same category/event, never repeats an item shown above on the page.",
+  new: "Home → “New arrivals”. Freshness first. Falls back to active products so the section never shrinks below 4 items.",
+  featured: "Home → “Featured offers”. Scores only suggest here — a human always decides what is displayed.",
+  catalog: "Home → product grid default order, used when the visitor hasn't picked a manual sort.",
+  search: "Header → trending chips shown when the search box is empty, built from real search terms (30 days).",
+};
+
+// Self-contained info toggle (same pattern as ReportsPage metric infos).
+function BlockInfo({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ display: "inline-flex", position: "relative" }}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        title="What is this?"
+        style={{
+          background: open ? "var(--color-accent-soft)" : "var(--color-surface2)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 8,
+          padding: 4,
+          cursor: "pointer",
+          color: open ? "var(--color-accent)" : "var(--color-ink3)",
+          display: "inline-flex",
+        }}
+      >
+        <Info size={14} strokeWidth={2} />
+      </button>
+      {open && (
+        <span
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            zIndex: 50,
+            width: 280,
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: 12,
+            boxShadow: "var(--shadow-lg)",
+            padding: "10px 12px",
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: "var(--color-ink2)",
+            fontWeight: 400,
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
 
 const SECTIONS = ["frequently", "related", "new", "featured", "catalog", "search"] as const;
+
+// One-line tooltips for weight sliders (full details in the lexicon modal).
+const WEIGHT_TOOLTIPS: Record<string, string> = {
+  popularity: "Sales in the last 30 days (0–1, best seller = 1).",
+  freshness: "How recently the product was added — fades over ~60 days.",
+  quality: "Average rating adjusted for sample size (5★ from 2 reviews weighs less than 4.6★ from 200).",
+  attention: "Real interest: product views ×1, favorites ×2, cart additions ×3.",
+  discount: "Size of the active deal (0 when no deal or expired).",
+  event: "Boost as the linked event date approaches (60 days out → day of, nothing after).",
+};
 
 const card: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -45,6 +115,7 @@ export default function MerchandisingPage() {
   const [cartHours, setCartHours] = useState(48);
   const [cartBusy, setCartBusy] = useState(false);
   const [cartResult, setCartResult] = useState<string | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -127,20 +198,45 @@ export default function MerchandisingPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}>
-          Merchandising Algorithm
-        </h2>
-        <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-          Poids, pins et kill switches par section. Le front bascule en legacy si les scores sont absents ou périmés.
-        </p>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}>
+            Merchandising Algorithm
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
+            Weights, pins and kill switches per section. The storefront falls back to the classic order when scores are missing or stale.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowInfoModal(true)}
+          title="How merchandising works"
+          style={{
+            background: "var(--color-surface2)",
+            border: "1px solid var(--color-border)",
+            borderRadius: 8,
+            padding: "4px 8px",
+            cursor: "pointer",
+            color: "var(--color-ink2)",
+            display: "flex",
+            alignItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Info size={14} strokeWidth={2} />
+        </button>
       </div>
+      {showInfoModal && (
+        <MerchandisingInfoModal onClose={() => setShowInfoModal(false)} />
+      )}
 
       {/* Dernier run + déclenchement */}
       <div style={card}>
-        <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", marginBottom: 12 }}>
-          Nightly scorer
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", margin: 0 }}>
+            Nightly scorer
+          </h3>
+          <BlockInfo text="Recomputes every product score once a day (sales, ratings, attention, freshness, discounts, events). “N scores” = sections × products written. Use “Run scorer now” after changing weights, pins or event dates." />
+        </div>
         {lastRun ? (
           <p style={{ fontSize: 13, color: "var(--color-ink2)" }}>
             Dernier run : {new Date(lastRun.started_at).toLocaleString()} — {lastRun.status}
@@ -181,6 +277,7 @@ export default function MerchandisingPage() {
           <div key={section} style={card}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
               <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", textTransform: "capitalize" }}>{section}</h3>
+              <BlockInfo text={SECTION_BLURBS[section] || "Ordering rules for this storefront section."} />
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--color-ink2)", marginLeft: "auto" }}>
                 <input type="checkbox" checked={cfg.enabled !== false} onChange={(e) => patch(section, { enabled: e.target.checked })} />
                 Enabled (kill switch)
@@ -192,7 +289,7 @@ export default function MerchandisingPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 12 }}>
               {WEIGHT_KEYS.map((k) => (
-                <div key={k}>
+                <div key={k} title={WEIGHT_TOOLTIPS[k] || k}>
                   <label style={label}>{k} : {(weights[k] ?? 0).toFixed(2)}</label>
                   <input
                     type="range" min={0} max={1} step={0.05}
@@ -244,9 +341,12 @@ export default function MerchandisingPage() {
 
       {/* Calendrier events */}
       <div style={card}>
-        <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", marginBottom: 12 }}>
-          Event calendar (demand peaks)
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", margin: 0 }}>
+            Event calendar (demand peaks)
+          </h3>
+          <BlockInfo text="Set the real date of each event. Linked products get a growing score boost during the 60 days before, nothing after. Empty date = no boost. New event types appear here automatically." />
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {knownEvents.map((ev) => {
             const row = events.find((e) => e.event_type === ev);
@@ -287,9 +387,12 @@ export default function MerchandisingPage() {
 
       {/* Relance paniers */}
       <div style={card}>
-        <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", marginBottom: 12 }}>
-          Abandoned cart recovery
-        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)", margin: 0 }}>
+            Abandoned cart recovery
+          </h3>
+          <BlockInfo text="Emails carts untouched for at least X hours. Always Dry run first (counts only, sends nothing). Skips marketing opt-outs, customers who ordered since, and already-reminded carts — one reminder per cart, ever." />
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <label style={label}>Inactive since (hours)</label>
           <input type="number" min={1} max={168} value={cartHours} onChange={(e) => setCartHours(Number(e.target.value) || 48)} style={{ ...input, width: 100 }} />
