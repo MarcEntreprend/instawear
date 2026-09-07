@@ -1,6 +1,6 @@
-// supabase/functions/_shared/rateLimit.ts
-// P-F Rate Limiting distribue: en memoire par instance (dev),
-// upgradable vers Upstash Redis/KV en prod. Quotas par path.
+// supabase/functions/merch-scorer/_shared/rateLimit.ts
+// Copie locale (le bundler n'inclut que le dossier de la fonction).
+// Miroir de supabase/functions/_shared/rateLimit.ts
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
@@ -19,7 +19,6 @@ export function quotaFor(path: string): Quota {
     case "contact-message": return { max: 5, windowMs: 60_000 };
     case "auth-welcome": return { max: 3, windowMs: 60_000 };
     case "merch-scorer": return { max: 5, windowMs: 60_000 };
-    case "cart-recovery": return { max: 3, windowMs: 60_000 };
     default: return { max: 20, windowMs: 60_000 };
   }
 }

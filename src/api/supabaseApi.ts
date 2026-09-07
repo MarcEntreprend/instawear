@@ -2329,3 +2329,155 @@ export const newsletterApi = {
     if (error) throw error;
   },
 };
+
+// ─── Merchandising Phase 1 : config par section + affinité co-achats ──
+// Fail-open : toute erreur → l'appelant utilise la règle legacy.
+export interface MerchConfig {
+  enabled: boolean;
+  pins: string[];
+  excludes: string[];
+  settings?: Record<string, unknown>;
+  weights?: Record<string, number>;
+}
+
+async function edgeInvoke(path: string, body: unknown): Promise<any> {
+  // Appels admin : JWT de session joint automatiquement par supabase-js,
+  // l'edge vérifie le rôle admin (même pattern que send-email).
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {}),
+      },
+      body: JSON.stringify(body ?? {}),
+    },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Edge ${path} failed`);
+  return data;
+}
+
+export const merchApi = {
+  async getConfigs(): Promise<Record<string, MerchConfig>> {
+    const { data, error } = await supabase.from("merch_config").select("*");
+    if (error) throw error;
+    const out: Record<string, MerchConfig> = {};
+    for (const row of data ?? []) {
+      out[row.section] = {
+        enabled: row.enabled !== false,
+        pins: row.pins ?? [],
+        excludes: row.excludes ?? [],
+        settings: row.settings ?? {},
+        weights: row.weights ?? {},
+      };
+    }
+    return out;
+  },
+  /** Upsert admin d'une section (RLS : is_admin uniquement). */
+  async updateConfig(
+    section: string,
+    patch: Partial<{ enabled: boolean; pins: string[]; excludes: string[]; settings: Record<string, unknown>; weights: Record<string, number> }>,
+  ): Promise<void> {
+    const { error } = await supabase.from("merch_config").upsert(
+      {
+        section,
+        ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        ...(patch.pins !== undefined ? { pins: patch.pins } : {}),
+        ...(patch.excludes !== undefined ? { excludes: patch.excludes } : {}),
+        ...(patch.settings !== undefined ? { settings: patch.settings } : {}),
+        ...(patch.weights !== undefined ? { weights: patch.weights } : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "section" },
+    );
+    if (error) throw error;
+  },
+  /** Dernier run du scorer (admin, pour l'audit phase 5). */
+  async getLastRun(): Promise<any | null> {
+    const { data, error } = await supabase
+      .from("merch_runs")
+      .select("*")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  /** Déclenche le scoring (admin connecté : JWT vérifié côté edge). */
+  async runScorer(): Promise<any> {
+    return edgeInvoke("merch-scorer", {});
+  },
+  /** Relance paniers (dry_run recommandé d'abord). */
+  async runCartRecovery(opts?: { dry_run?: boolean; hours?: number; limit?: number }): Promise<any> {
+    return edgeInvoke("cart-recovery", {
+      dry_run: opts?.dry_run ?? true,
+      hours: opts?.hours ?? 48,
+      limit: opts?.limit ?? 50,
+    });
+  },
+  /** Calendrier des événements (lecture publique, écriture admin). */
+  async getEventDates(): Promise<{ event_type: string; event_date: string | null; label: string | null }[]> {
+    const { data, error } = await supabase
+      .from("event_dates")
+      .select("*")
+      .order("event_date", { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    return data ?? [];
+  },
+  async setEventDate(eventType: string, date: string | null, label?: string | null): Promise<void> {
+    const { error } = await supabase.from("event_dates").upsert(
+      { event_type: eventType, event_date: date, label: label ?? null },
+      { onConflict: "event_type" },
+    );
+    if (error) throw error;
+  },
+  /** Ids co-achetés avec productId (vrais order_items, over-fetch ×3 pour filtrer côté front). */
+  async affinity(productId: string, limit = 9): Promise<string[]> {
+    const { data, error } = await supabase.rpc("product_affinity", {
+      p_product_id: productId,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.product_id);
+  },
+  /**
+   * Scores pré-calculés (edge merch-scorer) pour une section.
+   * Retourne null si absents ou périmés (>48h) → l'appelant utilise la règle legacy.
+   */
+  async getScores(
+    section: string,
+    maxAgeH = 48,
+  ): Promise<{ scores: Map<string, number>; fresh: boolean } | null> {
+    const { data, error } = await supabase
+      .from("product_scores")
+      .select("product_id, score, computed_at")
+      .eq("section", section);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    const ages = data.map((r: any) =>
+      Date.now() - new Date(r.computed_at).getTime(),
+    );
+    const fresh = Math.max(...ages) < maxAgeH * 3600000;
+    if (!fresh) return null;
+    return {
+      scores: new Map(data.map((r: any) => [r.product_id, Number(r.score) || 0])),
+      fresh: true,
+    };
+  },
+  /** Termes de recherche tendances (agrégés, jamais de PII). */
+  async getTrending(limit = 6): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("search_trends")
+      .select("term")
+      .order("hits", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.term);
+  },
+};

@@ -35,6 +35,12 @@
     },
     "/auth-welcome": {
       "post": { "summary": "Welcome email after signup via Resend (recent account only, rate-limited 3/min)", "x-roles": ["public"], "x-edges": ["auth-welcome"] }
+    },
+    "/merch-scorer": {
+      "post": { "summary": "Nightly merchandising scoring: normalized signals → product_scores + search_trends, 90d purge (service_role only)", "x-roles": ["service_role"], "x-edges": ["merch-scorer"] }
+    },
+    "/cart-recovery": {
+      "post": { "summary": "Abandoned cart reminders via Resend (opt-out respected, dry-run supported, rate-limited 3/min)", "x-roles": ["service_role"], "x-edges": ["cart-recovery"] }
     }
   }
 }

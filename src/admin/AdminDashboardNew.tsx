@@ -2,7 +2,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import {
   Menu,
-  X,
   ArrowLeft,
   Package,
   Users,
@@ -23,18 +22,18 @@ import NotificationsPage from "./NotificationsPage";
 import OrdersPage from "./OrdersPage";
 import ShippedDeliveredPage from "./ShippedDeliveredPage";
 import PromotionsPage from "./PromotionsPage";
+import MerchandisingPage from "./MerchandisingPage";
 import ReportsPage from "./ReportsPage";
 import IntegrationsPage from "./IntegrationsPage";
 import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { useDashboard } from "./adminHooks";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import CopyID from "../components/CopyID";
 import CartIcon from "../components/CartIcon";
-import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { orderApi, dashboardApi } from "../api/supabaseApi";
+import { PLACEHOLDER_IMG } from "../constants/assets";
+import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
 
@@ -1070,6 +1069,7 @@ export default function AdminDashboard({
     shipped: "Expédiées & Livrées",
     customers: "Clients",
     promotions: "Promotions & Deals",
+    merchandising: "Merchandising",
     "email-marketing": "Email Marketing",
     reports: "Rapports",
     integrations: "Intégrations",
@@ -1326,6 +1326,7 @@ export default function AdminDashboard({
           )}
           {section === "orders" && <OrdersPage />}
           {section === "promotions" && <PromotionsPage />}
+          {section === "merchandising" && <MerchandisingPage />}
           {section === "reports" && <ReportsPage />}
           {section === "interactions" && <InteractionsPage />}
           {section === "integrations" && (

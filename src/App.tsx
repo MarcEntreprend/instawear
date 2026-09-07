@@ -40,6 +40,7 @@ import { useCurrencySymbol } from "./hooks/useCurrencySymbol";
 import { useTabBadge } from "./hooks/useTabBadge";
 import { useCookieConsent } from "./hooks/useCookieConsent";
 import { applyConsent } from "./lib/analytics";
+import { track, initSectionTracking, getVariant } from "./lib/engagement";
 import { Product, CartItem } from "./types";
 import { getVariantAvailability, pickAvailableVariant } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
@@ -56,6 +57,8 @@ import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
 import { rankProducts } from "./utils/productRanking";
 import CatalogSection from "./components/CatalogSection";
+import ForYouSection from "./components/ForYouSection";
+import SitewideCountdownBanner from "./components/SitewideCountdownBanner";
 import { PLACEHOLDER_IMG } from "./constants/assets";
 import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
@@ -165,6 +168,7 @@ export default function App() {
     setSelectedProductInitialSize(size || null);
     setSelectedProduct(p);
     addViewed(p.id);
+    track("product_click", "product", p.id, { v: getVariant() });
     try {
       history.pushState({}, "", `/produit/${p.id}`);
     } catch {}
@@ -234,12 +238,18 @@ export default function App() {
 
   const currencySymbol = useCurrencySymbol();
   const cookieConsent = useCookieConsent();
-  const { addViewed } = useRecentlyViewed();
+  const { ids: recentlyIds, addViewed } = useRecentlyViewed();
 
   // Traceurs : chargés uniquement après consentement non-essentiels
   useEffect(() => {
     applyConsent(cookieConsent.consent);
   }, [cookieConsent.consent]);
+
+  // Phase 2 Merchandising : capteurs silencieux (aucun changement visuel,
+  // batch + beacon, gate consentement interne — voir src/lib/engagement.ts)
+  useEffect(() => {
+    initSectionTracking();
+  }, []);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -735,6 +745,7 @@ export default function App() {
       return;
     }
     setCart((prev) => mergeLinesIntoCart(prev, [resolved.line]));
+    track("add_to_cart", "product", product.id, { v: getVariant() });
 
     showToast(`🛒 "${product.title}" added to cart!`, "success", undefined, viewCartAction());
   };
@@ -781,6 +792,7 @@ export default function App() {
     }
     setCart((prev) => mergeLinesIntoCart(prev, lines));
     const addedIds = lines.map((l) => l.product.id);
+    for (const id of addedIds) track("add_to_cart", "product", id, { v: getVariant() });
     showToast(
       `🛒 ${lines.length} item${lines.length > 1 ? "s" : ""} added to cart!`,
       "success",
@@ -1098,11 +1110,13 @@ export default function App() {
     } = await supabase.auth.getUser();
     if (!user?.email) {
       // Pas connecté : on bascule juste en local (perdu au rechargement)
-      setFavorites((prev) =>
-        prev.includes(productId)
-          ? prev.filter((id) => id !== productId)
-          : [...prev, productId],
-      );
+      setFavorites((prev) => {
+        const adding = !prev.includes(productId);
+        track("favourite", "product", productId, { state: adding ? "added" : "removed" });
+        return adding
+          ? [...prev, productId]
+          : prev.filter((id) => id !== productId);
+      });
       return;
     }
 
@@ -1116,9 +1130,11 @@ export default function App() {
       if (isFav) {
         await customerApi.removeFavourite(clientId, productId);
         setFavorites((prev) => prev.filter((id) => id !== productId));
+        track("favourite", "product", productId, { state: "removed" });
       } else {
         await customerApi.addFavourite(clientId, productId);
         setFavorites((prev) => [...prev, productId]);
+        track("favourite", "product", productId, { state: "added" });
       }
     } catch (e) {
       console.warn("Error saving favorite", e);
@@ -1163,6 +1179,7 @@ export default function App() {
         onSearch={(term) => {
           setSearchTerm(term);
           setActiveTab("store");
+          if (term.trim()) track("search", "section", "search", { query: term.trim().slice(0, 80) });
         }}
         currentSearchTerm={searchTerm}
         onSelectCategory={(cat) => {
@@ -1213,6 +1230,7 @@ export default function App() {
           className="flex-1 flex flex-col gap-8 pb-16"
           id="view-customer-storefront"
         >
+          <SitewideCountdownBanner />
           {/* Dynamic Hero Carousel Banner */}
           <HeroCarousel
             banners={heroBanners}
@@ -1268,6 +1286,22 @@ export default function App() {
             isFavoritesMode={showFavoritesOnly}
             onClearFavorites={() => setShowFavoritesOnly(false)}
           />
+
+          {isUser && (
+            <ForYouSection
+              products={products}
+              favoriteIds={favorites}
+              recentlyIds={recentlyIds}
+              favorites={favorites}
+              dealExpired={dealExpired}
+              dealFadingOut={dealFadingOut}
+              countdownString={countdownString}
+              currencySymbol={currencySymbol}
+              onToggleFavorite={toggleFavorite}
+              onAddToCart={addToCart}
+              onSelectProduct={(product) => openProduct(product)}
+            />
+          )}
 
           <AboutSection />
 
@@ -1505,6 +1539,11 @@ export default function App() {
                 "success",
               );
             }}
+            products={products}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onSelectProduct={(product) => openProduct(product)}
+            onQuickAdd={addToCart}
           />
         </Suspense>
       )}

@@ -1,8 +1,12 @@
 // src/components/DealsSection.tsx — V2 4 blocks + V1 live data
+import { useEffect, useState } from "react";
 import { ArrowRight, Truck, Percent, Gift } from "lucide-react";
 import type { Product } from "../types";
 import StoreProductCard from "./StoreProductCard";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { isMerchEligible } from "../utils/merch";
+import { merchApi } from "../api/supabaseApi";
+import { getVariant } from "../lib/engagement";
 
 interface DealsSectionProps {
   dealExpired: boolean;
@@ -31,9 +35,39 @@ export default function DealsSection({
   onToggleFavorite,
   onAddToCart,
 }: DealsSectionProps) {
-  const newArrivals = [...products]
-    .filter((p) => p.isActive)
-    .sort((a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0))
+  // Phase 4 : ordre par score pré-calculé quand il est frais, sinon legacy.
+  // Éligibles d'abord, mais jamais de section rétrécie : si < 4 éligibles,
+  // on retombe sur les actifs (même règle qu'avant).
+  const [newScores, setNewScores] = useState<Map<string, number> | null>(null);
+  const [newAb, setNewAb] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    merchApi
+      .getScores("new")
+      .then((r) => {
+        if (!cancelled && r) setNewScores(r.scores);
+      })
+      .catch(() => {});
+    merchApi
+      .getConfigs()
+      .then((c) => {
+        if (!cancelled) setNewAb((c["new"]?.settings as any)?.ab === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const eligibleNew = products.filter((p) => p.isActive && isMerchEligible(p));
+  const newPool = eligibleNew.length >= 4 ? eligibleNew : products.filter((p) => p.isActive);
+  // A/B : variante A = ordre legacy (mesure l'apport réel des scores).
+  const useScores = !!newScores && !(newAb && getVariant() === "A");
+  const newArrivals = [...newPool]
+    .sort((a, b) =>
+      useScores && newScores
+        ? (newScores.get(b.id) ?? 0) - (newScores.get(a.id) ?? 0)
+        : (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
+    )
     .slice(0, 8);
   const handleSelectCategory = (
     eventType: string | null,
@@ -92,7 +126,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
+      <section data-track-section="deals-new" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
         <div className="flex items-end justify-between mb-8">
           <div>
             <span className="eyebrow mb-2 block">Freshly printed</span>
@@ -179,7 +213,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section data-track-section="deals-featured" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="flex items-end justify-between mb-8">
           <h2
             className="text-2xl sm:text-3xl font-extrabold"

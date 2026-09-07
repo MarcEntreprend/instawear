@@ -54,6 +54,7 @@ npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy delete-account --no-verify-jwt
 npx supabase functions deploy contact-message --no-verify-jwt
 npx supabase functions deploy auth-welcome --no-verify-jwt
+npx supabase functions deploy merch-scorer --no-verify-jwt
 ```
 
 ---
@@ -402,3 +403,20 @@ Dans `src/admin/InteractionsPage.tsx`, dans la conversation ainsi, cliquer sur l
 ---
 
 prevenir les : `Erreur : Erreur Printful: {"code":400,"result":"Recipient: Invalid state code","error":{"reason":"BadRequest","message":"Recipient: Invalid state code"}}`
+
+---
+
+## PERSONAL NOTES
+
+### TO SEE YELLOW ERRORS
+
+IN `tsconfig.json`,
+TURN
+`  "noUnusedLocals": false,
+  "noUnusedParameters": false,`
+INTO
+
+```
+  "noUnusedLocals": true,
+  "noUnusedParameters": true,
+```

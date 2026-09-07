@@ -51,6 +51,7 @@ import {
 } from "@stripe/react-stripe-js";
 import CartIcon from "./CartIcon";
 import CreditCardPreview from "./CreditCardPreview";
+import ConfirmationUpsell from "./ConfirmationUpsell";
 
 // ─── Props ──────────────────────────────────────────────────────────────
 
@@ -65,6 +66,12 @@ interface CheckoutFlowProps {
   onRemoveItem: (index: number) => void;
   onSuccess: () => void;
   confirmModeOrderId?: string; // when set, display confirmation directly
+  // Phase 6 upsell post-achat (optionnel : absent en mode confirm Stripe)
+  products?: import("../types").Product[];
+  favorites?: string[];
+  onToggleFavorite?: (id: string) => void;
+  onSelectProduct?: (product: import("../types").Product) => void;
+  onQuickAdd?: (product: import("../types").Product, color: string, size: string) => void;
 }
 
 type StepId = 1 | 2 | 3 | 4;
@@ -1907,9 +1914,16 @@ export default function CheckoutFlow({
   onRemoveItem,
   onSuccess,
   confirmModeOrderId,
+  products = [],
+  favorites = [],
+  onToggleFavorite,
+  onSelectProduct,
+  onQuickAdd,
 }: CheckoutFlowProps) {
   const currencySymbol = useCurrencySymbol();
   const contentRef = useRef<HTMLDivElement>(null);
+  // Snapshot des articles achetés pour l'upsell post-achat (le panier est vidé au succès)
+  const [purchasedIds, setPurchasedIds] = useState<string[]>([]);
 
   // ── Stripe confirmation mode ─────────────────────────────────
   if (confirmModeOrderId) {
@@ -2374,6 +2388,7 @@ export default function CheckoutFlow({
       await Promise.all([work, minDelay]);
 
       setOrderId(newOrderId);
+      setPurchasedIds(fulfillableCart.map((it: any) => it.product.id));
       setStep(4);
       onSuccess();
     } catch (err: any) {
@@ -2463,6 +2478,24 @@ export default function CheckoutFlow({
               onCopy={handleCopyOrderId}
               onClose={onClose}
             />
+            {purchasedIds.length > 0 &&
+              products.length > 0 &&
+              onQuickAdd &&
+              onSelectProduct &&
+              onToggleFavorite && (
+                <ConfirmationUpsell
+                  purchasedIds={purchasedIds}
+                  products={products}
+                  favorites={favorites}
+                  currencySymbol={currencySymbol}
+                  onToggleFavorite={onToggleFavorite}
+                  onAddToCart={onQuickAdd}
+                  onSelectProduct={(p) => {
+                    onClose();
+                    onSelectProduct(p);
+                  }}
+                />
+              )}
           </div>
         ) : (
           <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8 items-start">
