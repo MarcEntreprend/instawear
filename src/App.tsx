@@ -371,6 +371,47 @@ export default function App() {
 
   const [showNotFound, setShowNotFound] = useState(false); // not found
 
+  // Block background swipe/scroll when any fullscreen modal/page is open (mobile)
+  useEffect(() => {
+    const isAnyModalOpen =
+      showAuthModal ||
+      showProfileModal ||
+      showAccountPage ||
+      !!selectedProduct ||
+      !!legalSlug ||
+      showFaqPage ||
+      showContactPage ||
+      showPromotionsPage ||
+      searchPageQuery !== null ||
+      trackingPageCode !== null ||
+      cartOpen ||
+      checkoutOpen ||
+      !!stripeConfirmOrderId ||
+      trackingOpen ||
+      showNotFound ||
+      showNewAdmin;
+    if (isAnyModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = (document.documentElement.style as any).overscrollBehavior;
+      document.body.style.overflow = "hidden";
+      (document.documentElement.style as any).overscrollBehavior = "contain";
+      const onTouchMove = (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('[class*="fixed inset-0"]')) return;
+        e.preventDefault();
+      };
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        (document.documentElement.style as any).overscrollBehavior = prevOverscroll;
+        document.removeEventListener("touchmove", onTouchMove);
+      };
+    } else {
+      document.body.style.overflow = "";
+      (document.documentElement.style as any).overscrollBehavior = "";
+    }
+  }, [showAuthModal, showProfileModal, showAccountPage, selectedProduct, legalSlug, showFaqPage, showContactPage, showPromotionsPage, searchPageQuery, trackingPageCode, cartOpen, checkoutOpen, stripeConfirmOrderId, trackingOpen, showNotFound, showNewAdmin]);
+
   useEffect(() => {
     if (showNewAdmin) {
       setShowProfileModal(false);

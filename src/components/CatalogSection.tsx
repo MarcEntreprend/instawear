@@ -844,7 +844,7 @@ export default function CatalogSection({
               </label>
             </div>
             <div
-              className="sticky bottom-0 p-4 safe-bottom"
+              className="sticky bottom-0 px-5 py-5 safe-bottom flex items-center"
               style={{
                 background: "var(--color-bg)",
                 borderTop: "1px solid var(--color-border)",
