@@ -15,7 +15,7 @@ export default function AboutSection() {
           <div className="bezel-outer order-2 lg:order-1">
             <div className="bezel-inner aspect-4/5">
               <img
-                src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
+                src="public\group_of_friends_celebrating_–_one_wearing_a_custom_shirt-0.jpg"
                 alt="The InstaWear team"
                 className="w-full h-full object-cover"
               />
@@ -37,8 +37,8 @@ export default function AboutSection() {
               style={{ color: "var(--color-ink2)" }}
             >
               InstaWear was born from a simple idea: every highlight deserves an
-              outfit to match. Festival, marathon, concert or birthday — we print
-              one-of-a-kind pieces on demand, with no dead stock and no
+              outfit to match. Festival, marathon, concert or birthday — we
+              print one-of-a-kind pieces on demand, with no dead stock and no
               compromise on quality.
             </p>
             <p

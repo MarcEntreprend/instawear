@@ -321,8 +321,16 @@ export default function Header({
   const theme = isControlledDark ? (darkMode ? "dark" : "light") : themeHook;
   const toggleTheme = isControlledDark ? onToggleDarkMode! : toggleHook;
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
-  const desktopAccountLabel = isAdminLoggedIn ? "Admin" : isUserLoggedIn ? (getFirstName(userName, userEmail) || "Account") : "Sign in";
-  const mobileAccountLabel = isAdminLoggedIn ? "Admin" : isUserLoggedIn ? (getFirstName(userName, userEmail) || "My account") : "Sign in";
+  const desktopAccountLabel = isAdminLoggedIn
+    ? "Admin"
+    : isUserLoggedIn
+      ? getFirstName(userName, userEmail) || "Account"
+      : "Sign in";
+  const mobileAccountLabel = isAdminLoggedIn
+    ? "Admin"
+    : isUserLoggedIn
+      ? getFirstName(userName, userEmail) || "My account"
+      : "Sign in";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -477,9 +485,9 @@ export default function Header({
         className="w-full py-2 overflow-hidden"
         style={{ background: "var(--color-accent)" }}
       >
-        <div className="flex animate-marquee whitespace-nowrap w-max">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-8 pr-8">
+        <div className="flex animate-marquee whitespace-nowrap">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-8 px-8 shrink-0">
               {[
                 "New Collection 2026",
                 "Zero Waste Printing",
@@ -597,58 +605,61 @@ export default function Header({
             </form>
             {isDesktopSuggestOpen &&
               (query.trim().length > 0 || trending.length > 0) && (
-              <div
-                className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden animate-scale-in origin-top z-50 max-h-96 overflow-y-auto"
-                style={{
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  boxShadow: "var(--shadow-lg)",
-                }}
-              >
-                {query.trim().length === 0 ? (
-                  <div className="flex flex-col py-2 px-2">
-                    <p
-                      className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
-                      style={{ color: "var(--color-ink4)" }}
-                    >
-                      Trending
-                    </p>
-                    {trending.map((term) => (
-                      <button
-                        key={term}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => pickTrending(term)}
-                        className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left hover:bg-(--color-surface2)"
+                <div
+                  className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden animate-scale-in origin-top z-50 max-h-96 overflow-y-auto"
+                  style={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    boxShadow: "var(--shadow-lg)",
+                  }}
+                >
+                  {query.trim().length === 0 ? (
+                    <div className="flex flex-col py-2 px-2">
+                      <p
+                        className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
+                        style={{ color: "var(--color-ink4)" }}
                       >
-                        <Search size={14} style={{ color: "var(--color-ink3)" }} />
-                        <span
-                          className="text-sm font-semibold flex-1 truncate"
-                          style={{ color: "var(--color-ink)" }}
+                        Trending
+                      </p>
+                      {trending.map((term) => (
+                        <button
+                          key={term}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickTrending(term)}
+                          className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left hover:bg-(--color-surface2)"
                         >
-                          {term}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : suggestions.categories.length === 0 &&
-                  suggestions.products.length === 0 ? (
-                  <p
-                    className="px-4 py-4 text-sm text-center"
-                    style={{ color: "var(--color-ink3)" }}
-                  >
-                    No results
-                  </p>
-                ) : (
-                  <SuggestionsList
-                    categories={suggestions.categories}
-                    products={suggestions.products}
-                    onPickCategory={handlePickCategorySuggestion}
-                    onPickProduct={handlePickProductSuggestion}
-                  />
-                )}
-              </div>
-            )}
+                          <Search
+                            size={14}
+                            style={{ color: "var(--color-ink3)" }}
+                          />
+                          <span
+                            className="text-sm font-semibold flex-1 truncate"
+                            style={{ color: "var(--color-ink)" }}
+                          >
+                            {term}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : suggestions.categories.length === 0 &&
+                    suggestions.products.length === 0 ? (
+                    <p
+                      className="px-4 py-4 text-sm text-center"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
+                      No results
+                    </p>
+                  ) : (
+                    <SuggestionsList
+                      categories={suggestions.categories}
+                      products={suggestions.products}
+                      onPickCategory={handlePickCategorySuggestion}
+                      onPickProduct={handlePickProductSuggestion}
+                    />
+                  )}
+                </div>
+              )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0">
             <button
@@ -677,7 +688,11 @@ export default function Header({
             </button>
             <button className="btn-icon" aria-label="Cart" onClick={onOpenCart}>
               <ShoppingBag size={18} />
-              {totalQty > 0 && <span key={totalQty} className="icon-count icon-bump">{totalQty}</span>}
+              {totalQty > 0 && (
+                <span key={totalQty} className="icon-count icon-bump">
+                  {totalQty}
+                </span>
+              )}
             </button>
             <button
               className="hidden sm:flex items-center gap-2 pl-2 pr-3.5 h-11 rounded-full transition-colors hover:border-(--color-ink)"
@@ -903,8 +918,7 @@ export default function Header({
                 onClick={handleAccountClick}
                 className="btn btn-secondary flex-1"
               >
-                <User size={16} />{" "}
-                {mobileAccountLabel}
+                <User size={16} /> {mobileAccountLabel}
               </button>
               <button
                 className="btn-icon"
