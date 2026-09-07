@@ -151,9 +151,7 @@ export default function Footer({
       </div>
 
       {/* Grille principale */}
-      <div
-        className="max-w-350 mx-auto px-6 py-14 grid gap-x-6 gap-y-10 grid-cols-2 md:grid-cols-4"
-      >
+      <div className="max-w-350 mx-auto px-6 py-14 grid gap-x-6 gap-y-10 grid-cols-2 md:grid-cols-4">
         <div className="col-span-2 md:col-span-1">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -208,7 +206,16 @@ export default function Footer({
                   onSelectEventType(null);
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  setTimeout(
+                    () =>
+                      document
+                        .getElementById("section-catalog")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    100,
+                  );
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -221,7 +228,16 @@ export default function Footer({
                   onSelectEventType("festival");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  setTimeout(
+                    () =>
+                      document
+                        .getElementById("section-catalog")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    100,
+                  );
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -234,7 +250,16 @@ export default function Footer({
                   onSelectEventType("sport");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  setTimeout(
+                    () =>
+                      document
+                        .getElementById("section-catalog")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    100,
+                  );
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -247,7 +272,16 @@ export default function Footer({
                   onSelectEventType("saisonnier");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(() => document.getElementById("section-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  setTimeout(
+                    () =>
+                      document
+                        .getElementById("section-catalog")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    100,
+                  );
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -272,7 +306,16 @@ export default function Footer({
               <button
                 onClick={() => {
                   onNavigate("store");
-                  setTimeout(() => document.getElementById("section-faq")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  setTimeout(
+                    () =>
+                      document
+                        .getElementById("section-faq")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        }),
+                    100,
+                  );
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -291,7 +334,10 @@ export default function Footer({
               <button
                 onClick={() => {
                   if (onOpenContact) onOpenContact();
-                  else document.getElementById("contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  else
+                    document
+                      .getElementById("contact")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
                 className="hover:text-(--color-accent) text-left"
               >

@@ -5,7 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
 // Blocs lourds en lazy : chargés uniquement à l'ouverture (admin jamais
@@ -14,7 +21,10 @@ const AccountPage = lazy(() => import("./components/AccountPage"));
 const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
-import ToastContainer, { type Toast, MAX_TOASTS } from "./components/ToastContainer";
+import ToastContainer, {
+  type Toast,
+  MAX_TOASTS,
+} from "./components/ToastContainer";
 import LegalPage from "./pages/LegalPage";
 import FaqPage from "./pages/FaqPage";
 import ContactPage from "./pages/ContactPage";
@@ -31,8 +41,18 @@ const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
 // Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
 function LazyFallback() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg)" }} aria-label="Chargement">
-      <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-border)", borderTopColor: "var(--color-accent)" }} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "var(--color-bg)" }}
+      aria-label="Chargement"
+    >
+      <div
+        className="w-10 h-10 rounded-full border-2 animate-spin"
+        style={{
+          borderColor: "var(--color-border)",
+          borderTopColor: "var(--color-accent)",
+        }}
+      />
     </div>
   );
 }
@@ -42,7 +62,10 @@ import { useCookieConsent } from "./hooks/useCookieConsent";
 import { applyConsent } from "./lib/analytics";
 import { track, initSectionTracking, getVariant } from "./lib/engagement";
 import { Product, CartItem } from "./types";
-import { getVariantAvailability, pickAvailableVariant } from "./hooks/useProductAvailability";
+import {
+  getVariantAvailability,
+  pickAvailableVariant,
+} from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
 import {
   productApi,
@@ -392,7 +415,8 @@ export default function App() {
       showNewAdmin;
     if (isAnyModalOpen) {
       const prevOverflow = document.body.style.overflow;
-      const prevOverscroll = (document.documentElement.style as any).overscrollBehavior;
+      const prevOverscroll = (document.documentElement.style as any)
+        .overscrollBehavior;
       document.body.style.overflow = "hidden";
       (document.documentElement.style as any).overscrollBehavior = "contain";
       const onTouchMove = (e: TouchEvent) => {
@@ -403,14 +427,32 @@ export default function App() {
       document.addEventListener("touchmove", onTouchMove, { passive: false });
       return () => {
         document.body.style.overflow = prevOverflow;
-        (document.documentElement.style as any).overscrollBehavior = prevOverscroll;
+        (document.documentElement.style as any).overscrollBehavior =
+          prevOverscroll;
         document.removeEventListener("touchmove", onTouchMove);
       };
     } else {
       document.body.style.overflow = "";
       (document.documentElement.style as any).overscrollBehavior = "";
     }
-  }, [showAuthModal, showProfileModal, showAccountPage, selectedProduct, legalSlug, showFaqPage, showContactPage, showPromotionsPage, searchPageQuery, trackingPageCode, cartOpen, checkoutOpen, stripeConfirmOrderId, trackingOpen, showNotFound, showNewAdmin]);
+  }, [
+    showAuthModal,
+    showProfileModal,
+    showAccountPage,
+    selectedProduct,
+    legalSlug,
+    showFaqPage,
+    showContactPage,
+    showPromotionsPage,
+    searchPageQuery,
+    trackingPageCode,
+    cartOpen,
+    checkoutOpen,
+    stripeConfirmOrderId,
+    trackingOpen,
+    showNotFound,
+    showNewAdmin,
+  ]);
 
   useEffect(() => {
     if (showNewAdmin) {
@@ -597,10 +639,13 @@ export default function App() {
       }
       if (session.user.email) setUserEmail(session.user.email);
       const uid = session.user.id;
-      customerApi.get(uid).then((c) => {
-        if (cancelled) return;
-        if (c?.name && c.name.trim()) setUserName(c.name.trim());
-      }).catch(() => {});
+      customerApi
+        .get(uid)
+        .then((c) => {
+          if (cancelled) return;
+          if (c?.name && c.name.trim()) setUserName(c.name.trim());
+        })
+        .catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -670,7 +715,9 @@ export default function App() {
   ) => {
     const id = ++toastIdCounter.current;
     // Plafond anti-spam visuel : on garde les plus récents.
-    setToasts((prev) => [...prev, { id, text, type, duration, action }].slice(-MAX_TOASTS));
+    setToasts((prev) =>
+      [...prev, { id, text, type, duration, action }].slice(-MAX_TOASTS),
+    );
   };
 
   const viewCartAction = () => ({
@@ -837,16 +884,27 @@ export default function App() {
     setCart((prev) => mergeLinesIntoCart(prev, [resolved.line]));
     track("add_to_cart", "product", product.id, { v: getVariant() });
 
-    showToast(`🛒 "${product.title}" added to cart!`, "success", undefined, viewCartAction());
+    showToast(
+      `🛒 "${product.title}" added to cart!`,
+      "success",
+      undefined,
+      viewCartAction(),
+    );
   };
 
   // Ajout en lot (ex. Frequently Bought Together) : UN SEUL passage par le
   // lock anti-race. Sans ça, N appels synchrones à addToCart ne laissent
   // passer que le 1er — les autres sont silencieusement ignorés.
   const addManyToCart = (
-    items: { product: Product; color?: string; size?: string; quantity?: number }[],
+    items: {
+      product: Product;
+      color?: string;
+      size?: string;
+      quantity?: number;
+    }[],
   ): { addedIds: string[]; blockedCount: number } => {
-    if (addToCartLock.current) return { addedIds: [], blockedCount: items.length };
+    if (addToCartLock.current)
+      return { addedIds: [], blockedCount: items.length };
     addToCartLock.current = true;
     setTimeout(() => {
       addToCartLock.current = false;
@@ -882,7 +940,8 @@ export default function App() {
     }
     setCart((prev) => mergeLinesIntoCart(prev, lines));
     const addedIds = lines.map((l) => l.product.id);
-    for (const id of addedIds) track("add_to_cart", "product", id, { v: getVariant() });
+    for (const id of addedIds)
+      track("add_to_cart", "product", id, { v: getVariant() });
     showToast(
       `🛒 ${lines.length} item${lines.length > 1 ? "s" : ""} added to cart!`,
       "success",
@@ -1085,7 +1144,9 @@ export default function App() {
           return;
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     let cancelled = false;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -1103,7 +1164,9 @@ export default function App() {
               KEY,
               JSON.stringify({ code: data.country, at: Date.now() }),
             );
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       })
       .catch(() => {
@@ -1154,7 +1217,16 @@ export default function App() {
     const checkRoute = () => {
       const path = window.location.pathname;
       // Routes connues (SPA : pages produit / légales / aide / suivi)
-      const knownPaths = ["/", "/unsubscribe", "/index.html", "/faq", "/contact", "/promotions", "/recherche", "/suivi"];
+      const knownPaths = [
+        "/",
+        "/unsubscribe",
+        "/index.html",
+        "/faq",
+        "/contact",
+        "/promotions",
+        "/recherche",
+        "/suivi",
+      ];
       const knownPrefixes = ["/produit/", "/legal/"];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
@@ -1202,7 +1274,9 @@ export default function App() {
       // Pas connecté : on bascule juste en local (perdu au rechargement)
       setFavorites((prev) => {
         const adding = !prev.includes(productId);
-        track("favourite", "product", productId, { state: adding ? "added" : "removed" });
+        track("favourite", "product", productId, {
+          state: adding ? "added" : "removed",
+        });
         return adding
           ? [...prev, productId]
           : prev.filter((id) => id !== productId);
@@ -1269,7 +1343,10 @@ export default function App() {
         onSearch={(term) => {
           setSearchTerm(term);
           setActiveTab("store");
-          if (term.trim()) track("search", "section", "search", { query: term.trim().slice(0, 80) });
+          if (term.trim())
+            track("search", "section", "search", {
+              query: term.trim().slice(0, 80),
+            });
         }}
         currentSearchTerm={searchTerm}
         onSelectCategory={(cat) => {
@@ -1596,7 +1673,7 @@ export default function App() {
             setActiveTab("store");
           }}
         />
-       )}
+      )}
 
       {showAccountPage && (
         <Suspense fallback={<LazyFallback />}>
@@ -1699,7 +1776,6 @@ export default function App() {
       {/* V2: Mobile tab bar (store view only) */}
       {activeTab === "store" && !showNewAdmin && !selectedProduct && (
         <MobileTabBar
-          favouritesCount={favorites.length}
           cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
           onTabChange={(tab) => {
             if (tab === "home") {
@@ -1712,10 +1788,8 @@ export default function App() {
               document
                 .getElementById("section-catalog")
                 ?.scrollIntoView({ behavior: "smooth" });
-            } else if (tab === "favourites") {
-              handleOpenFavorites();
-            } else if (tab === "cart") {
-              setCartOpen(true);
+            } else if (tab === "order") {
+              setTrackingOpen(true);
             } else if (tab === "account") {
               if (isUser) setShowAccountPage(true);
               else if (isAdmin) setShowProfileModal(true);
