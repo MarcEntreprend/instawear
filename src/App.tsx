@@ -84,6 +84,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isUser, setIsUser] = useState(false);
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
@@ -517,6 +518,54 @@ export default function App() {
       authListener?.subscription.unsubscribe();
     };
   }, [cacheReady]);
+
+  // Keep header display name in sync with DB (first name if available)
+  useEffect(() => {
+    if (!isUser) {
+      setUserEmail("");
+      return;
+    }
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return;
+      const email = session?.user?.email || "";
+      if (email) setUserEmail(email);
+      const uid = session?.user?.id;
+      if (!uid) return;
+      try {
+        const c = await customerApi.get(uid);
+        if (cancelled) return;
+        if (c?.name && c.name.trim()) {
+          setUserName(c.name.trim());
+        } else {
+          const meta = (session?.user?.user_metadata as any)?.full_name;
+          if (meta && meta.trim()) setUserName(meta.trim());
+          else if (email && !userName) setUserName(email);
+        }
+      } catch {
+        const meta = (session?.user?.user_metadata as any)?.full_name;
+        if (meta && !cancelled) setUserName(meta.trim());
+      }
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (!session?.user) {
+        if (!cancelled) {
+          setUserEmail("");
+        }
+        return;
+      }
+      if (session.user.email) setUserEmail(session.user.email);
+      const uid = session.user.id;
+      customerApi.get(uid).then((c) => {
+        if (cancelled) return;
+        if (c?.name && c.name.trim()) setUserName(c.name.trim());
+      }).catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, [isUser, cacheReady]);
 
   // Close profile and reset when switching to admin
   useEffect(() => {
@@ -1197,6 +1246,8 @@ export default function App() {
         onOpenAuth={() => setShowAuthModal(true)}
         isAdminLoggedIn={isAdmin}
         isUserLoggedIn={isUser}
+        userName={userName}
+        userEmail={userEmail}
         onOpenProfile={() => {
           if (activeTab === "store") setShowProfileModal(true);
         }}
@@ -1205,6 +1256,7 @@ export default function App() {
           setIsAdmin(false);
           setIsUser(false);
           setUserName("");
+          setUserEmail("");
           setCart([]);
           setFavorites([]);
           setCartLoaded(false);
@@ -1490,6 +1542,7 @@ export default function App() {
             setIsAdmin(false);
             setIsUser(false);
             setUserName("");
+            setUserEmail("");
             setCart([]);
             setFavorites([]);
             setCartLoaded(false);
@@ -1497,7 +1550,7 @@ export default function App() {
             setActiveTab("store");
           }}
         />
-      )}
+       )}
 
       {showAccountPage && (
         <Suspense fallback={<LazyFallback />}>
@@ -1511,6 +1564,7 @@ export default function App() {
                 setSelectedProduct(product);
               }
             }}
+            onNameUpdated={(newName) => setUserName(newName)}
           />
         </Suspense>
       )}

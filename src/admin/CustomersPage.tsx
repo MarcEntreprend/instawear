@@ -351,7 +351,7 @@ export default function CustomersPage({
                     style={{ display: "flex", alignItems: "center", gap: 10 }}
                   >
                     <div style={avatarStyle}>
-                      {(c.name || c.email).charAt(0).toUpperCase()}
+                      {((c.name || c.email || "?").charAt(0).toUpperCase())}
                     </div>
                     <div>
                       <p style={{ fontWeight: 600, color: "var(--color-ink)" }}>
@@ -537,7 +537,7 @@ function CustomerDetailPanel({
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
         <div style={{ ...avatarStyle, width: 48, height: 48, fontSize: 18 }}>
-          {(customer.name || customer.email).charAt(0).toUpperCase()}
+          {((customer.name || customer.email || "?").charAt(0).toUpperCase())}
         </div>
         <div>
           <h2

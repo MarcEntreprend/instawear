@@ -28,6 +28,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useCurrency } from "../hooks/useCurrency";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { merchApi } from "../api/supabaseApi";
+import { getFirstName } from "../utils/displayName";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -38,6 +39,8 @@ interface HeaderProps {
   onOpenAuth: () => void;
   isAdminLoggedIn: boolean;
   isUserLoggedIn: boolean;
+  userName?: string;
+  userEmail?: string;
   onLogout: () => void;
   onOpenProfile: () => void;
   onSearch: (term: string) => void;
@@ -288,6 +291,8 @@ export default function Header({
   onOpenAuth,
   isAdminLoggedIn,
   isUserLoggedIn,
+  userName,
+  userEmail,
   onLogout,
   onOpenProfile,
   onOpenAccount,
@@ -316,6 +321,8 @@ export default function Header({
   const theme = isControlledDark ? (darkMode ? "dark" : "light") : themeHook;
   const toggleTheme = isControlledDark ? onToggleDarkMode! : toggleHook;
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
+  const desktopAccountLabel = isAdminLoggedIn ? "Admin" : isUserLoggedIn ? (getFirstName(userName, userEmail) || "Account") : "Sign in";
+  const mobileAccountLabel = isAdminLoggedIn ? "Admin" : isUserLoggedIn ? (getFirstName(userName, userEmail) || "My account") : "Sign in";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -690,11 +697,7 @@ export default function Header({
                 <User size={15} />
               </span>
               <span className="text-sm font-semibold max-w-26 truncate">
-                {isUserLoggedIn
-                  ? "Account"
-                  : isAdminLoggedIn
-                    ? "Admin"
-                    : "Sign in"}
+                {desktopAccountLabel}
               </span>
             </button>
           </div>
@@ -901,11 +904,7 @@ export default function Header({
                 className="btn btn-secondary flex-1"
               >
                 <User size={16} />{" "}
-                {isUserLoggedIn
-                  ? "My account"
-                  : isAdminLoggedIn
-                    ? "Admin"
-                    : "Sign in"}
+                {mobileAccountLabel}
               </button>
               <button
                 className="btn-icon"

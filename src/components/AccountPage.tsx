@@ -54,6 +54,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
+import { getFirstName } from "../utils/displayName";
 import type { Order, Favourite, AdminCartItem } from "../admin/adminTypes";
 import CartIcon from "./CartIcon";
 import OrderStatusStepper, { StatusPill } from "./OrderStatusStepper";
@@ -67,6 +68,7 @@ interface AccountPageProps {
     initialColor?: string,
     initialSize?: string,
   ) => void;
+  onNameUpdated?: (newName: string) => void;
 }
 
 // ─── Local types ─────────────────────────────────────────────────────
@@ -135,6 +137,7 @@ function getVariantImage(product: any, selectedColor: string): string {
 export default function AccountPage({
   onClose,
   onViewProduct,
+  onNameUpdated,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
 
@@ -624,7 +627,7 @@ export default function AccountPage({
                   className="truncate text-[15px] font-bold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {customerName || "Guest"}
+                  {customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Guest")}
                 </p>
                 <p
                   className="truncate text-[12px]"
@@ -804,7 +807,7 @@ export default function AccountPage({
               <div className="flex flex-col gap-6 animate-fade-up">
                 <div>
                   <span className="eyebrow">Welcome back</span>
-                  <h3 className="text-xl font-black mt-1" style={{ color: "var(--color-ink)" }}>{customerName || customerEmail || "Member"}</h3>
+                  <h3 className="text-xl font-black mt-1" style={{ color: "var(--color-ink)" }}>{customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Member")}</h3>
                   <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>Member since {memberSince} · {orders.length} orders · {favorites.length} saved</p>
                 </div>
                 {(() => {
@@ -913,6 +916,10 @@ export default function AccountPage({
                 newsletterSubscribed={newsletterSubscribed}
                 onClose={onClose}
                 onToggleNewsletter={handleToggleNewsletter}
+                onNameUpdated={(newName) => {
+                  setCustomerName(newName);
+                  onNameUpdated?.(newName);
+                }}
               />
             )}
             {tab === "support" && (
@@ -2622,7 +2629,7 @@ function SupportTab({
                 </label>
                 <input
                   type="text"
-                  value={customerName || "Guest"}
+                  value={customerName?.trim() ? customerName : (customerEmail || "Guest")}
                   disabled
                   className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
                   style={{
@@ -3093,6 +3100,7 @@ function ProfileTab({
   newsletterSubscribed,
   onToggleNewsletter,
   onClose,
+  onNameUpdated,
 }: {
   customerEmail: string;
   customerName: string;
@@ -3111,10 +3119,12 @@ function ProfileTab({
   newsletterSubscribed: boolean;
   onClose: () => void;
   onToggleNewsletter: () => void;
+  onNameUpdated?: (newName: string) => void;
 }) {
   // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(customerName);
+  useEffect(() => { setNameInput(customerName); }, [customerName]);
   const [dob, setDob] = useState("");
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -3160,15 +3170,26 @@ function ProfileTab({
   // ── Handlers ────────────────────────────────────────────────────
   const handleSaveName = async () => {
     if (!customerId || !nameInput.trim()) return;
-    await customerApi.updateProfile(customerId, { name: nameInput.trim() });
-    setEditingName(false);
+    const newName = nameInput.trim();
+    try {
+      await customerApi.updateProfile(customerId, { name: newName });
+      try { await supabase.auth.updateUser({ data: { full_name: newName } }); } catch {}
+      onNameUpdated?.(newName);
+      setEditingName(false);
+    } catch (e: any) {
+      alert(e.message || "Failed to save name");
+    }
   };
 
   const handleSaveDob = async () => {
     if (!customerId) return;
-    await customerApi.updateProfile(customerId, {
-      date_of_birth: dob || null,
-    });
+    try {
+      await customerApi.updateProfile(customerId, {
+        date_of_birth: dob || null,
+      });
+    } catch (e: any) {
+      alert(e.message || "Failed to save date of birth");
+    }
   };
 
   const handleAddAddress = async () => {
@@ -3332,7 +3353,7 @@ function ProfileTab({
                 style={{ color: "var(--color-ink)" }}
                 onClick={() => setEditingName(true)}
               >
-                {customerName || "Set your name"}
+                {customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Set your name")}
               </p>
             )}
             <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>

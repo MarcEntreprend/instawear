@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, User, Package, Heart } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
+import { getFirstName, getInitials } from "../utils/displayName";
 
 interface ProfileModalProps {
   isAdmin: boolean;
@@ -20,11 +21,10 @@ export default function ProfileModal({
   onLogout,
   allCustomers,
 }: ProfileModalProps) {
-  const displayName = isAdmin ? "Admin" : userName || "User";
-  const role = isAdmin ? "administrator" : "customer";
-
   // Stats for regular users
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const displayName = isAdmin ? "Admin" : (getFirstName(userName, userEmail || undefined) || userEmail || "User");
+  const role = isAdmin ? "administrator" : "customer";
   const [orderCount, setOrderCount] = useState<number>(0);
   const [favoriteCount, setFavoriteCount] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -84,7 +84,7 @@ export default function ProfileModal({
             className="w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-xl"
             style={{ background: "var(--color-accent)" }}
           >
-            {displayName.charAt(0).toUpperCase()}
+            {isAdmin ? "A" : getInitials(userName, userEmail || undefined)}
           </div>
 
           {/* Identity */}
