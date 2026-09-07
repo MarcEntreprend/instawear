@@ -378,7 +378,7 @@ export default function Footer({
                   </button>
                 </div>
                 <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-                  New arrivals and exclusive offers, no spam.
+                  Subscribe to get new arrivals and exclusive offers, no spam.
                 </p>
               </form>
             </>
