@@ -255,10 +255,6 @@ export default function OrderTrackingModal({
               }}
             >
               <div>
-                <span style={{ color: "var(--color-ink4)" }}>Customer:</span>{" "}
-                {order.clientName}
-              </div>
-              <div>
                 <span style={{ color: "var(--color-ink4)" }}>Date:</span>{" "}
                 {new Date(order.createdAt).toLocaleDateString("en-US", {
                   day: "numeric",
