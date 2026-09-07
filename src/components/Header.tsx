@@ -26,6 +26,7 @@ import type { CartItem, NavLink, Product } from "../types";
 import { CART_PLUS_ICON } from "../constants/assets";
 import { useTheme } from "../hooks/useTheme";
 import { useCurrency } from "../hooks/useCurrency";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
@@ -372,8 +373,14 @@ export default function Header({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   const [isQuickNavVisible, setIsQuickNavVisible] = useState(true);
+  const isMobileHeader = useIsMobile();
   useEffect(() => {
     if (!isHomePage) return;
+    // Mobile: quick nav toujours visible → header jamais caché
+    if (isMobileHeader) {
+      setIsQuickNavVisible(true);
+      return;
+    }
     const occasionEl = document.getElementById("section-occasion");
     const catalogEl = document.getElementById("section-catalog");
     if (!occasionEl || !catalogEl) return;
@@ -412,7 +419,7 @@ export default function Header({
     updateVisibility();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [isHomePage]);
+  }, [isHomePage, isMobileHeader]);
   useEffect(() => {
     document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
     return () => {
@@ -723,15 +730,15 @@ export default function Header({
             style={{
               top: "100%",
               height: "3.25rem",
-              transform: isQuickNavVisible
+              transform: isQuickNavVisible || isMobileHeader
                 ? "translateY(0)"
                 : "translateY(-100%)",
-              opacity: isQuickNavVisible ? 1 : 0,
-              pointerEvents: isQuickNavVisible ? "auto" : "none",
+              opacity: isQuickNavVisible || isMobileHeader ? 1 : 0,
+              pointerEvents: isQuickNavVisible || isMobileHeader ? "auto" : "none",
               transition:
                 "transform .35s var(--ease-smooth), opacity .25s var(--ease-smooth)",
               background: "var(--color-bg)",
-              borderBottom: isQuickNavVisible
+              borderBottom: isQuickNavVisible || isMobileHeader
                 ? "1px solid var(--color-border)"
                 : "none",
               zIndex: 1,

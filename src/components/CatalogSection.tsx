@@ -133,6 +133,23 @@ export default function CatalogSection({
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // Mobile drawer: lock body scroll sans casser le sticky header (clip déjà géré en CSS)
+  useEffect(() => {
+    if (isFilterDrawerOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = (document.documentElement.style as any).overscrollBehavior;
+      document.body.style.overflow = "hidden";
+      (document.documentElement.style as any).overscrollBehavior = "contain";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        (document.documentElement.style as any).overscrollBehavior = prevOverscroll;
+      };
+    } else {
+      document.body.style.overflow = "";
+      (document.documentElement.style as any).overscrollBehavior = "";
+    }
+  }, [isFilterDrawerOpen]);
+
   const extraFiltered = useMemo(() => {
     let list = filteredProducts.filter((p) => {
       if (p.price < filters.priceMin || p.price > filters.priceMax) return false;
@@ -734,7 +751,7 @@ export default function CatalogSection({
                 <X size={20} style={{ color: "var(--color-ink2)" }} />
               </button>
             </div>
-            <div className="p-5 flex flex-col gap-6">
+            <div className="p-5 flex flex-col gap-6 overscroll-contain touch-pan-y">
               <div className="flex items-center justify-between">
                 <h3
                   className="text-sm font-bold"
@@ -752,29 +769,79 @@ export default function CatalogSection({
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {SIZE_OPTIONS.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() =>
-                      setFilters((f) => ({ ...f, size: f.size === size ? null : size }))
-                    }
-                    className="chip"
-                    data-active={filters.size === size}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2.5">
-            <FilterGroup title="Color">
-                  <ColorPicker
-                    colors={COLOR_OPTIONS}
-                    selectedColor={filters.color}
-                    onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))}
-                  />
-                </FilterGroup>
-              </div>
+
+              <FilterGroup title="Event">
+                <div className="flex flex-col gap-0.5">
+                  {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+                    <label key={value} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+                      <input type="checkbox" checked={selectedEventType === value} onChange={() => setSelectedEventType(selectedEventType === value ? null : value)} className="w-4 h-4 accent-(--color-accent)" />
+                      <Icon size={14} style={{ color: "var(--color-ink3)" }} />
+                      <span className="text-sm" style={{ color: "var(--color-ink2)" }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Category">
+                <div className="flex flex-col gap-0.5">
+                  {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
+                    <label key={value} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+                      <input type="checkbox" checked={selectedCategory === value || selectedCategory === value.replace("t-shirts","tshirt").replace("hoodies","hoodie").replace("accessories","accessory")} onChange={() => setSelectedCategory(selectedCategory === value ? null : value)} className="w-4 h-4 accent-(--color-accent)" />
+                      <Icon size={14} style={{ color: "var(--color-ink3)" }} />
+                      <span className="text-sm" style={{ color: "var(--color-ink2)" }}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Price">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center rounded-xl px-3 h-10 flex-1" style={{ border: "1px solid var(--color-border)" }}>
+                    <span className="text-xs mr-1" style={{ color: "var(--color-ink4)" }}>€</span>
+                    <input type="number" min={0} value={filters.priceMin} onChange={(e) => setFilters((f) => ({ ...f, priceMin: Number(e.target.value) || 0 }))} className="w-full bg-transparent outline-none text-sm" style={{ color: "var(--color-ink)" }} />
+                  </div>
+                  <span style={{ color: "var(--color-ink4)" }}>—</span>
+                  <div className="flex items-center rounded-xl px-3 h-10 flex-1" style={{ border: "1px solid var(--color-border)" }}>
+                    <span className="text-xs mr-1" style={{ color: "var(--color-ink4)" }}>€</span>
+                    <input type="number" min={0} value={filters.priceMax} onChange={(e) => setFilters((f) => ({ ...f, priceMax: Number(e.target.value) || 0 }))} className="w-full bg-transparent outline-none text-sm" style={{ color: "var(--color-ink)" }} />
+                  </div>
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Style">
+                <div className="flex flex-wrap gap-1.5">
+                  {STYLE_OPTIONS.map((s) => (
+                    <button key={s} onClick={() => setFilters((f) => ({ ...f, style: f.style === s ? null : s }))} className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" style={{ background: filters.style === s ? "var(--color-accent)" : "var(--color-surface2)", color: filters.style === s ? "#fff" : "var(--color-ink3)", border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}` }}>{s}</button>
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Material">
+                <div className="flex flex-wrap gap-1.5">
+                  {MATERIAL_OPTIONS.map((m) => (
+                    <button key={m} onClick={() => setFilters((f) => ({ ...f, material: f.material === m ? null : m }))} className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors" style={{ background: filters.material === m ? "var(--color-accent)" : "var(--color-surface2)", color: filters.material === m ? "#fff" : "var(--color-ink3)", border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}` }}>{m}</button>
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Size">
+                <div className="flex flex-wrap gap-1.5">
+                  {SIZE_OPTIONS.map((size) => (
+                    <button key={size} onClick={() => setFilters((f) => ({ ...f, size: f.size === size ? null : size }))} className="chip" data-active={filters.size === size}>{size}</button>
+                  ))}
+                </div>
+              </FilterGroup>
+
+              <FilterGroup title="Color">
+                <ColorPicker colors={COLOR_OPTIONS} selectedColor={filters.color} onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))} />
+              </FilterGroup>
+
+              <label className="flex items-center justify-between cursor-pointer pt-2" style={{ borderTop: "1px solid var(--color-border)" }}>
+                <span className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>In stock only</span>
+                <span onClick={() => setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))} className="w-11 h-6 rounded-full relative transition-colors" style={{ background: filters.inStockOnly ? "var(--color-accent)" : "var(--color-border2)" }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: filters.inStockOnly ? "translateX(22px)" : "translateX(2px)" }} />
+                </span>
+              </label>
             </div>
             <div
               className="sticky bottom-0 p-4 safe-bottom"
