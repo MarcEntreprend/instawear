@@ -1044,7 +1044,7 @@ export default function App() {
     tryScroll(0);
   };
 
-  // Stripe Checkout return handling (success / cancel)
+  // Stripe Checkout return handling (success / cancel )
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const orderStatus = params.get("order");
