@@ -176,6 +176,15 @@ function sendTelegramNotification(
   window.open(telegramUrl, "_blank");
 }
 
+async function shouldSendTelegram(): Promise<boolean> {
+  try {
+    const { data } = await supabase.rpc("is_admin");
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 // Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
@@ -1363,28 +1372,30 @@ function StripeCardForm({
               unitPrice: item.unitPrice,
             })),
         } as any);
-        sendTelegramNotification(
-          orderId,
-          contactName,
-          contactPhone,
-          contactEmail,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          cart.filter((it: any) => {
-            const p: any = it.product;
-            if (!p?.isActive) return false;
-            const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
-            if (!v) return p.variants?.length ? false : true;
-            const e = v.sizes?.[it.selectedSize];
-            if (!e) return false;
-            return ((e as any).stock_status || "available") === "available";
-          }),
-          total,
-          currencySymbol,
-        );
+        if (await shouldSendTelegram()) {
+          sendTelegramNotification(
+            orderId,
+            contactName,
+            contactPhone,
+            contactEmail,
+            reception,
+            address,
+            city,
+            zip,
+            country,
+            cart.filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            }),
+            total,
+            currencySymbol,
+          );
+        }
 
         onSuccess(orderId);
       } catch (e: any) {
@@ -2365,21 +2376,23 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send recap via Telegram
-        sendTelegramNotification(
-          newOrderId,
-          name,
-          phone,
-          email,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          fulfillableCart,
-          total,
-          currencySymbol,
-        );
+        // Send recap via Telegram — admin only
+        if (await shouldSendTelegram()) {
+          sendTelegramNotification(
+            newOrderId,
+            name,
+            phone,
+            email,
+            reception,
+            address,
+            city,
+            zip,
+            country,
+            fulfillableCart,
+            total,
+            currencySymbol,
+          );
+        }
       })();
 
       // Délai minimum pour un retour visuel crédible, pendant que le
