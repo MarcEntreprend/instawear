@@ -1044,7 +1044,14 @@ export default function App() {
     tryScroll(0);
   };
 
-  // Stripe Checkout return handling (success / cancel )
+  // Stripe Checkout return handling (success / cancel)
+  //
+  // ⚠️ RÈGLE ABSOLUE : l'affichage de la confirmation et le vidage local
+  // du panier ne doivent JAMAIS dépendre de la réussite d'un appel réseau.
+  // C'est ce couplage qui causait le bug (clearCart pouvait lever une
+  // exception et bloquait tout ce qui suivait, y compris la confirmation).
+  // Chaque appel annexe est maintenant isolé dans son propre try/catch,
+  // en "best effort", après coup.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const orderStatus = params.get("order");
@@ -1052,70 +1059,81 @@ export default function App() {
 
     if (!orderStatus || !orderId) return;
 
-    const handleReturn = async () => {
-      if (orderStatus === "success") {
-        try {
-          // 1️⃣ Vider le panier dans Supabase en PRIORITÉ
-          const {
-            data: { user: currentUser },
-          } = await supabase.auth.getUser();
-          if (currentUser?.email) {
-            const { data: customerData } = await supabase
-              .from("customers")
-              .select("id")
-              .eq("email", currentUser.email)
-              .maybeSingle();
-            if (customerData) {
-              await customerApi.clearCart(customerData.id);
-            }
-          }
-
-          // 2️⃣ Puis vider le panier local et afficher la confirmation
-          setCart([]);
-          setCartLoaded(false);
-          setStripeConfirmOrderId(orderId);
-
-          // Tentative de vérification (non bloquante)
-          try {
-            const order = await orderApi.get(orderId);
-            if (order) {
-              const successStatuses = [
-                "paid",
-                "pending",
-                "in_production",
-                "shipped",
-                "delivered",
-              ];
-              if (!successStatuses.includes(order.status)) {
-                showToast(
-                  "Payment not confirmed. Please contact support.",
-                  "error",
-                );
-              }
-            }
-          } catch (e) {
-            console.warn("Order fetch failed for", orderId, e);
-            showToast(
-              "Your order has been placed. You can track it with the reference below.",
-              "info",
-            );
-          }
-        } catch (e) {
-          console.error("Error verifying Stripe order", e);
-          showToast("Error verifying payment.", "error");
-        }
-      } else if (orderStatus === "cancelled") {
-        showToast("Payment cancelled. Your cart is saved.", "info");
-      }
-
-      // Clean URL parameters without reloading
+    const cleanUrl = () => {
       const url = new URL(window.location.href);
       url.searchParams.delete("order");
       url.searchParams.delete("id");
       window.history.replaceState({}, "", url.toString());
     };
 
-    handleReturn();
+    if (orderStatus === "cancelled") {
+      showToast("Payment cancelled. Your cart is saved.", "info");
+      cleanUrl();
+      return;
+    }
+
+    if (orderStatus !== "success") {
+      cleanUrl();
+      return;
+    }
+
+    // 1️⃣ Garanti, synchrone, sans aucune dépendance réseau : la confirmation
+    // s'affiche et le panier local se vide quoi qu'il arrive ensuite.
+    setCart([]);
+    setCartLoaded(false);
+    setStripeConfirmOrderId(orderId);
+    cleanUrl();
+
+    // 2️⃣ Vidage du panier serveur — best effort, isolé. Un échec ici
+    // (session pas encore réhydratée après le rechargement complet, réseau,
+    // etc.) ne doit plus jamais pouvoir annuler le point 1.
+    (async () => {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+        if (currentUser?.email) {
+          const { data: customerData } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("email", currentUser.email)
+            .maybeSingle();
+          if (customerData) {
+            await customerApi.clearCart(customerData.id);
+          }
+        }
+      } catch (e) {
+        console.error("Stripe return: échec du vidage du panier serveur", e);
+      }
+    })();
+
+    // 3️⃣ Vérification du statut — best effort, isolée elle aussi.
+    (async () => {
+      try {
+        const order = await orderApi.get(orderId);
+        if (order) {
+          const successStatuses = [
+            "paid",
+            "pending",
+            "in_production",
+            "shipped",
+            "delivered",
+          ];
+          if (!successStatuses.includes(order.status)) {
+            showToast(
+              "Payment not confirmed. Please contact support.",
+              "error",
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("Order fetch failed for", orderId, e);
+        showToast(
+          "Your order has been placed. You can track it with the reference below.",
+          "info",
+        );
+      }
+    })();
   }, []);
 
   // Ouverture directe du suivi via ?track=ORD-... (liens « View order details »
