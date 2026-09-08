@@ -312,9 +312,12 @@ export default function App() {
   // Charger le panier de l'utilisateur connecté depuis Supabase
   useEffect(() => {
     const loadCart = async () => {
-      // ⛔ Ne pas recharger le panier depuis Supabase pendant un retour Stripe
-      if (window.location.search.includes("order=success")) {
-        setCartLoaded(true); // évite aussi la synchro
+      // ⛔ Ne pas recharger le panier pendant un retour Stripe (ou si confirmation affichée)
+      if (
+        window.location.search.includes("order=success") ||
+        stripeConfirmOrderId
+      ) {
+        setCartLoaded(true);
         return;
       }
 
@@ -322,7 +325,6 @@ export default function App() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
-        // Recherche locale pour éviter l'erreur 406
         const customer = allCustomers.find((c) => c.email === user.email);
         if (customer) {
           const cartItems = await customerApi.getCart(customer.id);
@@ -331,7 +333,6 @@ export default function App() {
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
-                // P3 POD: on garde même les produits inactifs/variantes supprimées en panier (grisé, non bloquant)
                 let unitPrice =
                   product.price +
                   (product.sizeSurcharge?.[item.selectedSize] ?? 0);
@@ -358,7 +359,7 @@ export default function App() {
       }
     };
     loadCart();
-  }, [isAdmin, isUser, products]);
+  }, [isAdmin, isUser, products, stripeConfirmOrderId]);
 
   // Save cart to Supabase
   useEffect(() => {
@@ -1054,34 +1055,7 @@ export default function App() {
     const handleReturn = async () => {
       if (orderStatus === "success") {
         try {
-          // Récupère le statut via la RPC publique (aucune donnée sensible exposée)
-          const order = await orderApi.get(orderId);
-
-          if (!order) {
-            showToast("Order not found.", "error");
-            return;
-          }
-
-          const successStatuses = [
-            "paid",
-            "pending",
-            "in_production",
-            "shipped",
-            "delivered",
-          ];
-          if (!successStatuses.includes(order.status)) {
-            showToast(
-              "Payment not confirmed. Please contact support.",
-              "error",
-            );
-            return;
-          }
-
-          // Vider le panier localement
-          setCart([]);
-          setCartLoaded(false);
-
-          // Vider le panier dans Supabase (indépendant du cache)
+          // 1️⃣ Vider le panier dans Supabase en PRIORITÉ
           const {
             data: { user: currentUser },
           } = await supabase.auth.getUser();
@@ -1096,8 +1070,36 @@ export default function App() {
             }
           }
 
-          // Afficher l'écran de confirmation
+          // 2️⃣ Puis vider le panier local et afficher la confirmation
+          setCart([]);
+          setCartLoaded(false);
           setStripeConfirmOrderId(orderId);
+
+          // Tentative de vérification (non bloquante)
+          try {
+            const order = await orderApi.get(orderId);
+            if (order) {
+              const successStatuses = [
+                "paid",
+                "pending",
+                "in_production",
+                "shipped",
+                "delivered",
+              ];
+              if (!successStatuses.includes(order.status)) {
+                showToast(
+                  "Payment not confirmed. Please contact support.",
+                  "error",
+                );
+              }
+            }
+          } catch (e) {
+            console.warn("Order fetch failed for", orderId, e);
+            showToast(
+              "Your order has been placed. You can track it with the reference below.",
+              "info",
+            );
+          }
         } catch (e) {
           console.error("Error verifying Stripe order", e);
           showToast("Error verifying payment.", "error");
