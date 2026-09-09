@@ -128,6 +128,8 @@ export const mapOrder = (row: any): Order => ({
   status: row.status as OrderStatus,
   totalAmount: row.total_amount,
   shippingCost: row.shipping_cost,
+  shippingMethodName: row.shipping_method_name ?? null,
+  shippingDeliveryEstimate: row.shipping_delivery_estimate ?? null,
   shippingAddress: {
     fullName: row.shipping_address_full_name || "",
     address: row.shipping_address_address || "",
@@ -160,6 +162,7 @@ export const mapOrder = (row: any): Order => ({
     estimatedMaxDate: shipment.estimated_max_date ?? null,
   })),
   items: [], // à remplir séparément
+  approvalData: row.approval_data ?? null,
 });
 
 //  fonction helper
@@ -589,7 +592,9 @@ export const customerApi = {
     // getSession() lit le cache local instantanément, pas getUser() qui fait un round-trip.
     let userEmail: string | undefined;
     if (!isEmail) {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       userEmail = session?.user?.email;
     }
 
@@ -604,14 +609,13 @@ export const customerApi = {
     };
 
     const idQuery = base().eq("client_id", clientIdOrEmail);
-    const emailQueryPromise = !isEmail && userEmail
-      ? base().eq("client_email", userEmail)
-      : Promise.resolve({ data: [] as any[], error: null as any });
+    const emailQueryPromise =
+      !isEmail && userEmail
+        ? base().eq("client_email", userEmail)
+        : Promise.resolve({ data: [] as any[], error: null as any });
 
-    const [{ data: byId, error: idErr }, { data: byEmail, error: emailErr }] = await Promise.all([
-      idQuery,
-      emailQueryPromise,
-    ]);
+    const [{ data: byId, error: idErr }, { data: byEmail, error: emailErr }] =
+      await Promise.all([idQuery, emailQueryPromise]);
     if (idErr) throw idErr;
     if (emailErr) throw emailErr;
 
@@ -619,7 +623,10 @@ export const customerApi = {
     const seen = new Set<string>();
     const merged: any[] = [];
     for (const row of [...(byId ?? []), ...(byEmail ?? [])]) {
-      if (!seen.has(row.id)) { seen.add(row.id); merged.push(row); }
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        merged.push(row);
+      }
     }
     merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     let ordersMapped = merged.map(mapOrder);
@@ -651,22 +658,27 @@ export const customerApi = {
 
     let userEmail: string | undefined;
     if (!isEmail) {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       userEmail = session?.user?.email;
     }
 
-    const [{ count: idCount, error: idErr }, { count: emailCount, error: emailErr }] = await Promise.all([
+    const [
+      { count: idCount, error: idErr },
+      { count: emailCount, error: emailErr },
+    ] = await Promise.all([
       supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq(isEmail ? "client_email" : "client_id", clientIdOrEmail)
         .then((r) => r),
-      (!isEmail && userEmail
+      !isEmail && userEmail
         ? supabase
             .from("orders")
             .select("id", { count: "exact", head: true })
             .eq("client_email", userEmail)
-        : Promise.resolve({ count: 0, error: null as any })),
+        : Promise.resolve({ count: 0, error: null as any }),
     ]);
     if (idErr) throw idErr;
     if (emailErr) throw emailErr;
@@ -939,6 +951,8 @@ export const orderApi = {
       status: order.status,
       total_amount: order.totalAmount,
       shipping_cost: order.shippingCost,
+      shipping_method_name: order.shippingMethodName ?? null,
+      shipping_delivery_estimate: order.shippingDeliveryEstimate ?? null,
       shipping_address_full_name: order.shippingAddress.fullName,
       shipping_address_address: order.shippingAddress.address,
       shipping_address_city: order.shippingAddress.city,
@@ -1595,6 +1609,9 @@ export const dashboardApi = {
       podConnected: pod.isConnected,
       recentOrders: orders.slice(0, 5),
       recentProducts: products.slice(0, 4),
+      pendingApprovals: orders.filter(
+        (o) => o.status === "on_hold" && o.approvalData,
+      ).length,
     };
   },
 
@@ -1777,8 +1794,18 @@ export const reviewApi = {
       helpfulBy: (r.review_helpful ?? []).map((h: any) => h.customer_id),
     }));
   },
-  async create(review: { productId: string; customerId: string; customerName?: string; rating: number; title?: string; body?: string }): Promise<any> {
-    const { data: verified } = await supabase.rpc("is_verified_buyer", { p_product_id: review.productId, p_customer_id: review.customerId });
+  async create(review: {
+    productId: string;
+    customerId: string;
+    customerName?: string;
+    rating: number;
+    title?: string;
+    body?: string;
+  }): Promise<any> {
+    const { data: verified } = await supabase.rpc("is_verified_buyer", {
+      p_product_id: review.productId,
+      p_customer_id: review.customerId,
+    });
     const { data, error } = await supabase
       .from("product_reviews")
       .insert({
@@ -1796,15 +1823,26 @@ export const reviewApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: { rating?: number; title?: string; body?: string }): Promise<void> {
+  async update(
+    id: string,
+    updates: { rating?: number; title?: string; body?: string },
+  ): Promise<void> {
     const { error } = await supabase
       .from("product_reviews")
-      .update({ rating: updates.rating, title: updates.title, body: updates.body, comment: updates.body })
+      .update({
+        rating: updates.rating,
+        title: updates.title,
+        body: updates.body,
+        comment: updates.body,
+      })
       .eq("id", id);
     if (error) throw error;
   },
   async delete(id: string): Promise<void> {
-    const { error } = await supabase.from("product_reviews").delete().eq("id", id);
+    const { error } = await supabase
+      .from("product_reviews")
+      .delete()
+      .eq("id", id);
     if (error) throw error;
   },
   async toggleHelpful(reviewId: string, customerId: string): Promise<void> {
@@ -1815,9 +1853,15 @@ export const reviewApi = {
       .eq("customer_id", customerId)
       .maybeSingle();
     if (existing) {
-      await supabase.from("review_helpful").delete().eq("review_id", reviewId).eq("customer_id", customerId);
+      await supabase
+        .from("review_helpful")
+        .delete()
+        .eq("review_id", reviewId)
+        .eq("customer_id", customerId);
     } else {
-      await supabase.from("review_helpful").insert({ review_id: reviewId, customer_id: customerId });
+      await supabase
+        .from("review_helpful")
+        .insert({ review_id: reviewId, customer_id: customerId });
     }
   },
 };
@@ -2343,7 +2387,9 @@ export interface MerchConfig {
 async function edgeInvoke(path: string, body: unknown): Promise<any> {
   // Appels admin : JWT de session joint automatiquement par supabase-js,
   // l'edge vérifie le rôle admin (même pattern que send-email).
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   const res = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${path}`,
     {
@@ -2382,7 +2428,13 @@ export const merchApi = {
   /** Upsert admin d'une section (RLS : is_admin uniquement). */
   async updateConfig(
     section: string,
-    patch: Partial<{ enabled: boolean; pins: string[]; excludes: string[]; settings: Record<string, unknown>; weights: Record<string, number> }>,
+    patch: Partial<{
+      enabled: boolean;
+      pins: string[];
+      excludes: string[];
+      settings: Record<string, unknown>;
+      weights: Record<string, number>;
+    }>,
   ): Promise<void> {
     const { error } = await supabase.from("merch_config").upsert(
       {
@@ -2414,7 +2466,11 @@ export const merchApi = {
     return edgeInvoke("merch-scorer", {});
   },
   /** Relance paniers (dry_run recommandé d'abord). */
-  async runCartRecovery(opts?: { dry_run?: boolean; hours?: number; limit?: number }): Promise<any> {
+  async runCartRecovery(opts?: {
+    dry_run?: boolean;
+    hours?: number;
+    limit?: number;
+  }): Promise<any> {
     return edgeInvoke("cart-recovery", {
       dry_run: opts?.dry_run ?? true,
       hours: opts?.hours ?? 48,
@@ -2422,7 +2478,9 @@ export const merchApi = {
     });
   },
   /** Calendrier des événements (lecture publique, écriture admin). */
-  async getEventDates(): Promise<{ event_type: string; event_date: string | null; label: string | null }[]> {
+  async getEventDates(): Promise<
+    { event_type: string; event_date: string | null; label: string | null }[]
+  > {
     const { data, error } = await supabase
       .from("event_dates")
       .select("*")
@@ -2430,11 +2488,17 @@ export const merchApi = {
     if (error) throw error;
     return data ?? [];
   },
-  async setEventDate(eventType: string, date: string | null, label?: string | null): Promise<void> {
-    const { error } = await supabase.from("event_dates").upsert(
-      { event_type: eventType, event_date: date, label: label ?? null },
-      { onConflict: "event_type" },
-    );
+  async setEventDate(
+    eventType: string,
+    date: string | null,
+    label?: string | null,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("event_dates")
+      .upsert(
+        { event_type: eventType, event_date: date, label: label ?? null },
+        { onConflict: "event_type" },
+      );
     if (error) throw error;
   },
   /** Ids co-achetés avec productId (vrais order_items, over-fetch ×3 pour filtrer côté front). */
@@ -2460,13 +2524,15 @@ export const merchApi = {
       .eq("section", section);
     if (error) throw error;
     if (!data || data.length === 0) return null;
-    const ages = data.map((r: any) =>
-      Date.now() - new Date(r.computed_at).getTime(),
+    const ages = data.map(
+      (r: any) => Date.now() - new Date(r.computed_at).getTime(),
     );
     const fresh = Math.max(...ages) < maxAgeH * 3600000;
     if (!fresh) return null;
     return {
-      scores: new Map(data.map((r: any) => [r.product_id, Number(r.score) || 0])),
+      scores: new Map(
+        data.map((r: any) => [r.product_id, Number(r.score) || 0]),
+      ),
       fresh: true,
     };
   },

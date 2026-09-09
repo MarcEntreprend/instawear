@@ -1,7 +1,7 @@
 //src/components/OrderTrackingModal.tsx
 
 import React, { useEffect, useState } from "react";
-import { X, Search, Truck, RefreshCw } from "lucide-react";
+import { X, Search, Truck, RefreshCw, Clock } from "lucide-react";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import CopyID from "./CopyID";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -18,6 +18,8 @@ interface TrackedOrder {
   status: string;
   totalAmount: number;
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
   address: string | null;
   message: string | null;
   // Un élément par colis (voir TrackingInfo dans adminTypes.ts). orderApi.get()
@@ -86,6 +88,8 @@ export default function OrderTrackingModal({
           status: found.status,
           totalAmount: found.totalAmount,
           shippingCost: found.shippingCost,
+          shippingMethodName: found.shippingMethodName,
+          shippingDeliveryEstimate: found.shippingDeliveryEstimate,
           address: found.shippingAddress?.address
             ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
             : null,
@@ -276,6 +280,31 @@ export default function OrderTrackingModal({
             <div style={{ marginBottom: 14 }}>
               <OrderStatusStepper status={order.status} />
             </div>
+
+            {order.status === "on_hold" && (
+              <div
+                style={{
+                  background: "#fef3c7",
+                  border: "1px solid #fde68a",
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                }}
+              >
+                <Clock size={18} color="#92400e" style={{ marginTop: 1, flexShrink: 0 }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#92400e" }}>
+                    Votre commande est en revue
+                  </p>
+                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
+                    Nous vérifions que votre design soit parfait sur le produit. La production reprendra sous 24-48h. Aucune action n'est requise de votre part.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {order.status === "shipped" && order.shipments.length > 0 && (
               <div

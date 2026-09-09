@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { useShippingSettings } from "../hooks/useShippingSettings";
+import { useShippingSettings, extractShippingItems } from "../hooks/useShippingSettings";
 import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
@@ -355,6 +355,9 @@ function OrderSummaryPanel({
   cart,
   cartTotal,
   shippingCost,
+  shippingMethodName,
+  shippingDeliveryEstimate,
+  shippingLoading,
   total,
   currencySymbol,
   reception,
@@ -363,6 +366,9 @@ function OrderSummaryPanel({
   cart: CartItem[];
   cartTotal: number;
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
+  shippingLoading?: boolean;
   total: number;
   currencySymbol: string;
   reception: "retrait" | "livraison";
@@ -450,7 +456,7 @@ function OrderSummaryPanel({
                 </span>
               </div>
               <div
-                className="flex justify-between"
+                className="flex justify-between text-sm text-(--color-ink3)"
                 style={{
                   color:
                     shippingCost === 0
@@ -460,13 +466,27 @@ function OrderSummaryPanel({
               >
                 <span>
                   Shipping{reception === "retrait" ? " (pickup)" : ""}
+                  {shippingMethodName && shippingMethodName !== "Free Shipping"
+                    ? ` — ${shippingMethodName}`
+                    : ""}
                 </span>
                 <span>
-                  {shippingCost === 0
-                    ? "Free"
-                    : `${shippingCost.toFixed(2)} ${currencySymbol}`}
+                  {shippingLoading && reception === "livraison" ? (
+                    <span className="animate-pulse text-(--color-ink4)">
+                      Calculating…
+                    </span>
+                  ) : shippingCost === 0 ? (
+                    "Free"
+                  ) : (
+                    `${shippingCost.toFixed(2)} ${currencySymbol}`
+                  )}
                 </span>
               </div>
+              {shippingDeliveryEstimate && (
+                <p className="text-[10px] text-(--color-ink4) mt-0.5">
+                  Est. delivery: {shippingDeliveryEstimate}
+                </p>
+              )}
               {shippingCost > 0 && reception === "livraison" && (
                 <p className="text-[10px] text-(--color-accent) mt-0.5">
                   {(threshold - cartTotal).toFixed(2)} {currencySymbol} away
@@ -482,6 +502,13 @@ function OrderSummaryPanel({
                   {total.toFixed(2)} {currencySymbol}
                 </span>
               </div>
+              <p
+                className="flex items-center gap-1.5 mt-2 text-[11px] font-semibold"
+                style={{ color: "var(--color-success)" }}
+              >
+                <CheckCircle2 size={13} strokeWidth={2.5} />
+                No extra taxes at checkout
+              </p>
             </div>
           </div>
         </div>
@@ -1154,6 +1181,8 @@ interface PaymentStepProps {
   message: string;
   cart: CartItem[];
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
   currencyCode: string;
   onStripeCardSuccess: (orderId: string) => void;
   onStripeCardError: (msg: string) => void;
@@ -1181,6 +1210,8 @@ function StripeCardForm({
   message,
   cart,
   shippingCost,
+  shippingMethodName,
+  shippingDeliveryEstimate,
 }: {
   total: number;
   currencySymbol: string;
@@ -1202,6 +1233,8 @@ function StripeCardForm({
   message: string;
   cart: CartItem[];
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -1354,6 +1387,8 @@ function StripeCardForm({
           status: "pending",
           totalAmount: total,
           shippingCost,
+          shippingMethodName,
+          shippingDeliveryEstimate,
           shippingAddress: {
             fullName: contactName,
             address: reception === "livraison" ? address : "Pickup",
@@ -1647,6 +1682,8 @@ function PaymentStep({
   message,
   cart,
   shippingCost,
+  shippingMethodName,
+  shippingDeliveryEstimate,
   currencyCode,
   onStripeCardSuccess,
   onStripeCardError,
@@ -1850,6 +1887,8 @@ function PaymentStep({
         message={message}
         cart={cart}
         shippingCost={shippingCost}
+        shippingMethodName={shippingMethodName}
+        shippingDeliveryEstimate={shippingDeliveryEstimate}
         onBack={() => setShowCardForm(false)}
         onSuccess={(orderId) => onStripeCardSuccess(orderId)}
         onError={(msg) => onStripeCardError(msg)}
@@ -2176,13 +2215,42 @@ export default function CheckoutFlow({
     [fulfillableCart],
   );
 
-  // Use country-specific shipping rates based on user location
-  const { cost: countryShippingCost, threshold: countryThreshold } =
-    useShippingSettings(country);
+  // Real-time Printful shipping rates (backend-validated)
+  const shippingItems = useMemo(
+    () => extractShippingItems(fulfillableCart),
+    [fulfillableCart],
+  );
+  const shippingAddress = useMemo(
+    () => ({
+      stateCode: stateCode || undefined,
+      city: city || undefined,
+      zip: zip || undefined,
+      address: address || undefined,
+    }),
+    [stateCode, city, zip, address],
+  );
+  const {
+    cost: printfulShippingCost,
+    fallbackCost: fallbackShippingCost,
+    threshold: countryThreshold,
+    selectedRate,
+    deliveryEstimate,
+    loading: shippingLoading,
+  } = useShippingSettings(country, shippingItems, shippingAddress);
   const shippingCost =
     reception === "retrait" || cartTotal >= countryThreshold
       ? 0
-      : countryShippingCost;
+      : printfulShippingCost || fallbackShippingCost;
+  const shippingMethodName =
+    reception === "retrait"
+      ? "Pickup"
+      : cartTotal >= countryThreshold
+        ? "Free Shipping"
+        : selectedRate?.name || null;
+  const shippingDeliveryEstimate =
+    reception === "retrait" || cartTotal >= countryThreshold
+      ? null
+      : deliveryEstimate;
   const total = cartTotal + shippingCost;
 
   const validateContact = (): boolean => {
@@ -2297,6 +2365,8 @@ export default function CheckoutFlow({
         status: "pending",
         totalAmount: total,
         shippingCost,
+        shippingMethodName,
+        shippingDeliveryEstimate,
         shippingAddress: {
           fullName: name,
           address: reception === "livraison" ? address : "Pickup",
@@ -2443,6 +2513,8 @@ export default function CheckoutFlow({
           status: "pending",
           totalAmount: total,
           shippingCost,
+          shippingMethodName,
+          shippingDeliveryEstimate,
           shippingAddress: {
             fullName: name,
             address: reception === "livraison" ? address : "Pickup",
@@ -2731,6 +2803,8 @@ export default function CheckoutFlow({
                   message={message}
                   cart={cart}
                   shippingCost={shippingCost}
+                  shippingMethodName={shippingMethodName}
+                  shippingDeliveryEstimate={shippingDeliveryEstimate}
                   currencyCode={currencyCode}
                   onStripeCardSuccess={(newOrderId: string) => {
                     setOrderId(newOrderId);
@@ -2748,6 +2822,9 @@ export default function CheckoutFlow({
               cart={cart}
               cartTotal={cartTotal}
               shippingCost={shippingCost}
+              shippingMethodName={shippingMethodName}
+              shippingDeliveryEstimate={shippingDeliveryEstimate}
+              shippingLoading={shippingLoading}
               total={total}
               currencySymbol={currencySymbol}
               reception={reception}

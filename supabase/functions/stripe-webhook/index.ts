@@ -106,6 +106,8 @@ function sendEmailServer(
   total: number,
   currency: string,
   shippingCost: number,
+  shippingMethodName?: string | null,
+  shippingDeliveryEstimate?: string | null,
 ) {
   const itemsHtml = items
     .map(
@@ -153,9 +155,14 @@ function sendEmailServer(
   </tr>
   <tr>
     <td colspan="2" style="text-align:right;font-size:13px;color:#888;">
-      Shipping: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currency}`}
+      Shipping${shippingMethodName ? ` (${shippingMethodName})` : ""}: ${shippingCost === 0 ? "Free" : `${shippingCost.toFixed(2)} ${currency}`}
     </td>
   </tr>
+  ${shippingDeliveryEstimate ? `<tr>
+    <td colspan="2" style="text-align:right;font-size:11px;color:#aaa;">
+      Est. delivery: ${shippingDeliveryEstimate}
+    </td>
+  </tr>` : ""}
   <tr>
     <td colspan="2" style="padding-top:8px;text-align:right;font-size:16px;font-weight:700;color:#1a1a1a;">
       Order total: ${total.toFixed(2)} ${currency}
@@ -262,7 +269,7 @@ export default {
         // ── Idempotence : ne pas retraiter une commande déjà payée ──
         const { data: existing, error: existingError } = await supabaseAdmin
           .from("orders")
-          .select("status, external_order_id, total_amount, shipping_cost")
+          .select("status, external_order_id, total_amount, shipping_cost, shipping_method_name, shipping_delivery_estimate")
           .eq("id", orderId)
           .single();
         if (existingError || !existing) {
@@ -363,6 +370,8 @@ export default {
             order.total_amount,
             currencySymbol,
             order.shipping_cost || 0,
+            order.shipping_method_name,
+            order.shipping_delivery_estimate,
           );
 
           // 3. Printful

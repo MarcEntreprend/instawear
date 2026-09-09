@@ -13,6 +13,7 @@ import {
   ArrowDownRight,
   Clock,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import AdminSidebar, { AdminSection } from "./AdminSidebar";
 import EmailMarketingPage from "./EmailMarketingPage";
@@ -759,6 +760,14 @@ function DashboardHome({
           value={stats.podConnected ? "Connecté" : "Déconnecté"}
           sub={stats.podConnected ? "Printful actif" : "Configurer l'API"}
         />
+        {stats.pendingApprovals > 0 && (
+          <StatCard
+            icon={<AlertTriangle size={20} strokeWidth={2} />}
+            label="Approbations en attente"
+            value={stats.pendingApprovals}
+            sub="designs à valider"
+          />
+        )}
       </div>
 
       {/* Graphique commandes 30 jours */}

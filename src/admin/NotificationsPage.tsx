@@ -62,7 +62,8 @@ export type NotificationCategory =
   | "bonus"
   | "api"
   | "security"
-  | "finance";
+  | "finance"
+  | "approval";
 
 export interface AdminNotification {
   id: string;
@@ -127,6 +128,7 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   api: "API & Technique",
   security: "Sécurité",
   finance: "Finances",
+  approval: "Approbations",
 };
 
 const CATEGORY_COLORS: Record<
@@ -159,6 +161,10 @@ const CATEGORY_COLORS: Record<
     border: "var(--notif-cat-finance)",
     bg: "var(--notif-cat-finance-bg)",
   },
+  approval: {
+    border: "#f59e0b",
+    bg: "#fef3c7",
+  },
 };
 
 const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
@@ -170,6 +176,7 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
   api: <Settings size={13} strokeWidth={1.75} />,
   security: <Shield size={13} strokeWidth={1.75} />,
   finance: <CreditCard size={13} strokeWidth={1.75} />,
+  approval: <AlertTriangle size={13} strokeWidth={1.75} />,
 };
 
 function isNegativeNotification(notification: AdminNotification): boolean {
@@ -222,6 +229,7 @@ function getNotificationIcon(
     api: <Settings size={17} strokeWidth={1.75} />,
     security: <Shield size={17} strokeWidth={1.75} />,
     finance: <CreditCard size={17} strokeWidth={1.75} />,
+    approval: <AlertTriangle size={17} strokeWidth={1.75} />,
   };
   return icons[category];
 }
