@@ -1582,40 +1582,78 @@ export default function SettingsPage() {
               >
                 Événements à activer
               </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                {[
-                  { key: "package_shipped", label: "Commande expédiée" },
-                  { key: "order_canceled", label: "Commande annulée" },
-                  { key: "order_failed", label: "Commande échouée" },
-                  { key: "order_updated", label: "Mise à jour commande" },
-                ].map((event) => (
-                  <label
-                    key={event.key}
+              {[
+                {
+                  group: "Commandes",
+                  events: [
+                    { key: "package_shipped", label: "Commande expédiée" },
+                    { key: "order_created", label: "Commande créée (confirmation Printful)" },
+                    { key: "order_updated", label: "Mise à jour commande" },
+                    { key: "order_failed", label: "Commande échouée" },
+                    { key: "order_canceled", label: "Commande annulée" },
+                    { key: "order_put_hold", label: "Commande en pause" },
+                    {
+                      key: "order_put_hold_approval",
+                      label: "Approbation design requise",
+                    },
+                    { key: "order_remove_hold", label: "Pause levée" },
+                    { key: "order_refunded", label: "Commande remboursée" },
+                    { key: "package_returned", label: "Colis retourné" },
+                  ],
+                },
+                {
+                  group: "Catalogue & stock",
+                  events: [
+                    { key: "stock_updated", label: "Stock mis à jour" },
+                    { key: "product_synced", label: "Produit synchronisé" },
+                    { key: "product_updated", label: "Produit modifié" },
+                    { key: "product_deleted", label: "Produit supprimé" },
+                  ],
+                },
+              ].map((g) => (
+                <div key={g.group} style={{ marginBottom: 10 }}>
+                  <p
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 13,
-                      color: "var(--color-ink2)",
-                      cursor: "pointer",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "var(--color-ink3)",
+                      textTransform: "uppercase",
+                      marginBottom: 6,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={webhookTypes.includes(event.key)}
-                      onChange={() => {
-                        setWebhookTypes((prev) =>
-                          prev.includes(event.key)
-                            ? prev.filter((t) => t !== event.key)
-                            : [...prev, event.key],
-                        );
-                      }}
-                      style={{ accentColor: "var(--color-accent)" }}
-                    />
-                    {event.label}
-                  </label>
-                ))}
-              </div>
+                    {g.group}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    {g.events.map((event) => (
+                      <label
+                        key={event.key}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 13,
+                          color: "var(--color-ink2)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={webhookTypes.includes(event.key)}
+                          onChange={() => {
+                            setWebhookTypes((prev) =>
+                              prev.includes(event.key)
+                                ? prev.filter((t) => t !== event.key)
+                                : [...prev, event.key],
+                            );
+                          }}
+                          style={{ accentColor: "var(--color-accent)" }}
+                        />
+                        {event.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div

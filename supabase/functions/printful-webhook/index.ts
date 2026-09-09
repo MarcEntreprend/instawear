@@ -35,9 +35,13 @@ function getCorsHeaders(req: Request) {
   return {};
 }
 
-// Événements que nous traitons activement. P6 POD: stock_updated géré pour MAJ variantes.
+// Événements que nous traitons activement. Couverture complète :
+// commandes (created/updated/failed/canceled/hold/refunded/shipped/returned),
+// approbation design, stock et catalogue produit (synced/updated/deleted).
 const SUPPORTED_TYPES = new Set([
   "package_shipped",
+  "order_created",
+  "order_updated",
   "order_failed",
   "order_canceled",
   "order_put_hold",
@@ -46,9 +50,13 @@ const SUPPORTED_TYPES = new Set([
   "order_refunded",
   "package_returned",
   "stock_updated",
+  "product_synced",
+  "product_updated",
+  "product_deleted",
 ]);
 
-// P-B State Machine pour webhooks (même table que create-printful-order)
+// P-B State Machine pour webhooks (même table que create-printful-order).
+// 'partial' exige la migration 20261015_webhook_coverage.sql (CHECK étendu).
 const ALLOWED_WEBHOOK_TRANSITIONS = new Set([
   "pending->paid", "pending->cancelled",
   "paid->in_production", "paid->partial", "paid->on_hold", "paid->cancelled",
@@ -60,6 +68,22 @@ const ALLOWED_WEBHOOK_TRANSITIONS = new Set([
 ]);
 function isWebhookTransitionAllowed(from: string, to: string): boolean {
   return from === to || ALLOWED_WEBHOOK_TRANSITIONS.has(`${from}->${to}`);
+}
+
+// Mappe un statut Printful (Orders API : draft/pending/failed/canceled/
+// inprocess/onhold/partial/fulfilled/archived) vers notre statut interne.
+// Retourne null quand AUCUNE action locale n'est due :
+// - draft : commande à l'état brouillon côté Printful, on garde paid.
+// - failed/canceled/onhold : possédés par order_failed/order_canceled/
+//   order_put_hold (évite les doubles traitements via order_updated).
+// - fulfilled/archived : possédés par package_shipped (tracking requis).
+// Seuls pending/inprocess (-> in_production) et partial (-> partial,
+// migration 20261015 requise) sont réconciliés ici.
+function mapPrintfulStatusToLocal(pfStatus: unknown): string | null {
+  const s = String(pfStatus || "").toLowerCase();
+  if (s === "pending" || s === "inprocess") return "in_production";
+  if (s === "partial") return "partial";
+  return null;
 }
 
 // Couleurs et libellés pour la barre de progression dans l'email d'expédition.
@@ -525,6 +549,99 @@ export default {
         });
       }
 
+      // ── 4b. Événements catalogue produit (aucune commande liée) ──────
+      // product_synced / product_updated : un produit ou une variante a été
+      // créé/modifié côté Printful. product_deleted : produit ou variante
+      // supprimé côté Printful. Payload: data.sync_product (+ sync_variant
+      // éventuel). Réponse rapide (2xx) : on trace + notifie, le resync
+      // complet reste manuel via l'admin (trop lourd pour un webhook).
+      if (type === "product_synced" || type === "product_updated" || type === "product_deleted") {
+        const sp = (data as any).sync_product || {};
+        const pfProductId = sp.id ?? (data as any).product_id ?? null;
+        const pfVariant = (data as any).sync_variant || null;
+        const pfName = sp.name || (pfVariant ? `variante ${pfVariant.id ?? ""}`.trim() : null);
+
+        // Retrouver le produit local via external_product_id (= sync product id)
+        let localProduct: any = null;
+        if (pfProductId != null) {
+          try {
+            const { data: found } = await supabaseAdmin
+              .from("products")
+              .select("id, title, is_active, in_stock")
+              .eq("external_product_id", String(pfProductId))
+              .maybeSingle();
+            if (found) localProduct = found;
+          } catch {}
+        }
+
+        const isDelete = type === "product_deleted";
+        const scopeLabel = pfVariant
+          ? `variante ${pfVariant.id ?? "?"} du produit`
+          : "produit";
+        const displayName = pfName || (localProduct?.title as string) || `sync product ${pfProductId ?? "?"}`;
+
+        // Suppression produit entier côté Printful → masquer de la vente
+        // (in_stock=false, réversible ; le resync restaure si retour).
+        // Suppression de variante seule → audit pour le prochain sync.
+        let deactivated = false;
+        if (isDelete && localProduct && !pfVariant) {
+          try {
+            await supabaseAdmin.from("products").update({ in_stock: false }).eq("id", localProduct.id);
+            deactivated = true;
+          } catch (e) { console.warn("product_deleted deactivate failed", e); }
+        } else if (isDelete && localProduct && pfVariant?.id != null) {
+          try {
+            const { data: prod } = await supabaseAdmin.from("products").select("variant_availability").eq("id", localProduct.id).maybeSingle();
+            const audit = { ...((prod as any)?.variant_availability || {}), _deleted_at: new Date().toISOString(), _deleted_variant: String(pfVariant.id) };
+            await supabaseAdmin.from("products").update({ variant_availability: audit }).eq("id", localProduct.id);
+          } catch (e) { console.warn("product_deleted audit failed", e); }
+        }
+
+        // Trace d'audit (statuts lus par l'admin : success/partial/error)
+        try {
+          await supabaseAdmin.from("sync_logs").insert({
+            id: `log-${Date.now()}`,
+            sync_date: new Date().toISOString(),
+            status: isDelete ? "error" : "success",
+            message: `Printful ${type} : ${scopeLabel} « ${displayName} »${localProduct ? "" : " (produit local introuvable)"}${deactivated ? " — masqué de la vente (in_stock=false)" : ""}`,
+            product_id: localProduct?.id || null,
+          });
+        } catch (e) { console.warn("product event sync_logs failed", e); }
+
+        // Notification admin (catégorie products, déjà affichée)
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: isDelete
+              ? `Produit supprimé côté Printful — ${displayName}`
+              : `Produit ${type === "product_synced" ? "synchronisé" : "modifié"} côté Printful — ${displayName}`,
+            description: [
+              localProduct ? `Produit local : ${localProduct.title}.` : `Aucun produit local lié (sync product ${pfProductId ?? "?"}).`,
+              isDelete
+                ? deactivated
+                  ? "Masqué de la vente (in_stock=false). Vérifiez puis resynchronisez."
+                  : "Vérifiez le catalogue puis resynchronisez si besoin."
+                : "Lancez une resynchronisation pour répercuter le changement.",
+            ].join(" "),
+            category: "products",
+            priority: isDelete ? "high" : "medium",
+            status: "unread",
+            metadata: {
+              syncProductId: pfProductId != null ? String(pfProductId) : null,
+              syncVariantId: pfVariant?.id != null ? String(pfVariant.id) : null,
+              productId: localProduct?.id || null,
+              deactivated,
+              linkTo: "/admin/products",
+              source: "Printful",
+            },
+            action_label: "Voir les produits",
+          });
+        } catch (err) { console.warn("Échec notification admin (produit):", err); }
+
+        return new Response(JSON.stringify({ received: true, handled: true, type }), {
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        });
+      }
+
       // ── 4. Retrouver la commande locale ───────────────────────────
       const orderData = data.order;
       const pfOrderId = orderData?.id;
@@ -747,6 +864,30 @@ export default {
           newStatus = "returned";
         }
         notes.push(`Colis renvoyé au vendeur${reason ? ` : ${reason}` : ""}`);
+      } else if (type === "order_created") {
+        // Confirmation de création côté Printful (notre id via external_id).
+        // Action unique : lier l'ID Printful si absent. Pas de changement de
+        // statut (la commande reste paid/in_production), pas d'email client
+        // (la confirmation d'achat est déjà partie au checkout).
+        if (pfOrderId != null && !order.external_order_id) {
+          updatePayload.external_order_id = String(pfOrderId);
+          notes.push(`Commande confirmée côté Printful (ID ${pfOrderId})`);
+          (updatePayload as any)._firstLink = true;
+        }
+      } else if (type === "order_updated") {
+        // Réconciliateur : Printful notifie TOUTE mise à jour (y compris
+        // celles déjà couvertes par d'autres webhooks). On n'agit que sur
+        // un vrai changement de statut mappé + autorisé — sinon acquitter
+        // silencieusement (anti-spam notifications/emails).
+        if (pfOrderId != null && !order.external_order_id) {
+          updatePayload.external_order_id = String(pfOrderId);
+        }
+        const pfStatus = (orderData as any)?.status;
+        const mapped = mapPrintfulStatusToLocal(pfStatus);
+        if (mapped && mapped !== order.status) {
+          newStatus = mapped;
+          notes.push(`Statut Printful synchronisé : ${pfStatus} → ${mapped}`);
+        }
       }
 
       if (newStatus) updatePayload.status = newStatus;
@@ -756,6 +897,9 @@ export default {
         delete updatePayload.status;
         newStatus = null;
       }
+      // Marqueur interne (non-colonne) : première liaison order_created.
+      const firstLink = (updatePayload as any)._firstLink === true;
+      delete (updatePayload as any)._firstLink;
       if (notes.length > 0)
         updatePayload.notes = notes.filter(Boolean).join("\n");
 
@@ -878,6 +1022,69 @@ export default {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         await sendApprovalEmail(supabaseUrl, serviceRoleKey, order, reason);
+      }
+
+      // ── 6c. order_created : notif admin uniquement à la 1re liaison ──
+      // (les retries Printful ne renotifient pas). Pas de notif client ni
+      // d'email : la confirmation d'achat est déjà partie au checkout.
+      if (type === "order_created" && firstLink) {
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Commande ${orderId} confirmée côté Printful`,
+            description: `${order.client_name || "Client"} — ID Printful ${pfOrderId}. La production va démarrer.`,
+            category: "orders",
+            priority: "low",
+            status: "unread",
+            metadata: {
+              orderId,
+              printfulOrderId: pfOrderId != null ? String(pfOrderId) : null,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch (err) {
+          console.warn("Échec notification admin (created):", err);
+        }
+      }
+
+      // ── 6d. order_updated : notifs uniquement sur vrai changement ──
+      // (les updates sans changement de statut sont acquittés en silence).
+      // Pas d'email : les événements dédiés (shipped/failed/...) ont le leur.
+      if (type === "order_updated" && newStatus) {
+        try {
+          await supabaseAdmin.from("notifications").insert({
+            title: `Commande ${orderId} → ${newStatus === "in_production" ? "en production" : "partielle"}`,
+            description: `${order.client_name || "Client"} — statut Printful synchronisé (${(orderData as any)?.status || "?"}).`,
+            category: "orders",
+            priority: "low",
+            status: "unread",
+            metadata: {
+              orderId,
+              newStatus,
+              linkTo: "/admin/orders",
+              source: "Printful",
+            },
+            action_label: "Voir la commande",
+          });
+        } catch (err) {
+          console.warn("Échec notification admin (updated):", err);
+        }
+
+        if (order.client_id) {
+          try {
+            await supabaseAdmin.from("customer_notifications").insert({
+              customer_id: order.client_id,
+              title: `Votre commande ${orderId} est en production`,
+              message: `Bonne nouvelle : votre commande ${orderId} est en cours de production. Vous serez notifié à l'expédition.`,
+              type: "order_status",
+              is_read: false,
+              metadata: { orderId, status: newStatus },
+            });
+          } catch (err) {
+            console.warn("Échec notification client (updated):", err);
+          }
+        }
       }
 
       // ── 7. Notifications admin pour les événements non-expédition ──

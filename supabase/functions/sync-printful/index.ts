@@ -645,6 +645,42 @@ export default {
           );
         }
 
+        // Allowlist : seuls les types Printful connus sont transmis
+        // (Printful rejetterait le reste en 400 ; on échoue proprement ici).
+        const PRINTFUL_WEBHOOK_TYPES = new Set([
+          "package_shipped",
+          "package_returned",
+          "order_created",
+          "order_updated",
+          "order_failed",
+          "order_canceled",
+          "order_put_hold",
+          "order_put_hold_approval",
+          "order_remove_hold",
+          "order_refunded",
+          "stock_updated",
+          "product_synced",
+          "product_updated",
+          "product_deleted",
+        ]);
+        const cleanTypes = [
+          ...new Set(
+            (Array.isArray(types) ? types : []).filter(
+              (t: unknown) =>
+                typeof t === "string" && PRINTFUL_WEBHOOK_TYPES.has(t),
+            ),
+          ),
+        ];
+        if (cleanTypes.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "Aucun type d'événement valide" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
         const headers: Record<string, string> = {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
@@ -654,7 +690,7 @@ export default {
         const res = await fetch("https://api.printful.com/webhooks", {
           method: "POST",
           headers,
-          body: JSON.stringify({ url: webhookUrl, types }),
+          body: JSON.stringify({ url: webhookUrl, types: cleanTypes }),
         });
 
         if (!res.ok) {
