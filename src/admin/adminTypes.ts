@@ -147,6 +147,19 @@ export interface Order {
   // commandes antérieures qui stockaient un objet unique en base.
   trackingInfo: TrackingInfo[];
   items: OrderItem[];
+  // Printful approval sheet data when order is on hold requiring design
+  // approval. null = no pending approval. Set by printful-webhook on
+  // order_put_hold_approval event, cleared on approve/submit_changes.
+  approvalData?: {
+    reason: string;
+    approval_files: {
+      confirm_hash: string;
+      submitted_design: string;
+      recommended_design: string;
+      approval_sheet: string;
+    }[];
+    received_at: string;
+  } | null;
 }
 
 // ─── Tracking d'expédition (Printful) — un colis individuel ─────────────
@@ -281,6 +294,7 @@ export interface DashboardStats {
   podConnected: boolean;
   recentOrders: Order[];
   recentProducts: AdminProduct[];
+  pendingApprovals: number;
 }
 
 // ─── Hero Promotion (links a product to a hero carousel slot) ────────────

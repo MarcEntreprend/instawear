@@ -13,11 +13,14 @@ import {
   Calendar,
   ArrowUpDown,
   RefreshCw,
+  AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
 import { useHighlightListener } from "./useAdminHighlight";
 import CopyID from "../components/CopyID";
 import { productApi } from "../api/supabaseApi";
+import { supabase } from "../lib/supabaseClient";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
 import ProductQuickViewModal from "./ProductQuickViewModal";
@@ -1079,6 +1082,188 @@ export default function OrdersPage() {
                 )}
               </div>
             </div>
+
+            {/* Approval sheet section — visible when order is on_hold with approval_data */}
+            {selectedOrder.status === "on_hold" &&
+              selectedOrder.approvalData && (
+                <div
+                  style={{
+                    marginBottom: 24,
+                    padding: 16,
+                    borderRadius: 12,
+                    background: "#fef3c7",
+                    border: "1px solid #fcd34d",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <AlertTriangle size={16} color="#92400e" />
+                    <h4 style={{ margin: 0, fontSize: 14, color: "#92400e" }}>
+                      Approbation requise
+                    </h4>
+                  </div>
+                  {selectedOrder.approvalData.reason && (
+                    <p
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: 13,
+                        color: "#78350f",
+                      }}
+                    >
+                      <strong>Raison :</strong>{" "}
+                      {selectedOrder.approvalData.reason}
+                    </p>
+                  )}
+                  {selectedOrder.approvalData.approval_files?.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <p
+                        style={{
+                          margin: "0 0 8px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#92400e",
+                        }}
+                      >
+                        Fichiers d'approbation :
+                      </p>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fill, minmax(200px, 1fr))",
+                          gap: 8,
+                        }}
+                      >
+                        {selectedOrder.approvalData.approval_files.map(
+                          (file: any, idx: number) => (
+                            <div
+                              key={idx}
+                              style={{
+                                background: "white",
+                                borderRadius: 8,
+                                padding: 10,
+                                border: "1px solid #e5e7eb",
+                              }}
+                            >
+                              {file.submitted_design && (
+                                <a
+                                  href={file.submitted_design}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: "block",
+                                    marginBottom: 6,
+                                    fontSize: 12,
+                                    color: "#2563eb",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  Design soumis
+                                </a>
+                              )}
+                              {file.recommended_design && (
+                                <a
+                                  href={file.recommended_design}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: "block",
+                                    marginBottom: 6,
+                                    fontSize: 12,
+                                    color: "#059669",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  Design recommandé
+                                </a>
+                              )}
+                              {file.approval_sheet && (
+                                <a
+                                  href={file.approval_sheet}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: "block",
+                                    fontSize: 12,
+                                    color: "#6b7280",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  Fiche d'approbation
+                                </a>
+                              )}
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      onClick={async () => {
+                        const hash =
+                          selectedOrder.approvalData?.approval_files?.[0]
+                            ?.confirm_hash;
+                        if (!hash) return;
+                        try {
+                          const {
+                            data: { session },
+                          } = await supabase.auth.getSession();
+                          const res = await fetch(
+                            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approve-printful-design`,
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${session?.access_token}`,
+                                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                              },
+                              body: JSON.stringify({
+                                action: "approve",
+                                confirm_hash: hash,
+                                order_id: selectedOrder.id,
+                              }),
+                            },
+                          );
+                          if (res.ok) {
+                            window.location.reload();
+                          }
+                        } catch (e) {
+                          console.error("Approve error:", e);
+                        }
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        background: "#059669",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <CheckCircle
+                        size={14}
+                        style={{ marginRight: 4, verticalAlign: -2 }}
+                      />
+                      Approuver le design
+                    </button>
+                  </div>
+                </div>
+              )}
 
             {/* Suivi des colis — visible pour les commandes expédiées/livrées
                 ayant au moins un colis enregistré par le webhook Printful. */}

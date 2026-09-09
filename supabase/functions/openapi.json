@@ -41,6 +41,9 @@
     },
     "/cart-recovery": {
       "post": { "summary": "Abandoned cart reminders via Resend (opt-out respected, dry-run supported, rate-limited 3/min)", "x-roles": ["service_role"], "x-edges": ["cart-recovery"] }
+    },
+    "/approve-printful-design": {
+      "post": { "summary": "Admin: approve, submit changes, or list Printful approval sheets for on-hold orders", "x-roles": ["admin"], "x-edges": ["approve-printful-design"] }
     }
   }
 }

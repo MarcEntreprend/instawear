@@ -160,6 +160,7 @@ export const mapOrder = (row: any): Order => ({
     estimatedMaxDate: shipment.estimated_max_date ?? null,
   })),
   items: [], // à remplir séparément
+  approvalData: row.approval_data ?? null,
 });
 
 //  fonction helper
@@ -1604,6 +1605,9 @@ export const dashboardApi = {
       podConnected: pod.isConnected,
       recentOrders: orders.slice(0, 5),
       recentProducts: products.slice(0, 4),
+      pendingApprovals: orders.filter(
+        (o) => o.status === "on_hold" && o.approvalData,
+      ).length,
     };
   },
 

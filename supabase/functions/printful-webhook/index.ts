@@ -41,6 +41,7 @@ const SUPPORTED_TYPES = new Set([
   "order_failed",
   "order_canceled",
   "order_put_hold",
+  "order_put_hold_approval",
   "order_remove_hold",
   "order_refunded",
   "package_returned",
@@ -330,6 +331,53 @@ async function sendCancelledEmail(
     });
   } catch (err) {
     console.error("Cancelled email error:", err);
+  }
+}
+
+// ── Email d'attente pour approbation design (via send-email) ──────────
+async function sendApprovalEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  reason?: string,
+) {
+  if (!order.client_email) return;
+
+  const currentStep = EMAIL_STEP_INDEX[order.status] ?? 2;
+  const stepperHtml = buildStatusStepperHtml(currentStep);
+
+  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
+<div style="background:#fef3c7;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+<h1 style="color:#92400e;margin:0;font-size:22px;">InstaWear</h1>
+<p style="color:#92400e;margin:4px 0 0;font-size:14px;">Your order is being reviewed</p>
+</div>
+<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+<h2 style="margin:0 0 16px;font-size:18px;">Design review in progress ✨</h2>
+${stepperHtml}
+<p style="margin:16px 0;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,</p>
+<p style="margin:0 0 12px;color:#555;font-size:14px;">Your order <strong>${order.id}</strong> is being carefully reviewed by our production team to ensure your design looks perfect on the product.</p>
+${reason ? `<p style="margin:0 0 12px;color:#555;font-size:14px;"><strong>What's happening:</strong> ${reason}</p>` : ""}
+<p style="margin:0 0 12px;color:#555;font-size:14px;">This typically takes <strong>24-48 hours</strong>. You'll receive an email once production resumes.</p>
+<p style="margin:0 0 20px;color:#555;font-size:14px;">No action is needed from you.</p>
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
+<p style="margin:0;">This email was sent to <strong>${order.client_email}</strong> for your recent purchase at instawear.vercel.app</p>
+</div></div></body></html>`;
+
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify({
+        to: order.client_email,
+        subject: `Your order ${order.id} is being reviewed`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Approval email error:", err);
   }
 }
 
@@ -660,6 +708,26 @@ export default {
         notes.push(
           `Commande mise en pause par Printful${reason ? ` : ${reason}` : ""}`,
         );
+      } else if (type === "order_put_hold_approval") {
+        if (order.status !== "on_hold") {
+          newStatus = "on_hold";
+        }
+        // Stocker les données d'approbation sur la commande pour que
+        // l'admin puisse voir les fichiers et approuver/rejeter.
+        const approvalFiles = data.approval_files || [];
+        updatePayload.approval_data = {
+          reason: reason || "Design adjustment needed",
+          approval_files: approvalFiles.map((f: any) => ({
+            confirm_hash: f.confirm_hash || "",
+            submitted_design: f.submitted_design || "",
+            recommended_design: f.recommended_design || "",
+            approval_sheet: f.approval_sheet || "",
+          })),
+          received_at: new Date().toISOString(),
+        };
+        notes.push(
+          `Approbation requise${reason ? ` : ${reason}` : ""}`,
+        );
       } else if (type === "order_remove_hold") {
         if (order.status === "on_hold") {
           newStatus = "in_production";
@@ -791,6 +859,27 @@ export default {
         }
       }
 
+      // ── 6b. Notification client pour approbation design ──────────
+      if (type === "order_put_hold_approval" && order.client_id) {
+        try {
+          await supabaseAdmin.from("customer_notifications").insert({
+            customer_id: order.client_id,
+            title: `Votre commande ${orderId} est en revue`,
+            message: `Nous vérifions que votre design soit parfait sur le produit. Mise à jour sous 24-48h.`,
+            type: "order_status",
+            is_read: false,
+            metadata: { orderId },
+          });
+        } catch (err) {
+          console.warn("Échec notification client (approval):", err);
+        }
+
+        // Email d'attente rassurant
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        await sendApprovalEmail(supabaseUrl, serviceRoleKey, order, reason);
+      }
+
       // ── 7. Notifications admin pour les événements non-expédition ──
       const ADMIN_EVENT_META: Record<
         string,
@@ -799,6 +888,10 @@ export default {
         order_put_hold: {
           title: `Commande ${orderId} mise en pause`,
           priority: "medium",
+        },
+        order_put_hold_approval: {
+          title: `Approbation requise — commande ${orderId}`,
+          priority: "high",
         },
         order_remove_hold: {
           title: `Pause levée — commande ${orderId}`,
@@ -827,7 +920,7 @@ export default {
             description: notes.length
               ? `${order.client_name || "Client"} — ${notes.join(" ")}`
               : order.client_name || "Client",
-            category: "orders",
+            category: type === "order_put_hold_approval" ? "approval" : "orders",
             priority: adminMeta.priority,
             status: "unread",
             metadata: {
