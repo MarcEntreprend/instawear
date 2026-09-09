@@ -15,16 +15,16 @@ export default function RelatedProductCard({
   onQuickAdd: (p: Product) => void;
 }) {
   return (
-    <div className="w-36 sm:w-40 shrink-0 snap-start">
+    <div className="w-36 sm:w-40 shrink-0 snap-start group">
       <div
         onClick={() => onSelect(product)}
-        className="block w-full text-left card-premium overflow-hidden"
+        className="block w-full text-left card-premium overflow-hidden cursor-pointer"
       >
-        <div className="relative aspect-square">
+        <div className="relative aspect-square overflow-hidden">
           <img
             src={product.image}
             alt={product.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             loading="lazy"
           />
           <button
@@ -34,7 +34,7 @@ export default function RelatedProductCard({
               onQuickAdd(product);
             }}
             aria-label="Quick add"
-            className="absolute bottom-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
+            className="absolute bottom-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-90"
             style={{ background: "var(--color-accent)", color: "#fff" }}
           >
             <Plus size={13} />
