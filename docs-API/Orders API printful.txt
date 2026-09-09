@@ -1,0 +1,2503 @@
+Orders API
+
+==========
+
+The Orders API is the most important part of the Printful API - it allows you to create new orders and confirm them for fulfillment.
+
+**Important**: Jewelry products are not supported via API.
+
+### Order life cycle and statuses
+
+Each order will go through different states while being processed. The following order status types indicate those states:
+
+| **draft** | The order is created but is not yet submitted for fulfillment. You still can edit it and confirm later. |
+
+| **inreview** | The order is being reviewed. It's not possible to cancel the order at this point. It will be possible to cancel the order when the review process is finished. |
+
+| **pending** | The order has been submitted for fulfillment, but is not yet accepted for fulfillment. You can still cancel the order if you need. |
+
+| **failed** | Order was submitted for fulfillment but was returned for review because of an error (problem with address, missing printfiles, charging has failed, etc.). |
+
+| **canceled** | The order has been canceled and can no longer be processed. If the order was charged then the amount has been returned to your credit card. |
+
+| **inprocess** | The order is being fulfilled and can no longer be cancelled or modified. Contact customer support if there are any issues with the order at this point. |
+
+| **onhold** | The order has encountered a problem during the fulfillment that needs to be resolved together with Printful customer service before fulfillment can continue. |
+
+| **partial** | The order is partially fulfilled (some items are shipped already, the rest will follow) |
+
+| **fulfilled** | All items have been shipped successfully |
+
+| **archived** | The order has been archived and hidden from the UI |
+
+To sum up, the API allows you to create orders with status `draft` and then move them to state `pending` (both steps can be done with a single action). You are only charged for orders that have been confirmed. If the order encounters a problem after it has been submitted, then it is moved to the failed state so that the problem can be fixed and the order can be resubmitted.
+
+### Asynchronous order cost calculation
+
+Most of the times, when you submit an order, we'll perform the cost calculation and return it in the response.
+
+However, we might not be able to calculate all the costs immediately, for example if the order contains a new advanced embroidery design. If that's the case, we'll automatically put your order on hold, calculate the order costs once it's possible, and then remove the order from hold.
+
+Such an order will return to a draft status (even if it was created with the auto-confirm option) and will need to be confirmed.
+
+You can subscribe to the `order_remove_hold` event (see [Webhook API](https://developers.printful.com/docs/#tag/Webhook-API)) to be notified when the order is removed from hold.
+
+### External ID
+
+External ID is an optional feature that allows you to link your Printful order with the Order ID from your system without the need to store additional data on your side. External ID can be up to 32 characters long and contain digits, Latin alphabet letters, dashes and underscores, however it is recommended to use integer numbers. Each order's External ID must be unique within the store.
+
+To use the External ID feature, you just add the `external_id` attribute when creating the order. Later, when you need to access the order through the API, you can reference it by both the Order ID and by External ID (if you prefix it with the `@` symbol).
+
+```
+
+GET /orders/11001  - reference by Printful Order ID
+
+GET /orders/@988123  - reference by External ID
+
+GET /orders/@AA123123  - reference by External ID
+
+```
+
+You can assign the `external_id` attribute to line items as well. In this case they have to be unique per order.
+
+### Specifying products
+
+There are three general ways to specify a product's variant when creating, updating or estimating an order:
+
+(A) **Using an existing product variant (sync variant) in your Printful store or warehouse.** To specify the existing product please use its `sync_variant_id` or `external_variant_id`, or `warehouse_product_variant_id`.
+
+[Example using Sync Variant ID](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-a-sync-variant) [Example using External Variant ID](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-sync-variant-with-external-ID)
+
+(B) **Using a Catalog API variant without adding a product to the store.** This method can be used when a Printful store has no products in it. To construct a variant on-the-fly retrieve a specific `variant_id` from the [Catalog API](https://developers.printful.com/docs/#tag/Catalog-API) together with print files and an additional options.
+
+[Example](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-a-catalog-variant)
+
+(C) **Using an existing template ID.** This method can be used when a Printful store has assigned templates without the need to create products. To create an order please use the `product_template_id` and `variant_id` that will be added to the order.
+
+[Example](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-a-product-template)
+
+### Adding print files
+
+There are two ways to assign a print file to the item. One is to specify the File ID if the file already exists in the file library of the authorized store:
+
+```
+
+...
+
+"files": [
+
+    {
+
+        "id": 12345
+
+    },
+
+],
+
+...
+
+```
+
+The second and the most convenient method is to specify the file URL. If a file with the same URL already exists, it will be reused.
+
+```
+
+...
+
+"files": [
+
+    {
+
+        "url": "http://example.com/t-shirts/123/front.pdf"
+
+    },
+
+],
+
+...
+
+```
+
+### Specifying file position
+
+You can specify the image position inside the print area by providing a position object.
+
+**Important**
+
+-   Each print area has specific dimensions, by default Orders API will assume that your file has to stick to those limitations and not exceed them. In some cases you would want to position your file outside the print area - to be able to do so use the `limit_to_print_area` and set it to: `false`.
+
+-   `limit_to_print_area` determines if the image can cross the print area border. If `limit_to_print_area` is set to `true` then the request will result in `400 Bad Request` with "Invalid position" in `error.message` once the image crosses the print area borders. If `limit_to_print_area` is set to `false` then it will be possible to place image partially or fully outside the print area.
+
+-   The (0,0) point is always located in top left corner of the print area.
+
+**Steps**
+
+1.Retrieve printfile dimensions [Printfiles](https://developers.printful.com/docs/#operation/getPrintfiles)
+
+```
+
+...
+
+"printfiles":
+
+    [
+
+        {
+
+            "printfile_id": 1,
+
+            "width": 1800,
+
+            "height": 2400,
+
+            "dpi": 150,
+
+            "fill_mode": "fit",
+
+            "can_rotate": false
+
+        }
+
+    ],
+
+...
+
+```
+
+2.Specify file position for specific print placement while creating an order. Use `items` -> `files` -> `position` object as in the example:
+
+```
+
+...
+
+"items": [
+
+    {
+
+        "variant_id":4011,
+
+        "quantity":"1",
+
+        "files": [
+
+            {
+
+                "type": "front",
+
+                "url": "http://example.com/t-shirts/123/front.pdf",
+
+                "position": {
+
+                    "area_width": 1800,
+
+                    "area_height": 2400,
+
+                    "width": 1800,
+
+                    "height": 1800,
+
+                    "top": 300,
+
+                    "left": 0,
+
+                    "limit_to_print_area": true
+
+                }
+
+            }
+
+        ]
+
+    }
+
+]
+
+...
+
+```
+
+#### Example of positioning the 450x450 image on the front placement
+
+| Position | Mockup | Payload |
+
+| Top left | ![Top left mockup](https://developers.printful.com/docs/images/position/top_left.png) |
+
+```
+
+  "position": {
+
+  "area_width": 1800,
+
+  "area_height": 2400,
+
+  "width": 450,
+
+  "height": 450,
+
+  "top": 0,
+
+  "left": 0,
+
+  "limit_to_print_area": true
+
+  }
+
+```
+
+ |
+
+| Top middle | ![Top left mockup](https://developers.printful.com/docs/images/position/top_middle.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 0,
+
+"left": 675,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+| Top right | ![Top left mockup](https://developers.printful.com/docs/images/position/top_right.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 0,
+
+"left": 1350,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+| Middle | ![Top left mockup](https://developers.printful.com/docs/images/position/middle.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 975,
+
+"left": 675,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+| Bottom left | ![Top left mockup](https://developers.printful.com/docs/images/position/bottom_left.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 1950,
+
+"left": 0,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+| Bottom middle | ![Top left mockup](https://developers.printful.com/docs/images/position/bottom_middle.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 1950,
+
+"left": 675,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+| Bottom right | ![Top left mockup](https://developers.printful.com/docs/images/position/bottom_right.png) |
+
+```
+
+"position": {
+
+"area_width": 1800,
+
+"area_height": 2400,
+
+"width": 450,
+
+"height": 450,
+
+"top": 1950,
+
+"left": 1350,
+
+"limit_to_print_area": true
+
+}
+
+```
+
+ |
+
+### Specifying multiple files per item
+
+Each item in the order has to be linked with one or multiple files. The available file types for each product are available from the [Catalog API](https://developers.printful.com/docs/#tag/Catalog-API).
+
+You can add one file for each type by specifying the `type` attribute. For the `default` type, this attribute can be skipped.
+
+```
+
+...
+
+"files":[
+
+    {
+
+        "type": "default",
+
+        "url": "http://example.com/t-shirts/123/front.pdf"
+
+    },
+
+    {
+
+        "type": "back"
+
+        "url": "http://example.com/t-shirts/123/back.pdf"
+
+    },
+
+    {
+
+        "type": "preview"
+
+        "url": "http://example.com/t-shirts/123/preview.png"
+
+    }
+
+],
+
+...
+
+```
+
+Remember that using additional files can increase the price of the item.
+
+### Creating orders from a template
+
+Orders API allows also creating orders based on the product template created in the Printful account without the need to add the product to the Printful store.
+
+To retrieve available templates for your account please use the [Products Templates API](https://developers.printful.com/docs/#tag/Product-Templates-API).
+
+To create an order from a template you need to specify a variant or variants that will be added to the order. It is possible to use multiple templates with different variants in one request. To achieve that please use the `items` object below:
+
+```
+
+    ...
+
+    "items": [
+
+        {
+
+            "variant_id": 4012,
+
+            "quantity": 1,
+
+            "product_template_id": 123456789
+
+        },
+
+        {
+
+            "variant_id": 1,
+
+            "quantity": 2,
+
+            "product_template_id": 11235813
+
+        },
+
+    ]
+
+    ...
+
+```
+
+**Important note**: you can only create orders from templates for variant IDs from the Catalog API.
+
+More examples are available [here](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-a-product-template).
+
+### Retail costs
+
+Printful allows you to specify your retail costs for the order so that the packing slip for international orders can contain your correct retail prices. To enable retail costs, each item in the order has to contain the `retail_price` attribute. You can also specify a custom discount sum, shipping costs and taxes in the `retail_costs` object when creating the order. If the retail costs are missing, the packing slip will contain the Printful prices instead.
+
+### Native inside label
+
+Printful previously allowed customers to upload a fully customized inside label. Since these labels had to contain specific information about fabric composition, manufacturing, etc. to meet the legal requirements, users usually encountered issues to get their labels printed.
+
+Inside labels are printed on the inside of the garment and require the removal of the original manufacturer's tag. They're only available for apparel with tear-away labels. An inside label must include the country of manufacturing origin, original garment size, and material information. To use our native label template you only need to upload a graphic (such as your brand's logo). The mandatory content will be generated and placed automatically.
+
+```
+
+...
+
+"files":[
+
+        {
+
+            "type": "label_inside",
+
+            "url": "http://example.com/logo/123/image.jpg",
+
+            "options": [{
+
+                "id": "template_type",
+
+                "value": "native"
+
+            }]
+
+        },
+
+],
+
+...
+
+```
+
+Printful previously supported fully customized inside labels. These have now been deprecated. The ability to create orders with fully customized inside labels has been limited to only users who were actively using them in their stores before April 2020. This feature is no longer accessible to new users.
+
+### Ordering embroidery products
+
+Embroidery is a technique which uses colored threads, sewn into a product, to recreate provided design. In order to use embroidery technique you first need to check if selected product support embroidery technique.
+
+In order to do that you need to use [Catalog API](https://developers.printful.com/docs/#tag/Catalog-API) to determine if the selected product or variant contains `EMBROIDERY` technique.
+
+```
+
+"techniques": [
+
+                {
+
+                    "key": "EMBROIDERY",
+
+                    "display_name": "Embroidery",
+
+                    "is_default": true
+
+                }
+
+            ]
+
+```
+
+After that you need to also get list of available embroidery placements. Those are listed under `file` property with `embroidery_` prefix. You can get list of all available placements in [Placements](https://developers.printful.com/docs/#tag/Common/Placements).
+
+Example of file property
+
+```
+
+"files": [
+
+                {
+
+                    "id": "default",
+
+                    "type": "embroidery_front",
+
+                    "title": "Front",
+
+                    "additional_price": null
+
+                },
+
+                {
+
+                    "id": "back",
+
+                    "type": "embroidery_back",
+
+                    "title": "Back",
+
+                    "additional_price": "3.75"
+
+                },
+
+                {
+
+                    "id": "left",
+
+                    "type": "embroidery_left",
+
+                    "title": "Left side",
+
+                    "additional_price": "3.75"
+
+                },
+
+                {
+
+                    "id": "right",
+
+                    "type": "embroidery_right",
+
+                    "title": "Right side",
+
+                    "additional_price": "3.75"
+
+                },
+
+                {
+
+                    "id": "preview",
+
+                    "type": "mockup",
+
+                    "title": "Mockup",
+
+                    "additional_price": null
+
+                }
+
+            ]
+
+```
+
+To create an order using embroidery technique you can:
+
+-   Provide thread colors manually [See example](https://developers.printful.com/docs/#tag/Common/Embroidery/Manually-defining-thread-colors)
+
+-   Use automatic thread color detection [See example](https://developers.printful.com/docs/#tag/Common/Embroidery/Automatic-thread-color)
+
+Finally, you can make an order using embroidery technique [See example](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples/Using-embroidery-products). Depending on the placement that you've used you need to specify the correct [thread color option](https://developers.printful.com/docs/#tag/Common/Options).
+
+### Packing slip
+
+The packing slip fields can be configured at the store level and overridden for a specific order.
+
+The packing slip settings can be found in Dashboard at **Settings > Stores > Branding > Packing slip section**.
+
+To override the packing slip settings for the order, you can use `packing_slip` or `gift` fields.
+
+Below you can find an example or a packing slip for a shipment with explained fields.
+
+![packing slip](https://developers.printful.com/docs/images/sample_packing_slip.png)
+
+Field annotations:
+
+-   **(1)** Barcode unique for the shipment.
+
+-   **(2)** Store logo defined in the store settings or overridden using `packing_slip.logo_url` field. The provided image is converted to a grayscale/1-bit monochrome image.
+
+-   **(3)** The date of the shipment.
+
+-   **(4)** Packing slip number consisting of order and shipment IDs in Printful database, divided with a hyphen.
+
+-   **(5)** The country from which the shipment is made. If the recipient is in the United States, this field will be absent.
+
+-   **(6)** Recipient address with phone, without email address.
+
+-   **(7)** Store name. This can be overridden using `packing_slip.store_name`.
+
+-   **(8)** The address to which the shipment should be returned. By default it will be a Printful's return address, but you can set your own address in the store settings (**Settings > Stores > Returns > Return address section**).
+
+-   **(9)** The customer service phone number defined in the store settings or overridden using `packing_slip.phone` field.
+
+-   **(10)** The customer service email address defined in the store settings or overridden using `packing_slip.email` field.
+
+-   **(11)** Gift message. This is only present if the `gift` field was provided in the order request.
+
+-   **(12)** The order creation date.
+
+-   **(13)** Printful Order ID which can be overridden using `packing_slip.custom_order_id` field.
+
+-   **(14)** The list of order items with quantities. The items' display names are localized, using the recipient's country and include variant information such as color and size e.g. „Unisex Staple T-Shirt | Bella + Canvas 3001 ( Lilac / M)".
+
+-   **(15)** The packing slip message defined in the store settings or overridden using `packing_slip.message` field.
+
+### More Orders API examples
+
+See the [examples section](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples) for more sample requests on how Orders API can be used in different scenarios.
+
+### Custom border color option
+
+Stickers can have a different border color which can be set by using the `thread_colors_outline` option. This option is available in `options` for stickers. To showcase the usage we will use the order flow which will create order with a sticker that will have a red border color:
+
+Endpoint `POST https://api.printful.com/orders`
+
+Request body
+
+```
+
+{
+
+    "shipping": "STANDARD",
+
+    "recipient": {
+
+        "name": "John Smith",
+
+        "address1": "19749 Dearborn St",
+
+        "city": "Chatsworth",
+
+        "country_code": "US",
+
+        "state_code": "CA",
+
+        "zip": "91311"
+
+    },
+
+    "items": [
+
+        {
+
+            "variant_id": 10163,
+
+            "files": [
+
+                {
+
+                    "type": "default",
+
+                    "url": "https://www.printful.com/static/images/layout/printful-logo.png"
+
+                }
+
+            ],
+
+            "options": [
+
+                {
+
+                    "id": "custom_border_color",
+
+                    "value": "#FF0000"
+
+                }
+
+            ]
+
+        }
+
+    ]
+
+}
+
+```
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/getOrders)Get list of orders
+
+----------------------------------------------------------------------------------------------
+
+Returns list of order objects from your store
+
+##### Authorizations:
+
+*OAuth*
+
+##### query Parameters
+
+| status |
+
+string
+
+Filter by order status
+
+ |
+
+| offset |
+
+integer
+
+Result set offset
+
+ |
+
+| limit |
+
+integer
+
+Number of items per page (max 100)
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| paging |
+
+object (Paging)
+
+Paging information
+
+ |
+
+| result |
+
+Array of objects (Order)
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+get/orders
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request GET 'https://api.printful.com/orders'
+
+--header 'Authorization: Bearer {oauth_token}'
+
+### Response samples
+
+-   200
+
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "paging": {
+
+    -   "total": 100,
+
+    -   "offset": 10,
+
+    -   "limit": 100
+
+    },
+
+-   "result": [
+
+    -   {}
+
+    ]
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/createOrder)Create a new order
+
+------------------------------------------------------------------------------------------------
+
+Creates a new order and optionally submits it for fulfillment ([See examples](https://developers.printful.com/docs/#tag/Examples/Orders-API-examples))
+
+##### Authorizations:
+
+*OAuth*
+
+##### query Parameters
+
+| confirm |
+
+boolean
+
+Automatically submit the newly created order for fulfillment (skip the Draft phase)
+
+ |
+
+| update_existing |
+
+boolean
+
+Try to update existing order if an order with the specified external_id already exists
+
+ |
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+##### Request Body schema: application/json
+
+required
+
+POST request body
+
+| external_id |
+
+string or null
+
+Order ID from the external system
+
+ |
+
+| shipping |
+
+string
+
+Shipping method. Defaults to 'STANDARD'
+
+ |
+
+| recipient
+
+required
+
+ |
+
+object (Address)
+
+Information about the address
+
+ |
+
+| items
+
+required
+
+ |
+
+Array of Item (object) or Item (object) or Item (object) or Item (object) or Item (object) or Item (object) (Item)
+
+Array of items in the order
+
+ |
+
+| retail_costs |
+
+object (OrderRetailCosts)
+
+Retail costs that are to be displayed on the packing slip for international shipments. Retail costs are used only if every item in order contains the `retail_price` attribute.
+
+ |
+
+| gift |
+
+object (OrderGift)
+
+Optional gift message for the packing slip
+
+ |
+
+| packing_slip |
+
+OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) (OrderPackingSlip)
+
+Custom packing slip for this order. Example of a packing slip with explained fields can be found [here](https://developers.printful.com/docs/#packing-slip).
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object (Order)
+
+Information about the Order
+
+ |
+
+**400**
+
+Bad Request
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `400`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+post/orders
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "external_id": "4235234213",
+
+-   "shipping": "STANDARD",
+
+-   "recipient": {
+
+    -   "name": "John Smith",
+
+    -   "company": "John Smith Inc",
+
+    -   "address1": "19749 Dearborn St",
+
+    -   "address2": "string",
+
+    -   "city": "Chatsworth",
+
+    -   "state_code": "CA",
+
+    -   "state_name": "California",
+
+    -   "country_code": "US",
+
+    -   "country_name": "United States",
+
+    -   "zip": "91311",
+
+    -   "phone": "2312322334",
+
+    -   "email": "firstname.secondname@domain.com",
+
+    -   "tax_number": "123.456.789-10"
+
+    },
+
+-   "items": [
+
+    -   {}
+
+    ],
+
+-   "retail_costs": {
+
+    -   "currency": "USD",
+
+    -   "subtotal": "10.00",
+
+    -   "discount": "0.00",
+
+    -   "shipping": "5.00",
+
+    -   "tax": "0.00"
+
+    },
+
+-   "gift": {
+
+    -   "subject": "To John",
+
+    -   "message": "Have a nice day"
+
+    },
+
+-   "packing_slip": {
+
+    -   "email": "your-name@your-domain.com",
+
+    -   "phone": "+371 28888888",
+
+    -   "message": "Message on packing slip",
+
+    -   "logo_url": "​http://www.your-domain.com/packing-logo.png",
+
+    -   "store_name": "Your store name",
+
+    -   "custom_order_id": "kkk2344lm"
+
+    }
+
+}`
+
+### Response samples
+
+-   200
+
+-   400
+
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "id": 13,
+
+    -   "external_id": "4235234213",
+
+    -   "store": 10,
+
+    -   "status": "draft",
+
+    -   "shipping": "STANDARD",
+
+    -   "shipping_service_name": "Flat Rate (3-4 business days after fulfillment)",
+
+    -   "created": 1602607640,
+
+    -   "updated": 1602607640,
+
+    -   "recipient": {},
+
+    -   "items": [],
+
+    -   "branding_items": [],
+
+    -   "incomplete_items": [],
+
+    -   "costs": {},
+
+    -   "retail_costs": {},
+
+    -   "pricing_breakdown": [],
+
+    -   "shipments": [],
+
+    -   "gift": {},
+
+    -   "packing_slip": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/getOrderById)Get order data
+
+---------------------------------------------------------------------------------------------
+
+Returns order data by ID or External ID.
+
+##### Authorizations:
+
+*OAuth*
+
+##### path Parameters
+
+| id
+
+required
+
+ |
+
+string or integer
+
+Order ID (integer) or External ID (if prefixed with @)
+
+ |
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object (Order)
+
+Information about the Order
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**404**
+
+Not found
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `404`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+get/orders/{id}
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request GET 'https://api.printful.com/orders/{order_id}'
+
+--header 'Authorization: Bearer {oauth_token}'
+
+### Response samples
+
+-   200
+
+-   401
+
+-   404
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "id": 13,
+
+    -   "external_id": "4235234213",
+
+    -   "store": 10,
+
+    -   "status": "draft",
+
+    -   "shipping": "STANDARD",
+
+    -   "shipping_service_name": "Flat Rate (3-4 business days after fulfillment)",
+
+    -   "created": 1602607640,
+
+    -   "updated": 1602607640,
+
+    -   "recipient": {},
+
+    -   "items": [],
+
+    -   "branding_items": [],
+
+    -   "incomplete_items": [],
+
+    -   "costs": {},
+
+    -   "retail_costs": {},
+
+    -   "pricing_breakdown": [],
+
+    -   "shipments": [],
+
+    -   "gift": {},
+
+    -   "packing_slip": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/cancelOrderById)Cancel an order
+
+-------------------------------------------------------------------------------------------------
+
+Cancels pending order or draft. Charged amount is returned to the store owner's credit card.
+
+##### Authorizations:
+
+*OAuth*
+
+##### path Parameters
+
+| id
+
+required
+
+ |
+
+string or integer
+
+Order ID (integer) or External ID (if prefixed with @)
+
+ |
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object (Order)
+
+Information about the Order
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**404**
+
+Not found
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `404`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+delete/orders/{id}
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request DELETE 'https://api.printful.com/orders/{order_id}'
+
+--header 'Authorization: Bearer {oauth_token}'
+
+### Response samples
+
+-   200
+
+-   401
+
+-   404
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "id": 13,
+
+    -   "external_id": "4235234213",
+
+    -   "store": 10,
+
+    -   "status": "draft",
+
+    -   "shipping": "STANDARD",
+
+    -   "shipping_service_name": "Flat Rate (3-4 business days after fulfillment)",
+
+    -   "created": 1602607640,
+
+    -   "updated": 1602607640,
+
+    -   "recipient": {},
+
+    -   "items": [],
+
+    -   "branding_items": [],
+
+    -   "incomplete_items": [],
+
+    -   "costs": {},
+
+    -   "retail_costs": {},
+
+    -   "pricing_breakdown": [],
+
+    -   "shipments": [],
+
+    -   "gift": {},
+
+    -   "packing_slip": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/updateOrderById)Update order data
+
+---------------------------------------------------------------------------------------------------
+
+Updates unsubmitted order and optionally submits it for the fulfillment.
+
+Note that you need to post only the fields that need to be changed, not all required fields.
+
+If items array is given in the update data, the items will be:
+
+a) updated, if the update data contains the item id or external_id parameter that alreay exists
+
+b) deleted, if the request doesn't contain the item with previously existing id
+
+c) created as new if the id is not given or does not already exist
+
+##### Authorizations:
+
+*OAuth*
+
+##### path Parameters
+
+| id
+
+required
+
+ |
+
+string or integer
+
+Order ID (integer) or External ID (if prefixed with @)
+
+ |
+
+##### query Parameters
+
+| confirm |
+
+boolean
+
+Automatically submit the newly created order for fulfillment (skip the Draft phase)
+
+ |
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+##### Request Body schema: application/json
+
+required
+
+POST request body
+
+| external_id |
+
+string or null
+
+Order ID from the external system
+
+ |
+
+| shipping |
+
+string
+
+Shipping method. Defaults to 'STANDARD'
+
+ |
+
+| recipient
+
+required
+
+ |
+
+object (Address)
+
+Information about the address
+
+ |
+
+| items
+
+required
+
+ |
+
+Array of Item (object) or Item (object) or Item (object) or Item (object) or Item (object) or Item (object) (Item)
+
+Array of items in the order
+
+ |
+
+| retail_costs |
+
+object (OrderRetailCosts)
+
+Retail costs that are to be displayed on the packing slip for international shipments. Retail costs are used only if every item in order contains the `retail_price` attribute.
+
+ |
+
+| gift |
+
+object (OrderGift)
+
+Optional gift message for the packing slip
+
+ |
+
+| packing_slip |
+
+OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) (OrderPackingSlip)
+
+Custom packing slip for this order. Example of a packing slip with explained fields can be found [here](https://developers.printful.com/docs/#packing-slip).
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object (Order)
+
+Information about the Order
+
+ |
+
+**400**
+
+Bad Request
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `400`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**404**
+
+Not found
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `404`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+put/orders/{id}
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "external_id": "4235234213",
+
+-   "shipping": "STANDARD",
+
+-   "recipient": {
+
+    -   "name": "John Smith",
+
+    -   "company": "John Smith Inc",
+
+    -   "address1": "19749 Dearborn St",
+
+    -   "address2": "string",
+
+    -   "city": "Chatsworth",
+
+    -   "state_code": "CA",
+
+    -   "state_name": "California",
+
+    -   "country_code": "US",
+
+    -   "country_name": "United States",
+
+    -   "zip": "91311",
+
+    -   "phone": "2312322334",
+
+    -   "email": "firstname.secondname@domain.com",
+
+    -   "tax_number": "123.456.789-10"
+
+    },
+
+-   "items": [
+
+    -   {}
+
+    ],
+
+-   "retail_costs": {
+
+    -   "currency": "USD",
+
+    -   "subtotal": "10.00",
+
+    -   "discount": "0.00",
+
+    -   "shipping": "5.00",
+
+    -   "tax": "0.00"
+
+    },
+
+-   "gift": {
+
+    -   "subject": "To John",
+
+    -   "message": "Have a nice day"
+
+    },
+
+-   "packing_slip": {
+
+    -   "email": "your-name@your-domain.com",
+
+    -   "phone": "+371 28888888",
+
+    -   "message": "Message on packing slip",
+
+    -   "logo_url": "​http://www.your-domain.com/packing-logo.png",
+
+    -   "store_name": "Your store name",
+
+    -   "custom_order_id": "kkk2344lm"
+
+    }
+
+}`
+
+### Response samples
+
+-   200
+
+-   400
+
+-   401
+
+-   404
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "id": 13,
+
+    -   "external_id": "4235234213",
+
+    -   "store": 10,
+
+    -   "status": "draft",
+
+    -   "shipping": "STANDARD",
+
+    -   "shipping_service_name": "Flat Rate (3-4 business days after fulfillment)",
+
+    -   "created": 1602607640,
+
+    -   "updated": 1602607640,
+
+    -   "recipient": {},
+
+    -   "items": [],
+
+    -   "branding_items": [],
+
+    -   "incomplete_items": [],
+
+    -   "costs": {},
+
+    -   "retail_costs": {},
+
+    -   "pricing_breakdown": [],
+
+    -   "shipments": [],
+
+    -   "gift": {},
+
+    -   "packing_slip": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/confirmOrderById)Confirm draft for fulfillment
+
+----------------------------------------------------------------------------------------------------------------
+
+Approves for fulfillment an order that was saved as a draft. Store owner's credit card is charged when the order is submitted for fulfillment.
+
+##### Authorizations:
+
+*OAuth*
+
+##### path Parameters
+
+| id
+
+required
+
+ |
+
+string or integer
+
+Order ID (integer) or External ID (if prefixed with @)
+
+ |
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object (Order)
+
+Information about the Order
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**404**
+
+Not found
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `404`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+post/orders/{id}/confirm
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request POST 'https://api.printful.com/orders/{order_id}/confirm'
+
+--header 'Authorization: Bearer {oauth_token}'
+
+### Response samples
+
+-   200
+
+-   401
+
+-   404
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "id": 13,
+
+    -   "external_id": "4235234213",
+
+    -   "store": 10,
+
+    -   "status": "draft",
+
+    -   "shipping": "STANDARD",
+
+    -   "shipping_service_name": "Flat Rate (3-4 business days after fulfillment)",
+
+    -   "created": 1602607640,
+
+    -   "updated": 1602607640,
+
+    -   "recipient": {},
+
+    -   "items": [],
+
+    -   "branding_items": [],
+
+    -   "incomplete_items": [],
+
+    -   "costs": {},
+
+    -   "retail_costs": {},
+
+    -   "pricing_breakdown": [],
+
+    -   "shipments": [],
+
+    -   "gift": {},
+
+    -   "packing_slip": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Orders-API/operation/estimateOrderCosts)Estimate order costs
+
+---------------------------------------------------------------------------------------------------------
+
+Calculates the estimated order costs including item costs, print costs (back prints, inside labels etc.), shipping and taxes
+
+##### Authorizations:
+
+*OAuth*
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+##### Request Body schema: application/json
+
+required
+
+POST request body
+
+| external_id |
+
+string or null
+
+Order ID from the external system
+
+ |
+
+| shipping |
+
+string
+
+Shipping method. Defaults to 'STANDARD'
+
+ |
+
+| recipient
+
+required
+
+ |
+
+object (Address)
+
+Information about the address
+
+ |
+
+| items
+
+required
+
+ |
+
+Array of Item (object) or Item (object) or Item (object) or Item (object) or Item (object) or Item (object) (Item)
+
+Array of items in the order
+
+ |
+
+| retail_costs |
+
+object (OrderRetailCosts)
+
+Retail costs that are to be displayed on the packing slip for international shipments. Retail costs are used only if every item in order contains the `retail_price` attribute.
+
+ |
+
+| gift |
+
+object (OrderGift)
+
+Optional gift message for the packing slip
+
+ |
+
+| packing_slip |
+
+OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) or OrderPackingSlip (object) (OrderPackingSlip)
+
+Custom packing slip for this order. Example of a packing slip with explained fields can be found [here](https://developers.printful.com/docs/#packing-slip).
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+
+| result |
+
+object
+
+ |
+
+**400**
+
+Bad Request
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `400`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+
+| result |
+
+string
+
+Actual error message
+
+ |
+
+| error |
+
+object
+
+ |
+
+post/orders/estimate-costs
+
+### Request samples
+
+-   Payload
+
+-   Curl
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "external_id": "4235234213",
+
+-   "shipping": "STANDARD",
+
+-   "recipient": {
+
+    -   "name": "John Smith",
+
+    -   "company": "John Smith Inc",
+
+    -   "address1": "19749 Dearborn St",
+
+    -   "address2": "string",
+
+    -   "city": "Chatsworth",
+
+    -   "state_code": "CA",
+
+    -   "state_name": "California",
+
+    -   "country_code": "US",
+
+    -   "country_name": "United States",
+
+    -   "zip": "91311",
+
+    -   "phone": "2312322334",
+
+    -   "email": "firstname.secondname@domain.com",
+
+    -   "tax_number": "123.456.789-10"
+
+    },
+
+-   "items": [
+
+    -   {}
+
+    ],
+
+-   "retail_costs": {
+
+    -   "currency": "USD",
+
+    -   "subtotal": "10.00",
+
+    -   "discount": "0.00",
+
+    -   "shipping": "5.00",
+
+    -   "tax": "0.00"
+
+    },
+
+-   "gift": {
+
+    -   "subject": "To John",
+
+    -   "message": "Have a nice day"
+
+    },
+
+-   "packing_slip": {
+
+    -   "email": "your-name@your-domain.com",
+
+    -   "phone": "+371 28888888",
+
+    -   "message": "Message on packing slip",
+
+    -   "logo_url": "​http://www.your-domain.com/packing-logo.png",
+
+    -   "store_name": "Your store name",
+
+    -   "custom_order_id": "kkk2344lm"
+
+    }
+
+}`
+
+### Response samples
+
+-   200
+
+-   400
+
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "costs": {},
+
+    -   "retail_costs": {}
+
+    }
+
+}`

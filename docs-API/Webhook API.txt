@@ -1,0 +1,1589 @@
+Webhook API
+===========
+
+Webhooks are an API feature that allows your system to receive notifications about certain events.
+
+When an event occurs, the Printful server ([Webhook Simulator](https://www.printful.com/api/webhook-simulator)) will make a POST request to your defined URL that will contain a JSON object in the request body. Your server has to respond with HTTP status `2xx OK`, otherwise, the request will be retried in increasing intervals (after 1, 4, 16, 64, 256 and 1024 minutes).
+
+The JSON object will always contain these attributes:
+
+| **type** | string | Event type |
+| **created** | timestamp | Event time |
+| **retries** | integer | Number of previous attempts to deliver this webhook event |
+| **store** | integer | ID of the store that the event occured to |
+| **data** | Object | Additional data, depending on the event type |
+
+Please use [Webhook Simulator](https://www.printful.com/api/webhook-simulator) to test your webhook event receiver.
+
+To set up webhooks, use API requests described below:
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/packageShipped)Package shipped Webhook
+---------------------------------------------------------------------------------------------------------
+
+Is called when a shipment with all or part of the ordered items is shipped.
+
+If the order is shipped in multiple shipments, this event will be called for every shipment sent.
+
+If some items are reshipped, a shipping notification will be sent again for the same items.
+
+##### Request Body schema: application/json
+
+Package shipped.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (ShipmentInfo)
+
+Shipment and order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "package_shipped",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "shipment": {},
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/packageReturned)Package returned Webhook
+-----------------------------------------------------------------------------------------------------------
+
+Is called when a shipment is processed as returned to the fulfillment facility. To learn more about the reasons why a shipment might be returned, take a look at [Printful's Return Policy](https://www.printful.com/policies/returns)
+
+##### Request Body schema: application/json
+
+Package returned.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (ReturnInfo)
+
+Shipment and order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "package_returned",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "shipment": {},
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderCreated)Order created Webhook
+-----------------------------------------------------------------------------------------------------
+
+Is called when the order is first created.
+
+##### Request Body schema: application/json
+
+Order created.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (CreateInfo)
+
+Created order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_created",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderUpdated)Order updated Webhook
+-----------------------------------------------------------------------------------------------------
+
+Is called when an existing order gets updated for any reason - including things that are covered with other webhooks like `order_canceled`.
+
+##### Request Body schema: application/json
+
+Order updated.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (UpdateInfo)
+
+Updated order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_updated",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderFailed)Order failed Webhook
+---------------------------------------------------------------------------------------------------
+
+Is called when a confirmed order changes its status to `failed`.
+
+It can happen, for example, if printfiles can not be downloaded, are not valid image files or when there is a payment failure.
+
+##### Request Body schema: application/json
+
+Order failed.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (FailureInfo)
+
+Failure reason and order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_failed",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderCanceled)Order canceled Webhook
+-------------------------------------------------------------------------------------------------------
+
+Is called when a confirmed order changes its status to `canceled`.
+
+It can happen when a submitted order is canceled from the dashboard or through the API or when the order is canceled by the Printful staff.
+
+##### Request Body schema: application/json
+
+Order canceled.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (CancelInfo)
+
+Cancel reason and order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_canceled",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/productSynced)Product synced Webhook
+-------------------------------------------------------------------------------------------------------
+
+Is called when a new product or variant is imported from the store's ecommerce integration.
+
+See [Ecommerce Platform Sync API](https://developers.printful.com/docs/#tag/Ecommerce-Platform-Sync-API)
+
+##### Request Body schema: application/json
+
+Product synced.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (SyncInfo)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "product_synced",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "sync_product": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/productUpdated)Product updated Webhook
+---------------------------------------------------------------------------------------------------------
+
+Is called when a new product or variant is created or updated in any way.
+
+See [Ecommerce Platform Sync API](https://developers.printful.com/docs/#tag/Ecommerce-Platform-Sync-API)
+
+##### Request Body schema: application/json
+
+Product updated.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (SyncInfo)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "product_updated",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "sync_product": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/productDeleted)Product deleted Webhook
+---------------------------------------------------------------------------------------------------------
+
+Is called when a new product or variant is deleted.
+
+See [Ecommerce Platform Sync API](https://developers.printful.com/docs/#tag/Ecommerce-Platform-Sync-API)
+
+##### Request Body schema: application/json
+
+Product deleted.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (SyncInfo)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "product_deleted",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "sync_product": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/stockUpdated)Stock updated Webhook
+-----------------------------------------------------------------------------------------------------
+
+Is called when stock is updated for some of a product's variants.
+
+Contains product id and ids of it's discontinued variants and variants that are out of stock. Variant ids that are not present should be considered as active and in stock.
+
+##### Request Body schema: application/json
+
+Stock updated.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (ProductStock)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "stock_updated",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "product_id": 9001,
+
+    -   "variant_stock": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderPutHold)Order put hold Webhook
+------------------------------------------------------------------------------------------------------
+
+Is called when order is put on hold.
+
+##### Request Body schema: application/json
+
+Order put on hold.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (OrderStatusChange)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_put_hold",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderPutHoldApproval)Order put hold approval Webhook
+-----------------------------------------------------------------------------------------------------------------------
+
+Is called when order is put on hold and there are changes that must be approved by the customer before fulfillment. Will contain a confirm hash that can be used to approve changes with the Approval Sheets Api.
+
+##### Request Body schema: application/json
+
+Order put on hold because it needs customer approval. You will receive an approval sheet with suggested changes and a confirmation hash so you can approve the changes if you agree with them.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (OrderRequiresApproval)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_put_hold_approval",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "approval_files": [],
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderRemoveHold)Order remove hold Webhook
+------------------------------------------------------------------------------------------------------------
+
+Is called when order is removed from hold.
+
+##### Request Body schema: application/json
+
+Order removed from on hold.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (OrderStatusChange)
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_remove_hold",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "reason": "string",
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/orderRefunded)Order refunded Webhook
+-------------------------------------------------------------------------------------------------------
+
+Is called when a confirmed order has been refunded.
+
+##### Request Body schema: application/json
+
+Order refunded.
+
+| type |
+
+string
+
+Event type
+
+ |
+| created |
+
+integer
+
+Event time
+
+ |
+| retries |
+
+integer
+
+Number of previous attempts to deliver this webhook event
+
+ |
+| store |
+
+integer
+
+ID of the store that the event occured to
+
+ |
+| data |
+
+object (RefundInfo)
+
+Refunded amount and order data
+
+ |
+
+### Responses
+
+**2xx**
+
+Data received
+
+### Request samples
+
+-   Payload
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "type": "order_refunded",
+
+-   "created": 1622456737,
+
+-   "retries": 2,
+
+-   "store": 12,
+
+-   "data": {
+
+    -   "amount": "13.50",
+
+    -   "order": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/getWebhooks)Get webhook configuration
+--------------------------------------------------------------------------------------------------------
+
+Returns configured webhook URL and list of webhook event types enabled for the store
+
+##### Authorizations:
+
+*OAuth*
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+| result |
+
+object (WebhookInfo)
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+| result |
+
+string
+
+Actual error message
+
+ |
+| error |
+
+object
+
+ |
+
+get/webhooks
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request GET 'https://api.printful.com/webhooks'\
+--header 'Authorization: Bearer {oauth_token}'
+
+### Response samples
+
+-   200
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "url": "​https://www.example.com/printful/webhook",
+
+    -   "types": [],
+
+    -   "params": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/createWebhook)Set up webhook configuration
+-------------------------------------------------------------------------------------------------------------
+
+Use this endpoint to enable a webhook URL for a store and select webhook event types that will be sent to this URL.
+
+Note that only one webhook URL can be active for a store, so calling this method disables all existing webhook configuration.
+
+Setting up the [Stock updated](https://developers.printful.com/docs/#operation/stockUpdated) webhook requires passing IDs for products that need to be monitored for changes. Stock update webhook will only include information for specified products. These product IDs need to be set up using the params property.
+
+##### Authorizations:
+
+*OAuth*
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+##### Request Body schema: application/json
+
+required
+
+POST request body
+
+| url
+
+required
+
+ |
+
+string
+
+Webhook URL that will receive store's event notifications
+
+ |
+| types
+
+required
+
+ |
+
+Array of strings
+
+Array of enabled webhook event types
+
+ |
+| params |
+
+object
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+| result |
+
+object (WebhookInfo)
+
+ |
+
+**400**
+
+Bad Request
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `400`
+
+ |
+| result |
+
+string
+
+Actual error message
+
+ |
+| error |
+
+object
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+| result |
+
+string
+
+Actual error message
+
+ |
+| error |
+
+object
+
+ |
+
+post/webhooks
+
+### Request samples
+
+-   Payload
+-   Curl
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "url": "​https://www.example.com/printful/webhook",
+
+-   "types": [
+
+    -   "package_shipped",
+
+    -   "stock_updated"
+
+    ],
+
+-   "params": {
+
+    -   "stock_updated": {}
+
+    }
+
+}`
+
+### Response samples
+
+-   200
+-   400
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "url": "​https://www.example.com/printful/webhook",
+
+    -   "types": [],
+
+    -   "params": {}
+
+    }
+
+}`
+
+[](https://developers.printful.com/docs/#tag/Webhook-API/operation/disableWebhook)Disable webhook support
+---------------------------------------------------------------------------------------------------------
+
+Removes the webhook URL and all event types from the store.
+
+##### Authorizations:
+
+*OAuth*
+
+##### header Parameters
+
+| X-PF-Store-Id |
+
+string
+
+Use this to specify which store you want to use (required only for account level token).
+
+The store IDs can be retrieved with the [Get basic information about stores](https://developers.printful.com/docs/#tag/Store-Information-API/operation/getStores) endpoint.
+
+ |
+
+### Responses
+
+**200**
+
+OK
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `200`
+
+ |
+| result |
+
+object (WebhookInfo)
+
+ |
+
+**401**
+
+Unauthorized
+
+##### Response Schema: application/json
+
+| code |
+
+integer
+
+Response status code `401`
+
+ |
+| result |
+
+string
+
+Actual error message
+
+ |
+| error |
+
+object
+
+ |
+
+delete/webhooks
+
+### Request samples
+
+-   Curl
+
+Copy
+
+curl --location --request DELETE 'https://api.printful.com/webhooks'\
+--header 'Content-Type: application/json'
+
+### Response samples
+
+-   200
+-   401
+
+Content type
+
+application/json
+
+Copy
+
+Expand allCollapse all
+
+`{
+
+-   "code": 200,
+
+-   "result": {
+
+    -   "url": "​https://www.example.com/printful/webhook",
+
+    -   "types": [],
+
+    -   "params": {}
+
+    }
+
+}`
