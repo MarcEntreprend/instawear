@@ -60,8 +60,6 @@ export default function FrequentlyBoughtTogether({
   const total = mainUnitPrice + checked.reduce((s, p) => s + p.price, 0);
   const handleAdd = () => {
     if (onAddBundle) {
-      // UN SEUL appel batch (voir addManyToCart) : N appels synchrones à
-      // addToCart seraient avalés par le lock anti-race 400ms.
       const bundle: BundleItem[] = [
         ...(mainCanAdd
           ? [{ product: mainProduct, color: mainColor, size: mainSize }]
@@ -101,8 +99,9 @@ export default function FrequentlyBoughtTogether({
   return (
     <section className="mt-14">
       <p className="eyebrow mb-4">Frequently bought together</p>
-      <div className="card-premium p-5 sm:p-6">
-        <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2">
+      <div className="card-premium p-5 sm:p-6 overflow-visible">
+        {/* Ajout de overflow-y-visible pour ne pas couper les badges qui dépassent verticalement */}
+        <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto overflow-y-visible no-scrollbar pb-4 pt-3">
           <div className="flex flex-col items-center gap-2 shrink-0 group">
             <div className="bezel-outer overflow-hidden rounded-xl">
               <div className="bezel-inner w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
@@ -137,10 +136,10 @@ export default function FrequentlyBoughtTogether({
               >
                 <div className="relative">
                   <div
-                    className="bezel-outer overflow-hidden rounded-xl"
+                    className="bezel-outer rounded-xl"
                     style={{ opacity: checkedIds.has(a.id) ? 1 : 0.4 }}
                   >
-                    <div className="bezel-inner w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
+                    <div className="bezel-inner w-20 h-20 sm:w-24 sm:h-24 overflow-hidden rounded-xl">
                       <img
                         src={a.image}
                         alt={a.title}
@@ -149,7 +148,7 @@ export default function FrequentlyBoughtTogether({
                     </div>
                   </div>
                   <span
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+                    className="absolute -top-2 -right-2 z-10 w-5 h-5 rounded-full flex items-center justify-center transition-colors shadow-sm"
                     style={badgeStyle(a.id)}
                   >
                     {(checkedIds.has(a.id) ||
