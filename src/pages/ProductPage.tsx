@@ -188,8 +188,26 @@ export default function ProductPage({
   const colorIdx = pickedColor ? dispColors.indexOf(pickedColor) : 0;
   const activeVariant =
     hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
-  const allImages = [product.image, ...(product.gallery || [])].filter(
-    (u: string) => u && u.trim().length > 0 && u !== PLACEHOLDER_IMG,
+  // Colonne gauche = image principale + MOCKUPS uniquement.
+  // Les visuels avec design vivent sur les miniatures de variantes à droite.
+  // Ordre : principale, mockups des variantes (données resync), galerie
+  // (mockups depuis le resync — mixte avant resync, dédupliquée ici).
+  const variantMockups =
+    hasVariants && product.variants
+      ? product.variants
+          .map((v: any) => v.mockup_image)
+          .filter((u: string) => u && u.trim().length > 0)
+      : [];
+  const allImages = [
+    product.image,
+    ...variantMockups,
+    ...(product.gallery || []),
+  ].filter(
+    (u: string, idx: number, arr: string[]) =>
+      u &&
+      u.trim().length > 0 &&
+      u !== PLACEHOLDER_IMG &&
+      arr.indexOf(u) === idx,
   );
   // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
   // mockups. L'index galerie est réinitialisé au changement de couleur.

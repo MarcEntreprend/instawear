@@ -192,8 +192,23 @@ export default function ProductDetailModal({
   const cleanColorImages = (product.colorImages || []).filter(
     (url) => url && url.trim().length > 0,
   );
-  const allImages = [product.image, ...(product.gallery || [])].filter(
-    (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
+  // Colonne gauche = image principale + MOCKUPS uniquement (idem ProductPage).
+  const variantMockups =
+    hasVariants && product.variants
+      ? product.variants
+          .map((v) => (v as any).mockup_image)
+          .filter((u: string) => u && u.trim().length > 0)
+      : [];
+  const allImages = [
+    product.image,
+    ...variantMockups,
+    ...(product.gallery || []),
+  ].filter(
+    (url, idx, arr) =>
+      url &&
+      url.trim().length > 0 &&
+      url !== PLACEHOLDER_IMG &&
+      arr.indexOf(url) === idx,
   );
 
   const hasColorImage = activeVariant

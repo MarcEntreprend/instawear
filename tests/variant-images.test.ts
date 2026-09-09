@@ -210,3 +210,48 @@ test("l'edge déduplique en sortie de matrice", () => {
     "buildVariantMatrix doit dédupliquer les couleurs",
   );
 });
+
+// ─── Colonne gauche : principale + mockups, dédupliquée ─────────────────────
+
+function buildLeftStrip(
+  mainImage: string,
+  variantMockups: (string | undefined)[],
+  gallery: string[],
+  placeholder = "PLACEHOLDER",
+): string[] {
+  const mocks = variantMockups.filter(
+    (u): u is string => !!u && u.trim().length > 0,
+  );
+  return [mainImage, ...mocks, ...gallery].filter(
+    (u, idx, arr) =>
+      u && u.trim().length > 0 && u !== placeholder && arr.indexOf(u) === idx,
+  );
+}
+
+test("principale d'abord, puis mockups variantes, puis galerie", () => {
+  assert.deepEqual(
+    buildLeftStrip("main.jpg", ["m1.jpg", "m2.jpg"], ["g1.jpg"]),
+    ["main.jpg", "m1.jpg", "m2.jpg", "g1.jpg"],
+  );
+});
+
+test("déduplique les URLs répétées (galerie post-resync = mockups)", () => {
+  assert.deepEqual(
+    buildLeftStrip("main.jpg", ["m1.jpg"], ["m1.jpg", "g1.jpg"]),
+    ["main.jpg", "m1.jpg", "g1.jpg"],
+  );
+});
+
+test("données pré-resync (sans mockup_image) : galerie inchangée", () => {
+  assert.deepEqual(
+    buildLeftStrip("main.jpg", [undefined, undefined], ["v1.jpg"]),
+    ["main.jpg", "v1.jpg"],
+  );
+});
+
+test("filtre vide et placeholder", () => {
+  assert.deepEqual(
+    buildLeftStrip("", ["", "m1.jpg"], ["PLACEHOLDER", ""]),
+    ["m1.jpg"],
+  );
+});
