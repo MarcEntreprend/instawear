@@ -167,10 +167,14 @@ export default function ProductDetailModal({
           : product.sizes[0] || "M"),
   );
 
+  // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre.
+  const [frameOverride, setFrameOverride] = useState<string | null>(null);
+
   // Le cadre suit toujours la couleur : on repart de la 1re image galerie
   // quand la variante choisie n'a pas son propre visuel.
   useEffect(() => {
     setActiveGalleryIndex(0);
+    setFrameOverride(null);
   }, [pickedColor]);
 
   const hasVariants = product.variants && product.variants.length > 0;  const dispColors = hasVariants
@@ -215,11 +219,13 @@ export default function ProductDetailModal({
     ? activeVariant.image && activeVariant.image.trim().length > 0
     : cleanColorImages[colorIdx];
 
-  const displayImage = hasColorImage
-    ? activeVariant
-      ? activeVariant.image
-      : cleanColorImages[colorIdx]
-    : allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
+  const displayImage =
+    frameOverride ||
+    (hasColorImage
+      ? activeVariant
+        ? activeVariant.image
+        : cleanColorImages[colorIdx]
+      : allImages[activeGalleryIndex] || PLACEHOLDER_IMG);
 
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
@@ -246,7 +252,10 @@ export default function ProductDetailModal({
                 {allImages.map((img, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setActiveGalleryIndex(idx)}
+                    onClick={() => {
+                      setActiveGalleryIndex(idx);
+                      setFrameOverride(img);
+                    }}
                     className={`w-12 h-12 sm:w-14 sm:h-14 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
                       activeGalleryIndex === idx
                         ? "border-(--color-accent)"
@@ -346,7 +355,12 @@ export default function ProductDetailModal({
                   return (
                     <button
                       key={idx}
-                      onClick={() => !isBlocked && setPickedColor(c)}
+                      onClick={() => {
+                        if (!isBlocked) {
+                          setPickedColor(c);
+                          setFrameOverride(thumb);
+                        }
+                      }}
                       disabled={isBlocked}
                       className={`w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-all p-0 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
                       style={thumb ? undefined : { backgroundColor: "#e5e0d8" }}

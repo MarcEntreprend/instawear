@@ -52,6 +52,9 @@ export default function ProductPage({
 }: any) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre,
+  // sans interférence (null = suivre la sélection courante).
+  const [frameOverride, setFrameOverride] = useState<string | null>(null);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [pickedColor, setPickedColor] = useState<string>(
     initialColor ||
@@ -77,6 +80,12 @@ export default function ProductPage({
   useEffect(() => {
     addViewed(product.id);
   }, [product.id, addViewed]);
+
+  // Nouveau produit : repartir d'un cadre neutre.
+  useEffect(() => {
+    setFrameOverride(null);
+    setActiveGalleryIndex(0);
+  }, [product.id]);
 
   usePageMeta({
     title: product.title,
@@ -216,7 +225,10 @@ export default function ProductPage({
       ? activeVariant.image
       : null;
   const displayImage =
-    variantFrameImage || allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
+    frameOverride ||
+    variantFrameImage ||
+    allImages[activeGalleryIndex] ||
+    PLACEHOLDER_IMG;
   const gallery = allImages.length ? allImages : [displayImage];
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
@@ -459,7 +471,10 @@ export default function ProductPage({
               {gallery.map((img: string, i: number) => (
                 <button
                   key={img + i}
-                  onClick={() => setActiveGalleryIndex(i)}
+                  onClick={() => {
+                    setActiveGalleryIndex(i);
+                    setFrameOverride(img);
+                  }}
                   className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
                   style={{
                     border:
@@ -486,7 +501,10 @@ export default function ProductPage({
                 {gallery.map((img: string, i: number) => (
                   <button
                     key={img + i}
-                    onClick={() => setActiveGalleryIndex(i)}
+                    onClick={() => {
+                      setActiveGalleryIndex(i);
+                      setFrameOverride(img);
+                    }}
                     className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
                     style={{
                       border:
@@ -594,6 +612,7 @@ export default function ProductPage({
                         if (!blocked) {
                           setPickedColor(c);
                           setActiveGalleryIndex(0);
+                          setFrameOverride(thumb);
                         }
                       }}
                       disabled={blocked}

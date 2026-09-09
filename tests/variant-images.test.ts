@@ -255,3 +255,49 @@ test("filtre vide et placeholder", () => {
     ["m1.jpg"],
   );
 });
+
+// ─── Cadre : dernier-clic-gagne (override > variante > galerie) ─────────────
+
+function resolveFrame(
+  frameOverride: string | null,
+  variantImage: string | null,
+  gallery: string[],
+  galleryIndex: number,
+  placeholder = "PLACEHOLDER",
+): string {
+  return (
+    frameOverride ||
+    variantImage ||
+    gallery[galleryIndex] ||
+    placeholder
+  );
+}
+
+test("clic mockup (override) gagne sur l'image variante", () => {
+  assert.equal(
+    resolveFrame("mockup2.jpg", "variant-red.jpg", ["m1.jpg", "mockup2.jpg"], 0),
+    "mockup2.jpg",
+  );
+});
+
+test("clic couleur (override = visuel variante) s'affiche", () => {
+  assert.equal(
+    resolveFrame("variant-blue.jpg", "variant-blue.jpg", ["m1.jpg"], 0),
+    "variant-blue.jpg",
+  );
+});
+
+test("sans override : visuel de la variante choisie", () => {
+  assert.equal(
+    resolveFrame(null, "variant-red.jpg", ["m1.jpg"], 0),
+    "variant-red.jpg",
+  );
+});
+
+test("sans override ni visuel variante : galerie à l'index", () => {
+  assert.equal(resolveFrame(null, null, ["m1.jpg", "m2.jpg"], 1), "m2.jpg");
+});
+
+test("rien du tout : placeholder", () => {
+  assert.equal(resolveFrame(null, null, [], 0), "PLACEHOLDER");
+});
