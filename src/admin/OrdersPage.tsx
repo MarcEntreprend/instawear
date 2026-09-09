@@ -716,6 +716,11 @@ export default function OrdersPage() {
                   ) : (
                     <span style={{ fontSize: 11, color: "var(--color-ink3)" }}>
                       {formatCurrency(order.shippingCost)}
+                      {order.shippingMethodName && (
+                        <span style={{ display: "block", fontSize: 10, color: "var(--color-ink4)" }}>
+                          {order.shippingMethodName}
+                        </span>
+                      )}
                     </span>
                   )}
                 </td>
@@ -1544,7 +1549,14 @@ export default function OrdersPage() {
                     }}
                   >
                     (dont {formatCurrency(selectedOrder.shippingCost)} de
-                    livraison)
+                    livraison
+                    {selectedOrder.shippingMethodName
+                      ? ` — ${selectedOrder.shippingMethodName}`
+                      : ""}
+                    {selectedOrder.shippingDeliveryEstimate
+                      ? `, ${selectedOrder.shippingDeliveryEstimate}`
+                      : ""}
+                    )
                   </span>
                 )}
               </div>

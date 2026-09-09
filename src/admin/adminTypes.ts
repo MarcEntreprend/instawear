@@ -138,6 +138,8 @@ export interface Order {
   status: OrderStatus;
   totalAmount: number;
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
   shippingAddress: ShippingAddress;
   externalOrderId?: string;
   notes?: string;

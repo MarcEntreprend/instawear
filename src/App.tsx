@@ -1719,6 +1719,7 @@ export default function App() {
             const product = products.find((p) => p.id === productId);
             if (product) openProduct(product);
           }}
+          detectedCountry={detectedCountry}
         />
       )}
 

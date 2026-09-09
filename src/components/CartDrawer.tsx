@@ -1,6 +1,6 @@
 // src/components/CartDrawer.tsx
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   X,
   Trash2,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPrice } from "../data/currency";
-import { useShippingSettings } from "../hooks/useShippingSettings";
+import { useShippingSettings, extractShippingItems } from "../hooks/useShippingSettings";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 import {
   PLACEHOLDER_IMG,
@@ -27,6 +27,7 @@ interface CartDrawerProps {
   onRemove: (index: number) => void;
   onCheckout: () => void;
   onSelectProduct?: (productId: string) => void;
+  detectedCountry?: string | null;
 }
 
 export default function CartDrawer({
@@ -36,6 +37,7 @@ export default function CartDrawer({
   onRemove,
   onCheckout,
   onSelectProduct,
+  detectedCountry,
 }: CartDrawerProps) {
   // P3 POD: total sur les seuls items disponibles (les bloqués ne partent pas par le fournisseur)
   const availabilities = cart.map((it) =>
@@ -57,7 +59,16 @@ export default function CartDrawer({
   );
   const displayTotal = fulfillableTotal; // pour shipping/free-shipping on calcule sur le fulfillable
   const total = cart.reduce((a, item) => a + item.unitPrice * item.quantity, 0);
-  const { cost: shippingCost, threshold } = useShippingSettings();
+  // Lazy pre-fetch: if we have a detected country, fetch rates with cart items
+  // so they're cached by the time user reaches checkout
+  const shippingItems = useMemo(
+    () => extractShippingItems(cart as any),
+    [cart],
+  );
+  const { threshold } = useShippingSettings(
+    detectedCountry || undefined,
+    shippingItems.length > 0 ? shippingItems : undefined,
+  );
   const freeShipping = displayTotal >= threshold;
   const remaining = Math.max(0, threshold - displayTotal);
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
@@ -466,7 +477,7 @@ export default function CartDrawer({
                   <span>
                     {freeShipping
                       ? "Free"
-                      : `${formatPrice(shippingCost, currency)}`}
+                      : "Calculated at checkout"}
                   </span>
                 </div>
                 <div
@@ -479,9 +490,9 @@ export default function CartDrawer({
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
                     {formatPrice(
-                      displayTotal + (freeShipping ? 0 : shippingCost),
+                      displayTotal,
                       currency,
-                    )}
+                    )}{!freeShipping && "+"}
                   </span>
                 </div>
               </div>

@@ -21,6 +21,7 @@ export function quotaFor(path: string): Quota {
     case "merch-scorer": return { max: 5, windowMs: 60_000 };
     case "cart-recovery": return { max: 3, windowMs: 60_000 };
     case "approve-printful-design": return { max: 10, windowMs: 60_000 };
+    case "get-shipping-rates": return { max: 30, windowMs: 60_000 };
     default: return { max: 20, windowMs: 60_000 };
   }
 }

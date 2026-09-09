@@ -18,6 +18,8 @@ interface TrackedOrder {
   status: string;
   totalAmount: number;
   shippingCost: number;
+  shippingMethodName?: string | null;
+  shippingDeliveryEstimate?: string | null;
   address: string | null;
   message: string | null;
   // Un élément par colis (voir TrackingInfo dans adminTypes.ts). orderApi.get()
@@ -86,6 +88,8 @@ export default function OrderTrackingModal({
           status: found.status,
           totalAmount: found.totalAmount,
           shippingCost: found.shippingCost,
+          shippingMethodName: found.shippingMethodName,
+          shippingDeliveryEstimate: found.shippingDeliveryEstimate,
           address: found.shippingAddress?.address
             ? `${found.shippingAddress.address}, ${found.shippingAddress.zip} ${found.shippingAddress.city}, ${found.shippingAddress.country}`
             : null,

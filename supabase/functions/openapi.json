@@ -44,6 +44,9 @@
     },
     "/approve-printful-design": {
       "post": { "summary": "Admin: approve, submit changes, or list Printful approval sheets for on-hold orders", "x-roles": ["admin"], "x-edges": ["approve-printful-design"] }
+    },
+    "/get-shipping-rates": {
+      "post": { "summary": "Fetch real-time Printful shipping rates for cart items + destination", "x-roles": ["public"], "x-edges": ["get-shipping-rates"] }
     }
   }
 }

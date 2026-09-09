@@ -1850,12 +1850,26 @@ function OrderDetail({
               className="flex justify-between text-[12.5px]"
               style={{ color: "var(--color-ink3)" }}
             >
-              <span>Shipping</span>
+              <span>
+                Shipping
+                {order.shippingMethodName
+                  ? ` (${order.shippingMethodName})`
+                  : ""}
+              </span>
               <span>
                 {order.shippingCost === 0
                   ? "Free"
                   : `${currencySymbol}${order.shippingCost.toFixed(2)}`}
               </span>
+            </div>
+          )}
+          {order.shippingDeliveryEstimate && (
+            <div
+              className="flex justify-between text-[11px]"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              <span>Est. delivery</span>
+              <span>{order.shippingDeliveryEstimate}</span>
             </div>
           )}
           <div

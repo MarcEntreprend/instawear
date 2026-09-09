@@ -632,22 +632,19 @@ export default function SettingsPage() {
                     marginBottom: 4,
                   }}
                 >
-                  Frais de port forfaitaires ({storeForm.currency})
+                  Frais de port: rates Printful (live API)
                 </label>
-                <input
-                  type="number"
-                  value={storeForm.shippingCost}
-                  onChange={(e) =>
-                    setStoreForm({
-                      ...storeForm,
-                      shippingCost: Number(e.target.value),
-                    })
-                  }
-                  className="input-base"
-                  style={{ width: "100%" }}
-                  min={0}
-                  step={0.01}
-                />
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--color-ink4)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Les frais de port sont calculés en temps réel via l'API
+                  Printful Shipping Rate. Le seuil de gratuité ci-dessous
+                  s'applique toujours.
+                </p>
               </div>
               <div>
                 <label

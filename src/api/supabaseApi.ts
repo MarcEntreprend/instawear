@@ -128,6 +128,8 @@ export const mapOrder = (row: any): Order => ({
   status: row.status as OrderStatus,
   totalAmount: row.total_amount,
   shippingCost: row.shipping_cost,
+  shippingMethodName: row.shipping_method_name ?? null,
+  shippingDeliveryEstimate: row.shipping_delivery_estimate ?? null,
   shippingAddress: {
     fullName: row.shipping_address_full_name || "",
     address: row.shipping_address_address || "",
@@ -949,6 +951,8 @@ export const orderApi = {
       status: order.status,
       total_amount: order.totalAmount,
       shipping_cost: order.shippingCost,
+      shipping_method_name: order.shippingMethodName ?? null,
+      shipping_delivery_estimate: order.shippingDeliveryEstimate ?? null,
       shipping_address_full_name: order.shippingAddress.fullName,
       shipping_address_address: order.shippingAddress.address,
       shipping_address_city: order.shippingAddress.city,

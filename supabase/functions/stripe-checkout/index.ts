@@ -7,6 +7,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import {
+  fetchPrintfulShippingRates,
+  normalizePrintfulRates,
+} from "./_shared/printfulRates.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 const corsHeaders = {
@@ -88,27 +92,128 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
     });
   }
 
-  // Livraison : retrait → 0 ; sinon coût enregistré sur la commande,
-  // avec repli sur store_settings si absent.
+  // ── P-F SECURITY: Never trust client shipping_cost. Always recalculate
+  //    server-side via Printful Shipping Rate API. Falls back to
+  //    store_settings flat rate if Printful API fails. ─────────────────
   const isPickup =
     (order.shipping_address_address || "").toLowerCase() === "pickup";
+
   let shippingCost = 0;
+  let shippingMethodName: string | null = null;
+  let shippingDeliveryEstimate: string | null = null;
+
   if (!isPickup) {
-    shippingCost =
-      order.shipping_cost != null && Number(order.shipping_cost) > 0
-        ? Number(order.shipping_cost)
-        : 0;
-    if (shippingCost === 0) {
-      const { data: storeSettings } = await supabaseAdmin
-        .from("store_settings")
-        .select("free_shipping_threshold, shipping_cost")
-        .eq("id", true)
-        .single();
-      const threshold = storeSettings
-        ? Number(storeSettings.free_shipping_threshold)
-        : 0;
-      if (!(threshold > 0 && subtotal >= threshold)) {
+    // Check free shipping threshold first
+    const { data: storeSettings } = await supabaseAdmin
+      .from("store_settings")
+      .select("free_shipping_threshold, shipping_cost, store_id")
+      .eq("id", true)
+      .single();
+    const threshold = storeSettings
+      ? Number(storeSettings.free_shipping_threshold)
+      : 0;
+
+    if (threshold > 0 && subtotal >= threshold) {
+      // Free shipping — threshold met
+      shippingCost = 0;
+      shippingMethodName = "Free Shipping";
+      shippingDeliveryEstimate = null;
+    } else {
+      // Fetch real rates from Printful
+      try {
+        const { data: podSettings } = await supabaseAdmin
+          .from("pod_settings")
+          .select("api_key, store_id")
+          .eq("id", "pod-main")
+          .maybeSingle();
+
+        if (podSettings?.api_key && podSettings?.store_id) {
+          // Build variant items for shipping rate lookup
+          const shippingItems: { variant_id: string; quantity: number }[] = [];
+          for (const item of orderItems ?? []) {
+            const { data: product } = await supabaseAdmin
+              .from("products")
+              .select("variants")
+              .eq("id", item.product_id)
+              .single();
+
+            if (product?.variants && Array.isArray(product.variants)) {
+              const mv = product.variants.find(
+                (v: any) =>
+                  v.color?.toLowerCase() ===
+                    item.selected_color?.toLowerCase() &&
+                  v.sizes &&
+                  v.sizes[item.selected_size] !== undefined,
+              );
+              if (mv) {
+                const vid =
+                  mv.external_variant_id ||
+                  mv.sync_variant_id ||
+                  mv.variant_id;
+                if (vid) {
+                  shippingItems.push({
+                    variant_id: String(vid),
+                    quantity: Number(item.quantity),
+                  });
+                }
+              }
+            }
+          }
+
+          if (shippingItems.length > 0) {
+            const recipient: any = {
+              country_code: order.shipping_address_country || "US",
+            };
+            if (order.shipping_address_state_code)
+              recipient.state_code = order.shipping_address_state_code;
+            if (order.shipping_address_city)
+              recipient.city = order.shipping_address_city;
+            if (order.shipping_address_zip)
+              recipient.zip = order.shipping_address_zip;
+            if (order.shipping_address_address)
+              recipient.address1 = order.shipping_address_address;
+
+            // Repli automatique sync_variant_id -> variant_id (cf. _shared/printfulRates.ts)
+            const pf = await fetchPrintfulShippingRates({
+              apiKey: podSettings.api_key,
+              storeId: podSettings.store_id,
+              recipient,
+              items: shippingItems,
+            });
+
+            if (pf.ok) {
+              const rates = normalizePrintfulRates(pf.rates);
+              if (rates.length > 0) {
+                // Pick the cheapest rate
+                const cheapest = rates.reduce((a: any, b: any) =>
+                  a.rate <= b.rate ? a : b,
+                );
+                shippingCost = cheapest.rate || 0;
+                shippingMethodName = cheapest.name || "Standard Shipping";
+                const minD = cheapest.minDeliveryDays;
+                const maxD = cheapest.maxDeliveryDays;
+                if (minD && maxD) {
+                  shippingDeliveryEstimate = `${minD}-${maxD} business days`;
+                } else if (minD) {
+                  shippingDeliveryEstimate = `${minD} business days`;
+                }
+              }
+            } else {
+              console.warn(
+                "Printful shipping rates API error, falling back to store_settings",
+                logSafe(pf.error),
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Shipping rate fetch failed, falling back:", err);
+      }
+
+      // Fallback: if Printful didn't return a rate, use store_settings flat rate
+      if (shippingCost === 0 && !shippingMethodName) {
         shippingCost = storeSettings ? Number(storeSettings.shipping_cost) : 0;
+        shippingMethodName = shippingCost > 0 ? "Flat Rate" : null;
       }
     }
   }
@@ -118,6 +223,8 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
     lineItems,
     subtotal,
     shippingCost,
+    shippingMethodName,
+    shippingDeliveryEstimate,
     total: subtotal + shippingCost,
   };
 }
@@ -394,6 +501,8 @@ export default {
           status: "pending",
           total_amount: computed.total,
           shipping_cost: computed.shippingCost,
+          shipping_method_name: computed.shippingMethodName,
+          shipping_delivery_estimate: computed.shippingDeliveryEstimate,
         })
         .eq("id", orderId);
 
