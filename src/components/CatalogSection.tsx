@@ -1275,9 +1275,9 @@ function ColorPicker({
   return (
     <div ref={buttonRef} className="inline-block">
       <div className="flex flex-wrap items-center gap-1.5">
-        {visibleColors.map((c) => (
+        {visibleColors.map((c, cidx) => (
           <button
-            key={c.hex}
+            key={`${c.hex}-${cidx}`}
             onClick={() => {
               onSelect(selectedColor === c.hex ? null : c.hex);
               setIsOpen(false);
@@ -1318,9 +1318,9 @@ function ColorPicker({
           style={getDropdownStyle()}
           className="flex flex-wrap gap-1.5 p-2"
         >
-          {colors.map((c) => (
+          {colors.map((c, cidx) => (
             <button
-              key={c.hex}
+              key={`${c.hex}-${cidx}`}
               onClick={() => {
                 onSelect(selectedColor === c.hex ? null : c.hex);
                 setIsOpen(false);

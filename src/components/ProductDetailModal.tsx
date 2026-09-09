@@ -232,7 +232,7 @@ export default function ProductDetailModal({
                   <button
                     key={idx}
                     onClick={() => setActiveGalleryIndex(idx)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`w-12 h-12 sm:w-14 sm:h-14 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
                       activeGalleryIndex === idx
                         ? "border-(--color-accent)"
                         : "border-gray-200"
@@ -333,7 +333,7 @@ export default function ProductDetailModal({
                       key={idx}
                       onClick={() => !isBlocked && setPickedColor(c)}
                       disabled={isBlocked}
-                      className={`w-11 h-11 rounded-lg overflow-hidden border-2 transition-all p-0 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
+                      className={`w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-all p-0 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
                       style={thumb ? undefined : { backgroundColor: "#e5e0d8" }}
                       title={title}
                       aria-label={titleBase}

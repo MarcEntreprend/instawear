@@ -191,8 +191,14 @@ export default function ProductPage({
   const allImages = [product.image, ...(product.gallery || [])].filter(
     (u: string) => u && u.trim().length > 0 && u !== PLACEHOLDER_IMG,
   );
+  // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
+  // mockups. L'index galerie est réinitialisé au changement de couleur.
+  const variantFrameImage =
+    activeVariant?.image && activeVariant.image.trim().length > 0
+      ? activeVariant.image
+      : null;
   const displayImage =
-    allImages[activeGalleryIndex] || activeVariant?.image || PLACEHOLDER_IMG;
+    variantFrameImage || allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
   const gallery = allImages.length ? allImages : [displayImage];
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
@@ -553,11 +559,16 @@ export default function ProductPage({
               >
                 Color — {dispColorNames?.[colorIdx] || pickedColor}
               </p>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {dispColors.map((c: string, i: number) => {
                   const avail = getVariantAvailability(product, c, pickedSize);
                   const blocked =
                     avail === "discontinued" || avail === "out_of_stock";
+                  const thumb =
+                    hasVariants && (product.variants as any[])[i]?.image?.trim()
+                      ? (product.variants as any[])[i].image
+                      : null;
+                  const label = dispColorNames?.[i] || c;
                   return (
                     <button
                       key={c + i}
@@ -568,18 +579,34 @@ export default function ProductPage({
                         }
                       }}
                       disabled={blocked}
-                      aria-label={dispColorNames?.[i]}
-                      title={dispColorNames?.[i]}
-                      className="w-9 h-9 rounded-full"
+                      aria-label={label}
+                      title={
+                        blocked
+                          ? `${label} — ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
+                          : label
+                      }
+                      className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
                       style={{
-                        background: c,
+                        background: thumb ? undefined : "#e5e0d8",
                         border:
                           pickedColor === c
                             ? "2px solid var(--color-accent)"
                             : "1px solid var(--color-border2)",
                         opacity: blocked ? 0.4 : 1,
                       }}
-                    />
+                    >
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={label}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
+                          {(label || "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
               </div>

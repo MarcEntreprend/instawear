@@ -240,14 +240,40 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     ),
   }));
 
-  const colors = variants.map((v) => v.color);
-  const colorNames = variants.map((v) => v.color_name);
-  const colorImages = variants.map((v) => v.image).filter(Boolean);
-  const mockupImages = [...new Set(variants.map((v) => v.mockup_image).filter(Boolean))];
-  const sizesSet = new Set<string>();
-  variants.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
+  // Déduplique les couleurs insensibles à la casse (Printful remonte parfois
+  // "Natural" et "natural" pour le même produit) : fusionne tailles/images
+  // dans la 1re entrée. La clé d'identité (casse d'origine) est préservée
+  // pour ne pas casser paniers/commandes en cours. La DB s'auto-nettoie
+  // au prochain resync.
+  const seenColor = new Map<string, any>();
+  const deduped: any[] = [];
+  for (const v of variants) {
+    const k = (v.color || "").toLowerCase();
+    const prev = seenColor.get(k);
+    if (!prev) {
+      seenColor.set(k, v);
+      deduped.push(v);
+      continue;
+    }
+    prev.sizes = { ...(v.sizes || {}), ...(prev.sizes || {}) };
+    if (!prev.image && v.image) prev.image = v.image;
+    if (!prev.mockup_image && v.mockup_image) prev.mockup_image = v.mockup_image;
+    if (!prev.external_variant_id && v.external_variant_id) {
+      prev.external_variant_id = v.external_variant_id;
+    }
+    if ((!prev.color_name || prev.color_name === prev.color) && v.color_name) {
+      prev.color_name = v.color_name;
+    }
+  }
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants };
+  const colors = deduped.map((v) => v.color);
+  const colorNames = deduped.map((v) => v.color_name);
+  const colorImages = deduped.map((v) => v.image).filter(Boolean);
+  const mockupImages = [...new Set(deduped.map((v) => v.mockup_image).filter(Boolean))];
+  const sizesSet = new Set<string>();
+  deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
+
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────

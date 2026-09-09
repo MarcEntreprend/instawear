@@ -152,3 +152,61 @@ test("la clé couleur reste v.color (pas le nom, pas le hex)", () => {
   const identityKey = entry.colorKey;
   assert.equal(identityKey, "#808080");
 });
+
+// ─── Déduplication insensible à la casse (miroir edge) ──────────────────────
+
+function dedupeVariants(variants: any[]): any[] {
+  const seen = new Map<string, any>();
+  const out: any[] = [];
+  for (const v of variants) {
+    const k = (v.color || "").toLowerCase();
+    const prev = seen.get(k);
+    if (!prev) {
+      seen.set(k, v);
+      out.push(v);
+      continue;
+    }
+    prev.sizes = { ...(v.sizes || {}), ...(prev.sizes || {}) };
+    if (!prev.image && v.image) prev.image = v.image;
+    if (!prev.mockup_image && v.mockup_image) prev.mockup_image = v.mockup_image;
+    if (!prev.external_variant_id && v.external_variant_id) {
+      prev.external_variant_id = v.external_variant_id;
+    }
+  }
+  return out;
+}
+
+test("'Natural' + 'natural' fusionnent en une seule variante", () => {
+  const out = dedupeVariants([
+    { color: "Natural", image: "a.jpg", sizes: { S: { price: 10 } } },
+    { color: "natural", image: "", sizes: { M: { price: 10 } } },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].color, "Natural"); // casse d'origine préservée
+  assert.deepEqual(Object.keys(out[0].sizes).sort(), ["M", "S"]);
+});
+
+test("les images se complètent lors de la fusion", () => {
+  const out = dedupeVariants([
+    { color: "Yellow Haze", image: "", mockup_image: "m.jpg", sizes: {} },
+    { color: "yellow haze", image: "d.jpg", mockup_image: "", sizes: {} },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].image, "d.jpg");
+  assert.equal(out[0].mockup_image, "m.jpg");
+});
+
+test("couleurs distinctes préservées", () => {
+  const out = dedupeVariants([
+    { color: "#808080", image: "a.jpg", sizes: {} },
+    { color: "Natural", image: "b.jpg", sizes: {} },
+  ]);
+  assert.equal(out.length, 2);
+});
+
+test("l'edge déduplique en sortie de matrice", () => {
+  assert.ok(
+    syncSource.includes("seenColor"),
+    "buildVariantMatrix doit dédupliquer les couleurs",
+  );
+});

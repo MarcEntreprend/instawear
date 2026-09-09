@@ -421,13 +421,13 @@ export default function ProductQuickViewModal({
                   Disponibilité POD par variante
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {product.variants!.map((v: any) => {
+                  {product.variants!.map((v: any, vidx: number) => {
                     const sizes = (v as any).sizes || {};
                     const entries = Object.entries(sizes) as [string, any][];
                     if (entries.length === 0) return null;
                     return (
                       <div
-                        key={v.color}
+                        key={`${v.color}-${vidx}`}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -440,7 +440,11 @@ export default function ProductQuickViewModal({
                             width: 14,
                             height: 14,
                             borderRadius: "50%",
-                            background: v.color,
+                            background: /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+                              v.color || "",
+                            )
+                              ? v.color
+                              : "var(--color-surface2)",
                             border: "1px solid var(--color-border)",
                             flexShrink: 0,
                           }}
