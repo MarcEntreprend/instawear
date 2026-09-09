@@ -16,6 +16,8 @@ export interface ProductVariant {
   color: string;
   color_name: string;
   image: string;
+  /** Mockup vierge catalogue (sans design), pour la galerie. Optionnel (additif). */
+  mockup_image?: string;
   // POD: stock_status est ADDITIF et optionnel -> absent = available (rétro-compat).
   // Ne jamais supprimer price. Valeurs Printful: available | out_of_stock | discontinued
   sizes: Record<string, { price: number; stock_status?: string }>;

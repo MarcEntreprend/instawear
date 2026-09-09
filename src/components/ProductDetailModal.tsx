@@ -1,6 +1,6 @@
 // src/components/ProductDetailModal.tsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Star,
@@ -13,6 +13,7 @@ import {
 import DOMPurify from "dompurify";
 import type { Product } from "../types";
 import ImageZoom from "./ImageZoom";
+import ThumbStrip from "./product/ThumbStrip";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 
@@ -150,7 +151,6 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-
   const [pickedColor, setPickedColor] = useState<string>(
     initialColor ||
       (product.variants?.length
@@ -168,8 +168,17 @@ export default function ProductDetailModal({
           : product.sizes[0] || "M"),
   );
 
-  const hasVariants = product.variants && product.variants.length > 0;
-  const dispColors = hasVariants
+  // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre.
+  const [frameOverride, setFrameOverride] = useState<string | null>(null);
+
+  // Le cadre suit toujours la couleur : on repart de la 1re image galerie
+  // quand la variante choisie n'a pas son propre visuel.
+  useEffect(() => {
+    setActiveGalleryIndex(0);
+    setFrameOverride(null);
+  }, [pickedColor]);
+
+  const hasVariants = product.variants && product.variants.length > 0;  const dispColors = hasVariants
     ? product.variants!.map((v) => v.color)
     : product.colors;
   const dispColorNames = hasVariants
@@ -188,28 +197,41 @@ export default function ProductDetailModal({
   const cleanColorImages = (product.colorImages || []).filter(
     (url) => url && url.trim().length > 0,
   );
-  const allImages = [product.image, ...(product.gallery || [])].filter(
-    (url) => url && url.trim().length > 0 && url !== PLACEHOLDER_IMG,
+  // Colonne gauche = image principale + MOCKUPS uniquement (idem ProductPage).
+  const variantMockups =
+    hasVariants && product.variants
+      ? product.variants
+          .map((v) => (v as any).mockup_image)
+          .filter((u: string) => u && u.trim().length > 0)
+      : [];
+  const allImages = [
+    product.image,
+    ...variantMockups,
+    ...(product.gallery || []),
+  ].filter(
+    (url, idx, arr) =>
+      url &&
+      url.trim().length > 0 &&
+      url !== PLACEHOLDER_IMG &&
+      arr.indexOf(url) === idx,
   );
 
   const hasColorImage = activeVariant
     ? activeVariant.image && activeVariant.image.trim().length > 0
     : cleanColorImages[colorIdx];
 
-  const displayImage = hasColorImage
-    ? activeVariant
-      ? activeVariant.image
-      : cleanColorImages[colorIdx]
-    : allImages[activeGalleryIndex] || PLACEHOLDER_IMG;
+  const displayImage =
+    frameOverride ||
+    (hasColorImage
+      ? activeVariant
+        ? activeVariant.image
+        : cleanColorImages[colorIdx]
+      : allImages[activeGalleryIndex] || PLACEHOLDER_IMG);
 
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
     currentVariantPrice != null ? currentVariantPrice : product.price;
   const surcharge = displayPrice - product.price;
-
-  const variantImages = hasVariants
-    ? product.variants!.filter((v) => v.image && v.image.trim().length > 0)
-    : [];
 
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
@@ -223,50 +245,40 @@ export default function ProductDetailModal({
 
         {/* ── 3-COLUMN LAYOUT ────────────────────────────────────── */}
         <div className="flex flex-col lg:flex-row gap-8 p-8 md:p-10">
-          {/* ── COLONNE GAUCHE : Images ──────────────────────────── */}
+          {/* ── COLONNE GAUCHE : galerie mockups (jamais les variantes) ── */}
           <div className="lg:w-[45%] flex flex-col sm:flex-row gap-6">
-            {/* Miniatures verticales (desktop) ou horizontales (mobile) */}
-            {variantImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
-                {variantImages.map((v) => (
-                  <button
-                    key={v.color}
-                    onClick={() => setPickedColor(v.color)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                      pickedColor === v.color
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={v.image}
-                      alt={v.color_name || v.color}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : allImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
-                {allImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveGalleryIndex(idx)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeGalleryIndex === idx
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {/* Miniatures : colonne scrollable (desktop) / rangée (mobile) */}
+            {allImages.length > 1 && (
+              <>
+                <div className="hidden sm:block order-first w-16 shrink-0">
+                  <ThumbStrip
+                    images={allImages}
+                    activeIndex={activeGalleryIndex}
+                    onSelect={(idx) => {
+                      setActiveGalleryIndex(idx);
+                      setFrameOverride(allImages[idx]);
+                    }}
+                    orientation="vertical"
+                    thumbClassName="w-14 h-14 rounded-lg"
+                    gapPx={8}
+                    className="w-14"
+                  />
+                </div>
+                <div className="sm:hidden order-2">
+                  <ThumbStrip
+                    images={allImages}
+                    activeIndex={activeGalleryIndex}
+                    onSelect={(idx) => {
+                      setActiveGalleryIndex(idx);
+                      setFrameOverride(allImages[idx]);
+                    }}
+                    orientation="horizontal"
+                    thumbClassName="w-12 h-12 rounded-lg"
+                    gapPx={8}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Image principale avec zoom */}
             <div className="w-full aspect-3/4">
@@ -319,7 +331,7 @@ export default function ProductDetailModal({
               </div>
             )}
 
-            {/* Colors */}
+            {/* Colors : miniatures photo des variantes (clé = v.color, inchangée) */}
             <div className="mt-4">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Color :{" "}
@@ -344,16 +356,38 @@ export default function ProductDetailModal({
                   const title = isBlocked
                     ? `${titleBase} — ${colorAvail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
                     : titleBase;
+                  const thumb =
+                    hasVariants && product.variants![idx]?.image?.trim()
+                      ? product.variants![idx].image
+                      : null;
                   return (
                     <button
                       key={idx}
-                      onClick={() => !isBlocked && setPickedColor(c)}
+                      onClick={() => {
+                        if (!isBlocked) {
+                          setPickedColor(c);
+                          setFrameOverride(thumb);
+                        }
+                      }}
                       disabled={isBlocked}
-                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
-                      style={{ backgroundColor: c }}
+                      className={`w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-all p-0 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
+                      style={thumb ? undefined : { backgroundColor: "#e5e0d8" }}
                       title={title}
+                      aria-label={titleBase}
                       aria-disabled={isBlocked}
-                    />
+                    >
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={titleBase}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
+                          {(titleBase || "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
               </div>

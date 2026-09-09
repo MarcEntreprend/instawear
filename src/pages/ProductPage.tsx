@@ -20,6 +20,7 @@ import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPrice } from "../data/currency";
 import ZoomImage from "../components/product/ZoomImage";
+import ThumbStrip from "../components/product/ThumbStrip";
 import ImageLightbox from "../components/product/ImageLightbox";
 import SizeGuideModal from "../components/product/SizeGuideModal";
 import RelatedProductCard from "../components/product/RelatedProductCard";
@@ -52,6 +53,9 @@ export default function ProductPage({
 }: any) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre,
+  // sans interférence (null = suivre la sélection courante).
+  const [frameOverride, setFrameOverride] = useState<string | null>(null);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [pickedColor, setPickedColor] = useState<string>(
     initialColor ||
@@ -77,6 +81,12 @@ export default function ProductPage({
   useEffect(() => {
     addViewed(product.id);
   }, [product.id, addViewed]);
+
+  // Nouveau produit : repartir d'un cadre neutre.
+  useEffect(() => {
+    setFrameOverride(null);
+    setActiveGalleryIndex(0);
+  }, [product.id]);
 
   usePageMeta({
     title: product.title,
@@ -188,11 +198,38 @@ export default function ProductPage({
   const colorIdx = pickedColor ? dispColors.indexOf(pickedColor) : 0;
   const activeVariant =
     hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
-  const allImages = [product.image, ...(product.gallery || [])].filter(
-    (u: string) => u && u.trim().length > 0 && u !== PLACEHOLDER_IMG,
+  // Colonne gauche = image principale + MOCKUPS uniquement.
+  // Les visuels avec design vivent sur les miniatures de variantes à droite.
+  // Ordre : principale, mockups des variantes (données resync), galerie
+  // (mockups depuis le resync — mixte avant resync, dédupliquée ici).
+  const variantMockups =
+    hasVariants && product.variants
+      ? product.variants
+          .map((v: any) => v.mockup_image)
+          .filter((u: string) => u && u.trim().length > 0)
+      : [];
+  const allImages = [
+    product.image,
+    ...variantMockups,
+    ...(product.gallery || []),
+  ].filter(
+    (u: string, idx: number, arr: string[]) =>
+      u &&
+      u.trim().length > 0 &&
+      u !== PLACEHOLDER_IMG &&
+      arr.indexOf(u) === idx,
   );
+  // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
+  // mockups. L'index galerie est réinitialisé au changement de couleur.
+  const variantFrameImage =
+    activeVariant?.image && activeVariant.image.trim().length > 0
+      ? activeVariant.image
+      : null;
   const displayImage =
-    allImages[activeGalleryIndex] || activeVariant?.image || PLACEHOLDER_IMG;
+    frameOverride ||
+    variantFrameImage ||
+    allImages[activeGalleryIndex] ||
+    PLACEHOLDER_IMG;
   const gallery = allImages.length ? allImages : [displayImage];
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
@@ -431,26 +468,18 @@ export default function ProductPage({
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
           {/* Gallery */}
           <div className="flex gap-3">
-            <div className="hidden sm:flex flex-col gap-2.5 w-16 shrink-0">
-              {gallery.map((img: string, i: number) => (
-                <button
-                  key={img + i}
-                  onClick={() => setActiveGalleryIndex(i)}
-                  className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
-                  style={{
-                    border:
-                      activeGalleryIndex === i
-                        ? "2px solid var(--color-accent)"
-                        : "1px solid var(--color-border)",
-                  }}
-                >
-                  <img
-                    src={img}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+            <div className="hidden sm:flex flex-col w-16 shrink-0">
+              <ThumbStrip
+                images={gallery}
+                activeIndex={activeGalleryIndex}
+                onSelect={(i) => {
+                  setActiveGalleryIndex(i);
+                  setFrameOverride(gallery[i]);
+                }}
+                orientation="vertical"
+                thumbClassName="w-16 h-16 rounded-xl"
+                className="w-16"
+              />
             </div>
             <div className="flex-1">
               <ZoomImage
@@ -458,26 +487,17 @@ export default function ProductPage({
                 alt={product.title}
                 onRequestLightbox={() => setIsLightboxOpen(true)}
               />
-              <div className="flex sm:hidden gap-2.5 mt-3 overflow-x-auto no-scrollbar">
-                {gallery.map((img: string, i: number) => (
-                  <button
-                    key={img + i}
-                    onClick={() => setActiveGalleryIndex(i)}
-                    className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
-                    style={{
-                      border:
-                        activeGalleryIndex === i
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border)",
-                    }}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+              <div className="sm:hidden mt-3">
+                <ThumbStrip
+                  images={gallery}
+                  activeIndex={activeGalleryIndex}
+                  onSelect={(i) => {
+                    setActiveGalleryIndex(i);
+                    setFrameOverride(gallery[i]);
+                  }}
+                  orientation="horizontal"
+                  thumbClassName="w-16 h-16 rounded-xl"
+                />
               </div>
             </div>
           </div>
@@ -553,11 +573,16 @@ export default function ProductPage({
               >
                 Color — {dispColorNames?.[colorIdx] || pickedColor}
               </p>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {dispColors.map((c: string, i: number) => {
                   const avail = getVariantAvailability(product, c, pickedSize);
                   const blocked =
                     avail === "discontinued" || avail === "out_of_stock";
+                  const thumb =
+                    hasVariants && (product.variants as any[])[i]?.image?.trim()
+                      ? (product.variants as any[])[i].image
+                      : null;
+                  const label = dispColorNames?.[i] || c;
                   return (
                     <button
                       key={c + i}
@@ -565,21 +590,38 @@ export default function ProductPage({
                         if (!blocked) {
                           setPickedColor(c);
                           setActiveGalleryIndex(0);
+                          setFrameOverride(thumb);
                         }
                       }}
                       disabled={blocked}
-                      aria-label={dispColorNames?.[i]}
-                      title={dispColorNames?.[i]}
-                      className="w-9 h-9 rounded-full"
+                      aria-label={label}
+                      title={
+                        blocked
+                          ? `${label} — ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
+                          : label
+                      }
+                      className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
                       style={{
-                        background: c,
+                        background: thumb ? undefined : "#e5e0d8",
                         border:
                           pickedColor === c
                             ? "2px solid var(--color-accent)"
                             : "1px solid var(--color-border2)",
                         opacity: blocked ? 0.4 : 1,
                       }}
-                    />
+                    >
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={label}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
+                          {(label || "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
               </div>
