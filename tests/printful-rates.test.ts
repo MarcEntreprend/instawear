@@ -1,75 +1,32 @@
 // tests/printful-rates.test.ts
 // Helper partagé _shared/printfulRates.ts :
-// - construction des candidats sync_variant_id -> variant_id
-// - détection "Invalid variant ID"
-// - retry automatique (fetch mocké)
+// - résolution sync variant ID -> catalogue variant ID (GET /store/variants/{id})
+// - appel POST /shipping/rates avec les catalogue IDs (doc officielle)
 // - normalisation des tarifs Printful
 
-import { test, beforeEach, afterEach } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildRateItemCandidates,
-  isInvalidVariantError,
+  resolveCatalogVariantId,
+  clearCatalogIdCache,
   fetchPrintfulShippingRates,
   normalizePrintfulRates,
 } from "../supabase/functions/_shared/printfulRates.ts";
 
-// ─── buildRateItemCandidates ────────────────────────────────────────────────
-
-test("candidats: ID numérique → sync_variant_id d'abord, variant_id ensuite", () => {
-  const c = buildRateItemCandidates({ variant_id: "5414335924", quantity: 1 });
-  assert.equal(c.length, 2);
-  assert.deepEqual(c[0], { sync_variant_id: 5414335924, quantity: 1 });
-  assert.deepEqual(c[1], { variant_id: 5414335924, quantity: 1 });
-});
-
-test("candidats: ID catalogue numérique → même ordre", () => {
-  const c = buildRateItemCandidates({ variant_id: "202", quantity: 5 });
-  assert.equal(c.length, 2);
-  assert.deepEqual(c[0], { sync_variant_id: 202, quantity: 5 });
-  assert.deepEqual(c[1], { variant_id: 202, quantity: 5 });
-});
-
-test("candidats: ID non numérique → external_variant_id uniquement", () => {
-  const c = buildRateItemCandidates({ variant_id: "TSHIRT-BLK-M", quantity: 2 });
-  assert.equal(c.length, 1);
-  assert.deepEqual(c[0], { external_variant_id: "TSHIRT-BLK-M", quantity: 2 });
-});
-
-// ─── isInvalidVariantError ──────────────────────────────────────────────────
-
-test("détecte 'Invalid variant ID' (result string)", () => {
-  assert.equal(
-    isInvalidVariantError({ code: 400, result: "Invalid variant ID: 123" }),
-    true,
-  );
-});
-
-test("détecte 'Invalid variant ID' (error.message, casse mixte)", () => {
-  assert.equal(
-    isInvalidVariantError({ error: { message: "Invalid Variant ID" } }),
-    true,
-  );
-});
-
-test("ne détecte pas les autres erreurs", () => {
-  assert.equal(isInvalidVariantError({ result: "Invalid state code" }), false);
-  assert.equal(isInvalidVariantError({ error: { message: "Unauthorized" } }), false);
-  assert.equal(isInvalidVariantError(null), false);
-  assert.equal(isInvalidVariantError({}), false);
-});
-
-// ─── fetchPrintfulShippingRates (fetch mocké) ───────────────────────────────
-
 const realFetch = globalThis.fetch;
-let calls: any[];
+let calls: { url: string; body: any; headers: any }[];
 
-function mockFetch(responses: { ok: boolean; status: number; body: any }[]) {
+function mockFetch(
+  handler: (url: string, init: any) => { ok: boolean; status: number; body: any },
+) {
   calls = [];
-  let i = 0;
-  (globalThis as any).fetch = async (_url: string, init: any) => {
-    calls.push(JSON.parse(init.body));
-    const r = responses[Math.min(i++, responses.length - 1)];
+  (globalThis as any).fetch = async (url: string, init: any) => {
+    calls.push({
+      url: String(url),
+      body: init?.body ? JSON.parse(init.body) : null,
+      headers: init?.headers ?? {},
+    });
+    const r = handler(String(url), init);
     return {
       ok: r.ok,
       status: r.status,
@@ -80,21 +37,51 @@ function mockFetch(responses: { ok: boolean; status: number; body: any }[]) {
 
 afterEach(() => {
   (globalThis as any).fetch = realFetch;
+  clearCatalogIdCache();
 });
 
 const RECIPIENT = { country_code: "US", state_code: "CA" };
 
-test("succès au 1er essai via sync_variant_id", async () => {
-  mockFetch([
-    {
+// ─── resolveCatalogVariantId ────────────────────────────────────────────────
+
+test("résout le sync ID vers le catalogue ID", async () => {
+  mockFetch((url) => {
+    assert.match(url, /\/store\/variants\/5414335924/);
+    return { ok: true, status: 200, body: { code: 200, result: { id: 5414335924, variant_id: 4012 } } };
+  });
+  const id = await resolveCatalogVariantId("k", "1", "5414335924");
+  assert.equal(id, 4012);
+});
+
+test("résolution mise en cache (1 seul appel pour 2 demandes)", async () => {
+  let hits = 0;
+  (globalThis as any).fetch = async () => {
+    hits++;
+    return { ok: true, status: 200, json: async () => ({ result: { variant_id: 4012 } }) };
+  };
+  assert.equal(await resolveCatalogVariantId("k", "1", "5414335924"), 4012);
+  assert.equal(await resolveCatalogVariantId("k", "1", "5414335924"), 4012);
+  assert.equal(hits, 1);
+});
+
+test("404 sur la résolution → null (l'ID est peut-être déjà catalogue)", async () => {
+  mockFetch(() => ({ ok: false, status: 404, body: { code: 404, result: "Not found" } }));
+  assert.equal(await resolveCatalogVariantId("k", "1", "202"), null);
+});
+
+// ─── fetchPrintfulShippingRates ─────────────────────────────────────────────
+
+test("POST /shipping/rates avec le catalogue ID résolu", async () => {
+  mockFetch((url) => {
+    if (url.includes("/store/variants/")) {
+      return { ok: true, status: 200, body: { result: { id: 5414335924, variant_id: 4012 } } };
+    }
+    return {
       ok: true,
       status: 200,
-      body: {
-        code: 200,
-        result: [{ id: "STANDARD", name: "Flat", rate: "4.99", currency: "USD" }],
-      },
-    },
-  ]);
+      body: { code: 200, result: [{ id: "STANDARD", name: "Flat", rate: "4.99", currency: "USD" }] },
+    };
+  });
   const r = await fetchPrintfulShippingRates({
     apiKey: "k",
     storeId: "1",
@@ -103,77 +90,73 @@ test("succès au 1er essai via sync_variant_id", async () => {
   });
   assert.equal(r.ok, true);
   assert.equal(r.rates.length, 1);
-  assert.equal(r.usedField, "sync_variant_id");
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].items, [{ sync_variant_id: 5414335924, quantity: 1 }]);
+  const post = calls.find((c) => c.url.endsWith("/shipping/rates"));
+  assert.deepEqual(post?.body.items, [{ variant_id: 4012, quantity: 1 }]);
 });
 
-test("Invalid variant → 2e essai via variant_id qui réussit", async () => {
-  mockFetch([
-    { ok: false, status: 400, body: { code: 400, result: "Invalid variant ID: 202" } },
-    {
-      ok: true,
-      status: 200,
-      body: {
-        code: 200,
-        result: [{ id: "STANDARD", name: "Flat", rate: "4.99", currency: "USD" }],
-      },
-    },
-  ]);
+test("ID non résolu (404) → envoyé tel quel en variant_id", async () => {
+  mockFetch((url) => {
+    if (url.includes("/store/variants/")) {
+      return { ok: false, status: 404, body: { result: "Not found" } };
+    }
+    return { ok: true, status: 200, body: { code: 200, result: [] } };
+  });
   const r = await fetchPrintfulShippingRates({
     apiKey: "k",
     recipient: RECIPIENT,
-    items: [{ variant_id: "202", quantity: 1 }],
+    items: [{ variant_id: "202", quantity: 2 }],
   });
   assert.equal(r.ok, true);
-  assert.equal(r.usedField, "variant_id");
-  assert.equal(calls.length, 2);
-  assert.deepEqual(calls[1].items, [{ variant_id: 202, quantity: 1 }]);
+  const post = calls.find((c) => c.url.endsWith("/shipping/rates"));
+  assert.deepEqual(post?.body.items, [{ variant_id: 202, quantity: 2 }]);
 });
 
-test("erreur non-variant → pas de 2e essai", async () => {
-  mockFetch([
-    { ok: false, status: 400, body: { code: 400, result: "Invalid state code" } },
+test("ID non numérique → external_variant_id (schéma officiel)", async () => {
+  mockFetch(() => ({
+    ok: true,
+    status: 200,
+    body: { code: 200, result: [] },
+  }));
+  await fetchPrintfulShippingRates({
+    apiKey: "k",
+    recipient: RECIPIENT,
+    items: [{ variant_id: "TSHIRT-BLK-M", quantity: 1 }],
+  });
+  const post = calls.find((c) => c.url.endsWith("/shipping/rates"));
+  assert.deepEqual(post?.body.items, [
+    { external_variant_id: "TSHIRT-BLK-M", quantity: 1 },
   ]);
+  // Aucune tentative de résolution pour un ID non numérique
+  assert.ok(!calls.some((c) => c.url.includes("/store/variants/")));
+});
+
+test("échec Printful → ok:false avec le message", async () => {
+  mockFetch((url) => {
+    if (url.includes("/store/variants/")) {
+      return { ok: true, status: 200, body: { result: { variant_id: 4012 } } };
+    }
+    return { ok: false, status: 400, body: { code: 400, result: "Invalid state code" } };
+  });
   const r = await fetchPrintfulShippingRates({
     apiKey: "k",
     recipient: RECIPIENT,
-    items: [{ variant_id: "202", quantity: 1 }],
+    items: [{ variant_id: "5414335924", quantity: 1 }],
   });
   assert.equal(r.ok, false);
-  assert.equal(calls.length, 1);
   assert.match(r.error || "", /Invalid state code/);
 });
 
-test("double échec variant → ok:false avec le dernier message", async () => {
-  mockFetch([
-    { ok: false, status: 400, body: { code: 400, result: "Invalid variant ID: 999" } },
-    { ok: false, status: 400, body: { code: 400, result: "Invalid variant ID: 999" } },
-  ]);
-  const r = await fetchPrintfulShippingRates({
-    apiKey: "k",
-    recipient: RECIPIENT,
-    items: [{ variant_id: "999", quantity: 1 }],
-  });
-  assert.equal(r.ok, false);
-  assert.equal(calls.length, 2);
-  assert.match(r.error || "", /Invalid variant/);
-});
-
 test("header X-PF-Store-Id envoyé quand storeId fourni", async () => {
-  let sentHeaders: any = null;
-  (globalThis as any).fetch = async (_url: string, init: any) => {
-    sentHeaders = init.headers;
-    return { ok: true, status: 200, json: async () => ({ code: 200, result: [] }) };
-  };
+  mockFetch(() => ({ ok: true, status: 200, body: { code: 200, result: [] } }));
   await fetchPrintfulShippingRates({
     apiKey: "k",
     storeId: "12345",
     recipient: RECIPIENT,
     items: [{ variant_id: "202", quantity: 1 }],
   });
-  assert.equal(sentHeaders["X-PF-Store-Id"], "12345");
-  assert.match(sentHeaders["Authorization"], /Bearer k/);
+  const post = calls.find((c) => c.url.endsWith("/shipping/rates"));
+  assert.equal(post?.headers["X-PF-Store-Id"], "12345");
+  assert.match(post?.headers["Authorization"], /Bearer k/);
 });
 
 // ─── normalizePrintfulRates ─────────────────────────────────────────────────

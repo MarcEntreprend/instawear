@@ -1,55 +1,74 @@
 // supabase/functions/_shared/printfulRates.ts
-// Helper partagé pour l'appel Printful POST /shipping/rates (doc officielle :
+// Helper partagé pour Printful POST /shipping/rates (doc officielle :
 // https://api.printful.com/shipping/rates — pas de store_id dans l'URL, le
 // store passe par le header X-PF-Store-Id).
 //
-// Subtilité IDs (cf. docs-API/Orders API printful.txt) :
+// Chaîne d'IDs (cf. docs-API) :
 // - Notre DB stocke dans variants[].external_variant_id le **sync variant id**
 //   Printful (ex: 5414335924, voir sync-printful/index.ts ligne 219).
-// - La création de commande (/orders) accepte `sync_variant_id` — c'est
-//   pourquoi create-printful-order fonctionne avec ces IDs.
-// - Le schéma ItemInfo de /shipping/rates ne liste que `variant_id`
-//   (catalogue), `external_variant_id` et `warehouse_product_variant_id`.
-//   En pratique un sync ID passé en `variant_id` répond
-//   "Invalid variant ID". On tente donc `sync_variant_id` d'abord, puis
-//   `variant_id` en repli si Printful rejette l'ID.
+// - Le schéma ItemInfo de /shipping/rates n'accepte que `variant_id`
+//   (catalogue), `external_variant_id` ou `warehouse_product_variant_id` :
+//   un sync ID passé en `variant_id` répond "Invalid variant ID".
+// - Solution conforme : résoudre chaque sync ID vers son catalogue ID via
+//   GET /store/variants/{id} (réponse SyncVariant contient `variant_id`),
+//   avec cache mémoire 24h. Si la résolution échoue (404 = l'ID est déjà
+//   un catalogue ID), on garde l'ID tel quel.
 
-export const PRINTFUL_SHIPPING_RATES_URL =
-  "https://api.printful.com/shipping/rates";
+export const PRINTFUL_API = "https://api.printful.com";
+export const PRINTFUL_SHIPPING_RATES_URL = `${PRINTFUL_API}/shipping/rates`;
+
+// Cache sync ID -> catalogue ID (les IDs ne changent jamais : TTL 24h).
+const catalogIdCache = new Map<string, { id: number; expiresAt: number }>();
+const CATALOG_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface RateItemInput {
   variant_id: string;
   quantity: number;
 }
 
-/** Candidats d'item Printful, dans l'ordre d'essai. */
-export function buildRateItemCandidates(
-  item: RateItemInput,
-): Record<string, unknown>[] {
-  const qty = item.quantity;
-  const idNum = Number(item.variant_id);
-  const candidates: Record<string, unknown>[] = [];
-  if (Number.isFinite(idNum)) {
-    // 1) sync variant id (cas réel de notre DB — cf. sync-printful)
-    candidates.push({ sync_variant_id: idNum, quantity: qty });
-    // 2) catalog variant id (au cas où l'ID stocké serait un catalogue ID)
-    candidates.push({ variant_id: idNum, quantity: qty });
-  } else {
-    // ID non numérique : uniquement external_variant_id possible
-    candidates.push({
-      external_variant_id: String(item.variant_id),
-      quantity: qty,
-    });
+function pfHeaders(apiKey: string, storeId?: string | number | null) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (storeId !== undefined && storeId !== null && storeId !== "") {
+    headers["X-PF-Store-Id"] = String(storeId);
   }
-  return candidates;
+  return headers;
 }
 
-/** Détecte l'erreur "Invalid variant ID" dans une réponse Printful. */
-export function isInvalidVariantError(pfData: any): boolean {
-  const msg = String(
-    pfData?.result ?? pfData?.error?.message ?? pfData?.error ?? "",
-  ).toLowerCase();
-  return msg.includes("invalid variant");
+/**
+ * Résout un sync variant ID vers son catalogue variant ID.
+ * Retourne null si non résolu (l'appelant garde alors l'ID d'origine).
+ */
+export async function resolveCatalogVariantId(
+  apiKey: string,
+  storeId: string | number | null | undefined,
+  syncId: string,
+): Promise<number | null> {
+  const key = String(syncId);
+  const cached = catalogIdCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) return cached.id;
+
+  try {
+    const res = await fetch(
+      `${PRINTFUL_API}/store/variants/${encodeURIComponent(key)}`,
+      { headers: pfHeaders(apiKey, storeId) },
+    );
+    if (!res.ok) return null; // 404 = pas un sync ID (peut-être déjà catalogue)
+    const data = await res.json().catch(() => null);
+    const catalogId = Number(data?.result?.variant_id);
+    if (!Number.isFinite(catalogId) || catalogId <= 0) return null;
+    catalogIdCache.set(key, { id: catalogId, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS });
+    return catalogId;
+  } catch {
+    return null;
+  }
+}
+
+/** Vide le cache de résolution (utile en test). */
+export function clearCatalogIdCache(): void {
+  catalogIdCache.clear();
 }
 
 export interface FetchRatesResult {
@@ -57,12 +76,13 @@ export interface FetchRatesResult {
   rates: any[];
   /** Message d'erreur Printful (si ok === false). */
   error?: string;
-  /** Quel candidat a fonctionné : "sync_variant_id" | "variant_id" | "external_variant_id" | null */
-  usedField?: string | null;
 }
 
 /**
- * Appelle Printful /shipping/rates avec repli automatique sync -> catalogue.
+ * Appelle Printful /shipping/rates :
+ * 1. résout chaque ID numérique vers son catalogue ID (parallèle, caché),
+ * 2. POST avec [{ variant_id: catalogueId, quantity }],
+ * 3. les IDs non numériques partent en `external_variant_id` (schéma OK).
  * Ne lance jamais d'exception : en cas d'échec, { ok: false, error }.
  */
 export async function fetchPrintfulShippingRates(opts: {
@@ -72,71 +92,49 @@ export async function fetchPrintfulShippingRates(opts: {
   items: RateItemInput[];
   currency?: string;
 }): Promise<FetchRatesResult> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${opts.apiKey}`,
-    "Content-Type": "application/json",
-  };
-  if (opts.storeId !== undefined && opts.storeId !== null && opts.storeId !== "") {
-    headers["X-PF-Store-Id"] = String(opts.storeId);
-  }
+  const headers = pfHeaders(opts.apiKey, opts.storeId);
 
-  // Nombre d'essais = nombre max de candidats parmi les items (1 ou 2).
-  const maxAttempts = Math.max(
-    ...opts.items.map((i) => buildRateItemCandidates(i).length),
-    1,
+  const pfItems = await Promise.all(
+    opts.items.map(async (i) => {
+      const raw = String(i.variant_id).trim();
+      if (!/^\d+$/.test(raw)) {
+        return { external_variant_id: raw, quantity: i.quantity };
+      }
+      const catalogId =
+        (await resolveCatalogVariantId(opts.apiKey, opts.storeId, raw)) ??
+        Number(raw);
+      return { variant_id: catalogId, quantity: i.quantity };
+    }),
   );
 
-  let lastError = "Erreur Printful inconnue";
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const pfItems = opts.items.map((i) => {
-      const c = buildRateItemCandidates(i);
-      return c[Math.min(attempt, c.length - 1)];
+  const payload: Record<string, unknown> = {
+    recipient: opts.recipient,
+    items: pfItems,
+  };
+  if (opts.currency) payload.currency = String(opts.currency).toUpperCase();
+
+  let pfRes: Response;
+  try {
+    pfRes = await fetch(PRINTFUL_SHIPPING_RATES_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
     });
-    const payload: Record<string, unknown> = {
-      recipient: opts.recipient,
-      items: pfItems,
-    };
-    if (opts.currency) payload.currency = String(opts.currency).toUpperCase();
-
-    let pfRes: Response;
-    try {
-      pfRes = await fetch(PRINTFUL_SHIPPING_RATES_URL, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-    } catch (e: any) {
-      lastError = e?.message || "Erreur réseau Printful";
-      break; // réseau HS : inutile de réessayer l'autre candidat
-    }
-
-    let pfData: any = null;
-    try {
-      pfData = await pfRes.json();
-    } catch {
-      pfData = null;
-    }
-
-    if (pfRes.ok) {
-      const usedKeys = Object.keys(pfItems[0] || {}).filter(
-        (k) => k !== "quantity",
-      );
-      return {
-        ok: true,
-        rates: Array.isArray(pfData?.result) ? pfData.result : [],
-        usedField: usedKeys[0] ?? null,
-      };
-    }
-
-    lastError = String(
-      pfData?.result ?? pfData?.error?.message ?? `HTTP ${pfRes.status}`,
-    );
-    // Repli uniquement sur "Invalid variant ID" : les autres erreurs
-    // (adresse invalide, auth, quota…) ne changeront pas au 2e essai.
-    if (!isInvalidVariantError(pfData)) break;
+  } catch (e: any) {
+    return { ok: false, rates: [], error: e?.message || "Erreur réseau Printful" };
   }
 
-  return { ok: false, rates: [], error: lastError, usedField: null };
+  const pfData: any = await pfRes.json().catch(() => null);
+  if (!pfRes.ok) {
+    return {
+      ok: false,
+      rates: [],
+      error: String(
+        pfData?.result ?? pfData?.error?.message ?? `HTTP ${pfRes.status}`,
+      ),
+    };
+  }
+  return { ok: true, rates: Array.isArray(pfData?.result) ? pfData.result : [] };
 }
 
 /** Normalise result[] Printful vers notre forme { id, name, rate, ... }. */

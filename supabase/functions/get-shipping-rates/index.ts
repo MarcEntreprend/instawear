@@ -322,9 +322,6 @@ export default {
           },
         );
       }
-      if (pf.usedField && pf.usedField !== "sync_variant_id") {
-        console.log("Printful rates via champ repli:", pf.usedField);
-      }
 
       // ── Normalize response ──────────────────────────────────────
       const rates = normalizePrintfulRates(pf.rates);
