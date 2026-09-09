@@ -5,7 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
 // Blocs lourds en lazy : chargés uniquement à l'ouverture (admin jamais
@@ -14,13 +21,17 @@ const AccountPage = lazy(() => import("./components/AccountPage"));
 const CheckoutFlow = lazy(() => import("./components/CheckoutFlow"));
 import OrderTrackingModal from "./components/OrderTrackingModal";
 import ProfileModal from "./components/ProfileModal";
-import ToastContainer, { type Toast, MAX_TOASTS } from "./components/ToastContainer";
+import ToastContainer, {
+  type Toast,
+  MAX_TOASTS,
+} from "./components/ToastContainer";
 import LegalPage from "./pages/LegalPage";
 import FaqPage from "./pages/FaqPage";
 import ContactPage from "./pages/ContactPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
+import OrderSuccessPage from "./pages/OrderSuccessPage";
 import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
@@ -31,8 +42,18 @@ const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
 // Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
 function LazyFallback() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--color-bg)" }} aria-label="Chargement">
-      <div className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-border)", borderTopColor: "var(--color-accent)" }} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "var(--color-bg)" }}
+      aria-label="Chargement"
+    >
+      <div
+        className="w-10 h-10 rounded-full border-2 animate-spin"
+        style={{
+          borderColor: "var(--color-border)",
+          borderTopColor: "var(--color-accent)",
+        }}
+      />
     </div>
   );
 }
@@ -42,7 +63,10 @@ import { useCookieConsent } from "./hooks/useCookieConsent";
 import { applyConsent } from "./lib/analytics";
 import { track, initSectionTracking, getVariant } from "./lib/engagement";
 import { Product, CartItem } from "./types";
-import { getVariantAvailability, pickAvailableVariant } from "./hooks/useProductAvailability";
+import {
+  getVariantAvailability,
+  pickAvailableVariant,
+} from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
 import {
   productApi,
@@ -131,6 +155,17 @@ export default function App() {
     } else if (path === "/suivi") {
       const c = new URLSearchParams(search).get("code") || "";
       setTrackingPageCode(c);
+    } else if (path.startsWith("/order/success/") || path.startsWith("/orderResult/") || path.startsWith("/orderResult/success/")) {
+      const parts = path.split("/").filter(Boolean);
+      const id = parts[parts.length - 1];
+      if (id && id !== "success" && id.startsWith("ORD-")) setOrderSuccessId(id);
+      else {
+        const qId = new URLSearchParams(search).get("id") || new URLSearchParams(search).get("orderId");
+        if (qId) setOrderSuccessId(qId);
+      }
+    } else if (path === "/order/success" || path === "/orderResult") {
+      const qId = new URLSearchParams(search).get("id");
+      if (qId) setOrderSuccessId(qId);
     }
   }, [products]);
   useEffect(() => {
@@ -230,10 +265,32 @@ export default function App() {
   const [stripeConfirmOrderId, setStripeConfirmOrderId] = useState<
     string | null
   >(null);
+  const [orderSuccessId, setOrderSuccessId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const path = window.location.pathname;
+    const search = window.location.search;
+    if (path.startsWith("/order/success/") || path.startsWith("/orderResult/")) {
+      const parts = path.split("/").filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last && last.startsWith("ORD-")) return last;
+    }
+    const params = new URLSearchParams(search);
+    if (params.get("order") === "success" && params.get("id")) return params.get("id");
+    if (path === "/order/success" && params.get("id")) return params.get("id");
+    return null;
+  });
   const [trackingOpen, setTrackingOpen] = useState(false);
   const [trackingInitialCode, setTrackingInitialCode] = useState<string | null>(
     null,
   );
+
+  // Garantir panier vidé dès que la page de succès est affichée (comme le flux carte)
+  useEffect(() => {
+    if (orderSuccessId) {
+      setCart([]);
+      setCartLoaded(true);
+    }
+  }, [orderSuccessId]);
 
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -289,9 +346,15 @@ export default function App() {
   // Charger le panier de l'utilisateur connecté depuis Supabase
   useEffect(() => {
     const loadCart = async () => {
-      // ⛔ Ne pas recharger le panier depuis Supabase pendant un retour Stripe
-      if (window.location.search.includes("order=success")) {
-        setCartLoaded(true); // évite aussi la synchro
+      // ⛔ Ne pas recharger le panier pendant un retour Stripe (ou si confirmation affichée)
+      if (
+        window.location.pathname.startsWith("/order/success/") ||
+        window.location.pathname.startsWith("/orderResult/") ||
+        window.location.search.includes("order=success") ||
+        stripeConfirmOrderId ||
+        orderSuccessId
+      ) {
+        setCartLoaded(true);
         return;
       }
 
@@ -299,7 +362,6 @@ export default function App() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
-        // Recherche locale pour éviter l'erreur 406
         const customer = allCustomers.find((c) => c.email === user.email);
         if (customer) {
           const cartItems = await customerApi.getCart(customer.id);
@@ -308,7 +370,6 @@ export default function App() {
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
-                // P3 POD: on garde même les produits inactifs/variantes supprimées en panier (grisé, non bloquant)
                 let unitPrice =
                   product.price +
                   (product.sizeSurcharge?.[item.selectedSize] ?? 0);
@@ -335,7 +396,7 @@ export default function App() {
       }
     };
     loadCart();
-  }, [isAdmin, isUser, products]);
+  }, [isAdmin, isUser, products, stripeConfirmOrderId, orderSuccessId]);
 
   // Save cart to Supabase
   useEffect(() => {
@@ -370,6 +431,68 @@ export default function App() {
   const [showNewAdmin, setShowNewAdmin] = useState(false);
 
   const [showNotFound, setShowNotFound] = useState(false); // not found
+
+  // Block background swipe/scroll when any fullscreen modal/page is open (mobile)
+  useEffect(() => {
+    const isAnyModalOpen =
+      showAuthModal ||
+      showProfileModal ||
+      showAccountPage ||
+      !!selectedProduct ||
+      !!legalSlug ||
+      showFaqPage ||
+      showContactPage ||
+      showPromotionsPage ||
+      searchPageQuery !== null ||
+      trackingPageCode !== null ||
+      cartOpen ||
+      checkoutOpen ||
+      !!stripeConfirmOrderId ||
+      !!orderSuccessId ||
+      trackingOpen ||
+      showNotFound ||
+      showNewAdmin;
+    if (isAnyModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = (document.documentElement.style as any)
+        .overscrollBehavior;
+      document.body.style.overflow = "hidden";
+      (document.documentElement.style as any).overscrollBehavior = "contain";
+      const onTouchMove = (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('[class*="fixed inset-0"]')) return;
+        e.preventDefault();
+      };
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        (document.documentElement.style as any).overscrollBehavior =
+          prevOverscroll;
+        document.removeEventListener("touchmove", onTouchMove);
+      };
+    } else {
+      document.body.style.overflow = "";
+      (document.documentElement.style as any).overscrollBehavior = "";
+    }
+  }, [
+    showAuthModal,
+    showProfileModal,
+    showAccountPage,
+    selectedProduct,
+    legalSlug,
+    showFaqPage,
+    showContactPage,
+    showPromotionsPage,
+    searchPageQuery,
+    trackingPageCode,
+    cartOpen,
+    checkoutOpen,
+    stripeConfirmOrderId,
+    orderSuccessId,
+    trackingOpen,
+    showNotFound,
+    showNewAdmin,
+  ]);
 
   useEffect(() => {
     if (showNewAdmin) {
@@ -556,10 +679,13 @@ export default function App() {
       }
       if (session.user.email) setUserEmail(session.user.email);
       const uid = session.user.id;
-      customerApi.get(uid).then((c) => {
-        if (cancelled) return;
-        if (c?.name && c.name.trim()) setUserName(c.name.trim());
-      }).catch(() => {});
+      customerApi
+        .get(uid)
+        .then((c) => {
+          if (cancelled) return;
+          if (c?.name && c.name.trim()) setUserName(c.name.trim());
+        })
+        .catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -629,7 +755,9 @@ export default function App() {
   ) => {
     const id = ++toastIdCounter.current;
     // Plafond anti-spam visuel : on garde les plus récents.
-    setToasts((prev) => [...prev, { id, text, type, duration, action }].slice(-MAX_TOASTS));
+    setToasts((prev) =>
+      [...prev, { id, text, type, duration, action }].slice(-MAX_TOASTS),
+    );
   };
 
   const viewCartAction = () => ({
@@ -796,16 +924,27 @@ export default function App() {
     setCart((prev) => mergeLinesIntoCart(prev, [resolved.line]));
     track("add_to_cart", "product", product.id, { v: getVariant() });
 
-    showToast(`🛒 "${product.title}" added to cart!`, "success", undefined, viewCartAction());
+    showToast(
+      `🛒 "${product.title}" added to cart!`,
+      "success",
+      undefined,
+      viewCartAction(),
+    );
   };
 
   // Ajout en lot (ex. Frequently Bought Together) : UN SEUL passage par le
   // lock anti-race. Sans ça, N appels synchrones à addToCart ne laissent
   // passer que le 1er — les autres sont silencieusement ignorés.
   const addManyToCart = (
-    items: { product: Product; color?: string; size?: string; quantity?: number }[],
+    items: {
+      product: Product;
+      color?: string;
+      size?: string;
+      quantity?: number;
+    }[],
   ): { addedIds: string[]; blockedCount: number } => {
-    if (addToCartLock.current) return { addedIds: [], blockedCount: items.length };
+    if (addToCartLock.current)
+      return { addedIds: [], blockedCount: items.length };
     addToCartLock.current = true;
     setTimeout(() => {
       addToCartLock.current = false;
@@ -841,7 +980,8 @@ export default function App() {
     }
     setCart((prev) => mergeLinesIntoCart(prev, lines));
     const addedIds = lines.map((l) => l.product.id);
-    for (const id of addedIds) track("add_to_cart", "product", id, { v: getVariant() });
+    for (const id of addedIds)
+      track("add_to_cart", "product", id, { v: getVariant() });
     showToast(
       `🛒 ${lines.length} item${lines.length > 1 ? "s" : ""} added to cart!`,
       "success",
@@ -944,6 +1084,13 @@ export default function App() {
   };
 
   // Stripe Checkout return handling (success / cancel)
+  //
+  // ⚠️ RÈGLE ABSOLUE : l'affichage de la confirmation et le vidage local
+  // du panier ne doivent JAMAIS dépendre de la réussite d'un appel réseau.
+  // C'est ce couplage qui causait le bug (clearCart pouvait lever une
+  // exception et bloquait tout ce qui suivait, y compris la confirmation).
+  // Chaque appel annexe est maintenant isolé dans son propre try/catch,
+  // en "best effort", après coup.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const orderStatus = params.get("order");
@@ -951,17 +1098,66 @@ export default function App() {
 
     if (!orderStatus || !orderId) return;
 
-    const handleReturn = async () => {
-      if (orderStatus === "success") {
-        try {
-          // Récupère le statut via la RPC publique (aucune donnée sensible exposée)
-          const order = await orderApi.get(orderId);
+    const cleanUrl = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("order");
+      url.searchParams.delete("id");
+      window.history.replaceState({}, "", url.toString());
+    };
 
-          if (!order) {
-            showToast("Order not found.", "error");
-            return;
+    if (orderStatus === "cancelled") {
+      showToast("Payment cancelled. Your cart is saved.", "info");
+      cleanUrl();
+      return;
+    }
+
+    if (orderStatus !== "success") {
+      cleanUrl();
+      return;
+    }
+
+    // 1️⃣ Garanti, synchrone, sans aucune dépendance réseau : la confirmation
+    // s'affiche et le panier local se vide quoi qu'il arrive ensuite.
+    // Force la nouvelle page dédiée /order/success/:id pour garantir l'affichage
+    setCart([]);
+    setCartLoaded(false);
+    setStripeConfirmOrderId(orderId);
+    setOrderSuccessId(orderId);
+    // Pousse la nouvelle URL si on est encore sur l'ancienne forme ?order=success
+    if (window.location.pathname === "/" && window.location.search.includes("order=success")) {
+      window.history.replaceState({}, "", `/order/success/${orderId}`);
+    } else {
+      cleanUrl();
+    }
+
+    // 2️⃣ Vidage du panier serveur — best effort, isolé. Un échec ici
+    // (session pas encore réhydratée après le rechargement complet, réseau,
+    // etc.) ne doit plus jamais pouvoir annuler le point 1.
+    (async () => {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+        if (currentUser?.email) {
+          const { data: customerData } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("email", currentUser.email)
+            .maybeSingle();
+          if (customerData) {
+            await customerApi.clearCart(customerData.id);
           }
+        }
+      } catch (e) {
+        console.error("Stripe return: échec du vidage du panier serveur", e);
+      }
+    })();
 
+    // 3️⃣ Vérification du statut — best effort, isolée elle aussi.
+    (async () => {
+      try {
+        const order = await orderApi.get(orderId);
+        if (order) {
           const successStatuses = [
             "paid",
             "pending",
@@ -974,46 +1170,16 @@ export default function App() {
               "Payment not confirmed. Please contact support.",
               "error",
             );
-            return;
           }
-
-          // Vider le panier localement
-          setCart([]);
-          setCartLoaded(false);
-
-          // Vider le panier dans Supabase (indépendant du cache)
-          const {
-            data: { user: currentUser },
-          } = await supabase.auth.getUser();
-          if (currentUser?.email) {
-            const { data: customerData } = await supabase
-              .from("customers")
-              .select("id")
-              .eq("email", currentUser.email)
-              .maybeSingle();
-            if (customerData) {
-              await customerApi.clearCart(customerData.id);
-            }
-          }
-
-          // Afficher l'écran de confirmation
-          setStripeConfirmOrderId(orderId);
-        } catch (e) {
-          console.error("Error verifying Stripe order", e);
-          showToast("Error verifying payment.", "error");
         }
-      } else if (orderStatus === "cancelled") {
-        showToast("Payment cancelled. Your cart is saved.", "info");
+      } catch (e) {
+        console.warn("Order fetch failed for", orderId, e);
+        showToast(
+          "Your order has been placed. You can track it with the reference below.",
+          "info",
+        );
       }
-
-      // Clean URL parameters without reloading
-      const url = new URL(window.location.href);
-      url.searchParams.delete("order");
-      url.searchParams.delete("id");
-      window.history.replaceState({}, "", url.toString());
-    };
-
-    handleReturn();
+    })();
   }, []);
 
   // Ouverture directe du suivi via ?track=ORD-... (liens « View order details »
@@ -1027,6 +1193,46 @@ export default function App() {
       url.searchParams.delete("track");
       window.history.replaceState({}, "", url.toString());
     }
+  }, []);
+
+  // Order success dedicated page — handle /order/success/:id and legacy ?order=success
+  // Garanti: ne jamais écraser /order/success/:id vers "/"
+  useEffect(() => {
+    const checkOrderSuccess = () => {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      let id: string | null = null;
+      if (path.startsWith("/order/success/") || path.startsWith("/orderResult/")) {
+        const parts = path.split("/").filter(Boolean);
+        const last = parts[parts.length - 1];
+        if (last && last.startsWith("ORD-")) id = last;
+        else id = new URLSearchParams(search).get("id");
+      } else {
+        const params = new URLSearchParams(search);
+        if (params.get("order") === "success" && params.get("id")) {
+          id = params.get("id");
+        }
+      }
+      if (id && id.startsWith("ORD-")) {
+        setCart([]);
+        setCartLoaded(true);
+        setOrderSuccessId(id);
+        setStripeConfirmOrderId(id);
+        // Force l'URL canonique si on vient de l'ancien ?order=success (évite le flash "/")
+        if (window.location.search.includes("order=success")) {
+          window.history.replaceState({}, "", `/order/success/${id}`);
+        }
+      } else if (
+        !window.location.pathname.startsWith("/order/success/") &&
+        !window.location.pathname.startsWith("/orderResult/")
+      ) {
+        // Ne clear que si on n'est pas déjà sur la page de succès (évite le rebond vers "/")
+        // On ne clear pas automatiquement ici — laisse onClose le faire
+      }
+    };
+    checkOrderSuccess();
+    window.addEventListener("popstate", checkOrderSuccess);
+    return () => window.removeEventListener("popstate", checkOrderSuccess);
   }, []);
 
   // Detect user country via IP (free, no API key, CORS-friendly)
@@ -1044,7 +1250,9 @@ export default function App() {
           return;
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     let cancelled = false;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -1062,7 +1270,9 @@ export default function App() {
               KEY,
               JSON.stringify({ code: data.country, at: Date.now() }),
             );
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       })
       .catch(() => {
@@ -1113,8 +1323,20 @@ export default function App() {
     const checkRoute = () => {
       const path = window.location.pathname;
       // Routes connues (SPA : pages produit / légales / aide / suivi)
-      const knownPaths = ["/", "/unsubscribe", "/index.html", "/faq", "/contact", "/promotions", "/recherche", "/suivi"];
-      const knownPrefixes = ["/produit/", "/legal/"];
+      const knownPaths = [
+        "/",
+        "/unsubscribe",
+        "/index.html",
+        "/faq",
+        "/contact",
+        "/promotions",
+        "/recherche",
+        "/suivi",
+        "/order/success",
+        "/orderResult",
+        "/orderResult/success",
+      ];
+      const knownPrefixes = ["/produit/", "/legal/", "/order/success/", "/orderResult/"];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
         path.startsWith("/flags/") ||
@@ -1161,7 +1383,9 @@ export default function App() {
       // Pas connecté : on bascule juste en local (perdu au rechargement)
       setFavorites((prev) => {
         const adding = !prev.includes(productId);
-        track("favourite", "product", productId, { state: adding ? "added" : "removed" });
+        track("favourite", "product", productId, {
+          state: adding ? "added" : "removed",
+        });
         return adding
           ? [...prev, productId]
           : prev.filter((id) => id !== productId);
@@ -1205,7 +1429,9 @@ export default function App() {
           !showContactPage &&
           !showPromotionsPage &&
           !searchPageQuery &&
-          !trackingPageCode
+          !trackingPageCode &&
+          !orderSuccessId &&
+          !stripeConfirmOrderId
         }
         onNavigateHome={() => {
           setSelectedProduct(null);
@@ -1228,7 +1454,10 @@ export default function App() {
         onSearch={(term) => {
           setSearchTerm(term);
           setActiveTab("store");
-          if (term.trim()) track("search", "section", "search", { query: term.trim().slice(0, 80) });
+          if (term.trim())
+            track("search", "section", "search", {
+              query: term.trim().slice(0, 80),
+            });
         }}
         currentSearchTerm={searchTerm}
         onSelectCategory={(cat) => {
@@ -1277,7 +1506,7 @@ export default function App() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Client Customer Main Storefront View */}
-      {activeTab === "store" && !stripeConfirmOrderId && (
+      {activeTab === "store" && !stripeConfirmOrderId && !orderSuccessId && (
         <main
           className="flex-1 flex flex-col gap-8 pb-16"
           id="view-customer-storefront"
@@ -1555,7 +1784,7 @@ export default function App() {
             setActiveTab("store");
           }}
         />
-       )}
+      )}
 
       {showAccountPage && (
         <Suspense fallback={<LazyFallback />}>
@@ -1607,8 +1836,8 @@ export default function App() {
         </Suspense>
       )}
 
-      {/* Confirmation mode after Stripe return */}
-      {stripeConfirmOrderId && (
+      {/* Confirmation mode after Stripe return — legacy, hidden when new dedicated page is used */}
+      {stripeConfirmOrderId && !orderSuccessId && (
         <Suspense fallback={<LazyFallback />}>
           <CheckoutFlow
             cart={[]}
@@ -1620,6 +1849,21 @@ export default function App() {
             confirmModeOrderId={stripeConfirmOrderId}
           />
         </Suspense>
+      )}
+
+      {orderSuccessId && (
+        <OrderSuccessPage
+          orderId={orderSuccessId}
+          onClose={() => {
+            setOrderSuccessId(null);
+            setStripeConfirmOrderId(null);
+            history.pushState({}, "", "/");
+          }}
+          onClearCart={() => {
+            setCart([]);
+            setCartLoaded(false);
+          }}
+        />
       )}
 
       {/* Order Tracking Modal */}
@@ -1658,7 +1902,6 @@ export default function App() {
       {/* V2: Mobile tab bar (store view only) */}
       {activeTab === "store" && !showNewAdmin && !selectedProduct && (
         <MobileTabBar
-          favouritesCount={favorites.length}
           cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
           onTabChange={(tab) => {
             if (tab === "home") {
@@ -1671,10 +1914,8 @@ export default function App() {
               document
                 .getElementById("section-catalog")
                 ?.scrollIntoView({ behavior: "smooth" });
-            } else if (tab === "favourites") {
-              handleOpenFavorites();
-            } else if (tab === "cart") {
-              setCartOpen(true);
+            } else if (tab === "order") {
+              setTrackingOpen(true);
             } else if (tab === "account") {
               if (isUser) setShowAccountPage(true);
               else if (isAdmin) setShowProfileModal(true);

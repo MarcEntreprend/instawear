@@ -133,7 +133,11 @@ export default {
       const key = rateLimitKey(req, path);
       if (await isRateLimited(req, key)) {
         return new Response(JSON.stringify({ error: "Trop de requetes." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+          },
           status: 429,
         });
       }
@@ -152,13 +156,20 @@ export default {
       // P-A (1+7) payload size limit (100KB) + validation
       const rawBody = await req.text();
       if (rawBody.length > 100 * 1024) {
-        return new Response(JSON.stringify({ error: "Payload trop volumineux" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 413,
-        });
+        return new Response(
+          JSON.stringify({ error: "Payload trop volumineux" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 413,
+          },
+        );
       }
       let body: any = {};
-      try { body = rawBody ? JSON.parse(rawBody) : {}; } catch { body = {}; }
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        body = {};
+      }
       const {
         action,
         orderId,
@@ -170,11 +181,25 @@ export default {
 
       // P-A (7) validation orderId/email si présents
       const bodyOrderId = (body as any).orderId;
-      if (bodyOrderId && !/^ORD-[0-9]{4}-[0-9]{6}$/.test(String(bodyOrderId).trim())) {
-        return new Response(JSON.stringify({ error: "orderId invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+      if (
+        bodyOrderId &&
+        !/^ORD-[0-9]{4}-[0-9]{6}$/.test(String(bodyOrderId).trim())
+      ) {
+        return new Response(JSON.stringify({ error: "orderId invalide" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
       }
-      if ((body as any).customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String((body as any).customerEmail).trim())) {
-        return new Response(JSON.stringify({ error: "Email invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+      if (
+        (body as any).customerEmail &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          String((body as any).customerEmail).trim(),
+        )
+      ) {
+        return new Response(JSON.stringify({ error: "Email invalide" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
       }
 
       // ── Devise depuis store_settings ──
@@ -196,13 +221,31 @@ export default {
         for (const it of items) {
           const q = Number(it.quantity);
           if (!Number.isInteger(q) || q <= 0 || q > 100) {
-            return new Response(JSON.stringify({ error: "Quantité invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+            return new Response(
+              JSON.stringify({ error: "Quantité invalide" }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 400,
+              },
+            );
           }
-          if (it.selectedColor && !/^#[0-9a-fA-F]{6}$/.test(String(it.selectedColor).trim())) {
-            return new Response(JSON.stringify({ error: "Couleur invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+          if (
+            it.selectedColor &&
+            !/^#[0-9a-fA-F]{6}$/.test(String(it.selectedColor).trim())
+          ) {
+            return new Response(JSON.stringify({ error: "Couleur invalide" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            });
           }
-          if (it.selectedSize && !/^(XS|S|M|L|XL|XXL|2XL|3XL)$/i.test(String(it.selectedSize).trim())) {
-            return new Response(JSON.stringify({ error: "Taille invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+          if (
+            it.selectedSize &&
+            !/^(XS|S|M|L|XL|XXL|2XL|3XL)$/i.test(String(it.selectedSize).trim())
+          ) {
+            return new Response(JSON.stringify({ error: "Taille invalide" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            });
           }
         }
 
@@ -266,12 +309,35 @@ export default {
         const sUrl = new URL(successUrl);
         const cUrl = new URL(cancelUrl);
         const okHosts = ["instawear.vercel.app", "localhost", "127.0.0.1"];
-        if (!okHosts.some((h) => sUrl.hostname === h || sUrl.hostname.endsWith("." + h)) || !okHosts.some((h) => cUrl.hostname === h || cUrl.hostname.endsWith("." + h))) {
-          return new Response(JSON.stringify({ error: "URL de redirection non autorisée" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        if (
+          !okHosts.some(
+            (h) => sUrl.hostname === h || sUrl.hostname.endsWith("." + h),
+          ) ||
+          !okHosts.some(
+            (h) => cUrl.hostname === h || cUrl.hostname.endsWith("." + h),
+          )
+        ) {
+          return new Response(
+            JSON.stringify({ error: "URL de redirection non autorisée" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
         }
       } catch {
-        return new Response(JSON.stringify({ error: "URL invalide" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+        return new Response(JSON.stringify({ error: "URL invalide" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
       }
+
+      /**
+       * Dans l'Edge Function stripe-checkout/index.ts, la liste blanche anti-open-redirect
+       * n'autorise que instawear.vercel.app, localhost et 127.0.0.1 :
+       * ```const okHosts = ["instawear.vercel.app", "localhost", "127.0.0.1"];```
+       *Si tu testes un jour ce flux depuis une URL de preview Vercel (type instawear-git-retouches-2-xxx.vercel.app), la création de session Stripe sera rejetée avec un 400 avant même d'atteindre Stripe — pas le bug d'aujourd'hui (tu as bien atteint et payé sur Stripe, donc ce test-ci passait), mais à garder en tête si un futur test "ne fait rien du tout dès le clic sur Stripe Checkout".
+       * **/
 
       const computed = await computeOrderTotal(supabaseAdmin, orderId);
       if (!computed || computed.lineItems.length === 0) {

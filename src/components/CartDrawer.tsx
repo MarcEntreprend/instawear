@@ -83,14 +83,14 @@ export default function CartDrawer({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[70] animate-fade-in"
+        className="fixed inset-0 z-70 animate-fade-in"
         style={{ background: "rgba(26,25,22,.5)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
       {/* Drawer */}
       <div
-        className="fixed inset-y-0 right-0 z-[70] w-full max-w-100 flex flex-col animate-slide-right"
+        className="fixed inset-y-0 right-0 z-70 w-full max-w-100 flex flex-col animate-slide-right"
         style={{
           background: "var(--color-bg)",
           borderLeft: "1px solid var(--color-border)",
@@ -365,7 +365,10 @@ export default function CartDrawer({
                             fontVariantNumeric: "tabular-nums",
                           }}
                         >
-                          {formatPrice(item.unitPrice * item.quantity, currency)}
+                          {formatPrice(
+                            item.unitPrice * item.quantity,
+                            currency,
+                          )}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
@@ -437,9 +440,8 @@ export default function CartDrawer({
                   }}
                 >
                   Sous-total affiché = articles disponibles uniquement (
-                  {formatPrice(fulfillableTotal, currency)}). Les{" "}
-                  {blockedCount} indisponible(s) ne seront pas
-                  facturés/imprimés.
+                  {formatPrice(fulfillableTotal, currency)}). Les {blockedCount}{" "}
+                  indisponible(s) ne seront pas facturés/imprimés.
                 </p>
               )}
               <div className="flex flex-col gap-1.5 text-sm">
@@ -476,7 +478,10 @@ export default function CartDrawer({
                 >
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatPrice(displayTotal + (freeShipping ? 0 : shippingCost), currency)}
+                    {formatPrice(
+                      displayTotal + (freeShipping ? 0 : shippingCost),
+                      currency,
+                    )}
                   </span>
                 </div>
               </div>

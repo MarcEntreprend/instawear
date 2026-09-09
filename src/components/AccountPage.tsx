@@ -627,7 +627,9 @@ export default function AccountPage({
                   className="truncate text-[15px] font-bold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Guest")}
+                  {customerName?.trim()
+                    ? getFirstName(customerName)
+                    : customerEmail || "Guest"}
                 </p>
                 <p
                   className="truncate text-[12px]"
@@ -807,55 +809,174 @@ export default function AccountPage({
               <div className="flex flex-col gap-6 animate-fade-up">
                 <div>
                   <span className="eyebrow">Welcome back</span>
-                  <h3 className="text-xl font-black mt-1" style={{ color: "var(--color-ink)" }}>{customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Member")}</h3>
-                  <p className="text-sm mt-1" style={{ color: "var(--color-ink3)" }}>Member since {memberSince} · {orders.length} orders · {favorites.length} saved</p>
+                  <h3
+                    className="text-xl font-black mt-1"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {customerName?.trim()
+                      ? getFirstName(customerName)
+                      : customerEmail || "Member"}
+                  </h3>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    Member since {memberSince} · {orders.length} orders ·{" "}
+                    {favorites.length} saved
+                  </p>
                 </div>
                 {(() => {
-                  const totalSpent = orders.reduce((a, o) => a + (o.totalAmount || 0), 0);
-                  const tier = totalSpent >= 300 ? "Gold" : totalSpent >= 100 ? "Silver" : "Bronze";
-                  const tierColor = tier === "Gold" ? "var(--color-gold)" : tier === "Silver" ? "var(--color-ink2)" : "#cd7f32";
+                  const totalSpent = orders.reduce(
+                    (a, o) => a + (o.totalAmount || 0),
+                    0,
+                  );
+                  const tier =
+                    totalSpent >= 300
+                      ? "Gold"
+                      : totalSpent >= 100
+                        ? "Silver"
+                        : "Bronze";
+                  const tierColor =
+                    tier === "Gold"
+                      ? "var(--color-gold)"
+                      : tier === "Silver"
+                        ? "var(--color-ink2)"
+                        : "#cd7f32";
                   return (
                     <div className="card-premium p-4 flex items-center gap-3">
-                      <span className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white" style={{ background: tierColor }}>{tier[0]}</span>
+                      <span
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white"
+                        style={{ background: tierColor }}
+                      >
+                        {tier[0]}
+                      </span>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>{tier} Member</p>
-                        <p className="text-xs" style={{ color: "var(--color-ink3)" }}>{totalSpent.toFixed(2)} {currencySymbol} spent</p>
+                        <p
+                          className="text-sm font-bold"
+                          style={{ color: "var(--color-ink)" }}
+                        >
+                          {tier} Member
+                        </p>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--color-ink3)" }}
+                        >
+                          {totalSpent.toFixed(2)} {currencySymbol} spent
+                        </p>
                       </div>
                     </div>
                   );
                 })()}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="card-premium p-4 text-center">
-                    <p className="text-2xl font-black" style={{ color: "var(--color-ink)" }}>{orders.length}</p>
-                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Orders</p>
+                    <p
+                      className="text-2xl font-black"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {orders.length}
+                    </p>
+                    <p
+                      className="text-[11px] font-bold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
+                      Orders
+                    </p>
                   </div>
                   <div className="card-premium p-4 text-center">
-                    <p className="text-2xl font-black" style={{ color: "var(--color-ink)" }}>{favorites.length}</p>
-                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Saved</p>
+                    <p
+                      className="text-2xl font-black"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {favorites.length}
+                    </p>
+                    <p
+                      className="text-[11px] font-bold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
+                      Saved
+                    </p>
                   </div>
                   <div className="card-premium p-4 text-center">
-                    <p className="text-2xl font-black" style={{ color: "var(--color-accent)" }}>{orders.reduce((a, o) => a + (o.totalAmount || 0), 0).toFixed(0)} {currencySymbol}</p>
-                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink3)" }}>Spent</p>
+                    <p
+                      className="text-2xl font-black"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {orders
+                        .reduce((a, o) => a + (o.totalAmount || 0), 0)
+                        .toFixed(0)}{" "}
+                      {currencySymbol}
+                    </p>
+                    <p
+                      className="text-[11px] font-bold uppercase tracking-wider"
+                      style={{ color: "var(--color-ink3)" }}
+                    >
+                      Spent
+                    </p>
                   </div>
                 </div>
                 {orders.length > 0 && (
                   <div className="card-premium p-5">
-                    <h4 className="text-sm font-bold mb-3" style={{ color: "var(--color-ink)" }}>Recent orders</h4>
+                    <h4
+                      className="text-sm font-bold mb-3"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      Recent orders
+                    </h4>
                     <div className="flex flex-col gap-3">
                       {orders.slice(0, 3).map((o) => (
-                        <div key={o.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)" }}>
+                        <div
+                          key={o.id}
+                          className="flex items-center justify-between p-3 rounded-xl"
+                          style={{
+                            background: "var(--color-surface2)",
+                            border: "1px solid var(--color-border)",
+                          }}
+                        >
                           <div>
-                            <p className="text-xs font-bold font-mono-num" style={{ color: "var(--color-ink)" }}>{o.id}</p>
-                            <p className="text-[11px]" style={{ color: "var(--color-ink3)" }}>{formatDate(o.createdAt)} · <StatusPill status={o.status} /></p>
+                            <p
+                              className="text-xs font-bold font-mono-num"
+                              style={{ color: "var(--color-ink)" }}
+                            >
+                              {o.id}
+                            </p>
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "var(--color-ink3)" }}
+                            >
+                              {formatDate(o.createdAt)} ·{" "}
+                              <StatusPill status={o.status} />
+                            </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button onClick={async () => {
-                              const { customerApi } = await import("../api/supabaseApi");
-                              for (const item of o.items) {
-                                await customerApi.addCartItem(customerId!, { productId: item.productId, selectedColor: item.selectedColor, selectedSize: item.selectedSize, quantity: item.quantity, unitPrice: item.unitPrice });
-                              }
-                            }} className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--color-accent)", color: "white" }}>Reorder</button>
-                            <button onClick={() => setTab("orders")} className="text-xs font-bold hover:underline" style={{ color: "var(--color-accent)" }}>View</button>
+                            <button
+                              onClick={async () => {
+                                const { customerApi } =
+                                  await import("../api/supabaseApi");
+                                for (const item of o.items) {
+                                  await customerApi.addCartItem(customerId!, {
+                                    productId: item.productId,
+                                    selectedColor: item.selectedColor,
+                                    selectedSize: item.selectedSize,
+                                    quantity: item.quantity,
+                                    unitPrice: item.unitPrice,
+                                  });
+                                }
+                              }}
+                              className="text-xs font-bold px-3 py-1.5 rounded-full"
+                              style={{
+                                background: "var(--color-accent)",
+                                color: "white",
+                              }}
+                            >
+                              Reorder
+                            </button>
+                            <button
+                              onClick={() => setTab("orders")}
+                              className="text-xs font-bold hover:underline"
+                              style={{ color: "var(--color-accent)" }}
+                            >
+                              View
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -932,12 +1053,8 @@ export default function AccountPage({
                 currencySymbol={currencySymbol}
               />
             )}
-            {tab === "reviews" && (
-              <ReviewsTab customerId={customerId} />
-            )}
-            {tab === "addresses" && (
-              <AddressesTab customerId={customerId} />
-            )}
+            {tab === "reviews" && <ReviewsTab customerId={customerId} />}
+            {tab === "addresses" && <AddressesTab customerId={customerId} />}
           </div>
         </main>
       </div>
@@ -1606,9 +1723,24 @@ function OrderDetail({
         </div>
 
         {/* P4/P6 POD: alerte partielle côté client */}
-        {(order.status === "partial" || order.status === "on_hold" || order.items?.some((it: any) => (it.print_status || "").startsWith("blocked"))) && (
-          <div className="mt-4 rounded-xl p-3 flex gap-2 items-start" style={{ background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e" }}>
-            <span className="text-xs font-bold">⚠️ Commande partielle — certains articles indisponibles n'ont pas été envoyés à l'impression (voir détails par ligne). Un remboursement partiel sera traité si vous avez été facturé.</span>
+        {(order.status === "partial" ||
+          order.status === "on_hold" ||
+          order.items?.some((it: any) =>
+            (it.print_status || "").startsWith("blocked"),
+          )) && (
+          <div
+            className="mt-4 rounded-xl p-3 flex gap-2 items-start"
+            style={{
+              background: "#fef3c7",
+              border: "1px solid #fcd34d",
+              color: "#92400e",
+            }}
+          >
+            <span className="text-xs font-bold">
+              ⚠️ Commande partielle — certains articles indisponibles n'ont pas
+              été envoyés à l'impression (voir détails par ligne). Un
+              remboursement partiel sera traité si vous avez été facturé.
+            </span>
           </div>
         )}
         {/* Items */}
@@ -1660,12 +1792,41 @@ function OrderDetail({
                   Size {item.selectedSize} · Qty {item.quantity}
                 </p>
                 {(item as any).print_status?.startsWith("blocked") && (
-                  <span className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: (item as any).print_status === "blocked_discontinued" ? "#fee2e2" : "#fef3c7", color: (item as any).print_status === "blocked_discontinued" ? "#991b1b" : "#92400e", border: "1px solid var(--color-border)" }}>
-                    {(item as any).print_status === "blocked_discontinued" ? "Supprimé chez Printful" : (item as any).print_status === "blocked_out_of_stock" ? "Rupture temporaire" : "Non imprimé"} {(item as any).block_reason ? `— ${(item as any).block_reason}` : ""}
+                  <span
+                    className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      background:
+                        (item as any).print_status === "blocked_discontinued"
+                          ? "#fee2e2"
+                          : "#fef3c7",
+                      color:
+                        (item as any).print_status === "blocked_discontinued"
+                          ? "#991b1b"
+                          : "#92400e",
+                      border: "1px solid var(--color-border)",
+                    }}
+                  >
+                    {(item as any).print_status === "blocked_discontinued"
+                      ? "Supprimé chez Printful"
+                      : (item as any).print_status === "blocked_out_of_stock"
+                        ? "Rupture temporaire"
+                        : "Non imprimé"}{" "}
+                    {(item as any).block_reason
+                      ? `— ${(item as any).block_reason}`
+                      : ""}
                   </span>
                 )}
                 {(item as any).print_status === "fulfillable" && (
-                  <span className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#d1fae5", color: "#065f46", border: "1px solid #a7f3d0" }}>En cours d'impression</span>
+                  <span
+                    className="inline-flex mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: "#d1fae5",
+                      color: "#065f46",
+                      border: "1px solid #a7f3d0",
+                    }}
+                  >
+                    En cours d'impression
+                  </span>
                 )}
               </div>
               <span
@@ -2629,7 +2790,11 @@ function SupportTab({
                 </label>
                 <input
                   type="text"
-                  value={customerName?.trim() ? customerName : (customerEmail || "Guest")}
+                  value={
+                    customerName?.trim()
+                      ? customerName
+                      : customerEmail || "Guest"
+                  }
                   disabled
                   className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none opacity-60"
                   style={{
@@ -2994,10 +3159,15 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
   useEffect(() => {
     if (!customerId) return;
     import("../lib/supabaseClient").then(({ supabase }) => {
-      supabase.from("product_reviews").select("*").eq("customer_id", customerId).order("created_at", { ascending: false }).then(({ data }) => {
-        setReviews(data || []);
-        setLoading(false);
-      });
+      supabase
+        .from("product_reviews")
+        .select("*")
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          setReviews(data || []);
+          setLoading(false);
+        });
     });
   }, [customerId]);
   const handleDelete = async (id: string) => {
@@ -3006,35 +3176,108 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
     await reviewApi.delete(id);
     setReviews((r) => r.filter((x) => x.id !== id));
   };
-  if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-ink3)" }}>Chargement...</div>;
-  if (reviews.length === 0) return (
-    <div className="flex flex-col gap-4 animate-fade-up">
-      <span className="eyebrow">Your reviews</span>
-      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>Reviews</h3>
-      <div className="card-premium p-8 text-center">
-        <Star size={32} style={{ color: "var(--color-ink4)" }} className="mx-auto mb-3" />
-        <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>No reviews yet</p>
-        <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>Your product reviews will appear here after purchase.</p>
+  if (loading)
+    return (
+      <div
+        className="py-8 text-center text-sm"
+        style={{ color: "var(--color-ink3)" }}
+      >
+        Chargement...
       </div>
-    </div>
-  );
+    );
+  if (reviews.length === 0)
+    return (
+      <div className="flex flex-col gap-4 animate-fade-up">
+        <span className="eyebrow">Your reviews</span>
+        <h3
+          className="text-lg font-black"
+          style={{ color: "var(--color-ink)" }}
+        >
+          Reviews
+        </h3>
+        <div className="card-premium p-8 text-center">
+          <Star
+            size={32}
+            style={{ color: "var(--color-ink4)" }}
+            className="mx-auto mb-3"
+          />
+          <p
+            className="text-sm font-bold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            No reviews yet
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>
+            Your product reviews will appear here after purchase.
+          </p>
+        </div>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
       <span className="eyebrow">Your reviews</span>
-      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>Reviews ({reviews.length})</h3>
+      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>
+        Reviews ({reviews.length})
+      </h3>
       {reviews.map((r) => (
         <div key={r.id} className="card-premium p-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center gap-0.5">{Array.from({ length: 5 }).map((_, i) => <Star key={i} size={12} fill={i < r.rating ? "var(--color-gold)" : "none"} style={{ color: "var(--color-gold)" }} />)}</div>
-            <span className="text-xs font-bold" style={{ color: "var(--color-ink)" }}>{r.rating}/5</span>
-            {r.verified && <span className="text-[10px] font-bold flex items-center gap-1" style={{ color: "var(--color-success)" }}><ShieldCheck size={10} /> Verified</span>}
-            <span className="text-[11px] ml-auto" style={{ color: "var(--color-ink4)" }}>{new Date(r.created_at).toLocaleDateString()}</span>
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  size={12}
+                  fill={i < r.rating ? "var(--color-gold)" : "none"}
+                  style={{ color: "var(--color-gold)" }}
+                />
+              ))}
+            </div>
+            <span
+              className="text-xs font-bold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {r.rating}/5
+            </span>
+            {r.verified && (
+              <span
+                className="text-[10px] font-bold flex items-center gap-1"
+                style={{ color: "var(--color-success)" }}
+              >
+                <ShieldCheck size={10} /> Verified
+              </span>
+            )}
+            <span
+              className="text-[11px] ml-auto"
+              style={{ color: "var(--color-ink4)" }}
+            >
+              {new Date(r.created_at).toLocaleDateString()}
+            </span>
           </div>
-          {r.title && <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>{r.title}</p>}
-          <p className="text-sm" style={{ color: "var(--color-ink2)" }}>{r.body || r.comment}</p>
+          {r.title && (
+            <p
+              className="text-sm font-bold"
+              style={{ color: "var(--color-ink)" }}
+            >
+              {r.title}
+            </p>
+          )}
+          <p className="text-sm" style={{ color: "var(--color-ink2)" }}>
+            {r.body || r.comment}
+          </p>
           <div className="flex items-center gap-2 mt-3">
-            <span className="text-xs flex items-center gap-1" style={{ color: "var(--color-ink3)" }}><Star size={12} /> Helpful: {r.helpful || 0}</span>
-            <button onClick={() => handleDelete(r.id)} className="ml-auto text-xs font-bold flex items-center gap-1" style={{ color: "#ef4444" }}><Trash2 size={12} /> Delete</button>
+            <span
+              className="text-xs flex items-center gap-1"
+              style={{ color: "var(--color-ink3)" }}
+            >
+              <Star size={12} /> Helpful: {r.helpful || 0}
+            </span>
+            <button
+              onClick={() => handleDelete(r.id)}
+              className="ml-auto text-xs font-bold flex items-center gap-1"
+              style={{ color: "#ef4444" }}
+            >
+              <Trash2 size={12} /> Delete
+            </button>
           </div>
         </div>
       ))}
@@ -3049,7 +3292,10 @@ function AddressesTab({ customerId }: { customerId: string | null }) {
   useEffect(() => {
     if (!customerId) return;
     import("../api/supabaseApi").then(({ customerApi }) => {
-      customerApi.getAddresses(customerId).then((a) => { setAddresses(a || []); setLoading(false); });
+      customerApi.getAddresses(customerId).then((a) => {
+        setAddresses(a || []);
+        setLoading(false);
+      });
     });
   }, [customerId]);
   const handleSetDefault = async (id: string) => {
@@ -3059,32 +3305,87 @@ function AddressesTab({ customerId }: { customerId: string | null }) {
     const updated = await customerApi.getAddresses(customerId);
     setAddresses(updated || []);
   };
-  if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-ink3)" }}>Chargement...</div>;
+  if (loading)
+    return (
+      <div
+        className="py-8 text-center text-sm"
+        style={{ color: "var(--color-ink3)" }}
+      >
+        Chargement...
+      </div>
+    );
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
       <span className="eyebrow">Your addresses</span>
-      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>Addresses ({addresses.length}/3)</h3>
+      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>
+        Addresses ({addresses.length}/3)
+      </h3>
       {addresses.length === 0 ? (
         <div className="card-premium p-8 text-center">
-          <MapPin size={32} style={{ color: "var(--color-ink4)" }} className="mx-auto mb-3" />
-          <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>No addresses yet</p>
-          <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>Add an address in Profile tab.</p>
+          <MapPin
+            size={32}
+            style={{ color: "var(--color-ink4)" }}
+            className="mx-auto mb-3"
+          />
+          <p
+            className="text-sm font-bold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            No addresses yet
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>
+            Add an address in Profile tab.
+          </p>
         </div>
       ) : (
         addresses.map((a) => (
           <div key={a.id} className="card-premium p-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-bold" style={{ color: "var(--color-ink)" }}>{a.full_name} {a.is_default && <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--color-accent-bg)", color: "var(--color-accent)" }}>Default</span>}</p>
-                <p className="text-xs" style={{ color: "var(--color-ink2)" }}>{a.address}, {a.city} {a.zip}, {a.country}</p>
-                <p className="text-xs" style={{ color: "var(--color-ink3)" }}>{a.phone}</p>
+                <p
+                  className="text-sm font-bold"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  {a.full_name}{" "}
+                  {a.is_default && (
+                    <span
+                      className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "var(--color-accent-bg)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      Default
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-ink2)" }}>
+                  {a.address}, {a.city} {a.zip}, {a.country}
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
+                  {a.phone}
+                </p>
               </div>
-              {!a.is_default && <button onClick={() => handleSetDefault(a.id)} className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--color-surface2)", border: "1px solid var(--color-border)", color: "var(--color-ink2)" }}>Set default</button>}
+              {!a.is_default && (
+                <button
+                  onClick={() => handleSetDefault(a.id)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-full"
+                  style={{
+                    background: "var(--color-surface2)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink2)",
+                  }}
+                >
+                  Set default
+                </button>
+              )}
             </div>
           </div>
         ))
       )}
-      <p className="text-xs" style={{ color: "var(--color-ink4)" }}>Max 3 addresses. Manage in Profile.</p>
+      <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
+        Max 3 addresses. Manage in Profile.
+      </p>
     </div>
   );
 }
@@ -3124,7 +3425,9 @@ function ProfileTab({
   // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(customerName);
-  useEffect(() => { setNameInput(customerName); }, [customerName]);
+  useEffect(() => {
+    setNameInput(customerName);
+  }, [customerName]);
   const [dob, setDob] = useState("");
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -3173,7 +3476,9 @@ function ProfileTab({
     const newName = nameInput.trim();
     try {
       await customerApi.updateProfile(customerId, { name: newName });
-      try { await supabase.auth.updateUser({ data: { full_name: newName } }); } catch {}
+      try {
+        await supabase.auth.updateUser({ data: { full_name: newName } });
+      } catch {}
       onNameUpdated?.(newName);
       setEditingName(false);
     } catch (e: any) {
@@ -3353,7 +3658,9 @@ function ProfileTab({
                 style={{ color: "var(--color-ink)" }}
                 onClick={() => setEditingName(true)}
               >
-                {customerName?.trim() ? getFirstName(customerName) : (customerEmail || "Set your name")}
+                {customerName?.trim()
+                  ? getFirstName(customerName)
+                  : customerEmail || "Set your name"}
               </p>
             )}
             <p className="text-[12.5px]" style={{ color: "var(--color-ink4)" }}>

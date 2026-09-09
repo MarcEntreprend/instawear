@@ -71,7 +71,11 @@ interface CheckoutFlowProps {
   favorites?: string[];
   onToggleFavorite?: (id: string) => void;
   onSelectProduct?: (product: import("../types").Product) => void;
-  onQuickAdd?: (product: import("../types").Product, color: string, size: string) => void;
+  onQuickAdd?: (
+    product: import("../types").Product,
+    color: string,
+    size: string,
+  ) => void;
 }
 
 type StepId = 1 | 2 | 3 | 4;
@@ -176,17 +180,33 @@ function sendTelegramNotification(
   window.open(telegramUrl, "_blank");
 }
 
+async function shouldSendTelegram(): Promise<boolean> {
+  try {
+    const { data } = await supabase.rpc("is_admin");
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 // Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
   selectedColor: string,
 ): string {
   if (product.variants?.length) {
-    const variant = product.variants.find((v) => v.color === selectedColor);
+    // Comparaison insensible à la casse
+    const normalized = selectedColor.toLowerCase();
+    const variant = product.variants.find(
+      (v) => v.color.toLowerCase() === normalized,
+    );
     if (variant?.image) return variant.image;
   }
   if (product.colorImages?.length && product.colors) {
-    const idx = product.colors.indexOf(selectedColor);
+    // Utiliser l'index de la couleur (si trouvé)
+    const idx = product.colors.findIndex(
+      (c) => c.toLowerCase() === selectedColor.toLowerCase(),
+    );
     if (idx >= 0 && product.colorImages[idx]) return product.colorImages[idx];
   }
   return product.image || PLACEHOLDER_IMG;
@@ -1237,7 +1257,11 @@ function StripeCardForm({
             .filter((it: any) => {
               const p: any = it.product;
               if (!p?.isActive) return false;
-              const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+              const v = p.variants?.find(
+                (vv: any) =>
+                  String(vv.color).toLowerCase() ===
+                  String(it.selectedColor).toLowerCase(),
+              );
               if (!v) return p.variants?.length ? false : true;
               const e = v.sizes?.[it.selectedSize];
               if (!e) return false;
@@ -1340,12 +1364,50 @@ function StripeCardForm({
             tax_number: reception === "livraison" ? taxNumber : "",
             phone: contactPhone,
           },
-          notes: message + (cart.length !== cart.filter((it: any) => { const p:any=it.product; if(!p?.isActive) return false; const v=p.variants?.find((vv:any)=>String(vv.color).toLowerCase()===String(it.selectedColor).toLowerCase()); if(!v) return p.variants?.length?false:true; const e=v.sizes?.[it.selectedSize]; if(!e) return false; return ((e as any).stock_status||"available")==="available"; }).length ? ` [POD: ${cart.length - cart.filter((it: any) => { const p:any=it.product; if(!p?.isActive) return false; const v=p.variants?.find((vv:any)=>String(vv.color).toLowerCase()===String(it.selectedColor).toLowerCase()); if(!v) return p.variants?.length?false:true; const e=v.sizes?.[it.selectedSize]; if(!e) return false; return ((e as any).stock_status||"available")==="available"; }).length} article(s) indisponible(s) non facturé(s)]` : ""),
+          notes:
+            message +
+            (cart.length !==
+            cart.filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find(
+                (vv: any) =>
+                  String(vv.color).toLowerCase() ===
+                  String(it.selectedColor).toLowerCase(),
+              );
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            }).length
+              ? ` [POD: ${
+                  cart.length -
+                  cart.filter((it: any) => {
+                    const p: any = it.product;
+                    if (!p?.isActive) return false;
+                    const v = p.variants?.find(
+                      (vv: any) =>
+                        String(vv.color).toLowerCase() ===
+                        String(it.selectedColor).toLowerCase(),
+                    );
+                    if (!v) return p.variants?.length ? false : true;
+                    const e = v.sizes?.[it.selectedSize];
+                    if (!e) return false;
+                    return (
+                      ((e as any).stock_status || "available") === "available"
+                    );
+                  }).length
+                } article(s) indisponible(s) non facturé(s)]`
+              : ""),
           items: cart
             .filter((it: any) => {
               const p: any = it.product;
               if (!p?.isActive) return false;
-              const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
+              const v = p.variants?.find(
+                (vv: any) =>
+                  String(vv.color).toLowerCase() ===
+                  String(it.selectedColor).toLowerCase(),
+              );
               if (!v) return p.variants?.length ? false : true;
               const e = v.sizes?.[it.selectedSize];
               if (!e) return false;
@@ -1363,28 +1425,36 @@ function StripeCardForm({
               unitPrice: item.unitPrice,
             })),
         } as any);
-        sendTelegramNotification(
-          orderId,
-          contactName,
-          contactPhone,
-          contactEmail,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          cart.filter((it: any) => {
-            const p: any = it.product;
-            if (!p?.isActive) return false;
-            const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
-            if (!v) return p.variants?.length ? false : true;
-            const e = v.sizes?.[it.selectedSize];
-            if (!e) return false;
-            return ((e as any).stock_status || "available") === "available";
-          }),
-          total,
-          currencySymbol,
-        );
+        shouldSendTelegram().then((should) => {
+          if (should) {
+            sendTelegramNotification(
+              orderId,
+              contactName,
+              contactPhone,
+              contactEmail,
+              reception,
+              address,
+              city,
+              zip,
+              country,
+              cart.filter((it: any) => {
+                const p: any = it.product;
+                if (!p?.isActive) return false;
+                const v = p.variants?.find(
+                  (vv: any) =>
+                    String(vv.color).toLowerCase() ===
+                    String(it.selectedColor).toLowerCase(),
+                );
+                if (!v) return p.variants?.length ? false : true;
+                const e = v.sizes?.[it.selectedSize];
+                if (!e) return false;
+                return ((e as any).stock_status || "available") === "available";
+              }),
+              total,
+              currencySymbol,
+            );
+          }
+        });
 
         onSuccess(orderId);
       } catch (e: any) {
@@ -1426,7 +1496,13 @@ function StripeCardForm({
         </p>
       </div>
 
-      <CreditCardPreview cardNumber={previewNumber} cardHolder={contactName} cardExpiry={previewExpiry} cardCvv={previewCvc} isFlipped={isFlipped} />
+      <CreditCardPreview
+        cardNumber={previewNumber}
+        cardHolder={contactName}
+        cardExpiry={previewExpiry}
+        cardCvv={previewCvc}
+        isFlipped={isFlipped}
+      />
 
       {/* Separate fields */}
       <div className="flex flex-col gap-4 max-w-sm">
@@ -1435,7 +1511,14 @@ function StripeCardForm({
             Card Number <span className="text-(--color-accent)">*</span>
           </label>
           <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-            <CardNumberElement options={elementOptions} onChange={(e: any) => setPreviewNumber(e.empty ? "" : e.brand ? e.brand : previewNumber)} />
+            <CardNumberElement
+              options={elementOptions}
+              onChange={(e: any) =>
+                setPreviewNumber(
+                  e.empty ? "" : e.brand ? e.brand : previewNumber,
+                )
+              }
+            />
           </div>
         </div>
 
@@ -1445,15 +1528,33 @@ function StripeCardForm({
               Expiry <span className="text-(--color-accent)">*</span>
             </label>
             <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)">
-              <CardExpiryElement options={elementOptions} onChange={(e: any) => setPreviewExpiry(e.empty ? "" : `${String(e.month || "").padStart(2, "0")}/${String(e.year || "").slice(-2)}`)} />
+              <CardExpiryElement
+                options={elementOptions}
+                onChange={(e: any) =>
+                  setPreviewExpiry(
+                    e.empty
+                      ? ""
+                      : `${String(e.month || "").padStart(2, "0")}/${String(e.year || "").slice(-2)}`,
+                  )
+                }
+              />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
               CVV <span className="text-(--color-accent)">*</span>
             </label>
-            <div className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)" onFocus={() => setIsFlipped(true)} onBlur={() => setIsFlipped(false)}>
-              <CardCvcElement options={elementOptions} onChange={(e: any) => setPreviewCvc(e.empty ? "" : "•••")} onFocus={() => setIsFlipped(true)} onBlur={() => setIsFlipped(false)} />
+            <div
+              className="p-3 rounded-xl border border-(--color-border) bg-(--color-surface)"
+              onFocus={() => setIsFlipped(true)}
+              onBlur={() => setIsFlipped(false)}
+            >
+              <CardCvcElement
+                options={elementOptions}
+                onChange={(e: any) => setPreviewCvc(e.empty ? "" : "•••")}
+                onFocus={() => setIsFlipped(true)}
+                onBlur={() => setIsFlipped(false)}
+              />
             </div>
           </div>
         </div>
@@ -2042,24 +2143,36 @@ export default function CheckoutFlow({
 
   // P3 POD: total sur les seuls items disponibles (les bloqués ne seront pas facturés/imprimés)
   const availabilities = useMemo(
-    () => cart.map((it: any) => {
-      // inline pour éviter import cyclique — même logique que getVariantAvailability
-      const p: any = it.product;
-      if (!p?.isActive) return "inactive";
-      const v = p.variants?.find((vv: any) => String(vv.color).toLowerCase() === String(it.selectedColor).toLowerCase());
-      if (!v) return p.variants?.length ? "discontinued" : "available";
-      const e = v.sizes?.[it.selectedSize];
-      if (!e) return "discontinued";
-      const st = (e as any).stock_status || "available";
-      return st === "available" ? "available" : st;
-    }),
+    () =>
+      cart.map((it: any) => {
+        // inline pour éviter import cyclique — même logique que getVariantAvailability
+        const p: any = it.product;
+        if (!p?.isActive) return "inactive";
+        const v = p.variants?.find(
+          (vv: any) =>
+            String(vv.color).toLowerCase() ===
+            String(it.selectedColor).toLowerCase(),
+        );
+        if (!v) return p.variants?.length ? "discontinued" : "available";
+        const e = v.sizes?.[it.selectedSize];
+        if (!e) return "discontinued";
+        const st = (e as any).stock_status || "available";
+        return st === "available" ? "available" : st;
+      }),
     [cart],
   );
   const blockedCount = availabilities.filter((av) => av !== "available").length;
   const hasFulfillable = availabilities.some((av) => av === "available");
-  const fulfillableCart = useMemo(() => cart.filter((_, idx) => availabilities[idx] === "available"), [cart, availabilities]);
+  const fulfillableCart = useMemo(
+    () => cart.filter((_, idx) => availabilities[idx] === "available"),
+    [cart, availabilities],
+  );
   const cartTotal = useMemo(
-    () => fulfillableCart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0),
+    () =>
+      fulfillableCart.reduce(
+        (acc, item) => acc + item.unitPrice * item.quantity,
+        0,
+      ),
     [fulfillableCart],
   );
 
@@ -2146,7 +2259,9 @@ export default function CheckoutFlow({
   const handleStripePay = async () => {
     if (!validateContact()) return;
     if (!hasFulfillable) {
-      setPaymentError("Tous les articles du panier sont indisponibles (supprimés ou rupture Printful) — retirez-les ou choisissez d'autres variantes.");
+      setPaymentError(
+        "Tous les articles du panier sont indisponibles (supprimés ou rupture Printful) — retirez-les ou choisissez d'autres variantes.",
+      );
       return;
     }
     setProcessing(true);
@@ -2192,7 +2307,11 @@ export default function CheckoutFlow({
           tax_number: reception === "livraison" ? taxNumber : "",
           phone,
         },
-        notes: message + (blockedCount > 0 ? ` [POD: ${blockedCount} article(s) indisponible(s) non facturé(s)]` : ""),
+        notes:
+          message +
+          (blockedCount > 0
+            ? ` [POD: ${blockedCount} article(s) indisponible(s) non facturé(s)]`
+            : ""),
         items: fulfillableCart.map((item, idx) => ({
           id: `item-${newOrderId}-${idx}`,
           orderId: newOrderId,
@@ -2258,7 +2377,7 @@ export default function CheckoutFlow({
                 : []),
             ],
             customerEmail: email,
-            successUrl: `${window.location.origin}/?order=success&id=${newOrderId}`,
+            successUrl: `${window.location.origin}/order/success/${newOrderId}`,
             cancelUrl: `${window.location.origin}/?order=cancelled`,
           }),
         },
@@ -2285,7 +2404,9 @@ export default function CheckoutFlow({
   const handlePay = async () => {
     if (!validatePayment()) return;
     if (!hasFulfillable) {
-      setPaymentError("Aucun article disponible — retirez les variantes indisponibles.");
+      setPaymentError(
+        "Aucun article disponible — retirez les variantes indisponibles.",
+      );
       return;
     }
     setProcessing(true);
@@ -2332,7 +2453,11 @@ export default function CheckoutFlow({
             tax_number: reception === "livraison" ? taxNumber : "",
             phone,
           },
-          notes: message + (blockedCount > 0 ? ` [POD: ${blockedCount} article(s) indisponible(s) exclus]` : ""),
+          notes:
+            message +
+            (blockedCount > 0
+              ? ` [POD: ${blockedCount} article(s) indisponible(s) exclus]`
+              : ""),
           items: fulfillableCart.map((item, idx) => ({
             id: `item-${newOrderId}-${idx}`,
             orderId: newOrderId,
@@ -2365,21 +2490,25 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send recap via Telegram
-        sendTelegramNotification(
-          newOrderId,
-          name,
-          phone,
-          email,
-          reception,
-          address,
-          city,
-          zip,
-          country,
-          fulfillableCart,
-          total,
-          currencySymbol,
-        );
+        // Send recap via Telegram — admin only (non-blocking)
+        shouldSendTelegram().then((should) => {
+          if (should) {
+            sendTelegramNotification(
+              newOrderId,
+              name,
+              phone,
+              email,
+              reception,
+              address,
+              city,
+              zip,
+              country,
+              fulfillableCart,
+              total,
+              currencySymbol,
+            );
+          }
+        });
       })();
 
       // Délai minimum pour un retour visuel crédible, pendant que le
@@ -2408,7 +2537,12 @@ export default function CheckoutFlow({
     setTimeout(() => setCopied(false), 2200);
   };
 
-  if (cart.length === 0 && step !== 4) {
+  if (
+    cart.length === 0 &&
+    step === 1 &&
+    !orderId &&
+    purchasedIds.length === 0
+  ) {
     return <EmptyCartGuard onClose={onClose} />;
   }
 
@@ -2460,10 +2594,22 @@ export default function CheckoutFlow({
       </div>
 
       {blockedCount > 0 && (
-        <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl flex gap-2 items-start" style={{ background: "#fef3c7", border: "1px solid #fcd34d", color: "#92400e" }}>
+        <div
+          className="mx-4 sm:mx-6 mt-4 p-3 rounded-xl flex gap-2 items-start"
+          style={{
+            background: "#fef3c7",
+            border: "1px solid #fcd34d",
+            color: "#92400e",
+          }}
+        >
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <p className="text-xs font-semibold leading-snug">
-            {blockedCount} article{blockedCount > 1 ? "s" : ""} indisponible{blockedCount > 1 ? "s" : ""} dans votre panier — {hasFulfillable ? `seuls les ${fulfillableCart.length} disponibles seront commandés et facturés (${cartTotal.toFixed(2)} ${currencySymbol})` : "retirez-les pour continuer"}.
+            {blockedCount} article{blockedCount > 1 ? "s" : ""} indisponible
+            {blockedCount > 1 ? "s" : ""} dans votre panier —{" "}
+            {hasFulfillable
+              ? `seuls les ${fulfillableCart.length} disponibles seront commandés et facturés (${cartTotal.toFixed(2)} ${currencySymbol})`
+              : "retirez-les pour continuer"}
+            .
           </p>
         </div>
       )}
