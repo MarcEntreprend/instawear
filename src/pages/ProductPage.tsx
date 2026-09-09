@@ -20,6 +20,7 @@ import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrency } from "../hooks/useCurrency";
 import { formatPrice } from "../data/currency";
 import ZoomImage from "../components/product/ZoomImage";
+import ThumbStrip from "../components/product/ThumbStrip";
 import ImageLightbox from "../components/product/ImageLightbox";
 import SizeGuideModal from "../components/product/SizeGuideModal";
 import RelatedProductCard from "../components/product/RelatedProductCard";
@@ -467,29 +468,18 @@ export default function ProductPage({
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
           {/* Gallery */}
           <div className="flex gap-3">
-            <div className="hidden sm:flex flex-col gap-2.5 w-16 shrink-0">
-              {gallery.map((img: string, i: number) => (
-                <button
-                  key={img + i}
-                  onClick={() => {
-                    setActiveGalleryIndex(i);
-                    setFrameOverride(img);
-                  }}
-                  className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
-                  style={{
-                    border:
-                      activeGalleryIndex === i
-                        ? "2px solid var(--color-accent)"
-                        : "1px solid var(--color-border)",
-                  }}
-                >
-                  <img
-                    src={img}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+            <div className="hidden sm:flex flex-col w-16 shrink-0">
+              <ThumbStrip
+                images={gallery}
+                activeIndex={activeGalleryIndex}
+                onSelect={(i) => {
+                  setActiveGalleryIndex(i);
+                  setFrameOverride(gallery[i]);
+                }}
+                orientation="vertical"
+                thumbClassName="w-16 h-16 rounded-xl"
+                className="w-16"
+              />
             </div>
             <div className="flex-1">
               <ZoomImage
@@ -497,29 +487,17 @@ export default function ProductPage({
                 alt={product.title}
                 onRequestLightbox={() => setIsLightboxOpen(true)}
               />
-              <div className="flex sm:hidden gap-2.5 mt-3 overflow-x-auto no-scrollbar">
-                {gallery.map((img: string, i: number) => (
-                  <button
-                    key={img + i}
-                    onClick={() => {
-                      setActiveGalleryIndex(i);
-                      setFrameOverride(img);
-                    }}
-                    className="w-16 h-16 rounded-xl overflow-hidden shrink-0"
-                    style={{
-                      border:
-                        activeGalleryIndex === i
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border)",
-                    }}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+              <div className="sm:hidden mt-3">
+                <ThumbStrip
+                  images={gallery}
+                  activeIndex={activeGalleryIndex}
+                  onSelect={(i) => {
+                    setActiveGalleryIndex(i);
+                    setFrameOverride(gallery[i]);
+                  }}
+                  orientation="horizontal"
+                  thumbClassName="w-16 h-16 rounded-xl"
+                />
               </div>
             </div>
           </div>

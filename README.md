@@ -427,3 +427,9 @@ INTO
 ---
 
 $env:PORT=3001; npm run dev
+
+---
+
+## TODO
+
+Shipping over 35$ for bresil -> redefine conditions : likr in the usa

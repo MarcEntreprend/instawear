@@ -13,6 +13,7 @@ import {
 import DOMPurify from "dompurify";
 import type { Product } from "../types";
 import ImageZoom from "./ImageZoom";
+import ThumbStrip from "./product/ThumbStrip";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 
@@ -246,31 +247,38 @@ export default function ProductDetailModal({
         <div className="flex flex-col lg:flex-row gap-8 p-8 md:p-10">
           {/* ── COLONNE GAUCHE : galerie mockups (jamais les variantes) ── */}
           <div className="lg:w-[45%] flex flex-col sm:flex-row gap-6">
-            {/* Miniatures verticales (desktop) ou horizontales (mobile) */}
-            {allImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
-                {allImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
+            {/* Miniatures : colonne scrollable (desktop) / rangée (mobile) */}
+            {allImages.length > 1 && (
+              <>
+                <div className="hidden sm:block order-first w-16 shrink-0">
+                  <ThumbStrip
+                    images={allImages}
+                    activeIndex={activeGalleryIndex}
+                    onSelect={(idx) => {
                       setActiveGalleryIndex(idx);
-                      setFrameOverride(img);
+                      setFrameOverride(allImages[idx]);
                     }}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 aspect-square shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeGalleryIndex === idx
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+                    orientation="vertical"
+                    thumbClassName="w-14 h-14 rounded-lg"
+                    gapPx={8}
+                    className="w-14"
+                  />
+                </div>
+                <div className="sm:hidden order-2">
+                  <ThumbStrip
+                    images={allImages}
+                    activeIndex={activeGalleryIndex}
+                    onSelect={(idx) => {
+                      setActiveGalleryIndex(idx);
+                      setFrameOverride(allImages[idx]);
+                    }}
+                    orientation="horizontal"
+                    thumbClassName="w-12 h-12 rounded-lg"
+                    gapPx={8}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Image principale avec zoom */}
             <div className="w-full aspect-3/4">

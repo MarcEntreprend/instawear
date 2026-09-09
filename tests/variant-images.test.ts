@@ -301,3 +301,24 @@ test("sans override ni visuel variante : galerie à l'index", () => {
 test("rien du tout : placeholder", () => {
   assert.equal(resolveFrame(null, null, [], 0), "PLACEHOLDER");
 });
+
+// ─── ThumbStrip : pastille "+N" (pur, importé du composant) ─────────────────
+import { computeDownCount } from "../src/components/product/ThumbStrip.tsx";
+
+test("+N : pas de dépassement → 0", () => {
+  assert.equal(computeDownCount(400, 0, 420, 74), 0);
+});
+
+test("+N : 3 miniatures cachées en bas", () => {
+  // 10 thumbs de 74px = 740, viewport 420, scroll 0 → (740-0-420)/74 ≈ 4.32 → 5
+  assert.equal(computeDownCount(740, 0, 420, 74), 5);
+});
+
+test("+N : diminue en scrollant", () => {
+  assert.equal(computeDownCount(740, 296, 420, 74), 1);
+  assert.equal(computeDownCount(740, 320, 420, 74), 0);
+});
+
+test("+N : thumbSize invalide → 0 (pas de crash)", () => {
+  assert.equal(computeDownCount(740, 0, 420, 0), 0);
+});
