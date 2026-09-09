@@ -117,6 +117,23 @@ export default {
         (p: any) => p.is_active && p.in_stock !== false && !p.affiliate_mode,
       );
 
+      // ── 1b. Trafic de test exclu (admin/comptes de test : ne pollue jamais) ──
+      const { data: excludedRows } = await supabaseAdmin
+        .from("merch_excluded_users")
+        .select("email");
+      const excludedEmails = (excludedRows || [])
+        .map((r: any) => String(r.email || "").toLowerCase().trim())
+        .filter((e) => e.includes("@"));
+      let excludedIds: string[] = [];
+      if (excludedEmails.length > 0) {
+        const { data: excludedCustomers } = await supabaseAdmin
+          .from("customers")
+          .select("id")
+          .in("email", excludedEmails);
+        excludedIds = (excludedCustomers || []).map((c: any) => String(c.id));
+      }
+      const excludedIdSet = new Set(excludedIds);
+
       // ── 2. Ventes (table pré-calculée, pas de recalcul maison) ──
       const { data: stats } = await supabaseAdmin
         .from("product_sales_stats")
@@ -130,6 +147,43 @@ export default {
           },
         ]),
       );
+      // Soustraction des achats de test (plancher à 0, jamais négatif)
+      let excludedOrders = 0;
+      if (excludedEmails.length > 0) {
+        const orFilter = [
+          ...excludedEmails.map((e) => `client_email.eq.${e}`),
+          ...excludedIds.map((id) => `client_id.eq.${id}`),
+        ].join(",");
+        const { data: exclOrderRows } = await supabaseAdmin
+          .from("orders")
+          .select("id, created_at")
+          .or(orFilter)
+          .not("status", "in", "(cancelled,refunded)")
+          .limit(5000);
+        excludedOrders = (exclOrderRows || []).length;
+        if (excludedOrders > 0) {
+          const orderIds = (exclOrderRows || []).map((o: any) => o.id);
+          const monthCutoff = Date.now() - 30 * 86400000;
+          for (let i = 0; i < orderIds.length; i += 500) {
+            const { data: exclItems } = await supabaseAdmin
+              .from("order_items")
+              .select("product_id, quantity, order_id")
+              .in("order_id", orderIds.slice(i, i + 500));
+            const orderDate = new Map(
+              (exclOrderRows || []).map((o: any) => [o.id, new Date(o.created_at).getTime()]),
+            );
+            for (const it of exclItems || []) {
+              const cur = sales.get(it.product_id) || { month: 0, total: 0 };
+              const qty = Number(it.quantity) || 0;
+              cur.total = Math.max(0, cur.total - qty);
+              if ((orderDate.get(it.order_id) || 0) >= monthCutoff) {
+                cur.month = Math.max(0, cur.month - qty);
+              }
+              sales.set(it.product_id, cur);
+            }
+          }
+        }
+      }
 
       // ── 3. Engagement 30j (borné, jamais lu en direct au rendu) ──
       const since = new Date(
@@ -137,13 +191,19 @@ export default {
       ).toISOString();
       const { data: events } = await supabaseAdmin
         .from("engagement_events")
-        .select("entity_type, entity_id, event_type, context")
+        .select("entity_type, entity_id, event_type, context, customer_id")
         .gte("created_at", since)
         .limit(50000);
       const attention = new Map<string, number>();
       const searchCounts = new Map<string, number>();
+      let excludedEvents = 0;
       const EVENT_W = { product_click: 1, favourite: 2, add_to_cart: 3 } as Record<string, number>;
       for (const e of events || []) {
+        // Trafic de test : ignoré (même si session anonyme rattachée à un exclu)
+        if (e.customer_id && excludedIdSet.has(String(e.customer_id))) {
+          excludedEvents += 1;
+          continue;
+        }
         if (e.entity_type === "product" && EVENT_W[e.event_type]) {
           attention.set(
             e.entity_id,
