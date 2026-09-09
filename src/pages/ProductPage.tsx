@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
-import { getVariantAvailability, pickAvailableVariant } from "../hooks/useProductAvailability";
+import {
+  getVariantAvailability,
+  pickAvailableVariant,
+} from "../hooks/useProductAvailability";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrency } from "../hooks/useCurrency";
@@ -29,7 +32,12 @@ import RecentlyViewedSection from "../components/product/RecentlyViewedSection";
 import ProductReviews from "../components/product/ProductReviews";
 import DealCountdown from "../components/DealCountdown";
 import StoreProductCard from "../components/StoreProductCard";
-import { isMerchEligible, applyMerchList, ensureMin, type MerchSectionConfig } from "../utils/merch";
+import {
+  isMerchEligible,
+  applyMerchList,
+  ensureMin,
+  type MerchSectionConfig,
+} from "../utils/merch";
 import { merchApi } from "../api/supabaseApi";
 import { getVariant } from "../lib/engagement";
 
@@ -290,7 +298,8 @@ export default function ProductPage({
         .slice(0, 3);
     if (cfg && cfg.enabled === false) return legacy();
     // A/B : variante A = règle legacy pure (mesure l'apport réel de l'affinité).
-    if ((cfg?.settings as any)?.ab === true && getVariant() === "A") return legacy();
+    if ((cfg?.settings as any)?.ab === true && getVariant() === "A")
+      return legacy();
     // Réel d'abord (affinité, catégorie différente = complément), puis règle
     // triée par score pré-calculé quand il est frais.
     const ruleFill = products.filter(
@@ -341,9 +350,7 @@ export default function ProductPage({
       recentlyIds
         .map((id) => products.find((p: Product) => p.id === id))
         .filter(Boolean)
-        .filter(
-          (p: any) => p.id !== product.id && !frequentlyIds.has(p.id),
-        )
+        .filter((p: any) => p.id !== product.id && !frequentlyIds.has(p.id))
         .slice(0, 8) as Product[],
     [recentlyIds, products, product.id, frequentlyIds],
   );
@@ -361,9 +368,12 @@ export default function ProductPage({
     // triés par score pré-calculé quand il est frais (sinon ordre catalogue).
     // A/B : variante A = ordre legacy (sans scores).
     const useScores =
-      !!scoreMap && !((cfg?.settings as any)?.ab === true && getVariant() === "A");
+      !!scoreMap &&
+      !((cfg?.settings as any)?.ab === true && getVariant() === "A");
     const byScore = (a: Product, b: Product) =>
-      (useScores && scoreMap ? (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0) : 0);
+      useScores && scoreMap
+        ? (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0)
+        : 0;
     const sameCat = products.filter(
       (p: Product) =>
         p.id !== product.id &&
@@ -388,8 +398,7 @@ export default function ProductPage({
       ...affinityIds
         .map(byId)
         .filter(
-          (p): p is Product =>
-            !!p && p.id !== product.id && isMerchEligible(p),
+          (p): p is Product => !!p && p.id !== product.id && isMerchEligible(p),
         ),
       ...sameCat,
       ...rest,
@@ -437,11 +446,7 @@ export default function ProductPage({
   // avec le vrai motif de blocage via le toast d'erreur.
   const quickAdd = (p: any) => {
     const v = pickAvailableVariant(p);
-    onAddToCart(
-      p,
-      v?.color ?? p.colors?.[0] ?? "#000000",
-      v?.size ?? "M",
-    );
+    onAddToCart(p, v?.color ?? p.colors?.[0] ?? "#000000", v?.size ?? "M");
   };
   // Bundle Frequently Bought Together : 1 seul appel (voir addManyToCart).
   const handleBundleAdd = (
