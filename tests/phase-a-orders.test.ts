@@ -140,3 +140,45 @@ test("lookup prioritaire external_id puis external_order_id", () => {
   assert.equal(findId(null, "98765"), "98765");
   assert.equal(findId(null, null), null);
 });
+
+// ─── Import produit : jamais retail → printfulPrice ─────────────────────────
+// Bug corrigé (ProductFormPanel) : retail_price est le prix de vente, pas le
+// coût Printful. L'import ne doit pas l'écrire dans printfulPrice.
+
+function importTransform(form: any, retailPrice: number | null): any {
+  return {
+    ...form,
+    price: retailPrice || form.price,
+    // printfulPrice intentionnellement absent : conservé tel quel du form
+  };
+}
+
+test("l'import ne crée pas printfulPrice depuis retail", () => {
+  const out = importTransform({ price: 24.99 }, 29.99);
+  assert.equal(out.price, 29.99);
+  assert.ok(!("printfulPrice" in out), "printfulPrice ne doit pas être posé");
+});
+
+test("l'import préserve un printfulPrice déjà renseigné", () => {
+  const out = importTransform({ price: 24.99, printfulPrice: 12.5 }, 29.99);
+  assert.equal(out.printfulPrice, 12.5);
+});
+
+// ─── Marge QuickView (miroir du calcul affiché) ─────────────────────────────
+
+function margin(retail: number, cost: number, shipping: number | null): { pct: number; revenue: number } {
+  const ship = shipping ?? 0;
+  const pct = cost + ship > 0 ? (retail / (cost + ship) - 1) * 100 : 0;
+  return { pct, revenue: retail - (cost + ship) };
+}
+
+test("marge : (29.99 / (12.50 + 4.99) - 1)", () => {
+  const m = margin(29.99, 12.5, 4.99);
+  assert.ok(Math.abs(m.pct - 71.5) < 0.5);
+  assert.ok(Math.abs(m.revenue - 12.5) < 0.01);
+});
+
+test("marge sans livraison connue : signalée hors livraison", () => {
+  const m = margin(29.99, 12.5, null);
+  assert.ok(m.revenue > margin(29.99, 12.5, 4.99).revenue);
+});

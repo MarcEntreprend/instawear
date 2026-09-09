@@ -660,6 +660,11 @@ export default function ProductQuickViewModal({
                         Revenue : {revenue.toFixed(2)}{" "}
                         {product.printfulCurrency || "BRL"}
                       </p>
+                      {product.shippingEstimate == null && (
+                        <p style={{ fontSize: 10, fontStyle: "italic" }}>
+                          Hors livraison (non renseignée — marge surévaluée).
+                        </p>
+                      )}
                     </>
                   );
                 })()}
