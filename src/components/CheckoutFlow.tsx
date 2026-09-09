@@ -2377,7 +2377,7 @@ export default function CheckoutFlow({
                 : []),
             ],
             customerEmail: email,
-            successUrl: `${window.location.origin}/?order=success&id=${newOrderId}`,
+            successUrl: `${window.location.origin}/order/success/${newOrderId}`,
             cancelUrl: `${window.location.origin}/?order=cancelled`,
           }),
         },
