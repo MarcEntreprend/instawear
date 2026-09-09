@@ -78,6 +78,13 @@ const COLOR_NAME_TO_HEX: Record<string, string> = {
   "dark heather grey": "#3e3e3e",
   "heather midnight navy": "#1a2035",
   "heather olive": "#4a5032",
+  // ── Noms catalogue courants sans color_code (dernier recours : le
+  // color_code catalogue reste prioritaire via catalogIdToHex) ──
+  natural: "#e8e0d0",
+  "yellow haze": "#efe0a8",
+  "ice grey": "#d8dee3",
+  "ice gray": "#d8dee3",
+  "athletic heather": "#9aa0a6",
 };
 
 // ─── Résout un hex de couleur à partir des champs Printful natifs ──────────
@@ -128,7 +135,10 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     {
       name: string;
       sizes: Map<string, { price: number; stock_status: string }>;
+      /** Meilleur visuel : aperçu avec design si dispo, sinon mockup vierge. */
       image: string;
+      /** Mockup vierge catalogue (sans design), pour la galerie. */
+      mockup_image: string;
       id: number | null;
     }
   >();
@@ -165,7 +175,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
-      byColor.set(hex, { name, sizes: new Map(), image: "", id: null });
+      byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", id: null });
     const entry = byColor.get(hex)!;
     if (!entry.id && v.id) entry.id = v.id;
     if (v.size && v.retail_price != null) {
@@ -189,13 +199,14 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
         }
       }
     }
-    if (!entry.image && v.product?.image) entry.image = v.product.image;
+    if (!entry.mockup_image && v.product?.image) entry.mockup_image = v.product.image;
   }
 
   for (const cv of catalogVariants || []) {
     const hex = resolveHexColor(cv.color, cv.color_code, cv.color_code2);
     const entry = byColor.get(hex);
-    if (entry && cv.image) entry.image = cv.image;
+    // Mockup vierge uniquement : ne jamais écraser l'aperçu avec design.
+    if (entry && cv.image) entry.mockup_image = cv.image;
   }
 
   for (const v of syncVariants || []) {
@@ -207,15 +218,22 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       }
     }
     const entry = byColor.get(hex);
+    // Aperçu avec design prioritaire (fichiers d'impression du merchant).
     if (entry && !entry.image) {
       entry.image = v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
     }
+  }
+
+  // Garantie : image toujours renseignée si une source existe.
+  for (const entry of byColor.values()) {
+    if (!entry.image) entry.image = entry.mockup_image;
   }
 
   const variants = [...byColor.entries()].map(([hex, entry]) => ({
     color: hex,
     color_name: entry.name,
     image: entry.image,
+    mockup_image: entry.mockup_image || undefined,
     external_variant_id: entry.id ? String(entry.id) : undefined,
     sizes: Object.fromEntries(
       [...entry.sizes.entries()].map(([size, data]) => [size, { price: data.price, stock_status: data.stock_status }]),
@@ -225,10 +243,11 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const colors = variants.map((v) => v.color);
   const colorNames = variants.map((v) => v.color_name);
   const colorImages = variants.map((v) => v.image).filter(Boolean);
+  const mockupImages = [...new Set(variants.map((v) => v.mockup_image).filter(Boolean))];
   const sizesSet = new Set<string>();
   variants.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
 
-  return { colors, colorNames, colorImages, sizes: [...sizesSet], variants };
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -1373,7 +1392,7 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, sizes, variants } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants } =
             buildVariantMatrix(syncVariants, catalogVariants);
 
           // P2c: Conserver les variantes disparues comme discontinued (garde prix/couleurs)
@@ -1401,7 +1420,7 @@ export default {
                   if (!price) continue;
                   let target = newByColor.get(ovColor.toLowerCase());
                   if (!target) {
-                    target = { color: ovColor, color_name: ov.color_name || ovColor, image: ov.image || "", external_variant_id: ov.external_variant_id, sizes: {} };
+                    target = { color: ovColor, color_name: ov.color_name || ovColor, image: ov.image || "", mockup_image: ov.mockup_image || undefined, external_variant_id: ov.external_variant_id, sizes: {} };
                     variants.push(target);
                     newByColor.set(ovColor.toLowerCase(), target);
                     colors.push(ovColor);
@@ -1438,13 +1457,19 @@ export default {
             }
           }
 
-          const catalogGallery = [...new Set(colorImages)].slice(0, 12);
+          // Galerie = mockups vierges uniquement (les aperçus avec design
+          // vivent sur chaque variante). Replis : colorImages puis fichiers.
+          const catalogGallery = [...new Set(mockupImages)].slice(0, 12);
+          const colorGallery = [...new Set(colorImages)].slice(0, 12);
+          const fileGallery = (
+            mainVariant?.files?.map((f: any) => f.thumbnail_url) || []
+          ).filter((u: string) => u && u.trim().length > 0);
           const gallery =
             catalogGallery.length > 0
               ? catalogGallery
-              : (
-                  mainVariant?.files?.map((f: any) => f.thumbnail_url) || []
-                ).filter((u: string) => u && u.trim().length > 0);
+              : colorGallery.length > 0
+                ? colorGallery
+                : fileGallery;
 
           const price = mainVariant?.retail_price
             ? parseFloat(mainVariant.retail_price)

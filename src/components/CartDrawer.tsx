@@ -325,7 +325,11 @@ export default function CartDrawer({
                           <span
                             className="w-3.5 h-3.5 rounded-full border"
                             style={{
-                              backgroundColor: item.selectedColor,
+                              backgroundColor: /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+                                item.selectedColor,
+                              )
+                                ? item.selectedColor
+                                : "var(--color-surface2)",
                               borderColor: "var(--color-border)",
                             }}
                           />

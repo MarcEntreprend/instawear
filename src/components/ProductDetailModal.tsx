@@ -1,6 +1,6 @@
 // src/components/ProductDetailModal.tsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Star,
@@ -150,7 +150,6 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-
   const [pickedColor, setPickedColor] = useState<string>(
     initialColor ||
       (product.variants?.length
@@ -168,8 +167,13 @@ export default function ProductDetailModal({
           : product.sizes[0] || "M"),
   );
 
-  const hasVariants = product.variants && product.variants.length > 0;
-  const dispColors = hasVariants
+  // Le cadre suit toujours la couleur : on repart de la 1re image galerie
+  // quand la variante choisie n'a pas son propre visuel.
+  useEffect(() => {
+    setActiveGalleryIndex(0);
+  }, [pickedColor]);
+
+  const hasVariants = product.variants && product.variants.length > 0;  const dispColors = hasVariants
     ? product.variants!.map((v) => v.color)
     : product.colors;
   const dispColorNames = hasVariants
@@ -207,10 +211,6 @@ export default function ProductDetailModal({
     currentVariantPrice != null ? currentVariantPrice : product.price;
   const surcharge = displayPrice - product.price;
 
-  const variantImages = hasVariants
-    ? product.variants!.filter((v) => v.image && v.image.trim().length > 0)
-    : [];
-
   return (
     <div className="fixed inset-0 z-55 overflow-y-auto bg-gray-50/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
       <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-400 max-h-[95vh] overflow-y-auto shadow-2xl relative">
@@ -223,30 +223,10 @@ export default function ProductDetailModal({
 
         {/* ── 3-COLUMN LAYOUT ────────────────────────────────────── */}
         <div className="flex flex-col lg:flex-row gap-8 p-8 md:p-10">
-          {/* ── COLONNE GAUCHE : Images ──────────────────────────── */}
+          {/* ── COLONNE GAUCHE : galerie mockups (jamais les variantes) ── */}
           <div className="lg:w-[45%] flex flex-col sm:flex-row gap-6">
             {/* Miniatures verticales (desktop) ou horizontales (mobile) */}
-            {variantImages.length > 1 ? (
-              <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
-                {variantImages.map((v) => (
-                  <button
-                    key={v.color}
-                    onClick={() => setPickedColor(v.color)}
-                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                      pickedColor === v.color
-                        ? "border-(--color-accent)"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <img
-                      src={v.image}
-                      alt={v.color_name || v.color}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : allImages.length > 1 ? (
+            {allImages.length > 1 ? (
               <div className="flex sm:flex-col gap-2 order-2 sm:order-first sm:w-16 shrink-0">
                 {allImages.map((img, idx) => (
                   <button
@@ -319,7 +299,7 @@ export default function ProductDetailModal({
               </div>
             )}
 
-            {/* Colors */}
+            {/* Colors : miniatures photo des variantes (clé = v.color, inchangée) */}
             <div className="mt-4">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Color :{" "}
@@ -344,16 +324,33 @@ export default function ProductDetailModal({
                   const title = isBlocked
                     ? `${titleBase} — ${colorAvail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
                     : titleBase;
+                  const thumb =
+                    hasVariants && product.variants![idx]?.image?.trim()
+                      ? product.variants![idx].image
+                      : null;
                   return (
                     <button
                       key={idx}
                       onClick={() => !isBlocked && setPickedColor(c)}
                       disabled={isBlocked}
-                      className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
-                      style={{ backgroundColor: c }}
+                      className={`w-11 h-11 rounded-lg overflow-hidden border-2 transition-all p-0 ${isPicked ? "border-cyan-400 scale-105 shadow-md" : "border-gray-200"} ${isBlocked ? "opacity-40 cursor-not-allowed grayscale" : ""}`}
+                      style={thumb ? undefined : { backgroundColor: "#e5e0d8" }}
                       title={title}
+                      aria-label={titleBase}
                       aria-disabled={isBlocked}
-                    />
+                    >
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={titleBase}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
+                          {(titleBase || "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
               </div>
