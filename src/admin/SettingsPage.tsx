@@ -130,6 +130,11 @@ export default function SettingsPage() {
   });
 
   const [webhookTypes, setWebhookTypes] = useState<string[]>([]);
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [webhookMessage, setWebhookMessage] = useState<{
+    text: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
 
   // Charger la configuration webhook Printful au montage
   useEffect(() => {
@@ -1587,7 +1592,10 @@ export default function SettingsPage() {
                   group: "Commandes",
                   events: [
                     { key: "package_shipped", label: "Commande expédiée" },
-                    { key: "order_created", label: "Commande créée (confirmation Printful)" },
+                    {
+                      key: "order_created",
+                      label: "Commande créée (confirmation Printful)",
+                    },
                     { key: "order_updated", label: "Mise à jour commande" },
                     { key: "order_failed", label: "Commande échouée" },
                     { key: "order_canceled", label: "Commande annulée" },
@@ -1611,19 +1619,80 @@ export default function SettingsPage() {
                   ],
                 },
               ].map((g) => (
-                <div key={g.group} style={{ marginBottom: 10 }}>
-                  <p
+                <div key={g.group} style={{ marginBottom: 14 }}>
+                  <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--color-ink3)",
-                      textTransform: "uppercase",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                       marginBottom: 6,
                     }}
                   >
-                    {g.group}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    <p
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--color-ink3)",
+                        textTransform: "uppercase",
+                        margin: 0,
+                      }}
+                    >
+                      {g.group}
+                    </p>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allKeys = g.events.map((e) => e.key);
+                          setWebhookTypes((prev) => [
+                            ...new Set([...prev, ...allKeys]),
+                          ]);
+                        }}
+                        style={{
+                          padding: "2px 10px",
+                          borderRadius: 6,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--color-surface2)",
+                          color: "var(--color-ink2)",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Tout
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allKeys = g.events.map((e) => e.key);
+                          setWebhookTypes((prev) =>
+                            prev.filter((t) => !allKeys.includes(t)),
+                          );
+                        }}
+                        style={{
+                          padding: "2px 10px",
+                          borderRadius: 6,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--color-surface2)",
+                          color: "var(--color-ink3)",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Aucun
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(200px, 1fr))",
+                      gap: 8,
+                    }}
+                    className="webhook-grid"
+                  >
                     {g.events.map((event) => (
                       <label
                         key={event.key}
@@ -1631,9 +1700,10 @@ export default function SettingsPage() {
                           display: "flex",
                           alignItems: "center",
                           gap: 6,
-                          fontSize: 13,
+                          fontSize: 12.5,
                           color: "var(--color-ink2)",
                           cursor: "pointer",
+                          padding: "4px 0",
                         }}
                       >
                         <input
@@ -1663,9 +1733,11 @@ export default function SettingsPage() {
                 type="button"
                 onClick={async () => {
                   if (!podForm.apiKey) {
-                    alert(
-                      "Veuillez d'abord enregistrer votre clé API Printful.",
-                    );
+                    setWebhookMessage({
+                      text: "Veuillez d'abord enregistrer votre clé API Printful.",
+                      type: "error",
+                    });
+                    setTimeout(() => setWebhookMessage(null), 4000);
                     return;
                   }
                   try {
@@ -1673,10 +1745,18 @@ export default function SettingsPage() {
                       podForm.apiKey,
                       podForm.storeId,
                     );
-                    alert("Webhook désactivé avec succès.");
                     setWebhookTypes([]);
+                    setWebhookMessage({
+                      text: "Webhook désactivé avec succès.",
+                      type: "success",
+                    });
+                    setTimeout(() => setWebhookMessage(null), 4000);
                   } catch (e: any) {
-                    alert(e.message);
+                    setWebhookMessage({
+                      text: e.message || "Erreur lors de la désactivation.",
+                      type: "error",
+                    });
+                    setTimeout(() => setWebhookMessage(null), 4000);
                   }
                 }}
                 style={{
@@ -1697,15 +1777,23 @@ export default function SettingsPage() {
                 type="button"
                 onClick={async () => {
                   if (!podForm.apiKey) {
-                    alert(
-                      "Veuillez d'abord enregistrer votre clé API Printful.",
-                    );
+                    setWebhookMessage({
+                      text: "Veuillez d'abord enregistrer votre clé API Printful.",
+                      type: "error",
+                    });
+                    setTimeout(() => setWebhookMessage(null), 4000);
                     return;
                   }
                   if (webhookTypes.length === 0) {
-                    alert("Sélectionnez au moins un événement.");
+                    setWebhookMessage({
+                      text: "Sélectionnez au moins un événement.",
+                      type: "error",
+                    });
+                    setTimeout(() => setWebhookMessage(null), 4000);
                     return;
                   }
+                  setWebhookSaving(true);
+                  setWebhookMessage(null);
                   try {
                     await podApi.setupWebhook(
                       podForm.apiKey,
@@ -1713,11 +1801,23 @@ export default function SettingsPage() {
                       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-webhook`,
                       webhookTypes,
                     );
-                    alert("Webhook configuré avec succès !");
+                    setWebhookMessage({
+                      text: "✅ Webhook configuré avec succès !",
+                      type: "success",
+                    });
                   } catch (e: any) {
-                    alert(e.message);
+                    setWebhookMessage({
+                      text: e.message || "❌ Erreur lors de la configuration.",
+                      type: "error",
+                    });
+                  } finally {
+                    setWebhookSaving(false);
+                    setTimeout(() => setWebhookMessage(null), 4000);
                   }
                 }}
+                disabled={
+                  webhookSaving || !podForm.apiKey || webhookTypes.length === 0
+                }
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1730,14 +1830,71 @@ export default function SettingsPage() {
                   fontFamily: "var(--font-body)",
                   fontWeight: 700,
                   fontSize: 13.5,
-                  cursor: "pointer",
+                  cursor:
+                    webhookSaving ||
+                    !podForm.apiKey ||
+                    webhookTypes.length === 0
+                      ? "not-allowed"
+                      : "pointer",
                   boxShadow: "var(--shadow-accent)",
+                  opacity:
+                    webhookSaving ||
+                    !podForm.apiKey ||
+                    webhookTypes.length === 0
+                      ? 0.6
+                      : 1,
                 }}
               >
-                <Save size={15} strokeWidth={2} />
-                Enregistrer dans Printful
+                {webhookSaving ? (
+                  <>
+                    <RefreshCw
+                      size={15}
+                      strokeWidth={2}
+                      className="animate-spin"
+                    />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <Save size={15} strokeWidth={2} />
+                    Enregistrer dans Printful
+                  </>
+                )}
               </button>
             </div>
+
+            {/* ✅ Message de retour */}
+            {webhookMessage && (
+              <div
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background:
+                    webhookMessage.type === "success"
+                      ? "var(--color-success-bg)"
+                      : webhookMessage.type === "error"
+                        ? "var(--color-negative-bg)"
+                        : "var(--color-surface2)",
+                  color:
+                    webhookMessage.type === "success"
+                      ? "var(--color-success)"
+                      : webhookMessage.type === "error"
+                        ? "var(--color-negative)"
+                        : "var(--color-ink2)",
+                  border: `1px solid ${
+                    webhookMessage.type === "success"
+                      ? "var(--color-success-border)"
+                      : webhookMessage.type === "error"
+                        ? "var(--color-negative-border)"
+                        : "var(--color-border)"
+                  }`,
+                }}
+              >
+                {webhookMessage.text}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1921,10 +2078,14 @@ export default function SettingsPage() {
 
       {/* Responsive grid */}
       <style>{`
-        @media (max-width: 600px) {
-          .settings-grid-2col { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+  @media (max-width: 600px) {
+    .settings-grid-2col { grid-template-columns: 1fr !important; }
+    .webhook-grid { grid-template-columns: 1fr !important; }
+  }
+  @media (min-width: 601px) and (max-width: 900px) {
+    .webhook-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+`}</style>
     </div>
   );
 }
