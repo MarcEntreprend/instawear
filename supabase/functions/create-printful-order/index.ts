@@ -26,6 +26,143 @@ function isTransitionAllowed(from: string, to: string): boolean {
   return from === to || ALLOWED_TRANSITIONS.has(`${from}->${to}`);
 }
 
+// Phase A (gap 11): annulation côté Printful (DELETE /orders/{id}).
+// Printful n'annule que les commandes draft/pending : on vérifie le statut
+// distant AVANT de supprimer, puis on aligne le statut local via la state
+// machine. Auth : même garde que la création (service_role OU admin JWT).
+async function handleCancelPrintfulOrder(
+  supabaseAdmin: any,
+  order: any,
+): Promise<Response> {
+  const orderId = order.id;
+  const pfId = order.external_order_id ? String(order.external_order_id) : "";
+  if (!pfId) {
+    return new Response(
+      JSON.stringify({ error: "Aucune commande Printful liée à annuler" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+    );
+  }
+  if (!isTransitionAllowed(order.status, "cancelled")) {
+    return new Response(
+      JSON.stringify({ error: `Transition ${order.status} -> cancelled non autorisée` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 },
+    );
+  }
+
+  const { data: settings } = await supabaseAdmin
+    .from("pod_settings")
+    .select("api_key, store_id")
+    .eq("id", "pod-main")
+    .maybeSingle();
+  const apiKey = (settings as any)?.api_key;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: "Printful non configuré" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+    );
+  }
+  const pfHeaders: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if ((settings as any)?.store_id) pfHeaders["X-PF-Store-Id"] = String((settings as any).store_id);
+
+  // Statut distant : annulable uniquement si draft/pending.
+  let pfStatus = "";
+  try {
+    const gRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(pfId)}`, { headers: pfHeaders });
+    if (gRes.status === 404) {
+      return new Response(
+        JSON.stringify({ error: "Commande introuvable côté Printful (déjà supprimée ?)" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 },
+      );
+    }
+    if (!gRes.ok) {
+      const t = await gRes.text();
+      return new Response(
+        JSON.stringify({ error: `Erreur Printful: ${t.slice(0, 300)}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+      );
+    }
+    const gData = await gRes.json();
+    pfStatus = String(gData.result?.status || "").toLowerCase();
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: `Printful injoignable: ${e?.message || e}` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+    );
+  }
+  if (pfStatus !== "draft" && pfStatus !== "pending") {
+    return new Response(
+      JSON.stringify({
+        error: `Statut Printful « ${pfStatus || "inconnu"} » non annulable (seuls draft/pending le sont). Passez par un remboursement.`,
+        printfulStatus: pfStatus,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 },
+    );
+  }
+
+  try {
+    const dRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(pfId)}`, {
+      method: "DELETE",
+      headers: pfHeaders,
+    });
+    if (!dRes.ok) {
+      const t = await dRes.text();
+      return new Response(
+        JSON.stringify({ error: `Erreur Printful: ${t.slice(0, 300)}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+      );
+    }
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: `Printful injoignable: ${e?.message || e}` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+    );
+  }
+
+  // Aligne le local : statut cancelled + note (external_order_id conservé).
+  const note = `[POD] Annulée chez Printful par l'admin (statut distant: ${pfStatus}).`;
+  await supabaseAdmin
+    .from("orders")
+    .update({
+      status: "cancelled",
+      notes: order.notes ? `${order.notes}\n${note}` : note,
+    })
+    .eq("id", orderId);
+
+  // Notif admin + notif client (l'email annulé part côté frontend via le
+  // template existant, comme pour tout passage à cancelled).
+  try {
+    await supabaseAdmin.from("notifications").insert({
+      title: `Commande ${orderId} annulée chez Printful`,
+      description: `${order.client_name || "Client"} — commande Printful ${pfId} supprimée (était ${pfStatus}).`,
+      category: "orders",
+      priority: "medium",
+      status: "unread",
+      metadata: { orderId, printfulOrderId: pfId, linkTo: "/admin/orders", source: "Printful" },
+      action_label: "Voir la commande",
+    });
+  } catch {}
+  if (order.client_id) {
+    try {
+      await supabaseAdmin.from("customer_notifications").insert({
+        customer_id: order.client_id,
+        title: `Votre commande ${orderId} est annulée`,
+        message: `Votre commande ${orderId} a été annulée. Si vous avez été débité, un remboursement sera émis.`,
+        type: "order_status",
+        is_read: false,
+        metadata: { orderId, status: "cancelled" },
+      });
+    } catch {}
+  }
+
+  return new Response(
+    JSON.stringify({ success: true, printfulStatus: pfStatus }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+
 // ── Rate limiting simple (en mémoire, par IP) ──────────────────────────
 // P-F rate limit distribué importé depuis _shared/rateLimit.ts
 
@@ -123,6 +260,11 @@ export default {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 404,
         });
+      }
+
+      // Phase A (gap 11): action d'annulation (même garde auth ci-dessus).
+      if (String(body.action || "create") === "cancel-printful-order") {
+        return await handleCancelPrintfulOrder(supabaseAdmin, order);
       }
 
       if (order.status !== "paid") {
@@ -405,6 +547,21 @@ export default {
               const existingId = existingPf.result?.id?.toString() || "";
               // marquer comme succès idempotent
               await supabaseAdmin.from("orders").update({ external_order_id: existingId, status: "in_production" }).eq("id", orderId);
+              // Phase A (gap 8): snapshot coûts aussi sur le chemin idempotent
+              try {
+                const r = existingPf.result || {};
+                if (r.costs || r.retail_costs || r.pricing_breakdown) {
+                  await supabaseAdmin.from("orders").update({
+                    printful_costs: {
+                      costs: r.costs || null,
+                      retail_costs: r.retail_costs || null,
+                      pricing_breakdown: r.pricing_breakdown || null,
+                      currency: r.currency || null,
+                      estimated_at: new Date().toISOString(),
+                    },
+                  }).eq("id", orderId);
+                }
+              } catch {}
               for (const it of orderItems) {
                 const isBlocked = blockedItems.some((b) => b.item.id === it.id);
                 if (!isBlocked) try { await supabaseAdmin.from("order_items").update({ print_status: "fulfillable" }).eq("id", it.id); } catch {}
@@ -476,6 +633,30 @@ export default {
             notes: order.notes ? order.notes + notesAppend : notesAppend.trim(),
           })
           .eq("id", orderId);
+      }
+
+      // Phase A (gap 8): snapshot des coûts Printful pour affichage ADMIN
+      // uniquement. Best-effort : si la colonne printful_costs n'existe pas
+      // encore (migration 20261016 non exécutée), la création réussit quand
+      // même. Les coûts à la création sont ESTIMÉS (calcul async Printful).
+      try {
+        const r = pfData.result || {};
+        if (r.costs || r.retail_costs || r.pricing_breakdown) {
+          await supabaseAdmin
+            .from("orders")
+            .update({
+              printful_costs: {
+                costs: r.costs || null,
+                retail_costs: r.retail_costs || null,
+                pricing_breakdown: r.pricing_breakdown || null,
+                currency: r.currency || null,
+                estimated_at: new Date().toISOString(),
+              },
+            })
+            .eq("id", orderId);
+        }
+      } catch (e) {
+        console.warn("printful_costs snapshot skipped:", e);
       }
 
       // marquer les items fulfillable

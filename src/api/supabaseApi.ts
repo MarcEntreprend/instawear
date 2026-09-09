@@ -119,7 +119,10 @@ const mapProduct = (row: any): AdminProduct => ({
   updatedAt: row.updated_at,
 });
 
-export const mapOrder = (row: any): Order => ({
+export const mapOrder = (
+  row: any,
+  opts?: { includeCosts?: boolean },
+): Order => ({
   id: row.id,
   clientId: row.client_id ?? "guest",
   clientName: row.client_name,
@@ -140,6 +143,11 @@ export const mapOrder = (row: any): Order => ({
   },
   externalOrderId: row.external_order_id,
   notes: row.notes,
+  // Snapshot coûts Printful — ADMIN UNIQUEMENT (données de marge).
+  // Exclu par défaut : les parcours client (compte, tracking, refresh)
+  // appellent mapOrder() sans opts et ne reçoivent jamais les coûts,
+  // même si la requête select("*") les ramène. Opt-in explicite côté admin.
+  printfulCosts: opts?.includeCosts ? (row.printful_costs ?? null) : null,
   // tracking_info est désormais un TABLEAU de colis côté DB (un par
   // expédition/réexpédition Printful), poussé par printful-webhook/index.ts
   // au lieu d'être écrasé. Les commandes créées avant cette évolution
@@ -629,7 +637,7 @@ export const customerApi = {
       }
     }
     merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    let ordersMapped = merged.map(mapOrder);
+    let ordersMapped = merged.map((row: any) => mapOrder(row));
     for (const order of ordersMapped) {
       const { data: items } = await supabase
         .from("order_items")
@@ -902,8 +910,9 @@ export const orderApi = {
     });
 
     // 5. Mapper les commandes et leur attacher les items
+    // Parcours ADMIN (orderApi.list) : coûts Printful inclus (opt-in).
     return ordersList.map((o: any) => ({
-      ...mapOrder(o),
+      ...mapOrder(o, { includeCosts: true }),
       items: itemsByOrder[o.id] ?? [],
     }));
   },
@@ -1335,6 +1344,44 @@ export const podApi = {
         await notificationApi.create({
           title: "Échec création commande Printful",
           description: `La commande ${orderId} n'a pas pu être envoyée à Printful`,
+          category: "orders",
+          priority: "high",
+          metadata: { orderId, linkTo: "/admin/orders", source: "Printful" },
+          action_label: "Résoudre le problème",
+        });
+      } catch (_) {}
+      throw new Error(err.error || "Erreur Edge Function");
+    }
+    return res.json();
+  },
+
+  /**
+   * Annule une commande côté Printful (DELETE /orders/{id}, draft/pending
+   * uniquement) puis aligne le statut local + notifs. L'email annulé part
+   * côté frontend via le template existant (voir OrdersPage).
+   * @param orderId - L'ID de la commande InstaWear.
+   */
+  async cancelPrintfulOrder(
+    orderId: string,
+  ): Promise<{ success: boolean; printfulStatus: string }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-printful-order`;
+    // Utiliser le token JWT admin (l'Edge Function vérifiera le rôle admin)
+    const token = await getAccessToken();
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ orderId, action: "cancel-printful-order" }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      try {
+        await notificationApi.create({
+          title: "Échec annulation Printful",
+          description: `La commande ${orderId} n'a pas pu être annulée côté Printful : ${err.error || ""}`.slice(0, 300),
           category: "orders",
           priority: "high",
           metadata: { orderId, linkTo: "/admin/orders", source: "Printful" },
