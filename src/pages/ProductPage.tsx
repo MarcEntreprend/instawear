@@ -473,7 +473,7 @@ export default function ProductPage({
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
           {/* Gallery */}
           <div className="flex gap-3">
-            <div className="hidden sm:flex flex-col w-16 shrink-0">
+            <div className="hidden sm:flex flex-col w-16 shrink-0 pt-2">
               <ThumbStrip
                 images={gallery}
                 activeIndex={activeGalleryIndex}
