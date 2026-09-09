@@ -462,13 +462,27 @@ export default function ProductPage({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-(--color-bg) animate-fade-in">
       <div className="max-w-350 mx-auto px-4 sm:px-6 pt-4 pb-24 lg:pb-16">
-        <button
-          onClick={onClose}
-          className="inline-flex items-center gap-2 text-sm font-semibold mb-4 hover:underline"
-          style={{ color: "var(--color-ink2)" }}
+        {/* Fil d'ariane */}
+        <div
+          className="flex items-center gap-2 text-xs mb-4"
+          style={{ color: "var(--color-ink3)" }}
         >
-          <ArrowLeft size={16} /> Back
-        </button>
+          <button
+            onClick={onClose}
+            aria-label="Retour"
+            className="btn-icon w-8 h-8 mr-1"
+          >
+            <ArrowLeft size={15} />
+          </button>
+          <span className="capitalize">{product.eventType || "Produit"}</span>
+          <span>/</span>
+          <span
+            style={{ color: "var(--color-ink)" }}
+            className="font-semibold truncate max-w-[16rem]"
+          >
+            {product.title}
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
           {/* Gallery */}
