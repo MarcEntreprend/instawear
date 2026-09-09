@@ -460,7 +460,7 @@ export default function ProductPage({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-(--color-bg) animate-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-(--color-bg) animate-fade-in">
       <div className="max-w-350 mx-auto px-4 sm:px-6 pt-4 pb-24 lg:pb-16">
         <button
           onClick={onClose}
@@ -472,8 +472,8 @@ export default function ProductPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
           {/* Gallery */}
-          <div className="flex gap-3">
-            <div className="hidden sm:flex flex-col w-16 shrink-0 pt-2">
+          <div className="flex gap-3 overflow-hidden">
+            <div className="hidden sm:flex flex-col w-16 shrink-0 pt-1">
               <ThumbStrip
                 images={gallery}
                 activeIndex={activeGalleryIndex}
@@ -484,15 +484,16 @@ export default function ProductPage({
                 orientation="vertical"
                 thumbClassName="w-16 h-16 rounded-xl"
                 className="w-16"
+                maxPx={435}
               />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <ZoomImage
                 src={displayImage}
                 alt={product.title}
                 onRequestLightbox={() => setIsLightboxOpen(true)}
               />
-              <div className="sm:hidden mt-3">
+              <div className="sm:hidden mt-3 overflow-x-auto no-scrollbar">
                 <ThumbStrip
                   images={gallery}
                   activeIndex={activeGalleryIndex}
@@ -501,7 +502,8 @@ export default function ProductPage({
                     setFrameOverride(gallery[i]);
                   }}
                   orientation="horizontal"
-                  thumbClassName="w-16 h-16 rounded-xl"
+                  thumbClassName="w-16 h-16 rounded-xl shrink-0"
+                  className="w-full"
                 />
               </div>
             </div>
