@@ -687,10 +687,54 @@ export default {
         };
         if (storeId) headers["X-PF-Store-Id"] = storeId;
 
+        // stock_updated exige params.stock_updated.product_ids côté
+        // Printful ("Missing product ids for stock sync" sinon). On envoie
+        // nos sync product IDs (products.external_product_id).
+        let params: Record<string, unknown> | undefined;
+        if (cleanTypes.includes("stock_updated")) {
+          const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          );
+          let productIds: number[] = [];
+          try {
+            const { data: prods } = await supabaseAdmin
+              .from("products")
+              .select("external_product_id")
+              .not("external_product_id", "is", null);
+            productIds = [
+              ...new Set(
+                (prods || [])
+                  .map((p: any) => Number(p.external_product_id))
+                  .filter((n: number) => Number.isFinite(n) && n > 0),
+              ),
+            ];
+          } catch (e) {
+            console.warn("setup-webhook: lecture products impossible", e);
+          }
+          if (productIds.length === 0) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Aucun produit synchronisé : synchronisez d'abord le catalogue avant d'activer « Stock mis à jour » (Printful exige la liste des produits à surveiller).",
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 400,
+              },
+            );
+          }
+          params = { stock_updated: { product_ids: productIds } };
+        }
+
         const res = await fetch("https://api.printful.com/webhooks", {
           method: "POST",
           headers,
-          body: JSON.stringify({ url: webhookUrl, types: cleanTypes }),
+          body: JSON.stringify(
+            params
+              ? { url: webhookUrl, types: cleanTypes, params }
+              : { url: webhookUrl, types: cleanTypes },
+          ),
         });
 
         if (!res.ok) {

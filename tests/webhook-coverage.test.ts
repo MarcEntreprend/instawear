@@ -310,8 +310,7 @@ test("allowlist : entrée vide/non-tableau → [] (edge répond 400)", () => {
   assert.deepEqual(cleanTypes(null), []);
 });
 
-test("cohérence : UI (14 cases) = SUPPORTED_TYPES edge", () => {
-  const uiKeys = [
+test("cohérence : UI (14 cases) = SUPPORTED_TYPES edge", () => {  const uiKeys = [
     "package_shipped",
     "order_created",
     "order_updated",
@@ -332,4 +331,67 @@ test("cohérence : UI (14 cases) = SUPPORTED_TYPES edge", () => {
   for (const k of PRINTFUL_WEBHOOK_TYPES) {
     assert.ok(SUPPORTED_TYPES.has(k), `allowlist⊃edge: ${k}`);
   }
+});
+
+// ─── setup-webhook : params.stock_updated requis par Printful ───────────────
+// "Missing product ids for stock sync" si stock_updated sans product_ids.
+// Miroir de la logique edge (produits = external_product_id numériques).
+
+function buildWebhookPayload(
+  webhookUrl: string,
+  cleanTypes: string[],
+  externalIds: (string | null)[],
+): { body: Record<string, unknown>; error: string | null } {
+  let params: Record<string, unknown> | undefined;
+  if (cleanTypes.includes("stock_updated")) {
+    const productIds = [
+      ...new Set(
+        externalIds
+          .map((v) => Number(v))
+          .filter((n) => Number.isFinite(n) && n > 0),
+      ),
+    ];
+    if (productIds.length === 0) {
+      return {
+        body: {},
+        error:
+          "Aucun produit synchronisé : synchronisez d'abord le catalogue avant d'activer « Stock mis à jour ».",
+      };
+    }
+    params = { stock_updated: { product_ids: productIds } };
+  }
+  return {
+    body: params
+      ? { url: webhookUrl, types: cleanTypes, params }
+      : { url: webhookUrl, types: cleanTypes },
+    error: null,
+  };
+}
+
+test("sans stock_updated : pas de params", () => {
+  const r = buildWebhookPayload("https://x/webhook", ["package_shipped"], ["5"]);
+  assert.equal(r.error, null);
+  assert.deepEqual(r.body, {
+    url: "https://x/webhook",
+    types: ["package_shipped"],
+  });
+});
+
+test("avec stock_updated : params.product_ids depuis external_product_id", () => {
+  const r = buildWebhookPayload(
+    "https://x/webhook",
+    ["package_shipped", "stock_updated"],
+    ["5", "12", "5", null, "abc"],
+  );
+  assert.equal(r.error, null);
+  assert.deepEqual(r.body, {
+    url: "https://x/webhook",
+    types: ["package_shipped", "stock_updated"],
+    params: { stock_updated: { product_ids: [5, 12] } },
+  });
+});
+
+test("stock_updated sans produit synchronisé → erreur explicite", () => {
+  const r = buildWebhookPayload("https://x/webhook", ["stock_updated"], [null]);
+  assert.match(r.error || "", /Aucun produit synchronisé/);
 });
