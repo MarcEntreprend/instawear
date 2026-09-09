@@ -502,6 +502,13 @@ function OrderSummaryPanel({
                   {total.toFixed(2)} {currencySymbol}
                 </span>
               </div>
+              <p
+                className="flex items-center gap-1.5 mt-2 text-[11px] font-semibold"
+                style={{ color: "var(--color-success)" }}
+              >
+                <CheckCircle2 size={13} strokeWidth={2.5} />
+                No extra taxes at checkout
+              </p>
             </div>
           </div>
         </div>
