@@ -5,6 +5,7 @@ import type { Product } from "../types";
 import { EVENT_TYPES } from "../data/categories";
 import StoreProductCard from "../components/StoreProductCard";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 
 function normalize(text: string): string {
   return text
@@ -50,6 +51,7 @@ export default function SearchResultsPage({
 }) {
   const [draft, setDraft] = useState(query);
   const [activeEventType, setActiveEventType] = useState<string | null>(null);
+  const currencySymbol = useCurrencySymbol();
   usePageMeta({
     title: query.trim() ? `Search: ${query.trim()}` : "Search",
     description:
@@ -149,7 +151,7 @@ export default function SearchResultsPage({
                 dealExpired={false}
                 dealFadingOut={false}
                 countdownStr=""
-                currencySymbol="€"
+                currencySymbol={currencySymbol}
                 onToggleFavorite={(id) =>
                   onToggleFavourite(products.find((p) => p.id === id)!)
                 }
@@ -189,7 +191,7 @@ export default function SearchResultsPage({
                   dealExpired={false}
                   dealFadingOut={false}
                   countdownStr=""
-                  currencySymbol="€"
+                  currencySymbol={currencySymbol}
                   onToggleFavorite={(id) =>
                     onToggleFavourite(products.find((p) => p.id === id)!)
                   }

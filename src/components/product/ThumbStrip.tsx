@@ -35,8 +35,14 @@ export function computeDownCount(
   thumbSize: number,
 ): number {
   if (thumbSize <= 0) return 0;
-  if (scrollSize <= clientSize + 4) return 0;
-  return Math.max(0, Math.ceil((scrollSize - scrollPos - clientSize) / thumbSize));
+  // Si le contenu total ne dépasse pas la zone visible + une marge de 20px, pas de pastille
+  if (scrollSize <= clientSize + 20) return 0;
+  // Calcul du nombre d'éléments complètement hors champ
+  const visiblePx = scrollPos + clientSize;
+  const hiddenPx = scrollSize - visiblePx;
+  // Utiliser Math.floor et ajouter une marge de 8px pour ne pas afficher la pastille
+  // si seulement un petit bout de la dernière image est caché
+  return Math.max(0, Math.floor((hiddenPx - 8) / thumbSize));
 }
 
 export default function ThumbStrip({
@@ -62,17 +68,20 @@ export default function ThumbStrip({
     const size = vertical ? el.scrollHeight : el.scrollWidth;
     const first = el.querySelector("button");
     const thumb =
-      (vertical
-        ? first?.clientHeight ?? 0
-        : first?.clientWidth ?? 0) + gapPx;
+      (vertical ? (first?.clientHeight ?? 0) : (first?.clientWidth ?? 0)) +
+      gapPx;
     setCanUp(scrollPos > 4);
     setDownCount(computeDownCount(size, scrollPos, client, thumb || 1));
   };
 
   useEffect(() => {
-    refresh();
+    // Petit délai pour que le DOM soit bien mis à jour
+    const timer = setTimeout(refresh, 50);
     window.addEventListener("resize", refresh);
-    return () => window.removeEventListener("resize", refresh);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images.length, orientation, maxPx]);
 
@@ -81,7 +90,7 @@ export default function ThumbStrip({
     if (!el) return;
     const first = el.querySelector("button");
     const thumb =
-      (vertical ? first?.clientHeight ?? 64 : first?.clientWidth ?? 64) +
+      (vertical ? (first?.clientHeight ?? 64) : (first?.clientWidth ?? 64)) +
       gapPx;
     el.scrollBy({
       top: vertical ? dir * thumb * 2 : 0,
@@ -92,9 +101,7 @@ export default function ThumbStrip({
 
   if (images.length <= 1) return null;
 
-  const trackStyle: CSSProperties = vertical
-    ? { maxHeight: maxPx }
-    : {};
+  const trackStyle: CSSProperties = vertical ? { maxHeight: maxPx } : {};
 
   const UpIcon = vertical ? ChevronUp : ChevronLeft;
   const DownIcon = vertical ? ChevronDown : ChevronRight;
@@ -153,11 +160,7 @@ export default function ThumbStrip({
                   : "1px solid var(--color-border)",
             }}
           >
-            <img
-              src={img}
-              alt=""
-              className="w-full h-full object-cover"
-            />
+            <img src={img} alt="" className="w-full h-full object-cover" />
           </button>
         ))}
       </div>

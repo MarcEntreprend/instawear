@@ -47,6 +47,9 @@
     },
     "/get-shipping-rates": {
       "post": { "summary": "Fetch real-time Printful shipping rates for cart items + destination", "x-roles": ["public"], "x-edges": ["get-shipping-rates"] }
+    },
+    "/printful-reports": {
+      "post": { "summary": "Printful reports statistics (profit/costs/sales) with 12h local snapshot cache", "x-roles": ["admin"], "x-edges": ["printful-reports"] }
     }
   }
 }

@@ -29,6 +29,46 @@ function buildFooter(email: string) {
   `;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Envoi centralisé : vérifie le destinataire AVANT l'appel (adresse fictive
+// ou vide = refus Resend garanti → on l'explique au lieu d'un 400 obscur),
+// puis remonte la raison exacte de l'edge en cas d'échec (visible console
+// + Supabase Logs "Resend error:"). Retourne true si accepté par l'edge.
+async function postEmail(
+  to: unknown,
+  subject: string,
+  html: string,
+): Promise<boolean> {
+  if (typeof to !== "string" || !EMAIL_RE.test(to.trim())) {
+    console.warn(
+      `[email] envoi ignoré — destinataire invalide : ${JSON.stringify(to)}. ` +
+        "Vérifiez l'adresse client (les adresses fictives sont refusées par Resend).",
+    );
+    return false;
+  }
+  try {
+    const headers = await adminAuthHeaders();
+    const res = await fetch(SEND_EMAIL_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ to: to.trim(), subject, html }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn(
+        `[email] send-email HTTP ${res.status} pour ${to} : ${body.slice(0, 300) || "(sans détail)"}. ` +
+          "Cause fréquente : adresse inexistante/refusée par Resend, domaine non vérifié ou mode test.",
+      );
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[email] échec réseau send-email :", err);
+    return false;
+  }
+}
+
 export async function sendShippedEmail(order: any) {
   const { id, clientEmail, clientName } = order;
   const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
@@ -43,16 +83,7 @@ export async function sendShippedEmail(order: any) {
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
-  const headers = await adminAuthHeaders();
-  fetch(SEND_EMAIL_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      to: clientEmail,
-      subject: `Your order ${id} is on its way!`,
-      html,
-    }),
-  }).catch(console.error);
+  await postEmail(clientEmail, `Your order ${id} is on its way!`, html);
 }
 
 export async function sendDeliveredEmail(order: any) {
@@ -69,16 +100,7 @@ export async function sendDeliveredEmail(order: any) {
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
-  const headers = await adminAuthHeaders();
-  fetch(SEND_EMAIL_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      to: clientEmail,
-      subject: `Your order ${id} has been delivered!`,
-      html,
-    }),
-  }).catch(console.error);
+  await postEmail(clientEmail, `Your order ${id} has been delivered!`, html);
 }
 
 export async function sendInProductionEmail(order: any) {
@@ -95,16 +117,7 @@ export async function sendInProductionEmail(order: any) {
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
-  const headers = await adminAuthHeaders();
-  fetch(SEND_EMAIL_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      to: clientEmail,
-      subject: `Your order ${id} is now in production!`,
-      html,
-    }),
-  }).catch(console.error);
+  await postEmail(clientEmail, `Your order ${id} is now in production!`, html);
 }
 
 export async function sendCancelledEmail(order: any) {
@@ -121,14 +134,5 @@ export async function sendCancelledEmail(order: any) {
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
-  const headers = await adminAuthHeaders();
-  fetch(SEND_EMAIL_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      to: clientEmail,
-      subject: `Your order ${id} has been cancelled`,
-      html,
-    }),
-  }).catch(console.error);
+  await postEmail(clientEmail, `Your order ${id} has been cancelled`, html);
 }

@@ -468,9 +468,14 @@ export default function ProductFormPanel({
             : (form as any).variants,
         gallery: galleryImages.length > 0 ? galleryImages : form.gallery,
         lastExternalSync: new Date().toISOString(),
-        printfulPrice: price || undefined,
+        // NE JAMAIS déduire printfulPrice du retail_price : c'est le prix de
+        // vente, pas le coût Printful (la marge afficherait ~0). Le coût se
+        // renseigne manuellement via les champs dédiés, ou viendra des coûts
+        // réels constatés (printful_costs des commandes). On conserve donc
+        // la valeur déjà présente dans le formulaire (éventuellement vide).
         printfulCurrency: (matchedVariant?.currency ||
           pfProduct.currency ||
+          form.printfulCurrency ||
           "USD") as string,
       };
 
@@ -757,6 +762,64 @@ export default function ProductFormPanel({
                 step="0.01"
                 min={0}
                 required
+              />
+              <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
+                $
+              </span>
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Coût Printful unitaire ($)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                value={form.printfulPrice ?? ""}
+                onChange={(e) =>
+                  update(
+                    "printfulPrice",
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
+                style={{ ...inputStyle, flex: 1 }}
+                step="0.01"
+                min={0}
+                placeholder="Ex : 12.50"
+              />
+              <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
+                $
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}>
+              Coût de production Printful (jamais le prix de vente). Sert au
+              calcul de marge dans l'aperçu produit.
+            </p>
+          </div>
+        </div>
+
+        {/* Livraison estimée (marge) */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 16,
+          }}
+        >
+          <div>
+            <label style={labelStyle}>Livraison estimée ($)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                value={form.shippingEstimate ?? ""}
+                onChange={(e) =>
+                  update(
+                    "shippingEstimate",
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
+                style={{ ...inputStyle, flex: 1 }}
+                step="0.01"
+                min={0}
+                placeholder="Ex : 4.99"
               />
               <span style={{ fontWeight: 700, color: "var(--color-ink2)" }}>
                 $

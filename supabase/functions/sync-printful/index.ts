@@ -143,6 +143,10 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
   >();
 
+  // Couleur|taille EXPLICITEMENT discontinued dans ce sync (non importées ;
+  // la fusion P2c ne doit pas les ressusciter — voir appelant).
+  const explicitlyDiscontinued = new Set<string>();
+
   const catalogIdToHex = new Map<number, string>();
   for (const cv of catalogVariants || []) {
     const cvId = cv.id;
@@ -189,9 +193,27 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
         const svStatus = resolveSyncStockStatus(v);
         if (svStatus) stockStatus = svStatus;
       }
+      // Règle d'import : une taille EXPLICITEMENT discontinued côté
+      // Printful n'est pas importée (ni prix, ni entrée). Les tailles
+      // absentes des données (trou API ponctuel) restent gérées par la
+      // fusion P2c plus bas. out_of_stock est conservé (temporaire).
+      if (stockStatus === "discontinued") {
+        explicitlyDiscontinued.add(`${hex.toLowerCase()}|${v.size}`);
+        continue;
+      }
       const existing = entry.sizes.get(v.size);
       if (!existing) {
-        entry.sizes.set(v.size, { price: parseFloat(v.retail_price), stock_status: stockStatus });
+        // IDs tracés par taille (additifs, ignorés par l'affichage) : le
+        // webhook stock_updated les utilise pour MAJ temps réel (Phase B).
+        // v.id = sync variant ID ; catalogVid = catalogue variant ID.
+        const syncId = v.id != null ? Number(v.id) : NaN;
+        const catId = catalogVid != null ? Number(catalogVid) : NaN;
+        entry.sizes.set(v.size, {
+          price: parseFloat(v.retail_price),
+          stock_status: stockStatus,
+          ...(Number.isFinite(syncId) ? { sync_variant_id: syncId } : {}),
+          ...(Number.isFinite(catId) ? { catalog_variant_id: catId } : {}),
+        });
       } else {
         const order: Record<string, number> = { available: 0, out_of_stock: 1, discontinued: 2 };
         if ((order[stockStatus] ?? 0) > (order[existing.stock_status] ?? 0)) {
@@ -229,16 +251,34 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     if (!entry.image) entry.image = entry.mockup_image;
   }
 
-  const variants = [...byColor.entries()].map(([hex, entry]) => ({
-    color: hex,
-    color_name: entry.name,
-    image: entry.image,
-    mockup_image: entry.mockup_image || undefined,
-    external_variant_id: entry.id ? String(entry.id) : undefined,
-    sizes: Object.fromEntries(
-      [...entry.sizes.entries()].map(([size, data]) => [size, { price: data.price, stock_status: data.stock_status }]),
-    ),
-  }));
+  const variants = [...byColor.entries()]
+    // Couleur sans aucune taille importable (tout discontinued) : on ne
+    // l'importe pas (ni prix, ni entrée). L'UX reste identique côté
+    // boutique (taille absente = "discontinued" via getVariantAvailability).
+    .filter(([, entry]) => entry.sizes.size > 0)
+    .map(([hex, entry]) => ({
+      color: hex,
+      color_name: entry.name,
+      image: entry.image,
+      mockup_image: entry.mockup_image || undefined,
+      external_variant_id: entry.id ? String(entry.id) : undefined,
+      sizes: Object.fromEntries(
+        [...entry.sizes.entries()].map(([size, data]) => [
+          size,
+          {
+            price: data.price,
+            stock_status: data.stock_status,
+            // IDs Phase B (webhook stock_updated) — préservés ici.
+            ...((data as any).sync_variant_id != null
+              ? { sync_variant_id: (data as any).sync_variant_id }
+              : {}),
+            ...((data as any).catalog_variant_id != null
+              ? { catalog_variant_id: (data as any).catalog_variant_id }
+              : {}),
+          },
+        ]),
+      ),
+    }));
 
   // Déduplique les couleurs insensibles à la casse (Printful remonte parfois
   // "Natural" et "natural" pour le même produit) : fusionne tailles/images
@@ -273,7 +313,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const sizesSet = new Set<string>();
   deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped };
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -645,16 +685,96 @@ export default {
           );
         }
 
+        // Allowlist : seuls les types Printful connus sont transmis
+        // (Printful rejetterait le reste en 400 ; on échoue proprement ici).
+        const PRINTFUL_WEBHOOK_TYPES = new Set([
+          "package_shipped",
+          "package_returned",
+          "order_created",
+          "order_updated",
+          "order_failed",
+          "order_canceled",
+          "order_put_hold",
+          "order_put_hold_approval",
+          "order_remove_hold",
+          "order_refunded",
+          "stock_updated",
+          "product_synced",
+          "product_updated",
+          "product_deleted",
+        ]);
+        const cleanTypes = [
+          ...new Set(
+            (Array.isArray(types) ? types : []).filter(
+              (t: unknown) =>
+                typeof t === "string" && PRINTFUL_WEBHOOK_TYPES.has(t),
+            ),
+          ),
+        ];
+        if (cleanTypes.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "Aucun type d'événement valide" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
         const headers: Record<string, string> = {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         };
         if (storeId) headers["X-PF-Store-Id"] = storeId;
 
+        // stock_updated exige params.stock_updated.product_ids côté
+        // Printful ("Missing product ids for stock sync" sinon). On envoie
+        // nos sync product IDs (products.external_product_id).
+        let params: Record<string, unknown> | undefined;
+        if (cleanTypes.includes("stock_updated")) {
+          const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          );
+          let productIds: number[] = [];
+          try {
+            const { data: prods } = await supabaseAdmin
+              .from("products")
+              .select("external_product_id")
+              .not("external_product_id", "is", null);
+            productIds = [
+              ...new Set(
+                (prods || [])
+                  .map((p: any) => Number(p.external_product_id))
+                  .filter((n: number) => Number.isFinite(n) && n > 0),
+              ),
+            ];
+          } catch (e) {
+            console.warn("setup-webhook: lecture products impossible", e);
+          }
+          if (productIds.length === 0) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Aucun produit synchronisé : synchronisez d'abord le catalogue avant d'activer « Stock mis à jour » (Printful exige la liste des produits à surveiller).",
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 400,
+              },
+            );
+          }
+          params = { stock_updated: { product_ids: productIds } };
+        }
+
         const res = await fetch("https://api.printful.com/webhooks", {
           method: "POST",
           headers,
-          body: JSON.stringify({ url: webhookUrl, types }),
+          body: JSON.stringify(
+            params
+              ? { url: webhookUrl, types: cleanTypes, params }
+              : { url: webhookUrl, types: cleanTypes },
+          ),
         });
 
         if (!res.ok) {
@@ -1418,8 +1538,10 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, mockupImages, sizes, variants } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys } =
             buildVariantMatrix(syncVariants, catalogVariants);
+          const skippedDiscontinued: Set<string> =
+            discontinuedKeys instanceof Set ? discontinuedKeys : new Set();
 
           // P2c: Conserver les variantes disparues comme discontinued (garde prix/couleurs)
           try {
@@ -1431,8 +1553,18 @@ export default {
             const oldVariants: any[] = existingForMerge?.variants || [];
             if (oldVariants.length > 0 && variants.length > 0) {
               const key = (c: string, s: string) => `${c.toLowerCase()}|${s}`;
+              // Clés fraîches par couleur ET par nom (migration clés-noms →
+              // clés-hex : une ancienne entrée "Natural|S" est couverte par
+              // la nouvelle entrée hex de même nom — pas de résurrection).
               const newKeySet = new Set<string>();
-              for (const v of variants) for (const sz of Object.keys(v.sizes || {})) newKeySet.add(key(v.color, sz));
+              for (const v of variants) {
+                for (const sz of Object.keys(v.sizes || {})) {
+                  newKeySet.add(key(v.color, sz));
+                  if (v.color_name && v.color_name.toLowerCase() !== (v.color || "").toLowerCase()) {
+                    newKeySet.add(key(v.color_name, sz));
+                  }
+                }
+              }
               const newByColor = new Map<string, any>();
               for (const v of variants) newByColor.set(v.color.toLowerCase(), v);
               for (const ov of oldVariants) {
@@ -1442,6 +1574,10 @@ export default {
                 for (const [sz, szData] of Object.entries(ovSizes)) {
                   const k = key(ovColor, sz);
                   if (newKeySet.has(k)) continue;
+                  // Règle d'import : une taille EXPLICITEMENT discontinued
+                  // dans ce sync n'est pas réimportée (même pas pour
+                  // l'historique — les commandes figent déjà leurs données).
+                  if (skippedDiscontinued.has(k)) continue;
                   const price: number = typeof szData === "object" && szData !== null && "price" in szData ? Number((szData as any).price) || 0 : Number(szData) || 0;
                   if (!price) continue;
                   let target = newByColor.get(ovColor.toLowerCase());

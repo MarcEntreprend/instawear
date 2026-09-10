@@ -32,7 +32,10 @@ import {
 } from "lucide-react";
 import type { CartItem } from "../types";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
-import { useShippingSettings, extractShippingItems } from "../hooks/useShippingSettings";
+import {
+  useShippingSettings,
+  extractShippingItems,
+} from "../hooks/useShippingSettings";
 import { orderApi, storeSettingsApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { customerApi } from "../api/supabaseApi";
@@ -409,20 +412,22 @@ function OrderSummaryPanel({
               Order Summary
             </h3>
 
-            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1 mb-4">
+            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto overflow-x-visible pr-1 mb-4 pt-1.5">
               {cart.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div
-                    className="w-12 h-14 rounded-lg overflow-hidden shrink-0 relative"
+                    className="w-12 h-14 rounded-lg shrink-0 relative overflow-visible"
                     style={{ background: "var(--color-surface2)" }}
                   >
-                    <img
-                      src={getVariantImage(item.product, item.selectedColor)}
-                      alt={item.product.title}
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="w-full h-full rounded-lg overflow-hidden">
+                      <img
+                        src={getVariantImage(item.product, item.selectedColor)}
+                        alt={item.product.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <span
-                      className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full text-white text-[9px] font-black flex items-center justify-center"
+                      className="absolute -top-1.5 -right-1.5 z-10 w-4.5 h-4.5 rounded-full text-white text-[9px] font-black flex items-center justify-center shadow-sm"
                       style={{ background: "var(--color-accent)" }}
                     >
                       {item.quantity}

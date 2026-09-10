@@ -36,3 +36,27 @@ export function useCurrencySymbol(): string {
 
   return symbol;
 }
+
+/** Code devise du store (ex: "USD") — source de vérité settings. */
+export function useCurrencyCode(): string {
+  const [code, setCode] = useState<string>("USD");
+
+  const fetchCode = useCallback(() => {
+    storeSettingsApi
+      .get()
+      .then((s) => setCode((s.currency || "USD").toUpperCase()))
+      .catch(() => setCode("USD"));
+  }, []);
+
+  useEffect(() => {
+    fetchCode();
+  }, [fetchCode]);
+
+  useEffect(() => {
+    const handler = () => fetchCode();
+    window.addEventListener("store-settings-updated", handler);
+    return () => window.removeEventListener("store-settings-updated", handler);
+  }, [fetchCode]);
+
+  return code;
+}

@@ -85,6 +85,77 @@ const iconBtn: React.CSSProperties = {
 const formatCurrency = (value: number) =>
   value.toFixed(2).replace(".", ",") + " $";
 
+// ─── Coûts Printful (ADMIN uniquement) ──────────────────────────────────────
+// Affiche le snapshot estimé persisté à la création (costs/retail_costs).
+// Jamais exposé côté client : ce bloc n'existe que dans cette page admin.
+function PrintfulCostsBlock({
+  costs,
+}: {
+  costs: NonNullable<Order["printfulCosts"]>;
+}) {
+  const fmt = (v: unknown): string | null => {
+    const n = typeof v === "string" ? parseFloat(v) : (v as number);
+    return typeof n === "number" && Number.isFinite(n)
+      ? `${n.toFixed(2)} ${costs.currency || "USD"}`
+      : null;
+  };
+  const rows: { label: string; value: string }[] = [];
+  const c = (costs.costs || {}) as Record<string, unknown>;
+  for (const [k, label] of [
+    ["subtotal", "Sous-total"],
+    ["discount", "Remise"],
+    ["shipping", "Livraison"],
+    ["tax", "Taxes"],
+    ["total", "Total"],
+  ] as const) {
+    const v = fmt(c[k]);
+    if (v) rows.push({ label, value: v });
+  }
+  const rc = (costs.retail_costs || {}) as Record<string, unknown>;
+  for (const [k, label] of [
+    ["subtotal", "Détail sous-total"],
+    ["shipping", "Détail livraison"],
+    ["tax", "Détail taxes"],
+  ] as const) {
+    const v = fmt(rc[k]);
+    if (v) rows.push({ label, value: v });
+  }
+  if (rows.length === 0) {
+    return (
+      <p style={{ fontSize: 12, color: "var(--color-ink3)", fontStyle: "italic" }}>
+        Données de coûts indisponibles.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {rows.map((r) => (
+        <p
+          key={r.label}
+          style={{
+            fontSize: 12,
+            color: "var(--color-ink2)",
+            margin: "2px 0",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <span>{r.label}</span>
+          <strong>{r.value}</strong>
+        </p>
+      ))}
+      <p style={{ fontSize: 10, color: "var(--color-ink3)", marginTop: 4 }}>
+        Estimé à la création
+        {costs.estimated_at
+          ? ` le ${new Date(costs.estimated_at).toLocaleString("fr-FR")}`
+          : ""}
+        . Le calcul final Printful peut différer.
+      </p>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const {
     orders: allOrders,
@@ -115,6 +186,7 @@ export default function OrdersPage() {
     null,
   );
   const [sendingToPrintful, setSendingToPrintful] = useState(false);
+  const [cancellingPrintful, setCancellingPrintful] = useState(false);
   const [sendingOrderIds, setSendingOrderIds] = useState<Set<string>>(
     new Set(),
   );
@@ -964,6 +1036,71 @@ export default function OrdersPage() {
                     </button>
                   </div>
                 )}
+                {/* Phase A (gap 11) : annulation côté Printful (draft/pending
+                    uniquement — l'edge refuse sinon avec la marche à suivre).
+                    Visible si commande liée à Printful + statut annulable. */}
+                {selectedOrder.externalOrderId &&
+                  ["paid", "in_production", "partial", "on_hold"].includes(
+                    selectedOrder.status,
+                  ) && (
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              `Annuler la commande ${selectedOrder.id} chez Printful ? (possible uniquement si elle est encore en draft/pending côté Printful)`,
+                            )
+                          )
+                            return;
+                          setCancellingPrintful(true);
+                          try {
+                            const { podApi } = await import("../api/supabaseApi");
+                            await podApi.cancelPrintfulOrder(selectedOrder.id);
+                            // Email annulé via le template existant (même
+                            // circuit que tout passage à cancelled).
+                            const { sendCancelledEmail } = await import(
+                              "../utils/emailTemplates"
+                            );
+                            if (selectedOrder.clientEmail) {
+                              await sendCancelledEmail({
+                                ...selectedOrder,
+                                status: "cancelled",
+                              });
+                            }
+                            await refetch();
+                            alert("Commande annulée chez Printful.");
+                            setSelectedOrder(null);
+                          } catch (e: any) {
+                            alert("Erreur : " + (e.message || ""));
+                          } finally {
+                            setCancellingPrintful(false);
+                          }
+                        }}
+                        disabled={cancellingPrintful}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: 8,
+                          border: "1px solid #991b1b",
+                          background: cancellingPrintful ? "var(--color-surface2)" : "#991b1b",
+                          color: cancellingPrintful ? "var(--color-ink3)" : "white",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: cancellingPrintful ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          opacity: cancellingPrintful ? 0.7 : 1,
+                        }}
+                      >
+                        {cancellingPrintful ? (
+                          <RefreshCw size={14} strokeWidth={2} className="animate-spin" />
+                        ) : (
+                          <X size={14} strokeWidth={2} />
+                        )}
+                        {cancellingPrintful ? "Annulation en cours…" : "Annuler chez Printful"}
+                      </button>
+                    </div>
+                  )}
                 {/* P4 POD: commandes partielles / on_hold avec bloqués -> choix admin */}
                 {(selectedOrder.status === "partial" || selectedOrder.status === "on_hold") &&
                   selectedOrder.items.some((it: any) => (it.print_status || "").startsWith("blocked")) && (
@@ -1085,6 +1222,23 @@ export default function OrdersPage() {
                     </p>
                   </div>
                 )}
+                {selectedOrder.printfulCosts &&
+                  (selectedOrder.printfulCosts.costs ||
+                    selectedOrder.printfulCosts.retail_costs) && (
+                    <div style={{ marginTop: 12 }}>
+                      <p
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "var(--color-ink3)",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Coûts Printful (estimé)
+                      </p>
+                      <PrintfulCostsBlock costs={selectedOrder.printfulCosts} />
+                    </div>
+                  )}
               </div>
             </div>
 

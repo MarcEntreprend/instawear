@@ -9,8 +9,8 @@ import {
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
-import { useCurrency } from "../hooks/useCurrency";
-import { formatPrice } from "../data/currency";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { formatAmount } from "../data/currency";
 import { useShippingSettings, extractShippingItems } from "../hooks/useShippingSettings";
 import { getVariantAvailability } from "../hooks/useProductAvailability";
 import {
@@ -72,7 +72,7 @@ export default function CartDrawer({
   const freeShipping = displayTotal >= threshold;
   const remaining = Math.max(0, threshold - displayTotal);
   const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
-  const { currency } = useCurrency();
+  const currencySymbol = useCurrencySymbol();
 
   // Resolves the best image for a specific product color
   function getVariantImage(
@@ -222,7 +222,7 @@ export default function CartDrawer({
                 >
                   Only{" "}
                   <span className="font-black">
-                    {formatPrice(remaining, currency)}
+                    {formatAmount(remaining, currencySymbol)}
                   </span>{" "}
                   away from free shipping
                 </p>
@@ -380,9 +380,9 @@ export default function CartDrawer({
                             fontVariantNumeric: "tabular-nums",
                           }}
                         >
-                          {formatPrice(
+                          {formatAmount(
                             item.unitPrice * item.quantity,
-                            currency,
+                            currencySymbol,
                           )}
                         </span>
                         <div className="flex items-center gap-1">
@@ -455,7 +455,7 @@ export default function CartDrawer({
                   }}
                 >
                   Sous-total affiché = articles disponibles uniquement (
-                  {formatPrice(fulfillableTotal, currency)}). Les {blockedCount}{" "}
+                  {formatAmount(fulfillableTotal, currencySymbol)}). Les {blockedCount}{" "}
                   indisponible(s) ne seront pas facturés/imprimés.
                 </p>
               )}
@@ -468,7 +468,7 @@ export default function CartDrawer({
                     Subtotal{blockedCount > 0 ? " (disponibles)" : ""}
                   </span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatPrice(displayTotal, currency)}
+                    {formatAmount(displayTotal, currencySymbol)}
                   </span>
                 </div>
                 <div
@@ -493,9 +493,9 @@ export default function CartDrawer({
                 >
                   <span>Total</span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatPrice(
+                    {formatAmount(
                       displayTotal,
-                      currency,
+                      currencySymbol,
                     )}{!freeShipping && "+"}
                   </span>
                 </div>
@@ -527,8 +527,8 @@ export default function CartDrawer({
                 className="text-xs text-center"
                 style={{ color: "var(--color-ink4)" }}
               >
-                Secure payment powered by Stripe — Free shipping over $
-                {threshold}
+                Secure payment powered by Stripe — Free shipping over{" "}
+                {formatAmount(threshold, currencySymbol)}
               </p>
             </div>
           </>

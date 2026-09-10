@@ -53,6 +53,110 @@ function resolveUnitPrice(
   return basePrice + (Number(product.size_surcharge?.[size]) || 0);
 }
 
+// ── Validation couleur/taille contre les données produit ────────────────
+// Remplace les anciennes whitelists en dur (tailles habillement XS..3XL,
+// couleurs hex uniquement) qui rejetaient des variantes RÉELLES et
+// sélectionnables côté boutique : 4XL/5XL, tailles bébé (3-6M, 12-18M),
+// pointures, One Size, couleurs nommées ("Natural", "Yellow Haze"...).
+// Règle : la couleur/taille doit exister dans les variantes du produit en
+// base (même matching insensible à la casse que resolveUnitPrice). Garde
+// anti-injection : chaînes saines (longueur bornée, sans contrôle).
+// Si le produit est introuvable, on ne valide que la forme (le total
+// tombera à 0 → "Impossible de calculer le montant", comme avant).
+
+function saneLabel(v: unknown, maxLen: number): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!t || t.length > maxLen) return null;
+  if (/[\x00-\x1F\x7F]/.test(t)) return null;
+  return t;
+}
+
+function variantSelectionError(
+  product: any,
+  color: unknown,
+  size: unknown,
+): string | null {
+  const hasColor = color !== undefined && color !== null && String(color).trim() !== "";
+  const hasSize = size !== undefined && size !== null && String(size).trim() !== "";
+  const c = hasColor ? saneLabel(color, 100) : null;
+  const s = hasSize ? saneLabel(size, 20) : null;
+  if (hasColor && c === null) return "Couleur invalide";
+  if (hasSize && s === null) return "Taille invalide";
+
+  if (product && (c !== null || s !== null)) {
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const variantColors =
+      variants.length > 0
+        ? variants.map((vv: any) => String(vv.color || "").toLowerCase())
+        : (Array.isArray(product.colors)
+            ? product.colors.map((x: any) => String(x).toLowerCase())
+            : []);
+
+    let colorVariant: any = null;
+    if (c !== null) {
+      if (
+        variantColors.length > 0 &&
+        !variantColors.includes(c.toLowerCase())
+      ) {
+        return "Couleur indisponible pour ce produit";
+      }
+      colorVariant =
+        variants.find(
+          (vv: any) => String(vv.color || "").toLowerCase() === c.toLowerCase(),
+        ) || null;
+    }
+
+    if (s !== null) {
+      // Tailles candidates : celles de la variante couleur si trouvée,
+      // sinon union de toutes les variantes, sinon tailles legacy.
+      let candidates: string[] = [];
+      if (colorVariant && colorVariant.sizes && typeof colorVariant.sizes === "object") {
+        candidates = Object.keys(colorVariant.sizes);
+      } else if (variants.length > 0) {
+        const set = new Set<string>();
+        for (const vv of variants) {
+          if (vv.sizes && typeof vv.sizes === "object") {
+            for (const k of Object.keys(vv.sizes)) set.add(k);
+          }
+        }
+        candidates = [...set];
+      } else if (Array.isArray(product.sizes)) {
+        candidates = product.sizes.map((x: any) => String(x));
+      }
+      if (candidates.length > 0 && !candidates.includes(s)) {
+        return "Taille indisponible pour ce produit";
+      }
+    }
+  }
+  return null;
+}
+
+// Miroir serveur de getVariantAvailability (données FRAÎCHES de la base) :
+// un item ajouté quand il était dispo puis devenu indisponible (sync entre
+// l'ajout panier et le paiement) ne doit JAMAIS être facturé. Le filtre
+// frontend utilisait un snapshot potentiellement périmé ; l'edge tranche.
+function isItemAvailableNow(product: any, color: unknown, size: unknown): boolean {
+  if (!product) return false;
+  const c = saneLabel(color, 100);
+  const s = saneLabel(size, 20);
+  if (!c || !s) return false;
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (variants.length > 0) {
+    const v = variants.find(
+      (vv: any) => String(vv.color || "").toLowerCase() === c.toLowerCase(),
+    );
+    if (!v) return false;
+    const e = v.sizes?.[s];
+    if (!e) return false;
+    return ((e as any).stock_status || "available") === "available";
+  }
+  if (Array.isArray(product.sizes)) {
+    return product.sizes.map((x: any) => String(x)).includes(s);
+  }
+  return true;
+}
+
 // ── Calcul du total d'une commande à partir de la base ──────────────────
 async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
   const { data: order, error: orderError } = await supabaseAdmin
@@ -70,6 +174,7 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
 
   let subtotal = 0;
   const lineItems: any[] = [];
+  let excludedCount = 0;
   for (const item of orderItems ?? []) {
     const { data: product } = await supabaseAdmin
       .from("products")
@@ -78,6 +183,15 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
       )
       .eq("id", item.product_id)
       .single();
+
+    // Exclusion serveur des items devenus indisponibles (données fraîches).
+    if (
+      product &&
+      !isItemAvailableNow(product, item.selected_color, item.selected_size)
+    ) {
+      excludedCount++;
+      continue;
+    }
 
     const unitPrice = product
       ? resolveUnitPrice(product, item.selected_color, item.selected_size)
@@ -222,6 +336,7 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
     order,
     lineItems,
     subtotal,
+    excludedCount,
     shippingCost,
     shippingMethodName,
     shippingDeliveryEstimate,
@@ -323,8 +438,31 @@ export default {
       // Montant recalculé côté serveur depuis les produits en base. P-A validation stricte.
       if (action === "payment-intent") {
         let total = 0;
+        // Items devenus indisponibles depuis l'ajout panier (données fraîches
+        // DB) : exclus du montant, comptés pour info frontend. Jamais
+        // facturé = jamais de cassure côté client.
+        let excludedCount = 0;
         const items: any[] = Array.isArray(body.items) ? body.items : [];
-        // P-A (7) validation positive des items carte directe
+        // Cache produits (évite de re-fetcher pour le calcul du total).
+        const productCache = new Map<string, any>();
+        const getProductCached = async (productId: unknown) => {
+          const key = String(productId || "");
+          if (!key) return null;
+          if (productCache.has(key)) return productCache.get(key);
+          const { data } = await supabaseAdmin
+            .from("products")
+            .select(
+              "price, deal_price, deal_active, deal_ends_at, variants, colors, sizes, size_surcharge",
+            )
+            .eq("id", key)
+            .maybeSingle();
+          productCache.set(key, data || null);
+          return data || null;
+        };
+        // P-A (7) validation positive des items carte directe.
+        // Couleur/taille validées contre les variantes RÉELLES du produit
+        // (jamais de whitelist en dur : 5XL, tailles bébé, noms de couleurs
+        // et pointures passent si le produit les propose).
         for (const it of items) {
           const q = Number(it.quantity);
           if (!Number.isInteger(q) || q <= 0 || q > 100) {
@@ -336,20 +474,14 @@ export default {
               },
             );
           }
-          if (
-            it.selectedColor &&
-            !/^#[0-9a-fA-F]{6}$/.test(String(it.selectedColor).trim())
-          ) {
-            return new Response(JSON.stringify({ error: "Couleur invalide" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 400,
-            });
-          }
-          if (
-            it.selectedSize &&
-            !/^(XS|S|M|L|XL|XXL|2XL|3XL)$/i.test(String(it.selectedSize).trim())
-          ) {
-            return new Response(JSON.stringify({ error: "Taille invalide" }), {
+          const product = await getProductCached((it as any).productId);
+          const selError = variantSelectionError(
+            product,
+            (it as any).selectedColor,
+            (it as any).selectedSize,
+          );
+          if (selError) {
+            return new Response(JSON.stringify({ error: selError }), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
               status: 400,
             });
@@ -361,14 +493,18 @@ export default {
           if (computed) total = computed.total;
         }
         if (total === 0 && items.length > 0) {
+          // Exclusion serveur des items devenus indisponibles (données
+          // fraîches — voir isItemAvailableNow).
           for (const item of items) {
-            const { data: product } = await supabaseAdmin
-              .from("products")
-              .select(
-                "price, deal_price, deal_active, deal_ends_at, variants, size_surcharge",
-              )
-              .eq("id", item.productId)
-              .single();
+            // Produit déjà en cache (validation ci-dessus) : pas de requête.
+            const product = await getProductCached(item.productId);
+            if (
+              product &&
+              !isItemAvailableNow(product, item.selectedColor, item.selectedSize)
+            ) {
+              excludedCount++;
+              continue;
+            }
             if (product) {
               const unitPrice = resolveUnitPrice(
                 product,
@@ -397,7 +533,7 @@ export default {
         });
 
         return new Response(
-          JSON.stringify({ clientSecret: paymentIntent.client_secret }),
+          JSON.stringify({ clientSecret: paymentIntent.client_secret, excludedCount }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },

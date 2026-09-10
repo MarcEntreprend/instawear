@@ -12,3 +12,15 @@ export function formatPrice(amountInEur: number, currency: CurrencyInfo): string
   const converted = amountInEur * currency.rateFromEur;
   return new Intl.NumberFormat(currency.locale, { style: "currency", currency: currency.code }).format(converted);
 }
+
+/**
+ * Formatage piloté par les settings boutique (source de vérité) : AUCUNE
+ * conversion — les prix en base sont déjà dans la devise du store.
+ * @param amount montant dans la devise du store
+ * @param symbol symbole issu de useCurrencySymbol() (ex: "$")
+ */
+export function formatAmount(amount: number, symbol: string): string {
+  const n = Number(amount);
+  const safe = Number.isFinite(n) ? n : 0;
+  return `${safe.toFixed(2)} ${symbol}`;
+}

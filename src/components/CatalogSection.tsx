@@ -20,6 +20,7 @@ import {
   SORT_OPTIONS,
   type SortValue,
 } from "../data/categories";
+import { SIZE_OPTIONS_US } from "../utils/sizeOrder";
 
 interface CatalogSectionProps {
   filteredProducts: Product[];
@@ -117,7 +118,7 @@ function serializeFiltersToSearch(
   if (view !== DEFAULT_VIEW) params.set("view", view);
   return params.toString();
 }
-const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
+const SIZE_OPTIONS = SIZE_OPTIONS_US;
 const COLOR_OPTIONS = [
   { hex: "#000000", name: "Black" },
   { hex: "#ffffff", name: "White" },
@@ -414,7 +415,7 @@ export default function CatalogSection({
                     className="text-xs mr-1"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    €
+                    {currencySymbol}
                   </span>
                   <input
                     type="number"
@@ -439,7 +440,7 @@ export default function CatalogSection({
                     className="text-xs mr-1"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    €
+                    {currencySymbol}
                   </span>
                   <input
                     type="number"
@@ -999,7 +1000,7 @@ export default function CatalogSection({
                         className="text-xs mr-1"
                         style={{ color: "var(--color-ink4)" }}
                       >
-                        €
+                        {currencySymbol}
                       </span>
                       <input
                         type="number"
@@ -1024,7 +1025,7 @@ export default function CatalogSection({
                         className="text-xs mr-1"
                         style={{ color: "var(--color-ink4)" }}
                       >
-                        €
+                        {currencySymbol}
                       </span>
                       <input
                         type="number"

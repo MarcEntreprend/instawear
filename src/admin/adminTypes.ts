@@ -162,6 +162,16 @@ export interface Order {
     }[];
     received_at: string;
   } | null;
+  // Snapshot des coûts Printful à la création (ESTIMÉ, calcul async côté
+  // Printful). ADMIN UNIQUEMENT — jamais exposé au client (ni storefront,
+  // ni tracking, ni emails). Persisté par create-printful-order (gap 8).
+  printfulCosts?: {
+    costs?: Record<string, unknown> | null;
+    retail_costs?: Record<string, unknown> | null;
+    pricing_breakdown?: unknown[] | null;
+    currency?: string | null;
+    estimated_at?: string | null;
+  } | null;
 }
 
 // ─── Tracking d'expédition (Printful) — un colis individuel ─────────────

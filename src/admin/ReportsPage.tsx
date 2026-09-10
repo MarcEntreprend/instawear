@@ -21,6 +21,7 @@ import {
   orderApi,
   productApi,
   customerApi,
+  type PrintfulReport,
 } from "../api/supabaseApi";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductQuickViewModal from "./ProductQuickViewModal";
@@ -364,6 +365,48 @@ export default function ReportsPage() {
     return periodOptions.find((p) => p.days === period)?.label || "30j";
   }, [customMode, customDatesReady, customStart, customEnd, period]);
 
+  // ─── Printful fulfillment (Phase C) : snapshot local 12h ──────────────
+  const [pfReport, setPfReport] = useState<PrintfulReport | null>(null);
+  const [pfLoading, setPfLoading] = useState(false);
+  const [pfError, setPfError] = useState<string | null>(null);
+
+  const loadPfReport = useCallback(
+    async (force: boolean) => {
+      const from = formatDateForInput(effectiveStart);
+      const to = formatDateForInput(effectiveEnd);
+      const days =
+        (new Date(to + "T00:00:00Z").getTime() -
+          new Date(from + "T00:00:00Z").getTime()) /
+        86400000;
+      if (!Number.isFinite(days) || days < 0) return;
+      if (days > 183) {
+        setPfReport(null);
+        setPfError("Période trop longue pour Printful (max 6 mois).");
+        return;
+      }
+      setPfLoading(true);
+      setPfError(null);
+      try {
+        const { podApi } = await import("../api/supabaseApi");
+        const r = force
+          ? await podApi.refreshPrintfulReport(from, to)
+          : await podApi.getPrintfulReport(from, to);
+        setPfReport(r);
+      } catch (e: any) {
+        setPfError(e?.message || "Erreur rapports Printful");
+        setPfReport(null);
+      } finally {
+        setPfLoading(false);
+      }
+    },
+    [effectiveStart, effectiveEnd],
+  );
+
+  useEffect(() => {
+    if (customMode && !customDatesReady) return;
+    loadPfReport(false);
+  }, [loadPfReport, customMode, customDatesReady]);
+
   // ─── Commandes dans les périodes courante et précédente ───────────────
   const { currentOrders, previousOrders } = useMemo(() => {
     const now = effectiveEnd;
@@ -603,6 +646,7 @@ export default function ReportsPage() {
     orders: `**Commandes** = nombre total de commandes enregistrées sur la période « ${periodLabel} ».\n\nLa flèche compare au nombre de commandes de la période précédente de même durée.`,
     customers: `**Clients (total)** = nombre total de clients dans la base, toutes périodes confondues.\n\nLa flèche compare le nombre de nouveaux clients de la période « ${periodLabel} » à la période précédente.`,
     basket: `**Panier moyen** = CA total ÷ nombre de commandes sur la période « ${periodLabel} ».\n\nLa flèche compare au panier moyen de la période précédente de même durée.`,
+    pfprofit: `**Printful (fulfillment)** = données Printful (cache local 12h) : coûts de production+livraison payés à Printful, profit calculé par Printful et commandes payées côté Printful.\n\nAttention : le profit Printful peut être négatif ou approximatif si les prix retail ne sont pas renseignés côté Printful. Période max 6 mois (limite Printful).`,
   };
 
   // Toggle info et fermeture lors du passage en mode plage
@@ -656,6 +700,25 @@ export default function ReportsPage() {
     topProducts.forEach((p, i) =>
       rows.push(`${i + 1}${sep}${p.name}${sep}${p.orders}${sep}${p.revenue}`),
     );
+    rows.push("");
+    rows.push("PRINTFUL FULFILLMENT");
+    if (pfReport) {
+      const t = pfReport.totals;
+      rows.push(`Devise${sep}${pfReport.currency}`);
+      rows.push(`Période${sep}${pfReport.period.from} au ${pfReport.period.to}`);
+      rows.push(`Cache${sep}${pfReport.cached ? "oui" : "non"} (actualisé le ${pfReport.fetched_at})`);
+      rows.push(
+        `Coûts Printful${sep}${t.printful_costs != null ? t.printful_costs.toFixed(2) : "—"}`,
+      );
+      rows.push(
+        `Profit Printful${sep}${t.profit != null ? t.profit.toFixed(2) : "—"}`,
+      );
+      rows.push(
+        `Commandes payées (Printful)${sep}${t.paid_orders ?? t.order_count ?? "—"}`,
+      );
+    } else {
+      rows.push("Aucune donnée Printful pour cette période.");
+    }
 
     // ─── Feuille 2 : Product Catalog ─────────────────────────────────────
     rows.push("");
@@ -748,6 +811,7 @@ export default function ReportsPage() {
     chartData,
     categorySales,
     topProducts,
+    pfReport,
     currencySymbol,
     allProducts,
     allOrders,
@@ -1148,6 +1212,146 @@ export default function ReportsPage() {
           onInfo={() => toggleInfo("basket")}
           isActive={activeInfo === "basket"}
         />
+      </div>
+
+      {/* Printful fulfillment (Phase C) — cache local 12h, refresh manuel */}
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          borderRadius: 14,
+          padding: "16px 18px",
+          background: "var(--color-surface)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <p style={{ fontSize: 13, fontWeight: 800, color: "var(--color-ink)" }}>
+            Printful — fulfillment ({periodLabel})
+          </p>
+          <button
+            type="button"
+            onClick={() => loadPfReport(true)}
+            disabled={pfLoading}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--color-border2)",
+              background: "var(--color-surface2)",
+              color: "var(--color-ink2)",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: pfLoading ? "not-allowed" : "pointer",
+              opacity: pfLoading ? 0.6 : 1,
+            }}
+          >
+            <RefreshCw
+              size={13}
+              strokeWidth={2.5}
+              className={pfLoading ? "animate-spin" : ""}
+            />
+            {pfLoading ? "Chargement…" : "Actualiser"}
+          </button>
+        </div>
+        {pfError ? (
+          <p style={{ fontSize: 13, color: "var(--color-negative)" }}>{pfError}</p>
+        ) : pfReport ? (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                gap: 14,
+              }}
+            >
+              <StatCard
+                icon={<DollarSign size={20} strokeWidth={2} />}
+                label="Coûts Printful"
+                value={
+                  pfReport.totals.printful_costs != null
+                    ? `${pfReport.totals.printful_costs.toFixed(0)} ${pfReport.currency}`
+                    : "—"
+                }
+                delta={
+                  pfReport.deltas.printful_costs != null
+                    ? {
+                        value: Math.round(pfReport.deltas.printful_costs * 100),
+                        positive: pfReport.deltas.printful_costs <= 0,
+                      }
+                    : null
+                }
+                onInfo={() => toggleInfo("pfprofit")}
+                isActive={activeInfo === "pfprofit"}
+              />
+              <StatCard
+                icon={<TrendingUp size={20} strokeWidth={2} />}
+                label="Profit Printful"
+                value={
+                  pfReport.totals.profit != null
+                    ? `${pfReport.totals.profit.toFixed(0)} ${pfReport.currency}`
+                    : "—"
+                }
+                delta={
+                  pfReport.deltas.profit != null
+                    ? {
+                        value: Math.round(pfReport.deltas.profit * 100),
+                        positive: pfReport.deltas.profit >= 0,
+                      }
+                    : null
+                }
+                onInfo={() => toggleInfo("pfprofit")}
+                isActive={activeInfo === "pfprofit"}
+              />
+              <StatCard
+                icon={<CartIcon size={20} strokeWidth={2} />}
+                label="Commandes payées"
+                value={
+                  pfReport.totals.paid_orders != null
+                    ? pfReport.totals.paid_orders.toString()
+                    : (pfReport.totals.order_count != null
+                      ? pfReport.totals.order_count.toString()
+                      : "—")
+                }
+                delta={
+                  pfReport.deltas.paid_orders != null
+                    ? {
+                        value: Math.round(pfReport.deltas.paid_orders * 100),
+                        positive: pfReport.deltas.paid_orders >= 0,
+                      }
+                    : null
+                }
+                onInfo={() => toggleInfo("pfprofit")}
+                isActive={activeInfo === "pfprofit"}
+              />
+            </div>
+            <p
+              style={{
+                fontSize: 11,
+                color: "var(--color-ink4)",
+                marginTop: 10,
+              }}
+            >
+              {pfReport.cached ? "Cache local" : "Données Printful fraîches"} · actualisé le{" "}
+              {new Date(pfReport.fetched_at).toLocaleString("fr-FR")} · profit
+              approximatif si prix retail absents côté Printful.
+            </p>
+          </>
+        ) : (
+          !pfLoading && (
+            <p style={{ fontSize: 13, color: "var(--color-ink4)" }}>
+              Aucune donnée Printful pour cette période.
+            </p>
+          )
+        )}
       </div>
 
       {/* Panneau d'information métrique */}
