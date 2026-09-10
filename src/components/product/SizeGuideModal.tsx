@@ -98,6 +98,7 @@ export default function SizeGuideModal({
                       className="w-full rounded-xl"
                       style={{ border: "1px solid var(--color-border)" }}
                       loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 ) : null}

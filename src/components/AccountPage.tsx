@@ -1467,6 +1467,8 @@ function OrdersTab({
                           src={item.productImage || PLACEHOLDER_IMG}
                           alt={item.productTitle || "item"}
                           className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </span>
                     ))}
@@ -1607,6 +1609,8 @@ function OrdersTab({
                           src={item.productImage || PLACEHOLDER_IMG}
                           alt={item.productTitle || "item"}
                           className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </span>
                     ))}
@@ -1995,6 +1999,8 @@ function FavoritesTab({
                 src={fav.product?.image || PLACEHOLDER_IMG}
                 alt={fav.product?.title || "product"}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
               />
             </div>
 
@@ -2077,6 +2083,8 @@ function CartTab({
             src={CART_X_ICON}
             alt="Cart"
             className="w-7 h-7"
+            loading="lazy"
+            decoding="async"
             style={{ opacity: 0.5 }}
           />
         }
@@ -2143,6 +2151,8 @@ function CartTab({
               src={getVariantImage(item.product, item.selectedColor)}
               alt={item.product?.title || "product"}
               className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
             />
           </button>
           <div className="flex-1 min-w-0">

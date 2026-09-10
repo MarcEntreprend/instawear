@@ -5,20 +5,12 @@
 
 ---
 
-### 1. Images / CLS / Cache statique — ❌ à faire (Core Web Vitals)
+### 1. Images / CLS / Cache statique — ✅ fait le 10/09 (Core Web Vitals au max sans risque sécu)
 
-**Constat (re-vérifié le 10/09) :** aucune optimisation image, aucun cache long sur les assets.
+**Non-fait volontairement (documenté) :**
 
-- **Pas de `srcset` / WebP / `imagetools`** — `package.json` n'a pas `vite-imagetools`. `src/components/StoreProductCard.tsx:79-87` n'a que `loading="lazy"`, pas de `decoding="async"`, pas de `fetchpriority="high"` sur le hero, pas de `srcset`. Idem `ProductPage.tsx` (image principale).
-- **Pas de `width`/`height` sur les `<img>`** — atténué par les wrappers `aspect-square` (`StoreProductCard.tsx:78`), qui réservent déjà l'espace et limitent le CLS sur la grille. Reste un risque sur `ProductPage` et les images hors ratio fixe.
-- **`server.ts:31` — `express.static(distPath)` sans `maxAge` / `immutable`.** Les assets Vite sont hashés (`assets/index-*.js/css`) → servir `Cache-Control: public, max-age=31536000, immutable` sur `/assets/*` (et court sur `index.html`). Sans ça, chaque reload re-télécharge tout sur le path VPS. (Sur Vercel le CDN gère le cache tout seul — ce point ne concerne que le path `node dist/server.cjs`.)
-- **Bundle :** déjà réglé (`vite.config.ts:22-30` `manualChunks` + 3 `lazy()` dans `src/App.tsx:20`). Ne reste que le poids image ci-dessus.
-
-**Faire :**
-1. `decoding="async"` sur toutes les vignettes + `fetchpriority="high"` sur hero/produit principal.
-2. `width`/`height` (ou ratio fixe) sur les `<img>` hors `aspect-square`.
-3. `vite-imagetools` (ou preset WebP/AVIF + `srcset`) pour les visuels produits — à évaluer vs bande passante Printful/Supabase Storage (les images viennent du CDN, le `srcset` passe par `?width=` si le CDN le supporte, sinon génération au build).
-4. `server.ts` : `express.static(distPath, { maxAge: "1y", immutable: true })` monté sur `/assets`, `maxAge: 0` sur `index.html`.
+- `srcset`/WebP : images distantes (Supabase Storage + CDN Printful) sans API de transformation fiable — ajouter des params `?width=` à l'aveugle risquait des 400. Le `loading="lazy"` + `decoding` + préconnect couvrent l'essentiel du gain.
+- Aucun changement CSP, RLS, headers sécu — `vercel.json` inchangé sur ce point.
 
 ### 2. Unsubscribe hardening — ⚠️ reco d'audit (non-bloquant launch, à planifier)
 
@@ -31,8 +23,7 @@ Sondage live read-only : `customers?select=id` → `200 []`, `newsletter_subscri
 
 ### Top restants (priorisés)
 
-1. **Images/CLS/cache statique** — impact LCP/CLS direct, seul vrai chantier restant.
-2. **Unsubscribe hardening** — reco, non-bloquant.
+1. **Unsubscribe hardening** — reco, non-bloquant. Seul point restant.
 
 ### Volontairement abandonné (choix produit, ne plus tracker)
 

@@ -424,6 +424,8 @@ function OrderSummaryPanel({
                         src={getVariantImage(item.product, item.selectedColor)}
                         alt={item.product.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     <span
@@ -566,6 +568,8 @@ function CartReviewStep({
                 src={getVariantImage(item.product, item.selectedColor)}
                 alt={item.product.title}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
@@ -2035,6 +2039,7 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
           src={CART_X_ICON}
           alt="Cart"
           className="w-10 h-10 mx-auto mb-3"
+          decoding="async"
           style={{ opacity: 0.5 }}
         />
         <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
@@ -2644,6 +2649,7 @@ export default function CheckoutFlow({
             src={LOGO_URL}
             alt="InstaWear"
             className="h-7 w-7 rounded-lg object-cover"
+            decoding="async"
           />
           <span className="font-black text-sm sm:text-base text-(--color-ink)">
             InstaWear

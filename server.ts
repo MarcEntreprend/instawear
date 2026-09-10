@@ -28,8 +28,31 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (_, res) => res.sendFile(path.join(distPath, "index.html")));
+    // Hashed Vite assets (filenames change on every build) : cache 1 an, immutable.
+    app.use(
+      "/assets",
+      express.static(path.join(distPath, "assets"), {
+        maxAge: "365d",
+        immutable: true,
+      }),
+    );
+    // Tout le reste (HTML prerender, manifest, sitemap…) : pas de cache long.
+    // Les .html ne sont jamais mis en cache (prix/promos par produit).
+    app.use(
+      express.static(distPath, {
+        maxAge: 0,
+        extensions: ["html"], // /faq -> faq.html, /produit/:id -> produit/:id.html (prerender)
+        setHeaders(res, filePath) {
+          if (filePath.endsWith(".html")) {
+            res.setHeader("Cache-Control", "no-store");
+          }
+        },
+      }),
+    );
+    app.get("*", (_, res) => {
+      res.set("Cache-Control", "no-store");
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

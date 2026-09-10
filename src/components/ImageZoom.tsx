@@ -51,7 +51,13 @@ export default function ImageZoom({
         onMouseMove={handleMove}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <img src={src} alt={alt} className="w-full h-full object-contain" />
+        <img
+          src={src}
+          alt={alt}
+          className="w-full h-full object-contain"
+          fetchPriority="high"
+          decoding="async"
+        />
 
         {/* Lentille (Suivi synchrone via ref) */}
         <div

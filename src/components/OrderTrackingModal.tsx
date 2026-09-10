@@ -544,6 +544,8 @@ export default function OrderTrackingModal({
                     <img
                       src={item.productImage || PLACEHOLDER_IMG}
                       alt={item.title}
+                      loading="lazy"
+                      decoding="async"
                       style={{
                         width: 36,
                         height: 36,

@@ -118,6 +118,8 @@ export default function CartDrawer({
               src={cartCount > 0 ? CART_CHECK_ICON : CART_X_ICON}
               alt="Cart"
               className="w-5 h-5"
+              loading="lazy"
+              decoding="async"
               style={{
                 color: "var(--color-accent)",
                 filter:
@@ -169,6 +171,8 @@ export default function CartDrawer({
                 src={CART_X_ICON}
                 alt="Empty Cart"
                 className="w-7 h-7"
+                loading="lazy"
+                decoding="async"
                 style={{
                   opacity: 0.5,
                   filter:
@@ -302,6 +306,8 @@ export default function CartDrawer({
                         }}
                         alt={item.product.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </button>
                     <div className="flex-1 flex flex-col justify-between">

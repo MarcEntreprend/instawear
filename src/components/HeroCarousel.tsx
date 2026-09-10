@@ -96,6 +96,8 @@ export default function HeroCarousel({
                 ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)
               }
               loading={i === 0 ? "eager" : "lazy"}
+              fetchPriority={i === 0 ? "high" : "auto"}
+              decoding="async"
             />
             <div
               className="absolute inset-0"

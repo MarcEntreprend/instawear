@@ -638,6 +638,8 @@ export default function ProductPage({
                           src={thumb}
                           alt={label}
                           className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">

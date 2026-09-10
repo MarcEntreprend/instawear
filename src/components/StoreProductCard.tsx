@@ -80,6 +80,7 @@ export default function StoreProductCard({
                 src={product.image || PLACEHOLDER_IMG}
                 alt={product.title}
                 loading="lazy"
+                decoding="async"
                 onError={(e) =>
                   ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)
                 }
@@ -311,6 +312,8 @@ export default function StoreProductCard({
               src={CART_PLUS_ICON}
               alt=""
               className="w-4 h-4"
+              loading="lazy"
+              decoding="async"
               style={{ filter: "brightness(0) invert(1)" }}
             />{" "}
             Add to cart

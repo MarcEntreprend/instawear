@@ -258,6 +258,8 @@ function SuggestionsList({
                   src={p.image}
                   alt=""
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </span>
               <span className="flex-1 min-w-0">
@@ -549,6 +551,7 @@ export default function Header({
                   src="/InstaWear-logo.png"
                   alt="InstaWear"
                   className="w-full h-full object-cover"
+                  decoding="async"
                 />
               </span>
               <span
