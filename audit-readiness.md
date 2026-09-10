@@ -27,21 +27,27 @@
 - **`server.ts:93` — `express.static(distPath)` sans `maxAge` / `immutable`** pour les assets hashés (`assets/index-*.css/js`). Les `assets` Vite sont déjà hashés, ils peuvent être servis `Cache-Control: public, max-age=31536000, immutable`. Sans ça, chaque reload re-télécharge.
 - **Bundle :** déjà chunké (`vite.config.ts:22-30` `manualChunks: vendor/supabase/stripe/motion` + 3 `lazy()` sur `AccountPage`/`CheckoutFlow`/`AdminDashboardNew` dans `src/App.tsx:20`), donc le monolithe 1,1 Mo du 05/09 est réglé. Reste le poids image (point ci-dessus).
 
-### 4. Hygiène code — ⚠️ à nettoyer avant prod
+### 4. Hygiène code — ✅ audité le 10/09 (rien à changer)
 
-- **`console.*` ~100+ occurrences** — `src/App.tsx:780,1152`, `src/api/supabaseApi.ts`, `src/components/CheckoutFlow.tsx`, etc. Laisser `console.warn` pour erreurs Supabase OK, mais retirer `console.log` de debug. Ajouter `eslint --no-console` ou `vite.config.ts` `esbuild.drop: ["console","debugger"]` en prod.
-- **`public/unsubscribe.html` expose `anon` key** — OK si RLS strict (c'est le cas), mais à auditer une fois : vérifier qu'aucune table n'a `policy USING (true)`.
+- **`console.*`** — vérifié : **0 `console.log`/`debug`/`info` dans `src/`**. Restent 58 `warn`/`error` de diagnostic (ex: `App.tsx:780,1152,1176,1413` erreurs Supabase/Stripe/favoris) → voulus, pas de `esbuild.drop` (on garde la visibilité erreurs en prod). Les `console.log` restants sont côté serveur/CLI uniquement : 3 edges (`get-shipping-rates:150` log requête sanitizée `logSafe`, `contact-message:234`, `auth-welcome:163` → logs fonctions Supabase, utiles) + `scripts/*.ts` + `server.ts:36` (terminal, jamais shippés au navigateur).
+- **`public/unsubscribe.html` + anon key — audité le 10/09 :**
+  - `USING (true)` dans les migrations : uniquement volontaire et safe — `order_status_transitions` (table statique), `merch_config`/`product_scores`/`search_trends` (lecture publique by design), `review_helpful` select (ids + uids, besoin UI), `interactions`/`interaction_messages` insert anon **contraints** (`20261007_contact_guest.sql:7` : type + regex email + longueur 10..5000).
+  - Tables cœur (`customers`, `orders`, `newsletter_subscribers`) hors migrations (créées dashboard) → sondées en live avec la clé anon (GET read-only) : `customers?select=id` → `200 []`, `newsletter_subscribers?select=email` → `200 []` → **pas de lecture ouverte**.
+  - Point d'attention : la branche `UPDATE customers` de `unsubscribe.html` est **morte en live** (le SELECT préalable retourne `[]`, aucun id à patcher). Écriture anon non vérifiable en read-only → **reco : durcir en déplaçant les writes unsubscribe vers une edge function validée** (pattern `contact-message`), au lieu du REST anon direct. Non-bloquant launch, à planifier.
 
 ### 5. SEO résiduel — ⚠️ partiel (le gros est fait)
 
 Le gros est fait : `index.html:4` `lang fr`, `robots index,follow`, `theme-color`, `og:locale fr_FR` + `en_US` alternate, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié *Wear the Moment*, description FR, `canonical`, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, `Organization` + `WebSite+SearchAction` (`index.html:42-69`), `public/robots.txt`/`sitemap.xml`/`llms.txt`/`ai.txt`/`humans.txt`/`/.well-known/ai.txt` présents, `usePageMeta` sur **7 pages** (`ProductPage.tsx:101` + `ContactPage.tsx:17` + `FaqPage.tsx:9` + `LegalPage.tsx:35` + `PromotionsPage.tsx:12` + `SearchResultsPage.tsx:55` + `OrderTrackingPage.tsx:13`), JSON-LD `Product` (`Offer` + `AggregateRating` + `BreadcrumbList` dans `ProductPage.tsx:112-194`) + `FAQPage` (`FaqPage.tsx:15-34`).
 
-**Reste :**
+**Fait le 10/09 :**
 
-- **SPA sans SSR/prerender** — bots non-JS voient `<div id="root"></div>` vide (`index.html`). `usePageMeta` + JSON-LD suffisent pour Googlebot (JS), mais pas pour tous les crawlers/agents ni pour le partage social sans JS. Si launch sans SSR, l'accepter comme risque documenté. Sinon : prerender (`vite-plugin-prerender`, `Astro`, ou `Vercel` ISR) pour `/`, `/produit/:id`, `/faq`, `/legal/*`.
-- **Sitemap produits manuel** — `scripts/generate-sitemap.ts:2-65` interroge Supabase (`is_active`) et injecte 5 `/produit/:id` dans `public/sitemap.xml:10-14`, mais nécessite `npm run sitemap` manuel. Pas auto au `build`/`deploy`. **Faire :** ajouter `prebuild: "npm run sitemap"` dans `package.json` ou hook `vercel-build`.
-- **`site.webmanifest` manquant** — référencé dans `src/App.tsx:1350` (allowlist 404) et attendu par Lighthouse PWA, mais `public/site.webmanifest` n'existe pas et `index.html` n'a pas de `<link rel="manifest">`. Soit créer `public/site.webmanifest` + link, soit retirer de l'allowlist.
-- **`llms.txt` minimal** — `public/llms.txt:1-25` ne liste que le catalogue/FAQ, pas de produits. Voulu pour l'instant, mais prévoir une génération catalogue si l'agentique devient canal d'acquisition.
+- ~~**Sitemap produits manuel**~~ → `package.json` : `"prebuild": "npm run sitemap"`. Le script dégrade gracieusement (statiques seules si env absentes, exit 0 — build jamais cassé). Vérifié : `npm run build` régénère (13 URLs / 6 produits le 10/09).
+- ~~**`site.webmanifest` manquant**~~ → créé `public/site.webmanifest` (name/short_name, `theme_color #ff5c35`, icônes `/InstaWear-logo.png`) + `<link rel="manifest">` dans `index.html:15`. Cohérent avec l'allowlist 404 (`App.tsx:1350`).
+- ~~**`llms.txt` minimal**~~ → `scripts/generate-sitemap.ts` réécrit désormais aussi le bloc `<!-- PRODUCTS -->` de `public/llms.txt` (`- [Titre](url)` par produit actif, curation préservée hors marqueurs). Bonus : ligne devise corrigée (USD, pas EUR) + events en anglais.
+
+**Reste (décision) :**
+
+- **SPA sans SSR/prerender — risque accepté et documenté.** Pas de SSR : Googlebot et agents JS rendent `usePageMeta` + JSON-LD sans problème ; les cartes sociales utilisent les OG statiques de `index.html`. Seuls les crawlers non-JS voient `#root` vide — jugé acceptable pour le launch (le catalogue reste découvrable via `sitemap.xml` + `llms.txt` générés à chaque build). Réévaluer si un canal non-JS devient significatif (option : prerender `vite-plugin-prerender` ou Vercel ISR sur `/`, `/produit/:id`, `/faq`, `/legal/*`).
 
 ### 6. Cookies / CNIL — ⚠️ quasi-OK
 
@@ -53,12 +59,9 @@ Fait : `src/hooks/useCookieConsent.ts:1-68` `CONSENT_VERSION=2`, `EXPIRY 365j`, 
 
 ### Top bloquants restants (priorisés)
 
-1. **Images/CLS** (`srcset`/`width/height`/`imagetools` + `server.ts:93` `maxAge`) — impact LCP/CLS direct.
-2. **`console.*` cleanup** — bruit logs prod + fuite data potentielle.
-3. **Sitemap auto-build + `site.webmanifest`** — 2 lignes de config, gain SEO/Lighthouse immédiat.
-4. **i18n FR/EN** — choisir FR-only ou poser `i18n`, ne pas shipper le mix.
-5. **SSR/prerender** — à trancher (accepter risque SPA ou prerender 5 routes).
-6. **Tableau CNIL cookies** — seulement si audit CNIL formel exigé.
+1. **Images/CLS** (`srcset`/`width/height`/`imagetools` + `server.ts` `maxAge` static) — impact LCP/CLS direct.
+2. **Unsubscribe hardening** — déplacer les writes vers une edge function validée (reco d'audit, non-bloquant).
+3. **Tableau CNIL cookies** — seulement si audit CNIL formel exigé.
 
 ---
 
