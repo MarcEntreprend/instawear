@@ -31,7 +31,7 @@ export default function CopyID({ id, size = 14 }: CopyIDProps) {
         flexShrink: 0,
         lineHeight: 1,
       }}
-      title={`Copier ${id}`}
+      title={`Copy ${id}`}
       role="button"
       tabIndex={0}
     >

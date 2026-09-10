@@ -471,12 +471,12 @@ export default function ProductPage({
         >
           <button
             onClick={onClose}
-            aria-label="Retour"
+            aria-label="Back"
             className="btn-icon w-8 h-8 mr-1"
           >
             <ArrowLeft size={15} />
           </button>
-          <span className="capitalize">{product.eventType || "Produit"}</span>
+          <span className="capitalize">{product.eventType || "Product"}</span>
           <span>/</span>
           <span
             style={{ color: "var(--color-ink)" }}

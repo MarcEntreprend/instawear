@@ -1441,7 +1441,7 @@ function StripeCardForm({
                       ((e as any).stock_status || "available") === "available"
                     );
                   }).length
-                } article(s) indisponible(s) non facturé(s)]`
+                } unavailable item(s) not charged]`
               : ""),
           items: cart
             .filter((it: any) => {
@@ -2337,7 +2337,7 @@ export default function CheckoutFlow({
     if (!validateContact()) return;
     if (!hasFulfillable) {
       setPaymentError(
-        "Tous les articles du panier sont indisponibles (supprimés ou rupture Printful) — retirez-les ou choisissez d'autres variantes.",
+        "All items in your cart are unavailable (removed by the supplier or Printful stockout) — remove them or choose other variants.",
       );
       return;
     }
@@ -2389,7 +2389,7 @@ export default function CheckoutFlow({
         notes:
           message +
           (blockedCount > 0
-            ? ` [POD: ${blockedCount} article(s) indisponible(s) non facturé(s)]`
+            ? ` [POD: ${blockedCount} unavailable item(s) not charged]`
             : ""),
         items: fulfillableCart.map((item, idx) => ({
           id: `item-${newOrderId}-${idx}`,
@@ -2484,7 +2484,7 @@ export default function CheckoutFlow({
     if (!validatePayment()) return;
     if (!hasFulfillable) {
       setPaymentError(
-        "Aucun article disponible — retirez les variantes indisponibles.",
+        "No items available — remove the unavailable variants.",
       );
       return;
     }
@@ -2537,7 +2537,7 @@ export default function CheckoutFlow({
           notes:
             message +
             (blockedCount > 0
-              ? ` [POD: ${blockedCount} article(s) indisponible(s) exclus]`
+              ? ` [POD: ${blockedCount} unavailable item(s) excluded]`
               : ""),
           items: fulfillableCart.map((item, idx) => ({
             id: `item-${newOrderId}-${idx}`,
@@ -2685,11 +2685,11 @@ export default function CheckoutFlow({
         >
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <p className="text-xs font-semibold leading-snug">
-            {blockedCount} article{blockedCount > 1 ? "s" : ""} indisponible
-            {blockedCount > 1 ? "s" : ""} dans votre panier —{" "}
+            {blockedCount} item{blockedCount > 1 ? "s" : ""} unavailable
+            {blockedCount > 1 ? "s" : ""} in your cart —{" "}
             {hasFulfillable
-              ? `seuls les ${fulfillableCart.length} disponibles seront commandés et facturés (${cartTotal.toFixed(2)} ${currencySymbol})`
-              : "retirez-les pour continuer"}
+              ? `only the ${fulfillableCart.length} available will be ordered and charged (${cartTotal.toFixed(2)} ${currencySymbol})`
+              : "remove them to continue"}
             .
           </p>
         </div>

@@ -5,24 +5,19 @@
 
 ---
 
-### 1. i18n / Textes en dur — ❌ à faire (non-bloquant launch mais dette SEO/UX)
+### 1. i18n / Textes en dur — ✅ fait le 10/09 (frontstore 100% EN, admin en FR)
 
-**Constat :** pas d'i18n, mix FR/EN toujours présent dans l'UI. Pas bloquant pour un launch FR-first, mais incohérent pour l'audit et les crawlers.
+**Décision :** public américain → frontstore tout anglais, interface admin en français. Pas d'i18n (choix assumé, pas de mix).
 
-- `src/components/Header.tsx:74-85` — `MAIN_NAV_LINKS` = `Catalog / About / Reviews / FAQ / Contact` (EN) alors que le `lang` est `fr` et le footer est FR.
-- `src/components/ReassuranceBar.tsx:5-9` — `Fast delivery / Easy returns / Secure payment / Premium print` (EN) vs footer FR.
-- `src/components/StoreProductCard.tsx:317` — `Add to cart` (EN) dans un flow FR.
-- `src/components/FaqSection.tsx:18` — titre `Frequently Asked Questions` (EN) mais `src/data/faq.ts:10,17` — `category: "livraison" / "produit" / "retour" / "commande"` (FR).
-- `src/data/categories.ts:4-16` — `PRODUCT_CATEGORIES` (`T-Shirts / Hoodies / Accessoires / Mugs`) et `EVENT_TYPES` (`Festival / Sport / Concert / Saisonnier / Anniversaire`) mixtes FR/EN sans source de vérité.
+**Fait :** toutes les strings visibles shoppers passées en US English (~50 fichiers : `Header`, `Footer`, `CatalogSection`, `ProductPage`, `CartDrawer`, `CheckoutFlow` + messages de validation, `AccountPage`, `ContactPage`, `OrderTrackingModal`, `DealCountdown` (`${d}j` → `${d}d`), `SORT_OPTIONS` (`Popularité` → `Popularity`…), labels catégories (`Accessoires` → `Accessories`…), `index.html` (`lang="en"`, `og:locale en_US`, meta description EN). Emails clients (`emailTemplates.ts`) et `public/unsubscribe.html` déjà EN — vérifié.
 
-**Impact :** signaux `hreflang`/`og:locale` disent `fr` mais le contenu crawlable est bilingue → bruit pour le classement, UX confuse.
-**Faire :** soit assumer FR 100% (renommer les 5 fichiers ci-dessus), soit poser `i18n` (ex: `next-intl`/`i18next`) et externaliser les strings. Ne pas laisser le mix en prod.
+**Laissé volontairement en FR (invisible shoppers) :** commentaires de code ; clés techniques matchées à la DB (`faq.ts` `category: "livraison"|"produit"|…` — jamais affichées, pas d'onglets ; `EVENT_TYPES` values `saisonnier`/`anniversaire` matchées à `product.eventType` ; `PRODUCT_CATEGORIES` values matchées à `product.category` ; `STYLE_OPTIONS`/`MATERIAL_OPTIONS` stockées via admin ; statuts `retrait`/`livraison`, `on_hold`) ; tout `src/admin/` ; `store_settings.shipping_delay` (jamais rendu au front — le checkout utilise `deliveryEstimate` live Printful *"4-7 business days"*).
 
 ### 2. Mocks / Données statiques résiduelles — ⚠️ mineur
 
-- `src/hooks/usePageMeta.ts:13` — `DEFAULT_IMAGE` pointe encore vers un Unsplash `w=1200` (placeholder générique). Remplacer par `/InstaWear-logo.png` ou une image locale (déjà utilisé pour OG dans `index.html:29`).
-- `server.ts:45` — `demoFallback` Gemini (mock activé si pas de clé). OK pour dev, mais à documenter/retirer du bundle prod si non utilisé.
-- `src/data/countries.ts:12-21` + `src/data/currency.ts:4-14` — `COUNTRIES` et `COUNTRY_CURRENCY` (EUR 1 / CHF 0.95 / CAD 1.47) restent statiques côté front. Le shipping live passe déjà par `supabase/functions/_shared/printfulRates.ts:123` (`fetchWithRetry` Printful) — pas incohérent, mais ne pas présenter les `shippingRates` statiques comme source de vérité dans l'admin.
+- ~~`src/hooks/usePageMeta.ts:13` — `DEFAULT_IMAGE` Unsplash~~ → fait le 10/09 : `/InstaWear-logo.png`.
+- ~~`server.ts` — endpoint `/api/gemini/generate-description` + `demoFallback`~~ → fait le 10/09 : endpoint + import `@google/genai` supprimés de `server.ts`, dépendance retirée de `package.json` (+ lock sync), clé retirée de `.env.example`. Aucun appelant dans `src/` (vérifié grep). `server.cjs` passe de 4.0 → 2.1 kB.
+- `src/data/countries.ts:12-21` + `src/data/currency.ts:4-14` — vérifié le 10/09 : `COUNTRIES` (noms EN) sert aux selects pays checkout/compte/settings ; la conversion statique `COUNTRY_CURRENCY`/`formatPrice`/`rateFromEur` est du code mort (0 usage — l'affichage passe par `formatAmount` + devise `store_settings`). Le shipping est déjà live Printful (`supabase/functions/_shared/printfulRates.ts:123`) avec fallback = forfait admin `store_settings.shippingCost`, et l'admin `SettingsPage.tsx:664` affiche déjà *"rates Printful (live API)"*. Aucun `shippingRates` statique présenté comme vérité nulle part → rien à changer.
 - `src/data/testimonials.ts` / `src/components/AboutSection.tsx:18` — OK désormais (10 avis externalisés, image locale `jpg`). Plus de mock Unsplash `w=800` ici.
 
 ### 3. Images / CLS / Perf front — ❌ à faire (Core Web Vitals)

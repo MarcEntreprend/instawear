@@ -1737,9 +1737,9 @@ function OrderDetail({
             }}
           >
             <span className="text-xs font-bold">
-              ⚠️ Commande partielle — certains articles indisponibles n'ont pas
-              été envoyés à l'impression (voir détails par ligne). Un
-              remboursement partiel sera traité si vous avez été facturé.
+              ⚠️ Partial order — some unavailable items were not sent to
+              print (see per-line details). A partial refund will be issued
+              if you were charged.
             </span>
           </div>
         )}
@@ -1807,10 +1807,10 @@ function OrderDetail({
                     }}
                   >
                     {(item as any).print_status === "blocked_discontinued"
-                      ? "Supprimé chez Printful"
+                      ? "Removed by supplier"
                       : (item as any).print_status === "blocked_out_of_stock"
-                        ? "Rupture temporaire"
-                        : "Non imprimé"}{" "}
+                        ? "Temporarily out of stock"
+                        : "Not printed"}{" "}
                     {(item as any).block_reason
                       ? `— ${(item as any).block_reason}`
                       : ""}
@@ -1825,7 +1825,7 @@ function OrderDetail({
                       border: "1px solid #a7f3d0",
                     }}
                   >
-                    En cours d'impression
+                    Printing in progress
                   </span>
                 )}
               </div>
@@ -3185,7 +3185,7 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
     });
   }, [customerId]);
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer cet avis ?")) return;
+    if (!confirm("Delete this review?")) return;
     const { reviewApi } = await import("../api/supabaseApi");
     await reviewApi.delete(id);
     setReviews((r) => r.filter((x) => x.id !== id));
@@ -3196,7 +3196,7 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
         className="py-8 text-center text-sm"
         style={{ color: "var(--color-ink3)" }}
       >
-        Chargement...
+        Loading...
       </div>
     );
   if (reviews.length === 0)
@@ -3325,7 +3325,7 @@ function AddressesTab({ customerId }: { customerId: string | null }) {
         className="py-8 text-center text-sm"
         style={{ color: "var(--color-ink3)" }}
       >
-        Chargement...
+        Loading...
       </div>
     );
   return (

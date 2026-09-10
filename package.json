@@ -14,7 +14,6 @@
     "sitemap": "tsx scripts/generate-sitemap.ts"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@stripe/react-stripe-js": "^6.7.0",
     "@stripe/stripe-js": "^9.9.0",
     "@supabase/supabase-js": "^2.108.2",

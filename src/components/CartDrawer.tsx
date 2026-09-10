@@ -261,12 +261,12 @@ export default function CartDrawer({
               >
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <p className="text-xs font-semibold leading-snug">
-                  {blockedCount} article{blockedCount > 1 ? "s" : ""}{" "}
-                  indisponible{blockedCount > 1 ? "s" : ""} (désactivé ou
-                  rupture Printful) —{" "}
+                  {blockedCount} item{blockedCount > 1 ? "s" : ""}{" "}
+                  unavailable (deactivated or
+                  Printful stockout) —{" "}
                   {hasFulfillable
-                    ? "les autres partiront normalement"
-                    : "retirez-les pour commander"}
+                    ? "the rest will ship normally"
+                    : "remove them to place your order"}
                   .
                 </p>
               </div>
@@ -278,11 +278,11 @@ export default function CartDrawer({
                 const blocked = av !== "available";
                 const blockLabel =
                   av === "discontinued"
-                    ? "Supprimé par le fournisseur"
+                    ? "Removed by supplier"
                     : av === "out_of_stock"
-                      ? "Rupture temporaire"
+                      ? "Temporarily out of stock"
                       : av === "inactive"
-                        ? "Produit désactivé"
+                        ? "Product deactivated"
                         : "";
                 return (
                   <div
@@ -366,8 +366,8 @@ export default function CartDrawer({
                                 av === "discontinued" ? "#991b1b" : "#92400e",
                             }}
                           >
-                            Cet article ne sera pas imprimé — retirez-le ou
-                            choisissez une autre variante.
+                            This item won't be printed — remove it or
+                            choose another variant.
                           </p>
                         )}
                       </div>
@@ -454,9 +454,9 @@ export default function CartDrawer({
                     padding: "6px 10px",
                   }}
                 >
-                  Sous-total affiché = articles disponibles uniquement (
-                  {formatAmount(fulfillableTotal, currencySymbol)}). Les {blockedCount}{" "}
-                  indisponible(s) ne seront pas facturés/imprimés.
+                  Shown subtotal = available items only (
+                  {formatAmount(fulfillableTotal, currencySymbol)}). The {blockedCount}{" "}
+                  unavailable item(s) won't be charged or printed.
                 </p>
               )}
               <div className="flex flex-col gap-1.5 text-sm">
@@ -465,7 +465,7 @@ export default function CartDrawer({
                   style={{ color: "var(--color-ink3)" }}
                 >
                   <span>
-                    Subtotal{blockedCount > 0 ? " (disponibles)" : ""}
+                    Subtotal{blockedCount > 0 ? " (available)" : ""}
                   </span>
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
                     {formatAmount(displayTotal, currencySymbol)}
@@ -513,12 +513,12 @@ export default function CartDrawer({
                 }}
                 title={
                   !hasFulfillable
-                    ? "Retirez les articles indisponibles pour commander"
+                    ? "Remove unavailable items to place your order"
                     : undefined
                 }
               >
                 {blockedCount > 0 && hasFulfillable
-                  ? `Checkout (${cart.length - blockedCount} dispo)`
+                  ? `Checkout (${cart.length - blockedCount} available)`
                   : "Checkout"}
                 <ArrowRight size={15} strokeWidth={2.5} />
               </button>

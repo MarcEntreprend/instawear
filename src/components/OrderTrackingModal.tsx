@@ -297,10 +297,10 @@ export default function OrderTrackingModal({
                 <Clock size={18} color="#92400e" style={{ marginTop: 1, flexShrink: 0 }} />
                 <div>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#92400e" }}>
-                    Votre commande est en revue
+                    Your order is under review
                   </p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
-                    Nous vérifions que votre design soit parfait sur le produit. La production reprendra sous 24-48h. Aucune action n'est requise de votre part.
+                    We're checking that your design looks perfect on the product. Production will resume within 24-48h. No action is needed on your part.
                   </p>
                 </div>
               </div>

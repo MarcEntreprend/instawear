@@ -45,7 +45,7 @@ function LazyFallback() {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "var(--color-bg)" }}
-      aria-label="Chargement"
+      aria-label="Loading"
     >
       <div
         className="w-10 h-10 rounded-full border-2 animate-spin"
@@ -833,10 +833,10 @@ export default function App() {
     if (avail !== "available") {
       const msg =
         avail === "inactive"
-          ? "Produit désactivé"
+          ? "Product unavailable"
           : avail === "discontinued"
-            ? "Variante supprimée par le fournisseur"
-            : "Rupture temporaire par le fournisseur";
+            ? "Variant removed by the supplier"
+            : "Temporarily out of stock from the supplier";
       return { blocked: msg, targetColor, targetSize };
     }
     const basePrice =

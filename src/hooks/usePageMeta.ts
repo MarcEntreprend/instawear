@@ -10,7 +10,7 @@ export interface PageMetaInput {
 }
 
 const SITE_NAME = "InstaWear";
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=80";
+const DEFAULT_IMAGE = "/InstaWear-logo.png";
 
 function setMetaTag(selector: string, attr: "content", value: string, createAttrs: Record<string, string>) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
