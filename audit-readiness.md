@@ -1,39 +1,15 @@
-# Audit Frontstore — InstaWear_gem — Launch Readiness 10/09/2026
+# Audit Frontstore — InstaWear_gem — Launch Readiness 10/09/2026 (CLOS)
 
-**Scope :** frontstore `src/`, `index.html`, `public/`. Vérifié par lecture/grep le 10/09/2026.
-**Note :** ce document ne liste **que le restant à faire** (2 points). Tout le reste est vérifié OK — détail en bas.
-
----
-
-### 1. Images / CLS / Cache statique — ✅ fait le 10/09 (Core Web Vitals au max sans risque sécu)
-
-**Non-fait volontairement (documenté) :**
-
-- `srcset`/WebP : images distantes (Supabase Storage + CDN Printful) sans API de transformation fiable — ajouter des params `?width=` à l'aveugle risquait des 400. Le `loading="lazy"` + `decoding` + préconnect couvrent l'essentiel du gain.
-- Aucun changement CSP, RLS, headers sécu — `vercel.json` inchangé sur ce point.
-
-### 2. Unsubscribe hardening — ⚠️ reco d'audit (non-bloquant launch, à planifier)
-
-**Constat (audité le 10/09) :** `public/unsubscribe.html` parle au REST Supabase en direct avec la clé anon (SELECT + INSERT/DELETE `newsletter_subscribers`, SELECT + UPDATE `customers.email_preferences`).
-Sondage live read-only : `customers?select=id` → `200 []`, `newsletter_subscribers?select=email` → `200 []` → **pas de lecture ouverte**, et la branche `UPDATE customers` est **morte en live** (le SELECT préalable ne retourne aucun id à patcher). Les `USING (true)` des migrations sont tous volontaires et safe (tables statiques/publiques by design, inserts contact contraints en type + regex email + longueur).
-
-**Faire (quand planifié) :** déplacer les writes unsubscribe vers une edge function validée (pattern `contact-message` : validation email + rate-limit + `service_role`), et retirer le REST anon direct de `unsubscribe.html`. État actuel acceptable pour le launch.
+**Scope :** frontstore `src/`, `index.html`, `public/`. Vérifié par lecture/grep + sondes live le 10/09/2026.
+**Statut : audit clos — 0 point restant.** Ce document est l'état final : tout est vérifié OK ci-dessous, sauf un choix produit assumé.
 
 ---
 
-### Top restants (priorisés)
+### 1. Images / CLS / Cache statique — (Core Web Vitals, sans risque sécu)
 
-Aucun. L'audit est clos — voir ci-dessous.
+**Non-fait volontairement (documenté) :** `srcset`/WebP — images distantes (Supabase Storage + CDN Printful) sans API de transformation fiable (params `?width=` à l'aveugle = risque 400). Aucun changement CSP, RLS, headers sécu.
 
-### 2. Unsubscribe hardening — ✅ fait le 10/09 (durci + réparé, zéro dette)
-
-**Fait :**
-- **Edge `email-preferences` déployée** (ops `get`/`save`, `service_role`, email strict normalisé, booléens stricts, clés inconnues rejetées, payload ≤100KB, rate-limit 10/min/IP, logs sanitizés `logSafe`). `save` applique **uniquement les clés fournies** (fusion — `newsletter` ne touche jamais `email_preferences` et inversement).
-- **`public/unsubscribe.html` réécrite** vers l'edge — **plus aucun REST anon direct, clé anon supprimée de la page**. UI identique. Bonus : la page **refonctionne** (le REST anon était mort en live : SELECT → `[]`).
-- **Migration `20261020_email_prefs.sql` appliquée live** : table `email_preference_events` (journal append-only, RLS admin) + `newsletter_subscribers` verrouillée admin-only (0 policy avant → `newsletter_subscribers_admin_all` ; footer subscribe via RPC SECURITY DEFINER inchangé, `customers` non touchée). Historique migration réparé (`repair --status applied`).
-- **Onglet "Préférences"** dans Email Marketing (`PrefsEventsSection.tsx`) : stats 30j (events, désabonnements, réabonnements, modifs prefs, emails uniques) + table filtrable (date, email, changement lisible, source, IP).
-- **Inventaire** : `/email-preferences` dans `openapi.json` (16 paths) + `tests/email-preferences.test.ts` (5 tests logique pure).
-- **Vérifié live le 10/09** : 400 email invalide, `get` inconnu → defaults sans écriture, cycle subscribe→get→unsubscribe OK, journal avec les 2 changements, 0 ligne résiduelle. Suite : **366 tests verts**, `tsc` + `build` verts.
+---
 
 ### Volontairement abandonné (choix produit, ne plus tracker)
 
@@ -57,3 +33,4 @@ Aucun. L'audit est clos — voir ci-dessous.
 - Shipping : live Printful + fallback forfait admin, rien de statique présenté comme vérité ; conversion `COUNTRY_CURRENCY` = code mort (affichage via `formatAmount` + devise store).
 - SEO : `index.html` (robots, OG absolus, `Organization` + `WebSite+SearchAction`), `usePageMeta` 7 pages, JSON-LD `Product`/`FAQPage`/`BreadcrumbList`, `robots.txt`/`llms.txt`/`ai.txt`/`humans.txt`, sitemap auto (`prebuild`), `llms.txt` bloc produits auto, `site.webmanifest` + link, **prerender statique** (`scripts/prerender.ts` via `postbuild` + `vercel.json` `cleanUrls`) — plus aucun risque SPA.
 - Hygiène `console.*` : 0 `console.log` dans `src/` (58 `warn`/`error` de diagnostic gardés ; logs edges/CLI légitimes).
+- RLS : `USING (true)` uniquement volontaire (tables publiques by design, inserts contact contraints) ; sondes live anon → `customers` et `newsletter_subscribers` : `200 []` (pas de lecture ouverte).
