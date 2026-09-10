@@ -132,6 +132,31 @@ function variantSelectionError(
   return null;
 }
 
+// Miroir serveur de getVariantAvailability (données FRAÎCHES de la base) :
+// un item ajouté quand il était dispo puis devenu indisponible (sync entre
+// l'ajout panier et le paiement) ne doit JAMAIS être facturé. Le filtre
+// frontend utilisait un snapshot potentiellement périmé ; l'edge tranche.
+function isItemAvailableNow(product: any, color: unknown, size: unknown): boolean {
+  if (!product) return false;
+  const c = saneLabel(color, 100);
+  const s = saneLabel(size, 20);
+  if (!c || !s) return false;
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (variants.length > 0) {
+    const v = variants.find(
+      (vv: any) => String(vv.color || "").toLowerCase() === c.toLowerCase(),
+    );
+    if (!v) return false;
+    const e = v.sizes?.[s];
+    if (!e) return false;
+    return ((e as any).stock_status || "available") === "available";
+  }
+  if (Array.isArray(product.sizes)) {
+    return product.sizes.map((x: any) => String(x)).includes(s);
+  }
+  return true;
+}
+
 // ── Calcul du total d'une commande à partir de la base ──────────────────
 async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
   const { data: order, error: orderError } = await supabaseAdmin
@@ -149,6 +174,7 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
 
   let subtotal = 0;
   const lineItems: any[] = [];
+  let excludedCount = 0;
   for (const item of orderItems ?? []) {
     const { data: product } = await supabaseAdmin
       .from("products")
@@ -157,6 +183,15 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
       )
       .eq("id", item.product_id)
       .single();
+
+    // Exclusion serveur des items devenus indisponibles (données fraîches).
+    if (
+      product &&
+      !isItemAvailableNow(product, item.selected_color, item.selected_size)
+    ) {
+      excludedCount++;
+      continue;
+    }
 
     const unitPrice = product
       ? resolveUnitPrice(product, item.selected_color, item.selected_size)
@@ -301,6 +336,7 @@ async function computeOrderTotal(supabaseAdmin: any, orderId: string) {
     order,
     lineItems,
     subtotal,
+    excludedCount,
     shippingCost,
     shippingMethodName,
     shippingDeliveryEstimate,
@@ -402,6 +438,10 @@ export default {
       // Montant recalculé côté serveur depuis les produits en base. P-A validation stricte.
       if (action === "payment-intent") {
         let total = 0;
+        // Items devenus indisponibles depuis l'ajout panier (données fraîches
+        // DB) : exclus du montant, comptés pour info frontend. Jamais
+        // facturé = jamais de cassure côté client.
+        let excludedCount = 0;
         const items: any[] = Array.isArray(body.items) ? body.items : [];
         // Cache produits (évite de re-fetcher pour le calcul du total).
         const productCache = new Map<string, any>();
@@ -453,9 +493,18 @@ export default {
           if (computed) total = computed.total;
         }
         if (total === 0 && items.length > 0) {
+          // Exclusion serveur des items devenus indisponibles (données
+          // fraîches — voir isItemAvailableNow).
           for (const item of items) {
             // Produit déjà en cache (validation ci-dessus) : pas de requête.
             const product = await getProductCached(item.productId);
+            if (
+              product &&
+              !isItemAvailableNow(product, item.selectedColor, item.selectedSize)
+            ) {
+              excludedCount++;
+              continue;
+            }
             if (product) {
               const unitPrice = resolveUnitPrice(
                 product,
@@ -484,7 +533,7 @@ export default {
         });
 
         return new Response(
-          JSON.stringify({ clientSecret: paymentIntent.client_secret }),
+          JSON.stringify({ clientSecret: paymentIntent.client_secret, excludedCount }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },

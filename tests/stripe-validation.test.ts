@@ -171,3 +171,65 @@ test("legacy colors/sizes utilisés si pas de variants", () => {
     "Taille indisponible pour ce produit",
   );
 });
+
+// ─── isItemAvailableNow (miroir edge : données fraîches DB) ─────────────────
+
+function isItemAvailableNow(product: any, color: unknown, size: unknown): boolean {
+  if (!product) return false;
+  const c = saneLabel(color, 100);
+  const s = saneLabel(size, 20);
+  if (!c || !s) return false;
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (variants.length > 0) {
+    const v = variants.find(
+      (vv: any) => String(vv.color || "").toLowerCase() === c.toLowerCase(),
+    );
+    if (!v) return false;
+    const e = v.sizes?.[s];
+    if (!e) return false;
+    return ((e as any).stock_status || "available") === "available";
+  }
+  if (Array.isArray(product.sizes)) {
+    return product.sizes.map((x: any) => String(x)).includes(s);
+  }
+  return true;
+}
+
+const stocked = {
+  variants: [
+    {
+      color: "#1a1a1a",
+      sizes: {
+        M: { price: 10, stock_status: "available" },
+        "5XL": { price: 12, stock_status: "out_of_stock" },
+      },
+    },
+    {
+      color: "Natural",
+      sizes: { S: { price: 10, stock_status: "discontinued" } },
+    },
+  ],
+};
+
+test("disponible → facturable", () => {
+  assert.equal(isItemAvailableNow(stocked, "#1a1a1a", "M"), true);
+});
+
+test("rupture/supprimé → exclu (jamais facturé)", () => {
+  assert.equal(isItemAvailableNow(stocked, "#1a1a1a", "5XL"), false);
+  assert.equal(isItemAvailableNow(stocked, "Natural", "S"), false);
+});
+
+test("couleur/taille inconnue → exclu", () => {
+  assert.equal(isItemAvailableNow(stocked, "#1a1a1a", "9XL"), false);
+  assert.equal(isItemAvailableNow(stocked, "Blue", "M"), false);
+});
+
+test("produit inconnu → exclu (principe de précaution)", () => {
+  assert.equal(isItemAvailableNow(null, "M", "M"), false);
+});
+
+test("produit sans variantes : membership tailles legacy", () => {
+  assert.equal(isItemAvailableNow({ sizes: ["One Size"] }, "Red", "One Size"), true);
+  assert.equal(isItemAvailableNow({ sizes: ["One Size"] }, "Red", "M"), false);
+});

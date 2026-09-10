@@ -143,6 +143,10 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
   >();
 
+  // Couleur|taille EXPLICITEMENT discontinued dans ce sync (non importées ;
+  // la fusion P2c ne doit pas les ressusciter — voir appelant).
+  const explicitlyDiscontinued = new Set<string>();
+
   const catalogIdToHex = new Map<number, string>();
   for (const cv of catalogVariants || []) {
     const cvId = cv.id;
@@ -188,6 +192,14 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       } else {
         const svStatus = resolveSyncStockStatus(v);
         if (svStatus) stockStatus = svStatus;
+      }
+      // Règle d'import : une taille EXPLICITEMENT discontinued côté
+      // Printful n'est pas importée (ni prix, ni entrée). Les tailles
+      // absentes des données (trou API ponctuel) restent gérées par la
+      // fusion P2c plus bas. out_of_stock est conservé (temporaire).
+      if (stockStatus === "discontinued") {
+        explicitlyDiscontinued.add(`${hex.toLowerCase()}|${v.size}`);
+        continue;
       }
       const existing = entry.sizes.get(v.size);
       if (!existing) {
@@ -239,16 +251,34 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     if (!entry.image) entry.image = entry.mockup_image;
   }
 
-  const variants = [...byColor.entries()].map(([hex, entry]) => ({
-    color: hex,
-    color_name: entry.name,
-    image: entry.image,
-    mockup_image: entry.mockup_image || undefined,
-    external_variant_id: entry.id ? String(entry.id) : undefined,
-    sizes: Object.fromEntries(
-      [...entry.sizes.entries()].map(([size, data]) => [size, { price: data.price, stock_status: data.stock_status }]),
-    ),
-  }));
+  const variants = [...byColor.entries()]
+    // Couleur sans aucune taille importable (tout discontinued) : on ne
+    // l'importe pas (ni prix, ni entrée). L'UX reste identique côté
+    // boutique (taille absente = "discontinued" via getVariantAvailability).
+    .filter(([, entry]) => entry.sizes.size > 0)
+    .map(([hex, entry]) => ({
+      color: hex,
+      color_name: entry.name,
+      image: entry.image,
+      mockup_image: entry.mockup_image || undefined,
+      external_variant_id: entry.id ? String(entry.id) : undefined,
+      sizes: Object.fromEntries(
+        [...entry.sizes.entries()].map(([size, data]) => [
+          size,
+          {
+            price: data.price,
+            stock_status: data.stock_status,
+            // IDs Phase B (webhook stock_updated) — préservés ici.
+            ...((data as any).sync_variant_id != null
+              ? { sync_variant_id: (data as any).sync_variant_id }
+              : {}),
+            ...((data as any).catalog_variant_id != null
+              ? { catalog_variant_id: (data as any).catalog_variant_id }
+              : {}),
+          },
+        ]),
+      ),
+    }));
 
   // Déduplique les couleurs insensibles à la casse (Printful remonte parfois
   // "Natural" et "natural" pour le même produit) : fusionne tailles/images
@@ -283,7 +313,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const sizesSet = new Set<string>();
   deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped };
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -1508,8 +1538,10 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, mockupImages, sizes, variants } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys } =
             buildVariantMatrix(syncVariants, catalogVariants);
+          const skippedDiscontinued: Set<string> =
+            discontinuedKeys instanceof Set ? discontinuedKeys : new Set();
 
           // P2c: Conserver les variantes disparues comme discontinued (garde prix/couleurs)
           try {
@@ -1521,8 +1553,18 @@ export default {
             const oldVariants: any[] = existingForMerge?.variants || [];
             if (oldVariants.length > 0 && variants.length > 0) {
               const key = (c: string, s: string) => `${c.toLowerCase()}|${s}`;
+              // Clés fraîches par couleur ET par nom (migration clés-noms →
+              // clés-hex : une ancienne entrée "Natural|S" est couverte par
+              // la nouvelle entrée hex de même nom — pas de résurrection).
               const newKeySet = new Set<string>();
-              for (const v of variants) for (const sz of Object.keys(v.sizes || {})) newKeySet.add(key(v.color, sz));
+              for (const v of variants) {
+                for (const sz of Object.keys(v.sizes || {})) {
+                  newKeySet.add(key(v.color, sz));
+                  if (v.color_name && v.color_name.toLowerCase() !== (v.color || "").toLowerCase()) {
+                    newKeySet.add(key(v.color_name, sz));
+                  }
+                }
+              }
               const newByColor = new Map<string, any>();
               for (const v of variants) newByColor.set(v.color.toLowerCase(), v);
               for (const ov of oldVariants) {
@@ -1532,6 +1574,10 @@ export default {
                 for (const [sz, szData] of Object.entries(ovSizes)) {
                   const k = key(ovColor, sz);
                   if (newKeySet.has(k)) continue;
+                  // Règle d'import : une taille EXPLICITEMENT discontinued
+                  // dans ce sync n'est pas réimportée (même pas pour
+                  // l'historique — les commandes figent déjà leurs données).
+                  if (skippedDiscontinued.has(k)) continue;
                   const price: number = typeof szData === "object" && szData !== null && "price" in szData ? Number((szData as any).price) || 0 : Number(szData) || 0;
                   if (!price) continue;
                   let target = newByColor.get(ovColor.toLowerCase());

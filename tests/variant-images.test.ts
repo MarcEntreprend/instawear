@@ -211,6 +211,51 @@ test("l'edge déduplique en sortie de matrice", () => {
   );
 });
 
+// ─── Règle d'import : discontinued explicite non importé ────────────────────
+
+function buildSizes(
+  entries: { size: string; price: number; status: string }[],
+): { sizes: Record<string, any>; skipped: string[] } {
+  const sizes: Record<string, any> = {};
+  const skipped: string[] = [];
+  for (const e of entries) {
+    if (e.status === "discontinued") {
+      skipped.push(e.size); // ni prix, ni entrée
+      continue;
+    }
+    sizes[e.size] = { price: e.price, stock_status: e.status };
+  }
+  return { sizes, skipped };
+}
+
+test("taille discontinued explicite : ni prix ni entrée", () => {
+  const r = buildSizes([
+    { size: "S", price: 10, status: "available" },
+    { size: "3-6M", price: 18, status: "discontinued" },
+  ]);
+  assert.deepEqual(Object.keys(r.sizes), ["S"]);
+  assert.deepEqual(r.skipped, ["3-6M"]);
+});
+
+test("out_of_stock conservé (temporaire, auto-restauration)", () => {
+  const r = buildSizes([
+    { size: "M", price: 10, status: "out_of_stock" },
+  ]);
+  assert.equal(r.sizes.M.stock_status, "out_of_stock");
+  assert.deepEqual(r.skipped, []);
+});
+
+test("l'edge applique la règle (skip + set dédié)", () => {
+  assert.ok(
+    syncSource.includes("explicitlyDiscontinued"),
+    "buildVariantMatrix doit tracer les discontinued explicites",
+  );
+  assert.ok(
+    syncSource.includes("skippedDiscontinued.has(k)"),
+    "la fusion P2c ne doit pas ressusciter les discontinued explicites",
+  );
+});
+
 // ─── Colonne gauche : principale + mockups, dédupliquée ─────────────────────
 
 function buildLeftStrip(
