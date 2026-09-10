@@ -13,6 +13,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
+import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -234,12 +235,28 @@ export default {
         date_to: dateTo,
         currency,
       });
-      let pfRes: Response;
+      let pfRes: Response | null;
       try {
-        pfRes = await fetch(
+        // GET idempotent : retry 429/5xx (gap 14).
+        const r = await fetchWithRetry(
           `https://api.printful.com/reports/statistics?${qs.toString()}`,
           { headers: pfHeaders },
+          { attempts: 3, baseMs: 600, idempotent: true },
         );
+        pfRes = r.res;
+        if (!pfRes) {
+          await reportError(supabaseAdmin, {
+            fn: "printful-reports",
+            action: "statistics",
+            error: r.error || "Printful injoignable",
+            meta: { dateFrom, dateTo },
+            severity: "medium",
+          });
+          return new Response(
+            JSON.stringify({ error: `Printful injoignable: ${r.error}` }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       } catch (e: any) {
         return new Response(
           JSON.stringify({ error: `Printful injoignable: ${e?.message || e}` }),

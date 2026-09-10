@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { reportError } from "./_shared/opsUtils.ts";
 import {
   fetchPrintfulShippingRates,
   normalizePrintfulRates,
@@ -646,6 +647,21 @@ export default {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error: any) {
+      // Gap 13 : paiement cassé = CRITICAL (notif admin dédupliquée).
+      // Client reconstruit ici car supabaseAdmin (déclaré dans le try)
+      // est hors scope du catch.
+      try {
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await reportError(admin, {
+          fn: "stripe-checkout",
+          action: "handler",
+          error,
+          severity: "critical",
+        });
+      } catch {}
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1154,6 +1154,23 @@ async function getPodAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+export interface ServiceCheck {
+  ok: boolean;
+  detail?: string;
+  ms: number;
+}
+
+export interface ServicesHealth {
+  status: "ok" | "degraded";
+  service: string;
+  checks: {
+    database: ServiceCheck;
+    printful: ServiceCheck;
+    stripe: ServiceCheck;
+  };
+  ts: string;
+}
+
 export interface PrintfulReport {
   currency: string;
   period: { from: string; to: string };
@@ -1596,6 +1613,28 @@ export const podApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Erreur rapports Printful");
+    }
+    return res.json();
+  },
+
+  /**
+   * État des dépendances (Supabase, Printful, Stripe) via l'edge health.
+   * ADMIN uniquement. Utilisé par la section "État des services" (Settings)
+   * et bônus diagnostic.
+   */
+  async getServicesHealth(): Promise<ServicesHealth> {
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({}),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur health check");
     }
     return res.json();
   },
@@ -2235,6 +2274,91 @@ export const notificationApi = {
       counts[n.category] = (counts[n.category] || 0) + 1;
     });
     return counts;
+  },
+};
+
+export interface EdgeErrorRow {
+  id: string;
+  function_name: string;
+  action: string;
+  severity: "critical" | "high" | "medium";
+  message: string;
+  meta: Record<string, unknown>;
+  resolved: boolean;
+  created_at: string;
+}
+
+// ─── Monitoring erreurs edge (gap 13) — lecture admin de edge_errors ───────
+export const errorMonitoringApi = {
+  async list(params?: {
+    severity?: string;
+    fn?: string;
+    resolved?: boolean;
+    search?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ data: EdgeErrorRow[]; total: number }> {
+    const page = params?.page ?? 1;
+    const perPage = params?.perPage ?? 20;
+    const from = (page - 1) * perPage;
+
+    let query = supabase.from("edge_errors").select("*", { count: "exact" });
+    if (params?.severity && params.severity !== "all") {
+      query = query.eq("severity", params.severity);
+    }
+    if (params?.fn && params.fn !== "all") {
+      query = query.eq("function_name", params.fn);
+    }
+    if (params?.resolved !== undefined) {
+      query = query.eq("resolved", params.resolved);
+    }
+    if (params?.search) {
+      const s = params.search.replace(/[%_]/g, "");
+      query = query.or(`message.ilike.%${s}%,action.ilike.%${s}%`);
+    }
+    query = query.order("created_at", { ascending: false });
+    query = query.range(from, from + perPage - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: (data ?? []) as EdgeErrorRow[], total: count ?? 0 };
+  },
+
+  async stats(): Promise<{
+    total24h: number;
+    critical24h: number;
+    unresolved: number;
+    byFunction: Record<string, number>;
+  }> {
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("edge_errors")
+      .select("severity,function_name,resolved,created_at")
+      .gte("created_at", since);
+    if (error) throw error;
+    const rows = data ?? [];
+    const byFunction: Record<string, number> = {};
+    for (const r of rows) {
+      byFunction[r.function_name] = (byFunction[r.function_name] || 0) + 1;
+    }
+    const { count: unresolved } = await supabase
+      .from("edge_errors")
+      .select("*", { count: "exact", head: true })
+      .eq("resolved", false);
+    return {
+      total24h: rows.length,
+      critical24h: rows.filter((r) => r.severity === "critical").length,
+      unresolved: unresolved ?? 0,
+      byFunction,
+    };
+  },
+
+  async resolve(id: string, resolved = true): Promise<void> {
+    const { error } = await supabase
+      .from("edge_errors")
+      .update({ resolved })
+      .eq("id", id);
+    if (error) throw error;
   },
 };
 

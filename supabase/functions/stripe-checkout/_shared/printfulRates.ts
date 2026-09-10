@@ -17,6 +17,8 @@
 export const PRINTFUL_API = "https://api.printful.com";
 export const PRINTFUL_SHIPPING_RATES_URL = `${PRINTFUL_API}/shipping/rates`;
 
+import { fetchWithRetry } from "./opsUtils.ts";
+
 // Cache sync ID -> catalogue ID (les IDs ne changent jamais : TTL 24h).
 const catalogIdCache = new Map<string, { id: number; expiresAt: number }>();
 const CATALOG_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -51,11 +53,13 @@ export async function resolveCatalogVariantId(
   if (cached && Date.now() < cached.expiresAt) return cached.id;
 
   try {
-    const res = await fetch(
+    // GET idempotent : retry 429/5xx (gap 14).
+    const { res } = await fetchWithRetry(
       `${PRINTFUL_API}/store/variants/${encodeURIComponent(key)}`,
       { headers: pfHeaders(apiKey, storeId) },
+      { attempts: 3, baseMs: 400 },
     );
-    if (!res.ok) return null; // 404 = pas un sync ID (peut-être déjà catalogue)
+    if (!res || !res.ok) return null; // 404 = pas un sync ID (peut-être déjà catalogue)
     const data = await res.json().catch(() => null);
     const catalogId = Number(data?.result?.variant_id);
     if (!Number.isFinite(catalogId) || catalogId <= 0) return null;
@@ -113,13 +117,18 @@ export async function fetchPrintfulShippingRates(opts: {
   };
   if (opts.currency) payload.currency = String(opts.currency).toUpperCase();
 
-  let pfRes: Response;
+  let pfRes: Response | null;
   try {
-    pfRes = await fetch(PRINTFUL_SHIPPING_RATES_URL, {
+    // POST en lecture seule (calcul de tarifs) : idempotent, retry 429/5xx.
+    const r = await fetchWithRetry(PRINTFUL_SHIPPING_RATES_URL, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
     });
+    pfRes = r.res;
+    if (!pfRes) {
+      return { ok: false, rates: [], error: r.error || "Erreur réseau Printful" };
+    }
   } catch (e: any) {
     return { ok: false, rates: [], error: e?.message || "Erreur réseau Printful" };
   }

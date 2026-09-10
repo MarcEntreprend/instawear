@@ -25,6 +25,7 @@ import ShippedDeliveredPage from "./ShippedDeliveredPage";
 import PromotionsPage from "./PromotionsPage";
 import MerchandisingPage from "./MerchandisingPage";
 import ReportsPage from "./ReportsPage";
+import ErrorMonitoringPage from "./ErrorMonitoringPage";
 import IntegrationsPage from "./IntegrationsPage";
 import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
@@ -1081,6 +1082,7 @@ export default function AdminDashboard({
     merchandising: "Merchandising",
     "email-marketing": "Email Marketing",
     reports: "Rapports",
+    monitoring: "Monitoring",
     integrations: "Intégrations",
     settings: "Paramètres",
     "admin-users": "Sécurité",
@@ -1337,6 +1339,7 @@ export default function AdminDashboard({
           {section === "promotions" && <PromotionsPage />}
           {section === "merchandising" && <MerchandisingPage />}
           {section === "reports" && <ReportsPage />}
+          {section === "monitoring" && <ErrorMonitoringPage />}
           {section === "interactions" && <InteractionsPage />}
           {section === "integrations" && (
             <IntegrationsPage

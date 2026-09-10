@@ -12,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -436,18 +437,61 @@ export default {
         );
       }
 
-      // P-C (4) Blind Trust: secret token optionnel pour le webhook Printful
-      // Configurez PRINTFUL_WEBHOOK_SECRET en Edge Secret et ajoutez ?secret=xxx à l'URL webhook Printful
-      try {
-        const expectedSecret = Deno.env.get("PRINTFUL_WEBHOOK_SECRET");
-        if (expectedSecret) {
-          const url = new URL(req.url);
-          const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
-          if (got !== expectedSecret) {
-            return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
-          }
+      // P-C (4) Secret webhook OBLIGATOIRE (fail-closed, gap 18).
+      // Sans secret configuré côté serveur, on refuse tout plutôt que
+      // d'accepter des webhooks non authentifiés. Le secret est posé via
+      // `supabase secrets set PRINTFUL_WEBHOOK_SECRET=...` et ajouté à
+      // l'URL Printful AUTOMATIQUEMENT par setup-webhook (sync-printful) :
+      // un clic "Enregistrer dans Printful" suffit. Rotation : générer une
+      // nouvelle valeur, `secrets set`, re-cliquer Enregistrer (l'ancienne
+      // URL cesse de fonctionner dès le remplacement côté Printful).
+      // Printful retente les 2xx manqués (1..1024 min) : aucune perte
+      // pendant la bascule.
+      const expectedSecret = (() => {
+        try {
+          return Deno.env.get("PRINTFUL_WEBHOOK_SECRET") || "";
+        } catch {
+          return "";
         }
-      } catch {}
+      })();
+      if (!expectedSecret) {
+        return new Response(
+          JSON.stringify({ error: "Webhook non configuré (secret manquant)" }),
+          {
+            status: 503,
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+      try {
+        const url = new URL(req.url);
+        const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
+        // Comparaison temps constant (anti timing-attack sur le secret).
+        let match = got.length === expectedSecret.length;
+        for (let i = 0; i < Math.max(got.length, expectedSecret.length); i++) {
+          if ((got.charCodeAt(i) || 0) !== (expectedSecret.charCodeAt(i) || 0)) match = false;
+        }
+        if (!match) {
+          try {
+            const admin = createClient(
+              Deno.env.get("SUPABASE_URL")!,
+              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            );
+            await reportError(admin, {
+              fn: "printful-webhook",
+              action: "auth",
+              error: "Secret webhook invalide (tentative rejetée)",
+              severity: "high",
+            });
+          } catch {}
+          return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+        }
+      } catch {
+        return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+      }
 
       const type = payload?.type;
       const store = payload?.store;
@@ -773,12 +817,20 @@ export default {
       }
 
       // P-C fetch-back: vérifier que la commande existe vraiment chez Printful (anti-spoof sans HMAC)
+      // GET idempotent : retry 429/5xx best-effort (gap 14).
       try {
         const { data: podSettings } = await supabaseAdmin.from("pod_settings").select("api_key").eq("id", "pod-main").maybeSingle();
         const apiKey = (podSettings as any)?.api_key;
         if (apiKey && pfOrderId) {
-          const vRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`, { headers: { Authorization: `Bearer ${apiKey}` } });
-          if (!vRes.ok && vRes.status === 404) {
+          const { res: vRes } = await fetchWithRetry(
+            `https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`,
+            { headers: { Authorization: `Bearer ${apiKey}` } },
+            { attempts: 2, baseMs: 400, idempotent: true },
+          );
+          if (!vRes) {
+            // Printful injoignable après retries : on continue (fail-open,
+            // les autres gardes restent actives).
+          } else if (!vRes.ok && vRes.status === 404) {
             console.warn(`P-C fetch-back: Printful order ${pfOrderId} introuvable -> webhook ignoré`);
             // on ne bloque pas, mais on log pour audit
           } else if (vRes.ok) {
@@ -1242,6 +1294,22 @@ export default {
         },
       );
     } catch (error: any) {
+      // Gap 13 : toute 500 est tracée (page Monitoring). Printful retente
+      // de lui-même (1..1024 min) ; severity high, pas de notif (le retry
+      // couvre le transitoire, la page montre le persistant).
+      // Client reconstruit ici (supabaseAdmin du try est hors scope).
+      try {
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await reportError(admin, {
+          fn: "printful-webhook",
+          action: "handler",
+          error,
+          severity: "high",
+        });
+      } catch {}
       return new Response(
         JSON.stringify({ error: error?.message || "Erreur inconnue" }),
         {

@@ -7,6 +7,7 @@ import { safeFetch } from "../_shared/safeUrl.ts";
 import { logSafe } from "../_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey } from "../_shared/rateLimit.ts";
 import { isValidOrderId } from "../_shared/validators.ts";
+import { fetchWithRetry, reportError } from "../_shared/opsUtils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,10 +139,21 @@ export default {
 
       // ── LIST ──────────────────────────────────────────────────────
       if (action === "list") {
-        const listRes = await safeFetch(
+        // GET idempotent : retry 429/5xx (gap 14).
+        const { res: listRes } = await fetchWithRetry(
           `${PRINTFUL_API}/approval-sheets?store_id=${encodeURIComponent(storeId)}`,
           { headers: pfHeaders },
+          { attempts: 3, baseMs: 400, idempotent: true },
         );
+        if (!listRes) {
+          return new Response(
+            JSON.stringify({ error: "Printful injoignable" }),
+            {
+              status: 502,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
         const listData = await listRes.json();
         if (!listRes.ok) {
           console.warn("Printful list approval sheets error:", logSafe(listData));
@@ -218,18 +230,44 @@ export default {
       }
 
       // ── APPROVE ───────────────────────────────────────────────────
+      // POST non idempotent (valide un design) : retry 429 + réseau
+      // uniquement, jamais les 5xx (issue inconnue → pas de double).
       if (action === "approve") {
-        const approveRes = await safeFetch(
+        const { res: approveRes } = await fetchWithRetry(
           `${PRINTFUL_API}/approval-sheets/${encodeURIComponent(confirmHash)}?store_id=${encodeURIComponent(storeId)}`,
           {
             method: "POST",
             headers: pfHeaders,
             body: JSON.stringify({ status: "approved" }),
           },
+          { attempts: 3, baseMs: 500, idempotent: false },
         );
+        if (!approveRes) {
+          await reportError(supabaseAdmin, {
+            fn: "approve-printful-design",
+            action: "approve",
+            error: "Printful injoignable",
+            meta: { orderId },
+            severity: "high",
+          });
+          return new Response(
+            JSON.stringify({ error: "Printful injoignable" }),
+            {
+              status: 502,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
         const approveData = await approveRes.json();
         if (!approveRes.ok) {
           console.warn("Printful approve error:", logSafe(approveData));
+          await reportError(supabaseAdmin, {
+            fn: "approve-printful-design",
+            action: "approve",
+            error: approveData?.result || approveData?.error?.message || `HTTP ${approveRes.status}`,
+            meta: { orderId },
+            severity: "high",
+          });
           return new Response(
             JSON.stringify({
               error: "Erreur Printful lors de l'approbation",
@@ -346,7 +384,8 @@ export default {
           }
         }
 
-        const changesRes = await safeFetch(
+        // POST non idempotent : retry 429 + réseau uniquement (gap 14).
+        const { res: changesRes } = await fetchWithRetry(
           `${PRINTFUL_API}/approval-sheets/changes?confirm_hash=${encodeURIComponent(confirmHash)}&store_id=${encodeURIComponent(storeId)}`,
           {
             method: "POST",
@@ -356,10 +395,34 @@ export default {
               files: validFiles,
             }),
           },
+          { attempts: 3, baseMs: 500, idempotent: false },
         );
+        if (!changesRes) {
+          await reportError(supabaseAdmin, {
+            fn: "approve-printful-design",
+            action: "submit_changes",
+            error: "Printful injoignable",
+            meta: { orderId },
+            severity: "high",
+          });
+          return new Response(
+            JSON.stringify({ error: "Printful injoignable" }),
+            {
+              status: 502,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
         const changesData = await changesRes.json();
         if (!changesRes.ok) {
           console.warn("Printful submit changes error:", logSafe(changesData));
+          await reportError(supabaseAdmin, {
+            fn: "approve-printful-design",
+            action: "submit_changes",
+            error: changesData?.result || changesData?.error?.message || `HTTP ${changesRes.status}`,
+            meta: { orderId },
+            severity: "high",
+          });
           return new Response(
             JSON.stringify({
               error: "Erreur Printful lors de la soumission",

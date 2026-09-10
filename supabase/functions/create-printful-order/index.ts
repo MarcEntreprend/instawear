@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,9 +69,27 @@ async function handleCancelPrintfulOrder(
   if ((settings as any)?.store_id) pfHeaders["X-PF-Store-Id"] = String((settings as any).store_id);
 
   // Statut distant : annulable uniquement si draft/pending.
+  // GET idempotent : retry 429/5xx (gap 14).
   let pfStatus = "";
   try {
-    const gRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(pfId)}`, { headers: pfHeaders });
+    const { res: gRes, error: gNetError } = await fetchWithRetry(
+      `https://api.printful.com/orders/${encodeURIComponent(pfId)}`,
+      { headers: pfHeaders },
+      { attempts: 3, baseMs: 400, idempotent: true },
+    );
+    if (!gRes) {
+      await reportError(supabaseAdmin, {
+        fn: "create-printful-order",
+        action: "cancel-printful-order",
+        error: gNetError || "Printful injoignable",
+        meta: { orderId, pfId, step: "get-status" },
+        severity: "high",
+      });
+      return new Response(
+        JSON.stringify({ error: `Printful injoignable: ${gNetError}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+      );
+    }
     if (gRes.status === 404) {
       return new Response(
         JSON.stringify({ error: "Commande introuvable côté Printful (déjà supprimée ?)" }),
@@ -102,13 +121,37 @@ async function handleCancelPrintfulOrder(
     );
   }
 
+  // DELETE : le GET vient de confirmer draft/pending, donc un 404 ici
+  // signifie presque sûrement que la suppression est déjà passée (réponse
+  // perdue) → objectif atteint, on aligne le local. Retry 429/5xx + réseau.
   try {
-    const dRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(pfId)}`, {
-      method: "DELETE",
-      headers: pfHeaders,
-    });
-    if (!dRes.ok) {
+    const { res: dRes, error: dNetError } = await fetchWithRetry(
+      `https://api.printful.com/orders/${encodeURIComponent(pfId)}`,
+      { method: "DELETE", headers: pfHeaders },
+      { attempts: 3, baseMs: 400, idempotent: true },
+    );
+    if (!dRes) {
+      await reportError(supabaseAdmin, {
+        fn: "create-printful-order",
+        action: "cancel-printful-order",
+        error: dNetError || "Printful injoignable",
+        meta: { orderId, pfId, step: "delete" },
+        severity: "high",
+      });
+      return new Response(
+        JSON.stringify({ error: `Printful injoignable: ${dNetError}` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+      );
+    }
+    if (!dRes.ok && dRes.status !== 404) {
       const t = await dRes.text();
+      await reportError(supabaseAdmin, {
+        fn: "create-printful-order",
+        action: "cancel-printful-order",
+        error: t.slice(0, 300),
+        meta: { orderId, pfId, status: dRes.status },
+        severity: "high",
+      });
       return new Response(
         JSON.stringify({ error: `Erreur Printful: ${t.slice(0, 300)}` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
@@ -525,24 +568,47 @@ export default {
       };
 
       // 4. Créer la commande par le fournisseur (mode draft, pas de confirm) — P5 idempotence external_id
-      const pfRes = await fetch("https://api.printful.com/orders?update_existing=true", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.api_key}`,
-          "Content-Type": "application/json",
+      // Gap 14 : retry 429/5xx (POST idempotent via external_id + update_existing).
+      const { res: pfRes, error: pfNetError } = await fetchWithRetry(
+        "https://api.printful.com/orders?update_existing=true",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${settings.api_key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(printfulOrder),
         },
-        body: JSON.stringify(printfulOrder),
-      });
+        { attempts: 3, baseMs: 600, idempotent: true },
+      );
+      if (!pfRes) {
+        await reportError(supabaseAdmin, {
+          fn: "create-printful-order",
+          action: "create",
+          error: pfNetError || "Printful injoignable",
+          meta: { orderId },
+          severity: "critical",
+        });
+        return new Response(
+          JSON.stringify({ error: `Printful injoignable: ${pfNetError}` }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 502,
+          },
+        );
+      }
 
       if (!pfRes.ok) {
         const errText = await pfRes.text();
         // P5: external_id déjà utilisé -> idempotence (retry Stripe webhook)
         if (pfRes.status === 400 && /EXTERNAL_ID_IN_USE|external_id/i.test(errText)) {
           try {
-            const existingPfRes = await fetch(`https://api.printful.com/orders/@${encodeURIComponent(order.id)}`, {
-              headers: { Authorization: `Bearer ${settings.api_key}` },
-            });
-            if (existingPfRes.ok) {
+            const { res: existingPfRes } = await fetchWithRetry(
+              `https://api.printful.com/orders/@${encodeURIComponent(order.id)}`,
+              { headers: { Authorization: `Bearer ${settings.api_key}` } },
+              { attempts: 3, baseMs: 400, idempotent: true },
+            );
+            if (existingPfRes && existingPfRes.ok) {
               const existingPf = await existingPfRes.json();
               const existingId = existingPf.result?.id?.toString() || "";
               // marquer comme succès idempotent
@@ -582,6 +648,15 @@ export default {
           }
           await supabaseAdmin.from("orders").update({ status: "on_hold", notes: (order.notes ? order.notes + "\n" : "") + `[POD P5] Printful 400: ${errText}`.slice(0, 900) }).eq("id", orderId);
         }
+        // Échec définitif côté Printful (après retries) : commande payée
+        // non transmise = CRITICAL (notif admin dédupliquée).
+        await reportError(supabaseAdmin, {
+          fn: "create-printful-order",
+          action: "create",
+          error: errText.slice(0, 500),
+          meta: { orderId, status: pfRes.status },
+          severity: "critical",
+        });
         return new Response(
           JSON.stringify({ error: `Erreur Printful: ${errText}` }),
           {
