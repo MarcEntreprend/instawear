@@ -12,7 +12,8 @@
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "inventory": "tsx scripts/inventory-check.ts",
     "sitemap": "tsx scripts/generate-sitemap.ts",
-    "prebuild": "npm run sitemap"
+    "prebuild": "npm run sitemap",
+    "postbuild": "tsx scripts/prerender.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.7.0",

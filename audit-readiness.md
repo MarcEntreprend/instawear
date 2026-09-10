@@ -11,13 +11,13 @@
 
 **Fait :** toutes les strings visibles shoppers passées en US English (~50 fichiers : `Header`, `Footer`, `CatalogSection`, `ProductPage`, `CartDrawer`, `CheckoutFlow` + messages de validation, `AccountPage`, `ContactPage`, `OrderTrackingModal`, `DealCountdown` (`${d}j` → `${d}d`), `SORT_OPTIONS` (`Popularité` → `Popularity`…), labels catégories (`Accessoires` → `Accessories`…), `index.html` (`lang="en"`, `og:locale en_US`, meta description EN). Emails clients (`emailTemplates.ts`) et `public/unsubscribe.html` déjà EN — vérifié.
 
-**Laissé volontairement en FR (invisible shoppers) :** commentaires de code ; clés techniques matchées à la DB (`faq.ts` `category: "livraison"|"produit"|…` — jamais affichées, pas d'onglets ; `EVENT_TYPES` values `saisonnier`/`anniversaire` matchées à `product.eventType` ; `PRODUCT_CATEGORIES` values matchées à `product.category` ; `STYLE_OPTIONS`/`MATERIAL_OPTIONS` stockées via admin ; statuts `retrait`/`livraison`, `on_hold`) ; tout `src/admin/` ; `store_settings.shipping_delay` (jamais rendu au front — le checkout utilise `deliveryEstimate` live Printful *"4-7 business days"*).
+**Laissé volontairement en FR (invisible shoppers) :** commentaires de code ; clés techniques matchées à la DB (`faq.ts` `category: "livraison"|"produit"|…` — jamais affichées, pas d'onglets ; `EVENT_TYPES` values `saisonnier`/`anniversaire` matchées à `product.eventType` ; `PRODUCT_CATEGORIES` values matchées à `product.category` ; `STYLE_OPTIONS`/`MATERIAL_OPTIONS` stockées via admin ; statuts `retrait`/`livraison`, `on_hold`) ; tout `src/admin/` ; `store_settings.shipping_delay` (jamais rendu au front — le checkout utilise `deliveryEstimate` live Printful _"4-7 business days"_).
 
 ### 2. Mocks / Données statiques résiduelles — ⚠️ mineur
 
 - ~~`src/hooks/usePageMeta.ts:13` — `DEFAULT_IMAGE` Unsplash~~ → fait le 10/09 : `/InstaWear-logo.png`.
 - ~~`server.ts` — endpoint `/api/gemini/generate-description` + `demoFallback`~~ → fait le 10/09 : endpoint + import `@google/genai` supprimés de `server.ts`, dépendance retirée de `package.json` (+ lock sync), clé retirée de `.env.example`. Aucun appelant dans `src/` (vérifié grep). `server.cjs` passe de 4.0 → 2.1 kB.
-- `src/data/countries.ts:12-21` + `src/data/currency.ts:4-14` — vérifié le 10/09 : `COUNTRIES` (noms EN) sert aux selects pays checkout/compte/settings ; la conversion statique `COUNTRY_CURRENCY`/`formatPrice`/`rateFromEur` est du code mort (0 usage — l'affichage passe par `formatAmount` + devise `store_settings`). Le shipping est déjà live Printful (`supabase/functions/_shared/printfulRates.ts:123`) avec fallback = forfait admin `store_settings.shippingCost`, et l'admin `SettingsPage.tsx:664` affiche déjà *"rates Printful (live API)"*. Aucun `shippingRates` statique présenté comme vérité nulle part → rien à changer.
+- `src/data/countries.ts:12-21` + `src/data/currency.ts:4-14` — vérifié le 10/09 : `COUNTRIES` (noms EN) sert aux selects pays checkout/compte/settings ; la conversion statique `COUNTRY_CURRENCY`/`formatPrice`/`rateFromEur` est du code mort (0 usage — l'affichage passe par `formatAmount` + devise `store_settings`). Le shipping est déjà live Printful (`supabase/functions/_shared/printfulRates.ts:123`) avec fallback = forfait admin `store_settings.shippingCost`, et l'admin `SettingsPage.tsx:664` affiche déjà _"rates Printful (live API)"_. Aucun `shippingRates` statique présenté comme vérité nulle part → rien à changer.
 - `src/data/testimonials.ts` / `src/components/AboutSection.tsx:18` — OK désormais (10 avis externalisés, image locale `jpg`). Plus de mock Unsplash `w=800` ici.
 
 ### 3. Images / CLS / Perf front — ❌ à faire (Core Web Vitals)
@@ -37,7 +37,7 @@
 
 ### 5. SEO résiduel — ⚠️ partiel (le gros est fait)
 
-Le gros est fait : `index.html:4` `lang fr`, `robots index,follow`, `theme-color`, `og:locale fr_FR` + `en_US` alternate, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié *Wear the Moment*, description FR, `canonical`, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, `Organization` + `WebSite+SearchAction` (`index.html:42-69`), `public/robots.txt`/`sitemap.xml`/`llms.txt`/`ai.txt`/`humans.txt`/`/.well-known/ai.txt` présents, `usePageMeta` sur **7 pages** (`ProductPage.tsx:101` + `ContactPage.tsx:17` + `FaqPage.tsx:9` + `LegalPage.tsx:35` + `PromotionsPage.tsx:12` + `SearchResultsPage.tsx:55` + `OrderTrackingPage.tsx:13`), JSON-LD `Product` (`Offer` + `AggregateRating` + `BreadcrumbList` dans `ProductPage.tsx:112-194`) + `FAQPage` (`FaqPage.tsx:15-34`).
+Le gros est fait : `index.html:4` `lang fr`, `robots index,follow`, `theme-color`, `og:locale fr_FR` + `en_US` alternate, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié _Wear the Moment_, description FR, `canonical`, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, `Organization` + `WebSite+SearchAction` (`index.html:42-69`), `public/robots.txt`/`sitemap.xml`/`llms.txt`/`ai.txt`/`humans.txt`/`/.well-known/ai.txt` présents, `usePageMeta` sur **7 pages** (`ProductPage.tsx:101` + `ContactPage.tsx:17` + `FaqPage.tsx:9` + `LegalPage.tsx:35` + `PromotionsPage.tsx:12` + `SearchResultsPage.tsx:55` + `OrderTrackingPage.tsx:13`), JSON-LD `Product` (`Offer` + `AggregateRating` + `BreadcrumbList` dans `ProductPage.tsx:112-194`) + `FAQPage` (`FaqPage.tsx:15-34`).
 
 **Fait le 10/09 :**
 
@@ -45,15 +45,18 @@ Le gros est fait : `index.html:4` `lang fr`, `robots index,follow`, `theme-color
 - ~~**`site.webmanifest` manquant**~~ → créé `public/site.webmanifest` (name/short_name, `theme_color #ff5c35`, icônes `/InstaWear-logo.png`) + `<link rel="manifest">` dans `index.html:15`. Cohérent avec l'allowlist 404 (`App.tsx:1350`).
 - ~~**`llms.txt` minimal**~~ → `scripts/generate-sitemap.ts` réécrit désormais aussi le bloc `<!-- PRODUCTS -->` de `public/llms.txt` (`- [Titre](url)` par produit actif, curation préservée hors marqueurs). Bonus : ligne devise corrigée (USD, pas EUR) + events en anglais.
 
-**Reste (décision) :**
+**Fait le 10/09 — prerender statique (plus aucun risque SPA) :**
 
-- **SPA sans SSR/prerender — risque accepté et documenté.** Pas de SSR : Googlebot et agents JS rendent `usePageMeta` + JSON-LD sans problème ; les cartes sociales utilisent les OG statiques de `index.html`. Seuls les crawlers non-JS voient `#root` vide — jugé acceptable pour le launch (le catalogue reste découvrable via `sitemap.xml` + `llms.txt` générés à chaque build). Réévaluer si un canal non-JS devient significatif (option : prerender `vite-plugin-prerender` ou Vercel ISR sur `/`, `/produit/:id`, `/faq`, `/legal/*`).
+- **`scripts/prerender.ts` (run auto via `"postbuild"`)** génère après chaque build, depuis `dist/index.html` : `/` (enrichi), `/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi`, `/legal/cgv|privacy|cookies` (depuis `src/data/legal.ts`, même source que la page), `/produit/:id` (un HTML par produit actif). Chaque fichier a son `<title>`/meta/OG/canonical dédiés + JSON-LD (`Product` + `BreadcrumbList` sur produits, `FAQPage` sur `/faq`) + snapshot de contenu réel dans `#root` (visible sans JS, remplacé au boot React — mêmes assets, SPA intacte).
+- **`vercel.json` : `"cleanUrls": true`** → `/faq` sert `faq.html`, `/produit/:id` sert `produit/:id.html` (fichiers servis avant le rewrite catch-all). `server.ts` (`express.static`) sert aussi les fichiers en premier sur le path VPS.
+- **Sans env Supabase au build** : produits ignorés, routes statiques générées quand même, exit 0. Vérifié le 10/09 : 15 HTML (6 produits), page produit avec OG image réelle + JSON-LD + snapshot.
+- Contenu légal extrait vers **`src/data/legal.ts`** (LegalPage importe, zéro changement visuel).
 
 ### 6. Cookies / CNIL — ⚠️ quasi-OK
 
-Fait : `src/hooks/useCookieConsent.ts:1-68` `CONSENT_VERSION=2`, `EXPIRY 365j`, `necessary:true` + `nonEssential` (analytics/perf/pub regroupés), migration auto v1 → v2, `persist/acceptAll/rejectNonEssential/resetConsent`. `src/components/CookieConsentBanner.tsx:1-53` bannière 2 boutons (`Tout accepter` / `Refuser les non-essentiels`), texte unique, sans toggles. Gate `src/lib/analytics.ts:9-22` n'injecte `VITE_GA_ID` que si `nonEssential`. `Footer.tsx:471` lien `Gérer les cookies` → `App.tsx:1741` `resetConsent()`.
+.
 
-**Reste (si exigence CNIL stricte) :** tableau détaillé des cookies (nom / finalité / durée / éditeur) sur la page `/legal/cookies` ou dans la bannière. Actuellement la bannière n'expose pas ce tableau. Non-bloquant si la page légale le contient, bloquant si audit CNIL formel.
+**Reste (si exigence CNIL stricte) :** tableau détaillé des cookies (nom / finalité / durée / éditeur) sur la page `/legal/cookies` ou dans la bannière. Actuellement la bannière n'expose pas ce tableau. Non-bloquant si la page légale le contient, bloquant si audit CNIL formel. -> NON, je ne mets pas les details.
 
 ---
 
