@@ -382,6 +382,555 @@ async function pollMockupTask(
   );
 }
 
+// ─── Mockup Studio : pipeline partagé (Phases 1+2) ─────────────────────
+// Même pipeline que l'action legacy "generate-mockups", découpé pour le
+// bulk : prepare (données, sans attente) -> create (tâche Printful, rapide)
+// -> poll/finalize (lent). La file (mockup_jobs) ne stocke que des tâches
+// CRÉÉES côté Printful : aucun poll bloquant de 60s dans les appels file.
+// Les écritures DB finales (finalizeMockupTask) sont IDENTIQUES au flux
+// legacy : variants[].image, color_images, gallery, product_mockups,
+// image principale. Ne pas les modifier sans test de non-régression.
+
+const MOCKUP_CREATE_PACING_MS = 7000; // ≤8 créations/min (limite Printful 10/60s)
+const MOCKUP_WORKER_POLL_SLEEP_MS = 1000; // polling léger entre jobs
+const MOCKUP_STUCK_MINUTES = 15; // processing plus vieux = repris (crash-safe)
+const MOCKUP_MAX_PER_QUEUE_CALL = 5; // borne un appel (temps d'exécution edge)
+const MOCKUP_MAX_PER_WORKER_RUN = 25; // polls unitaires rapides, pas de boucle 60s
+
+// Cache syncProductId -> catalogue ID pour mockup-templates (24h).
+const templateCatalogCache = new Map<string, { id: number; expiresAt: number }>();
+
+function mockupSleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+interface MockupPrepare {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  dbProduct?: any;
+  catalogProductId?: number;
+  uniqueVariantIds?: number[];
+  printFileUrl?: string;
+  placement?: string;
+  printAreaWidth?: number;
+  printAreaHeight?: number;
+  variantIdToColor?: Map<number, string>;
+  /** Entrées printfiles brutes (géométrie par placement, Phase 3). */
+  printfiles?: any[];
+}
+
+// Étapes 1-7 du flux legacy : produit DB, détail store, catalogue,
+// printfiles, 1 variant catalogue par couleur + print file. Sans attente.
+async function prepareMockupTask(
+  supabaseAdmin: any,
+  apiKey: string,
+  storeId: string | undefined,
+  productId: string,
+): Promise<MockupPrepare> {
+  const fail = (error: string, status: number): MockupPrepare => ({ ok: false, error, status });
+
+  const { data: dbProduct, error: dbErr } = await supabaseAdmin
+    .from("products")
+    .select("*")
+    .eq("id", productId)
+    .single();
+  if (dbErr || !dbProduct) return fail("Produit introuvable.", 404);
+  if (!dbProduct.external_product_id) {
+    return fail("Ce produit n'est pas importé de Printful.", 400);
+  }
+
+  const { res: storeRes } = await fetchWithRetry(
+    `https://api.printful.com/store/products/${dbProduct.external_product_id}`,
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    { attempts: 3, baseMs: 500, idempotent: true },
+  );
+  if (!storeRes || !storeRes.ok) {
+    return fail(
+      `Erreur Printful Store: ${storeRes ? await storeRes.text() : "injoignable"}`,
+      502,
+    );
+  }
+  const storeData = await storeRes.json();
+  const detail = storeData.result;
+  const syncVariants: any[] = detail.sync_variants ?? [];
+  const mainVariant = syncVariants[0];
+  if (!mainVariant) return fail("Aucun variant Printful trouvé.", 404);
+
+  const catalogProductId =
+    mainVariant?.product?.product_id || mainVariant?.product_id;
+  if (!catalogProductId) {
+    return fail("Impossible de déterminer le produit catalogue.", 400);
+  }
+
+  let catalogVariants: any[] = [];
+  try {
+    const { res: catalogRes } = await fetchWithRetry(
+      `https://api.printful.com/products/${catalogProductId}`,
+      {},
+      { attempts: 2, baseMs: 400, idempotent: true },
+    );
+    if (catalogRes && catalogRes.ok) {
+      const catalogData = await catalogRes.json();
+      const catalogResult = catalogData?.result?.product || catalogData?.result;
+      catalogVariants = catalogResult?.variants || [];
+    }
+  } catch {
+    // fallback — will use sync variants only
+  }
+
+  const variantIdToColor = buildVariantIdToColorMap(syncVariants, catalogVariants);
+
+  const seenColors = new Set<string>();
+  const uniqueVariantIds: number[] = [];
+  let printFileUrl = "";
+  for (const v of syncVariants) {
+    const catalogVid = v.variant_id || v.product?.variant_id;
+    if (!catalogVid) continue;
+    const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
+    if (!seenColors.has(hex)) {
+      seenColors.add(hex);
+      uniqueVariantIds.push(catalogVid);
+    }
+    if (!printFileUrl) {
+      printFileUrl = v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+    }
+  }
+
+  try {
+    printFileUrl = (await safeFetch(printFileUrl, { method: "HEAD" })).url;
+  } catch (e) {
+    console.warn("P-D printFileUrl SSRF check failed", safeTruncate(String((e as any)?.message || e), 200));
+  }
+  if (uniqueVariantIds.length === 0) {
+    return fail("Aucun variant catalogue trouvé.", 400);
+  }
+  if (!printFileUrl) {
+    return fail("Aucun fichier d'impression (print file) trouvé.", 400);
+  }
+
+  let printAreaWidth = 1800;
+  let printAreaHeight = 2400;
+  let placement = "front";
+  let printfiles: any[] = [];
+  try {
+    const pfHeaders: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+    };
+    if (storeId) pfHeaders["X-PF-Store-Id"] = storeId;
+    const { res: pfRes } = await fetchWithRetry(
+      `https://api.printful.com/mockup-generator/printfiles/${catalogProductId}`,
+      { headers: pfHeaders },
+      { attempts: 2, baseMs: 400, idempotent: true },
+    );
+    if (pfRes && pfRes.ok) {
+      const pfData = await pfRes.json();
+      const result = pfData?.result || {};
+      const availablePlacements: Record<string, string> =
+        result.available_placements || {};
+      const placementKeys = Object.keys(availablePlacements);
+      if (placementKeys.length > 0) placement = placementKeys[0];
+      printfiles = result.printfiles ?? [];
+      if (printfiles.length > 0) {
+        const firstPf = printfiles[0];
+        if (firstPf.width) printAreaWidth = firstPf.width;
+        if (firstPf.height) printAreaHeight = firstPf.height;
+        if (firstPf.placement) placement = firstPf.placement;
+      }
+    }
+  } catch {
+    // fallback: use "front" with default DTG dimensions (12"×16" @ 150 DPI)
+  }
+
+  return {
+    ok: true,
+    dbProduct,
+    catalogProductId,
+    uniqueVariantIds,
+    printFileUrl,
+    placement,
+    printAreaWidth,
+    printAreaHeight,
+    variantIdToColor,
+    printfiles,
+  };
+}
+
+interface MockupCreated {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  taskKey?: string;
+  raw?: any;
+}
+
+// Construit les entrées files[] d'une tâche (Phase 3) : un placement =
+// un visuel généré (ex: front + back dans la même tâche).
+// requested vide/absent → [fallback] (legacy exact : 1 fichier front).
+// Forme validée en amont (queue-mockups) : strings non vides, max 5.
+export function buildMockupFiles(
+  printFileUrl: string,
+  requested: string[] | undefined,
+  printfiles: any[],
+  fallback: { placement: string; width: number; height: number },
+): { placement: string; image_url: string; position: Record<string, number> }[] {
+  const wanted =
+    requested && requested.length > 0
+      ? [...new Set(requested)].slice(0, 5)
+      : [fallback.placement];
+  return wanted.map((placement) => {
+    const entry = (printfiles || []).find((p: any) => p?.placement === placement);
+    const width = Number(entry?.width) > 0 ? Number(entry.width) : fallback.width;
+    const height = Number(entry?.height) > 0 ? Number(entry.height) : fallback.height;
+    return {
+      placement,
+      image_url: printFileUrl,
+      position: {
+        area_width: width,
+        area_height: height,
+        width,
+        height,
+        top: 0,
+        left: 0,
+      },
+    };
+  });
+}
+
+export interface MockupTaskOverrides {
+  format?: "jpg" | "png";
+  width?: number;
+  files?: { placement: string; image_url: string; position: Record<string, number> }[];
+  productTemplateId?: number;
+}
+
+// Étape 8 : crée la tâche Printful (rapide, sans poll).
+// overrides (Phase 3, validés par l'appelant) : format/width, files
+// multi-placements, ou productTemplateId (remplace files, cf. doc).
+// Sans overrides : corps legacy EXACT (jpg, lifelike, 1 fichier).
+async function createMockupTask(
+  supabaseAdmin: any,
+  apiKey: string,
+  storeId: string | undefined,
+  catalogProductId: number,
+  uniqueVariantIds: number[],
+  printFileUrl: string,
+  placement: string,
+  printAreaWidth: number,
+  printAreaHeight: number,
+  overrides?: MockupTaskOverrides,
+): Promise<MockupCreated> {
+  const createHeaders: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (storeId) createHeaders["X-PF-Store-Id"] = storeId;
+  const createBody: Record<string, any> = {
+    variant_ids: uniqueVariantIds,
+    format: overrides?.format || "jpg",
+    ...(overrides?.width ? { width: overrides.width } : {}),
+    product_options: { lifelike: true },
+    ...(overrides?.productTemplateId
+      ? { product_template_id: overrides.productTemplateId }
+      : {
+          files: overrides?.files || [
+            {
+              placement,
+              image_url: printFileUrl,
+              position: {
+                area_width: printAreaWidth,
+                area_height: printAreaHeight,
+                width: printAreaWidth,
+                height: printAreaHeight,
+                top: 0,
+                left: 0,
+              },
+            },
+          ],
+        }),
+  };
+
+  // Tâche NON idempotente : retry 429 + réseau uniquement (gap 14).
+  const { res: createRes, error: netError } = await fetchWithRetry(
+    `https://api.printful.com/mockup-generator/create-task/${catalogProductId}`,
+    { method: "POST", headers: createHeaders, body: JSON.stringify(createBody) },
+    { attempts: 3, baseMs: 600, idempotent: false },
+  );
+  if (!createRes) {
+    await reportError(supabaseAdmin, {
+      fn: "sync-printful",
+      action: "mockup-create",
+      error: netError || "Printful injoignable",
+      severity: "high",
+    });
+    return { ok: false, error: `Échec création tâche mockup: ${netError}`, status: 502 };
+  }
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    return { ok: false, error: `Échec création tâche mockup (${createRes.status}): ${errText}`, status: 502 };
+  }
+  const createData = await createRes.json();
+  const taskKey = createData?.result?.task_key;
+  if (!taskKey) {
+    return { ok: false, error: "Pas de task_key reçue de Printful.", status: 502, raw: createData };
+  }
+  return { ok: true, taskKey };
+}
+
+interface MockupPolled {
+  ok: boolean;
+  state: "completed" | "pending" | "failed";
+  result?: any;
+  error?: string;
+}
+
+// Poll UNITAIRE (un seul GET, jamais de boucle) : pour le worker.
+// Le legacy garde pollMockupTask (boucle 60s) pour le 1-produit synchrone.
+async function pollMockupOnce(
+  apiKey: string,
+  storeId: string | undefined,
+  taskKey: string,
+): Promise<MockupPolled> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (storeId) headers["X-PF-Store-Id"] = storeId;
+  try {
+    const { res, error } = await fetchWithRetry(
+      `https://api.printful.com/mockup-generator/task?task_key=${taskKey}`,
+      { headers },
+      { attempts: 2, baseMs: 500, idempotent: true },
+    );
+    if (!res) return { ok: false, state: "pending", error: error || "injoignable" };
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { ok: false, state: "failed", error: `Poll task (${res.status}): ${t.slice(0, 200)}` };
+    }
+    const data = await res.json();
+    const result = data?.result;
+    if (!result) return { ok: true, state: "pending" };
+    if (result.status === "completed") return { ok: true, state: "completed", result };
+    if (result.status === "failed") {
+      return { ok: true, state: "failed", error: `Mockup generation failed: ${result.error || "Unknown error"}` };
+    }
+    return { ok: true, state: "pending", result };
+  } catch (e: any) {
+    return { ok: false, state: "pending", error: e?.message || "poll error" };
+  }
+}
+
+interface MockupFinalized {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  taskKey?: string;
+  mockupCount?: number;
+  mockupsGenerated?: number;
+  colors?: string[];
+  storageUrls?: Record<string, string>;
+}
+
+// Étapes 9-13 IDENTIQUES au flux legacy : download, upload Storage,
+// product_mockups, variants[].image, color_images, gallery, image.
+// CONTRAT DE NON-RÉGRESSION : toute modification ici exige une mise à jour
+// des tests + validation visuelle boutique/admin.
+export interface MockupFinalizeOpts {
+  /** Ajoute aux galeries existantes au lieu de remplacer (défaut: legacy). */
+  appendGallery?: boolean;
+  /** Ne touche pas à l'image principale (défaut legacy: premier mockup). */
+  keepMainImage?: boolean;
+}
+
+async function finalizeMockupTask(
+  supabaseAdmin: any,
+  dbProduct: any,
+  productId: string,
+  taskResult: any,
+  uniqueVariantIds: number[],
+  variantIdToColor: Map<number, string>,
+  taskKey: string,
+  opts?: MockupFinalizeOpts,
+): Promise<MockupFinalized> {
+  const mockups: any[] = taskResult?.mockups ?? [];
+  if (mockups.length === 0) {
+    return { ok: false, error: "Aucun mockup généré.", status: 502, taskKey };
+  }
+
+  // Par couleur : liste des {url, placement} (Phase 3 : une tâche peut
+  // générer front + back...). Legacy (1 placement/tâche) : une seule
+  // entrée par couleur → comportement strictement identique.
+  const colorMockups = new Map<string, { url: string; placement: string }[]>();
+  for (const m of mockups) {
+    const variantIds: number[] = m.variant_ids ?? [];
+    const mockupUrl: string = m.mockup_url || "";
+    if (!mockupUrl) continue;
+    const placement = m.placement || "front";
+    for (const vid of variantIds) {
+      const hex = variantIdToColor.get(vid);
+      if (!hex) continue;
+      const list = colorMockups.get(hex) || [];
+      if (!list.some((e) => e.url === mockupUrl)) {
+        list.push({ url: mockupUrl, placement });
+      }
+      colorMockups.set(hex, list);
+    }
+  }
+
+  if (colorMockups.size === 0) {
+    return {
+      ok: false,
+      error: "Impossible d'associer les mockups aux couleurs.",
+      status: 502,
+      taskKey,
+      mockupCount: mockups.length,
+    };
+  }
+
+  try {
+    await supabaseAdmin.storage.createBucket("product-mockups", {
+      public: true,
+    });
+  } catch {
+    // bucket likely already exists
+  }
+
+  const storageUrls: Record<string, string> = {};
+  const mockupInserts: any[] = [];
+  // Visuels secondaires (2e placement et +) : ajoutés à la galerie après
+  // les visuels principaux (legacy : tableau toujours vide).
+  const extraGalleryUrls: string[] = [];
+
+  for (const [hex, entries] of colorMockups) {
+    for (const { url: mockupUrl, placement } of entries) {
+      try {
+        const imgRes = await safeFetch(mockupUrl, { headers: { Accept: "image/*" } });
+        if (!imgRes.ok) {
+          console.error(`Failed to download mockup for ${hex}: ${imgRes.status}`);
+          continue;
+        }
+        const imgBuffer = await imgRes.arrayBuffer();
+        const safeHex = hex.replace("#", "");
+        // Chemin stable legacy pour front (URLs existantes préservées) ;
+        // suffixé par placement sinon (front+back cohabitent, pas d'écrasement).
+        const storagePath =
+          placement === "front"
+            ? `${productId}/${safeHex}.jpg`
+            : `${productId}/${safeHex}-${placement}.jpg`;
+
+        const { error: uploadErr } = await supabaseAdmin.storage
+          .from("product-mockups")
+          .upload(storagePath, imgBuffer, {
+            contentType: "image/jpeg",
+            upsert: true,
+          });
+        if (uploadErr) {
+          console.error(`Failed to upload mockup for ${hex}: ${uploadErr.message}`);
+          continue;
+        }
+
+        const { data: publicUrlData } = supabaseAdmin.storage
+          .from("product-mockups")
+          .getPublicUrl(storagePath);
+
+        const storageUrl = publicUrlData?.publicUrl || "";
+        if (storageUrl) {
+          // Premier visuel par couleur = image variante (legacy exact).
+          if (!storageUrls[hex]) {
+            storageUrls[hex] = storageUrl;
+          } else {
+            extraGalleryUrls.push(storageUrl);
+          }
+          mockupInserts.push({
+            product_id: productId,
+            color: hex,
+            catalog_variant_ids: uniqueVariantIds.filter(
+              (vid) => variantIdToColor.get(vid) === hex,
+            ),
+            mockup_url: mockupUrl,
+            storage_url: storageUrl,
+            placement,
+          });
+        }
+      } catch (downloadErr: any) {
+        console.error(`Error processing mockup for ${hex}: ${downloadErr.message}`);
+      }
+    }
+  }
+
+  if (Object.keys(storageUrls).length === 0) {
+    return {
+      ok: false,
+      error: "Échec du téléchargement et stockage des mockups.",
+      status: 502,
+      taskKey,
+    };
+  }
+
+  const existingVariants: any[] = dbProduct.variants ?? [];
+  const newGallery: string[] = [];
+  const newColorImages: string[] = [];
+
+  const updatedVariants = existingVariants.map((v: any) => {
+    const hex = v.color;
+    const storageUrl = storageUrls[hex];
+    if (storageUrl) {
+      newColorImages.push(storageUrl);
+      newGallery.push(storageUrl);
+      return { ...v, image: storageUrl };
+    }
+    if (v.image) newGallery.push(v.image);
+    return v;
+  });
+  // Visuels secondaires (multi-placements) après les principaux.
+  for (const u of extraGalleryUrls) {
+    if (!newGallery.includes(u)) newGallery.push(u);
+  }
+
+  // Legacy : galerie reconstruite (cap 20). Opt-in appendGallery (Phase 4) :
+  // conserve la galerie existante et ajoute (dédupliqué, sans plafond bas
+  // pour ne pas perdre les visuels manuels).
+  const updatedGallery = opts?.appendGallery
+    ? [...new Set([...(dbProduct.gallery || []), ...newGallery])]
+    : [...new Set(newGallery)].slice(0, 20);
+  const firstMockupUrl = Object.values(storageUrls)[0] || "";
+
+  const updatePayload: Record<string, any> = {
+    variants: updatedVariants,
+    gallery: updatedGallery.length > 0 ? updatedGallery : dbProduct.gallery,
+  };
+  if (newColorImages.length > 0) {
+    updatePayload.color_images = newColorImages;
+  }
+  // Legacy : image principale = premier mockup. Opt-in keepMainImage.
+  if (firstMockupUrl && !opts?.keepMainImage) {
+    updatePayload.image = firstMockupUrl;
+  }
+
+  try {
+    await supabaseAdmin
+      .from("products")
+      .update(updatePayload)
+      .eq("id", productId);
+  } catch (updateErr: any) {
+    console.error(logSafe(`Failed to update product: ${updateErr.message}`));
+  }
+
+  if (mockupInserts.length > 0) {
+    try {
+      await supabaseAdmin.from("product_mockups").insert(mockupInserts);
+    } catch (insertErr: any) {
+      console.error(`Failed to insert mockup records: ${insertErr.message}`);
+    }
+  }
+
+  return {
+    ok: true,
+    mockupsGenerated: Object.keys(storageUrls).length,
+    colors: Object.keys(storageUrls),
+    storageUrls,
+  };
+}
+
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -1001,6 +1550,539 @@ export default {
           },
         );
       }
+      // ─── Mode "mockup-templates" (Phase 3) ──────────────────────────
+      // Découverte des placements disponibles pour un produit Printful
+      // (front/back/...) via templates/{catalogId} (cache 24h) : alimente
+      // le sélecteur de placements du Mockup Studio. syncProductId =
+      // external_product_id (sync product ID).
+      if (body.action === "mockup-templates") {
+        const syncProductId = body.syncProductId != null ? String(body.syncProductId) : "";
+        if (!syncProductId) {
+          return new Response(
+            JSON.stringify({ error: "syncProductId requis" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        const { data: prodSettings, error: podErr } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+        if (podErr || !prodSettings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        const apiKey = prodSettings.api_key;
+        const storeId = prodSettings.store_id;
+        const pfHeaders: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+        };
+        if (storeId) pfHeaders["X-PF-Store-Id"] = String(storeId);
+
+        // Résout le catalogue ID (cache 24h, même stratégie que les tarifs).
+        let catalogProductId: number | null = templateCatalogCache.get(syncProductId) || null;
+        if (!catalogProductId) {
+          const { res: detailRes } = await fetchWithRetry(
+            `https://api.printful.com/store/products/${encodeURIComponent(syncProductId)}`,
+            { headers: pfHeaders },
+            { attempts: 2, baseMs: 400, idempotent: true },
+          );
+          if (!detailRes || !detailRes.ok) {
+            return new Response(
+              JSON.stringify({ error: "Produit Printful introuvable." }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+            );
+          }
+          const detailData = await detailRes.json();
+          const vars = detailData?.result?.sync_variants || [];
+          catalogProductId =
+            Number(vars[0]?.product?.product_id || vars[0]?.product_id) || null;
+          if (!catalogProductId) {
+            return new Response(
+              JSON.stringify({ error: "Produit catalogue introuvable." }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+            );
+          }
+          templateCatalogCache.set(syncProductId, {
+            id: catalogProductId,
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          });
+        }
+
+        const technique =
+          typeof body.technique === "string" && body.technique.trim()
+            ? body.technique.trim().slice(0, 40)
+            : undefined;
+        const tplUrl =
+          `https://api.printful.com/mockup-generator/templates/${catalogProductId}` +
+          (technique ? `?technique=${encodeURIComponent(technique)}` : "");
+        const { res: tplRes, error: tplErr } = await fetchWithRetry(
+          tplUrl,
+          { headers: pfHeaders },
+          { attempts: 2, baseMs: 400, idempotent: true },
+        );
+        if (!tplRes) {
+          return new Response(
+            JSON.stringify({ error: `Printful injoignable: ${tplErr}` }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+          );
+        }
+        if (!tplRes.ok) {
+          const t = await tplRes.text().catch(() => "");
+          return new Response(
+            JSON.stringify({ error: `Erreur Printful: ${t.slice(0, 200)}` }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
+          );
+        }
+        const tplData = await tplRes.json();
+        // Normalise : placements distincts + variantes concernées.
+        const byPlacement = new Map<string, { placement: string; template_ids: number[]; variant_ids: number[] }>();
+        const items = tplData?.result?.items || tplData?.result || [];
+        const list = Array.isArray(items) ? items : [];
+        for (const entry of list) {
+          const vids: number[] = Array.isArray(entry?.variant_ids)
+            ? entry.variant_ids
+            : entry?.variant_id != null
+              ? [entry.variant_id]
+              : [];
+          const tpls = Array.isArray(entry?.templates) ? entry.templates : [];
+          for (const t of tpls) {
+            const placement = String(t?.placement || "front");
+            const cur = byPlacement.get(placement) || { placement, template_ids: [], variant_ids: [] };
+            if (t?.template_id != null && !cur.template_ids.includes(Number(t.template_id))) {
+              cur.template_ids.push(Number(t.template_id));
+            }
+            for (const v of vids) {
+              if (!cur.variant_ids.includes(Number(v))) cur.variant_ids.push(Number(v));
+            }
+            byPlacement.set(placement, cur);
+          }
+        }
+        // Repli : si la forme est inattendue, au moins front.
+        if (byPlacement.size === 0) {
+          byPlacement.set("front", { placement: "front", template_ids: [], variant_ids: [] });
+        }
+        return new Response(
+          JSON.stringify({
+            catalog_product_id: catalogProductId,
+            placements: [...byPlacement.values()],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ─── Mode "queue-mockups" (Mockup Studio, Phase 1) ─────────────
+      // Met en file 1..N produits : prepare + create TASK Printful par
+      // produit (rapide, SANS poll), insert mockup_jobs. Pacé (7s entre
+      // créations, limite Printful 10 req/60s). productIds omis →
+      // auto-sélection des plus anciens produits sans mockups complets.
+      // body.options (Phase 3, tout optionnel, validé ci-dessous) :
+      // placements (front/back...), format (jpg/png), width (50-2000),
+      // colors (clés variantes), product_template_id, appendGallery,
+      // keepMainImage.
+      if (body.action === "queue-mockups") {
+        const { data: prodSettings, error: podErr } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+        if (podErr || !prodSettings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+        const apiKey = prodSettings.api_key;
+        const storeId = prodSettings.store_id;
+
+        // Validation des options (défense : rien d'arbitraire vers Printful).
+        const rawOpts = (body.options || {}) as any;
+        const optPlacements: string[] | undefined = Array.isArray(rawOpts.placements)
+          ? [...new Set(
+              rawOpts.placements
+                .filter((x: any) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= 40)
+                .map((x: string) => x.trim()),
+            )].slice(0, 5)
+          : undefined;
+        const optFormat: "jpg" | "png" | undefined =
+          rawOpts.format === "png" ? "png" : rawOpts.format === "jpg" ? "jpg" : undefined;
+        if (rawOpts.format !== undefined && !optFormat) {
+          return new Response(
+            JSON.stringify({ error: "format invalide (jpg|png)" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        const optWidth: number | undefined =
+          rawOpts.width !== undefined ? Number(rawOpts.width) : undefined;
+        if (optWidth !== undefined && (!Number.isInteger(optWidth) || optWidth < 50 || optWidth > 2000)) {
+          return new Response(
+            JSON.stringify({ error: "width invalide (50-2000)" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        const optColors: string[] | undefined = Array.isArray(rawOpts.colors)
+          ? [...new Set(
+              rawOpts.colors
+                .filter((x: any) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= 100)
+                .map((x: string) => x.trim()),
+            )].slice(0, 50)
+          : undefined;
+        const optTemplateId: number | undefined =
+          rawOpts.product_template_id !== undefined ? Number(rawOpts.product_template_id) : undefined;
+        if (optTemplateId !== undefined && (!Number.isInteger(optTemplateId) || optTemplateId <= 0)) {
+          return new Response(
+            JSON.stringify({ error: "product_template_id invalide" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        const optAppendGallery = rawOpts.appendGallery === true;
+        const optKeepMain = rawOpts.keepMainImage === true;
+        const hasOverrides =
+          optPlacements !== undefined ||
+          optFormat !== undefined ||
+          optWidth !== undefined ||
+          optColors !== undefined ||
+          optTemplateId !== undefined ||
+          optAppendGallery ||
+          optKeepMain;
+
+        const requested: string[] = Array.isArray(body.productIds)
+          ? [...new Set(body.productIds.map((x: any) => String(x)))]
+          : [];
+        let targetIds = requested.slice(0, MOCKUP_MAX_PER_QUEUE_CALL);
+        if (targetIds.length === 0) {
+          const { data: openJobs } = await supabaseAdmin
+            .from("mockup_jobs")
+            .select("product_id")
+            .in("status", ["queued", "processing"]);
+          const openSet = new Set((openJobs || []).map((j: any) => j.product_id));
+          const { data: prods } = await supabaseAdmin
+            .from("products")
+            .select("id, external_product_id, variants")
+            .not("external_product_id", "is", null)
+            .eq("is_active", true)
+            .limit(200);
+          targetIds = (prods || [])
+            .filter((p: any) => {
+              if (openSet.has(p.id)) return false;
+              const variants = Array.isArray(p.variants) ? p.variants : [];
+              if (variants.length === 0) return true;
+              return !variants.every(
+                (v: any) => v.image && String(v.image).trim().length > 0,
+              );
+            })
+            .slice(0, MOCKUP_MAX_PER_QUEUE_CALL)
+            .map((p: any) => p.id);
+          if (targetIds.length === 0) {
+            return new Response(
+              JSON.stringify({ queued: 0, done: true, message: "Aucun produit sans mockups." }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+        }
+
+        const queued: any[] = [];
+        const failed: any[] = [];
+        const skipped: any[] = [];
+        for (let i = 0; i < targetIds.length; i++) {
+          const pid = targetIds[i];
+          try {
+            const { data: open } = await supabaseAdmin
+              .from("mockup_jobs")
+              .select("id,status")
+              .eq("product_id", pid)
+              .in("status", ["queued", "processing"])
+              .maybeSingle();
+            if (open) {
+              skipped.push({ productId: pid, reason: `déjà en file (${open.status})` });
+              continue;
+            }
+            const prep = await prepareMockupTask(supabaseAdmin, apiKey, storeId, pid);
+            if (!prep.ok) {
+              failed.push({ productId: pid, error: prep.error });
+              await supabaseAdmin.from("mockup_jobs").insert({
+                product_id: pid, status: "failed", result: { error: prep.error },
+              });
+              continue;
+            }
+            // Ciblage couleurs (Phase 3) : filtre les variant IDs sur les
+            // clés demandées ; vide → job en échec explicite (pas d'appel).
+            let vids = prep.uniqueVariantIds!;
+            if (optColors !== undefined) {
+              const wanted = new Set(optColors);
+              vids = vids.filter((vid) => wanted.has(prep.variantIdToColor!.get(vid) || ""));
+              if (vids.length === 0) {
+                failed.push({ productId: pid, error: "aucune variante pour ces couleurs" });
+                await supabaseAdmin.from("mockup_jobs").insert({
+                  product_id: pid, status: "failed",
+                  result: { error: "aucune variante pour ces couleurs" },
+                });
+                continue;
+              }
+            }
+            const files = hasOverrides && !optTemplateId
+              ? buildMockupFiles(prep.printFileUrl!, optPlacements, prep.printfiles || [], {
+                  placement: prep.placement!,
+                  width: prep.printAreaWidth!,
+                  height: prep.printAreaHeight!,
+                })
+              : undefined;
+            const created = await createMockupTask(
+              supabaseAdmin, apiKey, storeId,
+              prep.catalogProductId!, vids, prep.printFileUrl!,
+              prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
+              hasOverrides
+                ? {
+                    ...(optFormat ? { format: optFormat } : {}),
+                    ...(optWidth ? { width: optWidth } : {}),
+                    ...(files ? { files } : {}),
+                    ...(optTemplateId ? { productTemplateId: optTemplateId } : {}),
+                  }
+                : undefined,
+            );
+            if (!created.ok) {
+              failed.push({ productId: pid, error: created.error });
+              await supabaseAdmin.from("mockup_jobs").insert({
+                product_id: pid, status: "failed", result: { error: created.error },
+              });
+              continue;
+            }
+            const { data: job, error: jobErr } = await supabaseAdmin
+              .from("mockup_jobs")
+              .insert({
+                product_id: pid,
+                status: "queued",
+                task_key: created.taskKey,
+                options: {
+                  catalog_product_id: prep.catalogProductId,
+                  unique_variant_ids: vids,
+                  variant_id_to_color: Object.fromEntries(prep.variantIdToColor!),
+                  ...(optPlacements ? { placements: optPlacements } : {}),
+                  ...(optFormat ? { format: optFormat } : {}),
+                  ...(optWidth ? { width: optWidth } : {}),
+                  ...(optColors ? { colors: optColors } : {}),
+                  ...(optTemplateId ? { product_template_id: optTemplateId } : {}),
+                  ...(optAppendGallery ? { appendGallery: true } : {}),
+                  ...(optKeepMain ? { keepMainImage: true } : {}),
+                },
+                attempts: 0,
+              })
+              .select("id")
+              .single();
+            if (jobErr || !job) {
+              if (String((jobErr as any)?.code) === "23505") {
+                skipped.push({ productId: pid, reason: "déjà en file (course)" });
+              } else {
+                failed.push({ productId: pid, error: "insert job impossible" });
+              }
+              continue;
+            }
+            queued.push({ productId: pid, jobId: job.id, taskKey: created.taskKey });
+          } catch (e: any) {
+            failed.push({ productId: pid, error: e?.message || "erreur" });
+          }
+          if (i < targetIds.length - 1) await mockupSleep(MOCKUP_CREATE_PACING_MS);
+        }
+        return new Response(
+          JSON.stringify({
+            queued: queued.length,
+            failed: failed.length,
+            skipped: skipped.length,
+            details: { queued, failed, skipped },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ─── Mode "mockup-status" ───────────────────────────────────────
+      if (body.action === "mockup-status") {
+        const counts: Record<string, number> = { queued: 0, processing: 0, done: 0, failed: 0 };
+        for (const s of Object.keys(counts)) {
+          const { count } = await supabaseAdmin
+            .from("mockup_jobs")
+            .select("id", { count: "exact", head: true })
+            .eq("status", s);
+          counts[s] = count || 0;
+        }
+        const { data: jobs } = await supabaseAdmin
+          .from("mockup_jobs")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .limit(50);
+        const ids = [...new Set((jobs || []).map((j: any) => j.product_id))];
+        const titles: Record<string, string> = {};
+        if (ids.length > 0) {
+          const { data: prods } = await supabaseAdmin
+            .from("products")
+            .select("id,title")
+            .in("id", ids);
+          for (const p of prods || []) titles[p.id] = p.title;
+        }
+        return new Response(
+          JSON.stringify({
+            counts,
+            jobs: (jobs || []).map((j: any) => ({
+              ...j,
+              product_title: titles[j.product_id] || null,
+            })),
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ─── Mode "mockup-worker" (Phase 2) ─────────────────────────────
+      // Poll UNITAIRE par job (jamais de boucle 60s) : runs courts,
+      // cron-compatibles. Revendique les queued + processing périmés,
+      // finalise les completed, échoue les failed, repose les pending.
+      if (body.action === "mockup-worker") {
+        const limit = Math.min(Math.max(Number(body.limit) || 25, 1), 50);
+        const { data: prodSettings, error: podErr } = await supabaseAdmin
+          .from("pod_settings")
+          .select("*")
+          .single();
+        if (podErr || !prodSettings?.api_key) {
+          return new Response(
+            JSON.stringify({ error: "Clé API Printful non configurée." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+        const apiKey = prodSettings.api_key;
+        const storeId = prodSettings.store_id;
+        const stuckCutoff = new Date(
+          Date.now() - MOCKUP_STUCK_MINUTES * 60000,
+        ).toISOString();
+        const { data: q1 } = await supabaseAdmin
+          .from("mockup_jobs")
+          .select("*")
+          .eq("status", "queued")
+          .order("updated_at", { ascending: true })
+          .limit(limit);
+        const { data: q2 } = await supabaseAdmin
+          .from("mockup_jobs")
+          .select("*")
+          .eq("status", "processing")
+          .lt("updated_at", stuckCutoff)
+          .order("updated_at", { ascending: true })
+          .limit(limit);
+        const jobs = [...(q1 || []), ...(q2 || [])].slice(0, limit);
+
+        let done = 0;
+        let failed = 0;
+        let pending = 0;
+        const details: any[] = [];
+        for (const job of jobs) {
+          try {
+            await supabaseAdmin
+              .from("mockup_jobs")
+              .update({
+                status: "processing",
+                attempts: (job.attempts || 0) + 1,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+            const polled = await pollMockupOnce(apiKey, storeId, job.task_key);
+            if (polled.state === "completed") {
+              const { data: dbProduct } = await supabaseAdmin
+                .from("products")
+                .select("*")
+                .eq("id", job.product_id)
+                .single();
+              if (!dbProduct) {
+                await supabaseAdmin.from("mockup_jobs").update({
+                  status: "failed",
+                  result: { error: "Produit introuvable." },
+                  updated_at: new Date().toISOString(),
+                }).eq("id", job.id);
+                failed++;
+                details.push({ jobId: job.id, productId: job.product_id, status: "failed", error: "Produit introuvable." });
+              } else {
+                const opts = job.options || {};
+                const uids: number[] = Array.isArray(opts.unique_variant_ids)
+                  ? opts.unique_variant_ids
+                  : [];
+                const vmap = new Map<number, string>(
+                  Object.entries(opts.variant_id_to_color || {}).map(([k, v]) => [Number(k), String(v)]),
+                );
+                const fin = await finalizeMockupTask(
+                  supabaseAdmin, dbProduct, job.product_id, polled.result,
+                  uids, vmap, job.task_key,
+                  {
+                    appendGallery: opts.appendGallery === true,
+                    keepMainImage: opts.keepMainImage === true,
+                  },
+                );
+                if (fin.ok) {
+                  await supabaseAdmin.from("mockup_jobs").update({
+                    status: "done",
+                    result: {
+                      mockupsGenerated: fin.mockupsGenerated,
+                      colors: fin.colors,
+                      storageUrls: fin.storageUrls || {},
+                      placements: opts.placements || ["front"],
+                      format: opts.format || "jpg",
+                    },
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", job.id);
+                  done++;
+                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated });
+                } else {
+                  await supabaseAdmin.from("mockup_jobs").update({
+                    status: "failed",
+                    result: { error: fin.error },
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", job.id);
+                  failed++;
+                  details.push({ jobId: job.id, productId: job.product_id, status: "failed", error: fin.error });
+                }
+              }
+            } else if (polled.state === "failed") {
+              await supabaseAdmin.from("mockup_jobs").update({
+                status: "failed",
+                result: { error: polled.error },
+                updated_at: new Date().toISOString(),
+              }).eq("id", job.id);
+              failed++;
+              details.push({ jobId: job.id, productId: job.product_id, status: "failed", error: polled.error });
+            } else {
+              await supabaseAdmin.from("mockup_jobs").update({
+                status: "queued",
+                updated_at: new Date().toISOString(),
+              }).eq("id", job.id);
+              pending++;
+            }
+          } catch (e: any) {
+            failed++;
+            details.push({ jobId: job.id, productId: job.product_id, status: "failed", error: e?.message || "erreur" });
+            try {
+              await supabaseAdmin.from("mockup_jobs").update({
+                status: "failed",
+                result: { error: e?.message || "erreur" },
+                updated_at: new Date().toISOString(),
+              }).eq("id", job.id);
+            } catch {}
+          }
+          await mockupSleep(MOCKUP_WORKER_POLL_SLEEP_MS);
+        }
+        if (failed > 0) {
+          await reportError(supabaseAdmin, {
+            fn: "sync-printful",
+            action: "mockup-worker",
+            error: `${failed} job(s) mockup en échec sur ce run`,
+            meta: { failed, done, pending },
+            severity: "high",
+          });
+        }
+        return new Response(
+          JSON.stringify({ polled: jobs.length, done, failed, pending, details }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
 
       // ─── Mode "generate-mockups" ────────────────────────────────────
       if (body.action === "generate-mockups" && body.productId) {
@@ -1020,483 +2102,60 @@ export default {
 
         const apiKey = prodSettings.api_key;
         const storeId = prodSettings.store_id;
-
-        // 1. Look up product in DB
-        const { data: dbProduct, error: dbErr } = await supabaseAdmin
-          .from("products")
-          .select("*")
-          .eq("id", body.productId)
-          .single();
-
-        if (dbErr || !dbProduct) {
+        // Legacy 1-produit synchrone : même pipeline, mêmes réponses.
+        const prep = await prepareMockupTask(supabaseAdmin, apiKey, storeId, body.productId);
+        if (!prep.ok) {
           return new Response(
-            JSON.stringify({ error: "Produit introuvable." }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 404,
-            },
+            JSON.stringify({ error: prep.error }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: prep.status || 500 },
           );
         }
-
-        if (!dbProduct.external_product_id) {
-          return new Response(
-            JSON.stringify({
-              error: "Ce produit n'est pas importé de Printful.",
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 400,
-            },
-          );
-        }
-
-        // 2. Fetch Printful store product details (sync variants)
-        const storeRes = await fetch(
-          `https://api.printful.com/store/products/${dbProduct.external_product_id}`,
-          { headers: { Authorization: `Bearer ${apiKey}` } },
+        const created = await createMockupTask(
+          supabaseAdmin, apiKey, storeId,
+          prep.catalogProductId!, prep.uniqueVariantIds!, prep.printFileUrl!,
+          prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
         );
-        if (!storeRes.ok) {
-          const errText = await storeRes.text();
-          return new Response(
-            JSON.stringify({ error: `Erreur Printful Store: ${errText}` }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        const storeData = await storeRes.json();
-        const detail = storeData.result;
-        const syncVariants: any[] = detail.sync_variants ?? [];
-        const mainVariant = syncVariants[0];
-
-        if (!mainVariant) {
-          return new Response(
-            JSON.stringify({ error: "Aucun variant Printful trouvé." }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 404,
-            },
-          );
-        }
-
-        // 3. Get catalog product ID
-        const catalogProductId =
-          mainVariant?.product?.product_id || mainVariant?.product_id;
-        if (!catalogProductId) {
+        if (!created.ok) {
           return new Response(
             JSON.stringify({
-              error: "Impossible de déterminer le produit catalogue.",
+              error: created.error,
+              ...(created.raw !== undefined ? { raw: created.raw } : {}),
             }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 400,
-            },
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: created.status || 502 },
           );
         }
-
-        // 4. Fetch catalog variants for color mapping
-        let catalogVariants: any[] = [];
-        try {
-          const catalogRes = await fetch(
-            `https://api.printful.com/products/${catalogProductId}`,
-          );
-          if (catalogRes.ok) {
-            const catalogData = await catalogRes.json();
-            const catalogResult =
-              catalogData?.result?.product || catalogData?.result;
-            catalogVariants = catalogResult?.variants || [];
-          }
-        } catch {
-          // fallback — will use sync variants only
-        }
-
-        // 5. Build catalog_variant_id → hex_color map
-        const variantIdToColor = buildVariantIdToColorMap(
-          syncVariants,
-          catalogVariants,
-        );
-
-        // 6. Collect ONE catalog variant ID per color + the print file URL
-        const seenColors = new Set<string>();
-        const uniqueVariantIds: number[] = [];
-        let printFileUrl = "";
-
-        for (const v of syncVariants) {
-          const catalogVid = v.variant_id || v.product?.variant_id;
-          if (!catalogVid) continue;
-          const hex = resolveHexColor(v.color, v.color_code, v.color_code2);
-          if (!seenColors.has(hex)) {
-            seenColors.add(hex);
-            uniqueVariantIds.push(catalogVid);
-          }
-          if (!printFileUrl) {
-            printFileUrl =
-              v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
-          }
-        }
-
-        // P-D SSRF: valider printFileUrl (vient de Printful) avant usage
-        try { printFileUrl = (await safeFetch(printFileUrl, { method: "HEAD" })).url; } catch (e) { console.warn("P-D printFileUrl SSRF check failed", safeTruncate(String(e?.message || e), 200)); }
-        if (uniqueVariantIds.length === 0) {
-          return new Response(
-            JSON.stringify({ error: "Aucun variant catalogue trouvé." }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 400,
-            },
-          );
-        }
-
-        if (!printFileUrl) {
-          return new Response(
-            JSON.stringify({
-              error: "Aucun fichier d'impression (print file) trouvé.",
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 400,
-            },
-          );
-        }
-
-        // 7. Fetch printfiles to get print area dimensions + available placements
-        let printAreaWidth = 1800;
-        let printAreaHeight = 2400;
-        let placement = "front"; // fallback for legacy DTG products
-
-        try {
-          const pfHeaders: Record<string, string> = {
-            Authorization: `Bearer ${apiKey}`,
-          };
-          if (storeId) pfHeaders["X-PF-Store-Id"] = storeId;
-
-          const pfRes = await fetch(
-            `https://api.printful.com/mockup-generator/printfiles/${catalogProductId}`,
-            { headers: pfHeaders },
-          );
-          if (pfRes.ok) {
-            const pfData = await pfRes.json();
-            const result = pfData?.result || {};
-
-            // Determine the correct placement from available_placements
-            const availablePlacements: Record<string, string> =
-              result.available_placements || {};
-            const placementKeys = Object.keys(availablePlacements);
-            if (placementKeys.length > 0) {
-              placement = placementKeys[0]; // e.g. "front", "default", "embroidery_front"
-            }
-
-            const printfiles: any[] = result.printfiles ?? [];
-            if (printfiles.length > 0) {
-              const firstPf = printfiles[0];
-              if (firstPf.width) printAreaWidth = firstPf.width;
-              if (firstPf.height) printAreaHeight = firstPf.height;
-              // If the printfile itself declares a placement, prefer it
-              if (firstPf.placement) placement = firstPf.placement;
-            }
-          }
-        } catch {
-          // fallback: use "front" with default DTG dimensions (12"×16" @ 150 DPI)
-        }
-
-        // 8. Create mockup generation task
-        const createHeaders: Record<string, string> = {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        };
-        if (storeId) createHeaders["X-PF-Store-Id"] = storeId;
-
-        const createBody: Record<string, any> = {
-          variant_ids: uniqueVariantIds,
-          format: "jpg",
-          product_options: { lifelike: true },
-          files: [
-            {
-              placement,
-              image_url: printFileUrl,
-              position: {
-                area_width: printAreaWidth,
-                area_height: printAreaHeight,
-                width: printAreaWidth,
-                height: printAreaHeight,
-                top: 0,
-                left: 0,
-              },
-            },
-          ],
-        };
-
-        // Création de tâche NON idempotente (doublerait la tâche sur 5xx
-        // à issue inconnue) : retry 429 + réseau uniquement (gap 14).
-        let createRes: Response | null = null;
-        try {
-          const r = await fetchWithRetry(
-            `https://api.printful.com/mockup-generator/create-task/${catalogProductId}`,
-            {
-              method: "POST",
-              headers: createHeaders,
-              body: JSON.stringify(createBody),
-            },
-            { attempts: 3, baseMs: 600, idempotent: false },
-          );
-          createRes = r.res;
-          if (!createRes) {
-            await reportError(supabaseAdmin, {
-              fn: "sync-printful",
-              action: "generate-mockups",
-              error: r.error || "Printful injoignable",
-              severity: "high",
-            });
-            return new Response(
-              JSON.stringify({
-                error: `Échec création tâche mockup: ${r.error}`,
-              }),
-              {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-                status: 502,
-              },
-            );
-          }
-        } catch (createErr: any) {
-          return new Response(
-            JSON.stringify({
-              error: `Échec création tâche mockup: ${createErr.message}`,
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        if (!createRes.ok) {
-          const errText = await createRes.text();
-          return new Response(
-            JSON.stringify({
-              error: `Échec création tâche mockup (${createRes.status}): ${errText}`,
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        const createData = await createRes.json();
-        const taskKey = createData?.result?.task_key;
-        if (!taskKey) {
-          return new Response(
-            JSON.stringify({
-              error: "Pas de task_key reçue de Printful.",
-              raw: createData,
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        // 8. Poll for completion (up to ~60s)
         let taskResult: any;
         try {
-          taskResult = await pollMockupTask(apiKey, storeId, taskKey);
+          taskResult = await pollMockupTask(apiKey, storeId, created.taskKey!);
         } catch (pollErr: any) {
           return new Response(
-            JSON.stringify({ error: pollErr.message, taskKey }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
+            JSON.stringify({ error: pollErr.message, taskKey: created.taskKey }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 },
           );
         }
-
-        const mockups: any[] = taskResult?.mockups ?? [];
-        if (mockups.length === 0) {
-          return new Response(
-            JSON.stringify({ error: "Aucun mockup généré.", taskKey }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        // 9. Map mockups to colors and download + upload to Storage
-        const colorToMockupUrl = new Map<string, string>();
-        for (const m of mockups) {
-          const variantIds: number[] = m.variant_ids ?? [];
-          const mockupUrl: string = m.mockup_url || "";
-          if (!mockupUrl) continue;
-          const placement: string = m.placement || "front";
-
-          for (const vid of variantIds) {
-            const hex = variantIdToColor.get(vid);
-            if (hex && !colorToMockupUrl.has(hex)) {
-              colorToMockupUrl.set(hex, mockupUrl);
-            }
-          }
-        }
-
-        if (colorToMockupUrl.size === 0) {
+        const fin = await finalizeMockupTask(
+          supabaseAdmin, prep.dbProduct, body.productId, taskResult,
+          prep.uniqueVariantIds!, prep.variantIdToColor!, created.taskKey!,
+        );
+        if (!fin.ok) {
           return new Response(
             JSON.stringify({
-              error: "Impossible d'associer les mockups aux couleurs.",
-              taskKey,
-              mockupCount: mockups.length,
+              error: fin.error,
+              ...(fin.taskKey ? { taskKey: fin.taskKey } : {}),
+              ...(fin.mockupCount !== undefined ? { mockupCount: fin.mockupCount } : {}),
             }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: fin.status || 502 },
           );
         }
-
-        // 10. Ensure storage bucket exists
-        try {
-          await supabaseAdmin.storage.createBucket("product-mockups", {
-            public: true,
-          });
-        } catch {
-          // bucket likely already exists
-        }
-
-        // 11. Download each mockup, upload to Storage, update product
-        const storageUrls: Record<string, string> = {}; // hex → storage_url
-        const mockupInserts: any[] = [];
-
-        for (const [hex, mockupUrl] of colorToMockupUrl) {
-          try {
-            const imgRes = await safeFetch(mockupUrl, { headers: { Accept: "image/*" } });
-            if (!imgRes.ok) {
-              console.error(
-                `Failed to download mockup for ${hex}: ${imgRes.status}`,
-              );
-              continue;
-            }
-            const imgBuffer = await imgRes.arrayBuffer();
-            const safeHex = hex.replace("#", "");
-            const storagePath = `${body.productId}/${safeHex}.jpg`;
-
-            const { error: uploadErr } = await supabaseAdmin.storage
-              .from("product-mockups")
-              .upload(storagePath, imgBuffer, {
-                contentType: "image/jpeg",
-                upsert: true,
-              });
-
-            if (uploadErr) {
-              console.error(
-                `Failed to upload mockup for ${hex}: ${uploadErr.message}`,
-              );
-              continue;
-            }
-
-            const { data: publicUrlData } = supabaseAdmin.storage
-              .from("product-mockups")
-              .getPublicUrl(storagePath);
-
-            const storageUrl = publicUrlData?.publicUrl || "";
-            if (storageUrl) {
-              storageUrls[hex] = storageUrl;
-              mockupInserts.push({
-                product_id: body.productId,
-                color: hex,
-                catalog_variant_ids: uniqueVariantIds.filter(
-                  (vid) => variantIdToColor.get(vid) === hex,
-                ),
-                mockup_url: mockupUrl,
-                storage_url: storageUrl,
-                placement: "front",
-              });
-            }
-          } catch (downloadErr: any) {
-            console.error(
-              `Error processing mockup for ${hex}: ${downloadErr.message}`,
-            );
-          }
-        }
-
-        if (Object.keys(storageUrls).length === 0) {
-          return new Response(
-            JSON.stringify({
-              error: "Échec du téléchargement et stockage des mockups.",
-              taskKey,
-            }),
-            {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-              status: 502,
-            },
-          );
-        }
-
-        // 12. Update product.variants with new images
-        const existingVariants: any[] = dbProduct.variants ?? [];
-        const newGallery: string[] = [];
-        const newColorImages: string[] = [];
-
-        const updatedVariants = existingVariants.map((v: any) => {
-          const hex = v.color;
-          const storageUrl = storageUrls[hex];
-          if (storageUrl) {
-            newColorImages.push(storageUrl);
-            newGallery.push(storageUrl);
-            return { ...v, image: storageUrl };
-          }
-          // Keep existing image if no new mockup for this color
-          if (v.image) newGallery.push(v.image);
-          return v;
-        });
-
-        const updatedGallery = [...new Set(newGallery)].slice(0, 20);
-        const firstMockupUrl = Object.values(storageUrls)[0] || "";
-
-        const updatePayload: Record<string, any> = {
-          variants: updatedVariants,
-          gallery:
-            updatedGallery.length > 0 ? updatedGallery : dbProduct.gallery,
-        };
-        if (newColorImages.length > 0) {
-          updatePayload.color_images = newColorImages;
-        }
-        // Also update the main product image so store cards show mockup
-        if (firstMockupUrl) {
-          updatePayload.image = firstMockupUrl;
-        }
-
-        try {
-          await supabaseAdmin
-            .from("products")
-            .update(updatePayload)
-            .eq("id", body.productId);
-        } catch (updateErr: any) {
-          console.error(logSafe(`Failed to update product: ${updateErr.message}`));
-        }
-
-        // 13. Insert into product_mockups table
-        if (mockupInserts.length > 0) {
-          try {
-            await supabaseAdmin.from("product_mockups").insert(mockupInserts);
-          } catch (insertErr: any) {
-            console.error(
-              `Failed to insert mockup records: ${insertErr.message}`,
-            );
-          }
-        }
-
         return new Response(
           JSON.stringify({
             success: true,
-            taskKey,
-            mockupsGenerated: Object.keys(storageUrls).length,
-            colors: Object.keys(storageUrls),
-            storageUrls,
+            taskKey: created.taskKey,
+            mockupsGenerated: fin.mockupsGenerated,
+            colors: fin.colors,
+            storageUrls: fin.storageUrls,
           }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 

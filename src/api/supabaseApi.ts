@@ -1190,6 +1190,66 @@ export interface PrintfulReport {
   fetched_at: string;
 }
 
+export interface MockupQueueResult {
+  queued: number;
+  failed: number;
+  skipped: number;
+  done?: boolean;
+  message?: string;
+  details?: {
+    queued: { productId: string; jobId: string; taskKey: string }[];
+    failed: { productId: string; error: string }[];
+    skipped: { productId: string; reason: string }[];
+  };
+}
+
+export interface MockupJob {
+  id: string;
+  product_id: string;
+  product_title?: string | null;
+  status: "queued" | "processing" | "done" | "failed";
+  task_key: string | null;
+  attempts: number;
+  result?: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MockupStatus {
+  counts: { queued: number; processing: number; done: number; failed: number };
+  jobs: MockupJob[];
+}
+
+export interface MockupWorkerResult {
+  polled: number;
+  done: number;
+  failed: number;
+  pending: number;
+  details: {
+    jobId: string;
+    productId: string;
+    status: string;
+    error?: string;
+    mockupsGenerated?: number;
+  }[];
+}
+
+export interface MockupQueueOptions {
+  placements?: string[];
+  format?: "jpg" | "png";
+  width?: number;
+  colors?: string[];
+  product_template_id?: number;
+  appendGallery?: boolean;
+  keepMainImage?: boolean;
+}
+
+export interface MockupTemplatePlacement {
+  placement: string;
+  template_ids: number[];
+  variant_ids: number[];
+}
+
 export const podApi = {
   async getSettings(): Promise<PodSettings> {
     const { data, error } = await supabase
@@ -1668,6 +1728,79 @@ export const podApi = {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || "Erreur génération mockups");
+    }
+    return res.json();
+  },
+
+  /** File d'attente mockups (Mockup Studio) : voir types ci-dessus. */
+  async queueMockups(
+    productIds?: string[],
+    options?: MockupQueueOptions,
+  ): Promise<MockupQueueResult> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        action: "queue-mockups",
+        ...(productIds && productIds.length > 0 ? { productIds } : {}),
+        ...(options ? { options } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur mise en file mockups");
+    }
+    return res.json();
+  },
+
+  async mockupTemplates(
+    syncProductId: string,
+  ): Promise<{ catalog_product_id: number; placements: MockupTemplatePlacement[] }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "mockup-templates", syncProductId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur templates mockups");
+    }
+    return res.json();
+  },
+
+  async mockupStatus(): Promise<MockupStatus> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "mockup-status" }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur statut file mockups");
+    }
+    return res.json();
+  },
+
+  async runMockupWorker(limit?: number): Promise<MockupWorkerResult> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        action: "mockup-worker",
+        ...(limit ? { limit } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur worker mockups");
     }
     return res.json();
   },
