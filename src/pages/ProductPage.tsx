@@ -40,6 +40,7 @@ import {
 } from "../utils/merch";
 import { merchApi } from "../api/supabaseApi";
 import { getVariant } from "../lib/engagement";
+import { sortSizes } from "../utils/sizeOrder";
 
 export default function ProductPage({
   product,
@@ -199,10 +200,10 @@ export default function ProductPage({
     ? product.variants!.map((v: any) => v.color_name)
     : product.colorNames;
   const dispSizes = hasVariants
-    ? [
+    ? sortSizes([
         ...new Set(product.variants!.flatMap((v: any) => Object.keys(v.sizes))),
-      ].sort()
-    : product.sizes;
+      ])
+    : sortSizes(product.sizes);
   const colorIdx = pickedColor ? dispColors.indexOf(pickedColor) : 0;
   const activeVariant =
     hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
