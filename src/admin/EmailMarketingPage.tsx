@@ -60,11 +60,13 @@ import {
   Percent,
   Layers,
   Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import * as S from "./adminStyles";
 import { supabase } from "../lib/supabaseClient";
 import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
 import VariablesModal from "./emailMarketing/VariablesModal";
+import PrefsEventsSection from "./emailMarketing/PrefsEventsSection";
 import { useToast } from "./emailMarketing/useToast";
 import {
   formatDate,
@@ -83,6 +85,7 @@ type Section =
   | "segments"
   | "automations"
   | "subscribers"
+  | "prefs"
   | "settings";
 
 type CampaignStatus = "draft" | "scheduled" | "sending" | "sent" | "failed";
@@ -209,6 +212,11 @@ export default function EmailMarketingPage() {
               icon: <Users size={14} strokeWidth={1.75} />,
             },
             {
+              key: "prefs",
+              label: "Préférences",
+              icon: <SlidersHorizontal size={14} strokeWidth={1.75} />,
+            },
+            {
               key: "settings",
               label: "Paramètres",
               icon: <Settings size={14} strokeWidth={1.75} />,
@@ -313,6 +321,7 @@ export default function EmailMarketingPage() {
       {section === "segments" && <SegmentsSection toast={toast} />}
       {section === "automations" && <AutomationsSection toast={toast} />}
       {section === "subscribers" && <SubscribersSection toast={toast} />}
+      {section === "prefs" && <PrefsEventsSection toast={toast} />}
       {section === "settings" && <SettingsSection toast={toast} />}
 
       {/* Toasts */}

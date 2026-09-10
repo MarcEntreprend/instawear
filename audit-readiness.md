@@ -23,7 +23,17 @@ Sondage live read-only : `customers?select=id` → `200 []`, `newsletter_subscri
 
 ### Top restants (priorisés)
 
-1. **Unsubscribe hardening** — reco, non-bloquant. Seul point restant.
+Aucun. L'audit est clos — voir ci-dessous.
+
+### 2. Unsubscribe hardening — ✅ fait le 10/09 (durci + réparé, zéro dette)
+
+**Fait :**
+- **Edge `email-preferences` déployée** (ops `get`/`save`, `service_role`, email strict normalisé, booléens stricts, clés inconnues rejetées, payload ≤100KB, rate-limit 10/min/IP, logs sanitizés `logSafe`). `save` applique **uniquement les clés fournies** (fusion — `newsletter` ne touche jamais `email_preferences` et inversement).
+- **`public/unsubscribe.html` réécrite** vers l'edge — **plus aucun REST anon direct, clé anon supprimée de la page**. UI identique. Bonus : la page **refonctionne** (le REST anon était mort en live : SELECT → `[]`).
+- **Migration `20261020_email_prefs.sql` appliquée live** : table `email_preference_events` (journal append-only, RLS admin) + `newsletter_subscribers` verrouillée admin-only (0 policy avant → `newsletter_subscribers_admin_all` ; footer subscribe via RPC SECURITY DEFINER inchangé, `customers` non touchée). Historique migration réparé (`repair --status applied`).
+- **Onglet "Préférences"** dans Email Marketing (`PrefsEventsSection.tsx`) : stats 30j (events, désabonnements, réabonnements, modifs prefs, emails uniques) + table filtrable (date, email, changement lisible, source, IP).
+- **Inventaire** : `/email-preferences` dans `openapi.json` (16 paths) + `tests/email-preferences.test.ts` (5 tests logique pure).
+- **Vérifié live le 10/09** : 400 email invalide, `get` inconnu → defaults sans écriture, cycle subscribe→get→unsubscribe OK, journal avec les 2 changements, 0 ligne résiduelle. Suite : **366 tests verts**, `tsc` + `build` verts.
 
 ### Volontairement abandonné (choix produit, ne plus tracker)
 
