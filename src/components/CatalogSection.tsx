@@ -7,7 +7,10 @@ import {
   List,
   SlidersHorizontal,
   RotateCcw,
+  Home,
+  RefreshCw,
 } from "lucide-react";
+import { useOffline } from "../hooks/useOffline";
 import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
@@ -45,6 +48,10 @@ interface CatalogSectionProps {
   getDeliverEstimateString?: (days: number) => string;
   isFavoritesMode?: boolean;
   onClearFavorites?: () => void;
+  /** Re-tente le chargement (fetch produits). Bouton "Try again" du bloc offline. */
+  onRetry?: () => void;
+  /** Retour à l'accueil. Bouton "Back to home" du bloc offline. */
+  onNavigateHome?: () => void;
 }
 const PAGE_SIZE = 12;
 type FilterState = {
@@ -151,7 +158,11 @@ export default function CatalogSection({
   setSelectedEventType,
   isFavoritesMode = false,
   onClearFavorites,
+  onRetry,
+  onNavigateHome,
 }: CatalogSectionProps) {
+  // Hors-ligne : navigateur (events online/offline) + erreur fetch produits.
+  const isOffline = useOffline(networkError);
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
     if (typeof window !== "undefined" && window.location.search.length > 1)
       return parseFiltersFromSearch(
@@ -788,29 +799,71 @@ export default function CatalogSection({
               ))}
             </div>
           ) : extraFiltered.length === 0 ? (
-            <div
-              className="text-center py-24 rounded-3xl w-full"
-              style={{ background: "var(--color-surface2)" }}
-            >
-              <p
-                className="text-base font-bold mb-2"
-                style={{ color: "var(--color-ink)" }}
+            isOffline ? (
+              <div
+                className="text-center py-24 rounded-3xl w-full"
+                style={{ background: "var(--color-surface2)" }}
               >
-                No items match these filters
-              </p>
-              <p
-                className="text-sm mb-5"
-                style={{ color: "var(--color-ink3)" }}
+                <img
+                  src={NO_INTERNET}
+                  alt="No internet connection"
+                  className="w-16 h-16 mx-auto mb-5 opacity-70"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <p
+                  className="text-base font-bold mb-2"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  Oops! Something went wrong while loading the page.
+                </p>
+                <p
+                  className="text-sm mb-6"
+                  style={{ color: "var(--color-ink3)" }}
+                >
+                  Please try again later or, if you prefer, return to the
+                  home page.
+                </p>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => onRetry?.()}
+                    className="btn btn-secondary"
+                  >
+                    <RefreshCw size={14} /> Try again
+                  </button>
+                  <button
+                    onClick={() => onNavigateHome?.()}
+                    className="btn btn-secondary"
+                  >
+                    <Home size={14} /> Back to home
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="text-center py-24 rounded-3xl w-full"
+                style={{ background: "var(--color-surface2)" }}
               >
-                Try broadening your search.
-              </p>
-              <button
-                onClick={handleResetAll}
-                className="btn btn-secondary mx-auto"
-              >
-                <RotateCcw size={14} /> Reset filters
-              </button>
-            </div>
+                <p
+                  className="text-base font-bold mb-2"
+                  style={{ color: "var(--color-ink)" }}
+                >
+                  No items match these filters
+                </p>
+                <p
+                  className="text-sm mb-5"
+                  style={{ color: "var(--color-ink3)" }}
+                >
+                  Try broadening your search.
+                </p>
+                <button
+                  onClick={handleResetAll}
+                  className="btn btn-secondary mx-auto"
+                >
+                  <RotateCcw size={14} /> Reset filters
+                </button>
+              </div>
+            )
           ) : (
             <>
               <div

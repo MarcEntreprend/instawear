@@ -1497,6 +1497,7 @@ export default function App() {
         onOpenTracking={() => setTrackingOpen(true)}
         searchSuggestions={productTitles}
         products={products}
+        networkError={networkError}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
         // onSelectProduct={(product) => setSelectedProduct(product)}
@@ -1566,6 +1567,18 @@ export default function App() {
             setSelectedEventType={setSelectedEventType}
             isFavoritesMode={showFavoritesOnly}
             onClearFavorites={() => setShowFavoritesOnly(false)}
+            onRetry={() => fetchProducts()}
+            onNavigateHome={() => {
+              setSelectedProduct(null);
+              setLegalSlug(null);
+              setShowFaqPage(false);
+              setShowContactPage(false);
+              setShowPromotionsPage(false);
+              setSearchPageQuery(null);
+              setTrackingPageCode(null);
+              setActiveTab("store");
+              history.pushState({}, "", "/");
+            }}
           />
 
           {isUser && (
@@ -1692,6 +1705,7 @@ export default function App() {
           }}
           onToggleFavourite={(p) => toggleFavorite(p.id)}
           onQuickAdd={(p) => addToCart(p, p.colors?.[0] || "#000000", "M")}
+          networkError={networkError}
         />
       )}
       {trackingPageCode !== null && (

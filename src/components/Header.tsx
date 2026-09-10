@@ -29,6 +29,7 @@ import { useCurrency } from "../hooks/useCurrency";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
+import { useOffline, SEARCH_PLACEHOLDER_OFFLINE, SEARCH_PLACEHOLDER_ONLINE } from "../hooks/useOffline";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -49,6 +50,7 @@ interface HeaderProps {
   onSelectEventType: (type: string | null) => void;
   currentEventType: string | null;
   currentCategory: string | null;
+  networkError?: boolean;
   onOpenAccount?: () => void;
   onScrollToSection: (
     section:
@@ -311,7 +313,13 @@ export default function Header({
   onSelectCategory,
   onSelectEventType,
   isHomePage = true,
+  networkError = false,
 }: HeaderProps) {
+  // Placeholder générique quand hors-ligne (navigateur ou fetch produits en échec).
+  const isOffline = useOffline(networkError);
+  const searchPlaceholder = isOffline
+    ? SEARCH_PLACEHOLDER_OFFLINE
+    : SEARCH_PLACEHOLDER_ONLINE;
   const { theme: themeHook, toggleTheme: toggleHook } = useTheme();
   const {
     country: shipTo,
@@ -601,7 +609,7 @@ export default function Header({
                   setTimeout(() => setIsDesktopSuggestOpen(false), 120);
                 }}
                 type="search"
-                placeholder="Search for an item, an event…"
+                placeholder={searchPlaceholder}
                 className="flex-1 bg-transparent outline-none px-3 text-sm"
                 style={{ color: "var(--color-ink)", outline: "none" }}
               />
@@ -791,7 +799,7 @@ export default function Header({
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
                 type="search"
-                placeholder="Search for an item, an event…"
+                placeholder={searchPlaceholder}
                 className="flex-1 bg-transparent outline-none px-3 text-sm [&::-webkit-search-cancel-button]:hidden"
                 style={{
                   color: "var(--color-ink)",
