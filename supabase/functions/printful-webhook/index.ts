@@ -12,6 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -773,12 +774,20 @@ export default {
       }
 
       // P-C fetch-back: vérifier que la commande existe vraiment chez Printful (anti-spoof sans HMAC)
+      // GET idempotent : retry 429/5xx best-effort (gap 14).
       try {
         const { data: podSettings } = await supabaseAdmin.from("pod_settings").select("api_key").eq("id", "pod-main").maybeSingle();
         const apiKey = (podSettings as any)?.api_key;
         if (apiKey && pfOrderId) {
-          const vRes = await fetch(`https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`, { headers: { Authorization: `Bearer ${apiKey}` } });
-          if (!vRes.ok && vRes.status === 404) {
+          const { res: vRes } = await fetchWithRetry(
+            `https://api.printful.com/orders/${encodeURIComponent(String(pfOrderId))}`,
+            { headers: { Authorization: `Bearer ${apiKey}` } },
+            { attempts: 2, baseMs: 400, idempotent: true },
+          );
+          if (!vRes) {
+            // Printful injoignable après retries : on continue (fail-open,
+            // les autres gardes restent actives).
+          } else if (!vRes.ok && vRes.status === 404) {
             console.warn(`P-C fetch-back: Printful order ${pfOrderId} introuvable -> webhook ignoré`);
             // on ne bloque pas, mais on log pour audit
           } else if (vRes.ok) {
@@ -1242,6 +1251,22 @@ export default {
         },
       );
     } catch (error: any) {
+      // Gap 13 : toute 500 est tracée (page Monitoring). Printful retente
+      // de lui-même (1..1024 min) ; severity high, pas de notif (le retry
+      // couvre le transitoire, la page montre le persistant).
+      // Client reconstruit ici (supabaseAdmin du try est hors scope).
+      try {
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await reportError(admin, {
+          fn: "printful-webhook",
+          action: "handler",
+          error,
+          severity: "high",
+        });
+      } catch {}
       return new Response(
         JSON.stringify({ error: error?.message || "Erreur inconnue" }),
         {

@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { reportError } from "./_shared/opsUtils.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur (Stripe).
@@ -414,6 +415,20 @@ export default {
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     } catch (error: any) {
+      // Gap 13 : commande payée non enregistrée = CRITICAL (Stripe retente,
+      // notif admin dédupliquée). Client reconstruit (hors scope du try).
+      try {
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await reportError(admin, {
+          fn: "stripe-webhook",
+          action: "handler",
+          error,
+          severity: "critical",
+        });
+      } catch {}
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },

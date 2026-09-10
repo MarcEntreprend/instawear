@@ -19,6 +19,7 @@ import {
   Mail,
   Truck,
   Sparkles,
+  Activity,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -39,6 +40,7 @@ export type AdminSection =
   | "promotions"
   | "email-marketing"
   | "reports"
+  | "monitoring"
   | "integrations"
   | "settings"
   | "admin-users"
@@ -63,6 +65,7 @@ const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "merchandising", label: "Merchandising", icon: Sparkles },
   { id: "email-marketing", label: "Email Marketing", icon: Mail },
   { id: "reports", label: "Rapports", icon: BarChart3 },
+  { id: "monitoring", label: "Monitoring", icon: Activity },
   "separator",
   { id: "integrations", label: "Intégrations", icon: Link2 },
   { id: "settings", label: "Paramètres", icon: Settings },

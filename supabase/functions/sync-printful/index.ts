@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
+import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -767,7 +768,8 @@ export default {
           params = { stock_updated: { product_ids: productIds } };
         }
 
-        const res = await fetch("https://api.printful.com/webhooks", {
+        // Remplace la config : POST idempotent, retry 429/5xx (gap 14).
+        const { res } = await fetchWithRetry("https://api.printful.com/webhooks", {
           method: "POST",
           headers,
           body: JSON.stringify(
@@ -775,10 +777,16 @@ export default {
               ? { url: webhookUrl, types: cleanTypes, params }
               : { url: webhookUrl, types: cleanTypes },
           ),
-        });
+        }, { attempts: 3, baseMs: 500, idempotent: true });
 
-        if (!res.ok) {
-          const err = await res.text();
+        if (!res || !res.ok) {
+          const err = res ? await res.text() : "Printful injoignable";
+          await reportError(supabaseAdmin, {
+            fn: "sync-printful",
+            action: "setup-webhook",
+            error: err.slice(0, 300),
+            severity: "high",
+          });
           return new Response(
             JSON.stringify({ error: `Erreur Printful: ${err}` }),
             {
@@ -809,13 +817,13 @@ export default {
         };
         if (storeId) headers["X-PF-Store-Id"] = storeId;
 
-        const res = await fetch("https://api.printful.com/webhooks", {
+        const { res } = await fetchWithRetry("https://api.printful.com/webhooks", {
           method: "GET",
           headers,
-        });
+        }, { attempts: 3, baseMs: 400, idempotent: true });
 
-        if (!res.ok) {
-          const err = await res.text();
+        if (!res || !res.ok) {
+          const err = res ? await res.text() : "Printful injoignable";
           return new Response(
             JSON.stringify({ error: `Erreur Printful: ${err}` }),
             {
@@ -851,13 +859,13 @@ export default {
         };
         if (storeId) headers["X-PF-Store-Id"] = storeId;
 
-        const res = await fetch("https://api.printful.com/webhooks", {
+        const { res } = await fetchWithRetry("https://api.printful.com/webhooks", {
           method: "DELETE",
           headers,
-        });
+        }, { attempts: 3, baseMs: 400, idempotent: true });
 
-        if (!res.ok) {
-          const err = await res.text();
+        if (!res || !res.ok) {
+          const err = res ? await res.text() : "Printful injoignable";
           return new Response(
             JSON.stringify({ error: `Erreur Printful: ${err}` }),
             {
@@ -1185,16 +1193,37 @@ export default {
           ],
         };
 
-        let createRes: Response;
+        // Création de tâche NON idempotente (doublerait la tâche sur 5xx
+        // à issue inconnue) : retry 429 + réseau uniquement (gap 14).
+        let createRes: Response | null = null;
         try {
-          createRes = await fetch(
+          const r = await fetchWithRetry(
             `https://api.printful.com/mockup-generator/create-task/${catalogProductId}`,
             {
               method: "POST",
               headers: createHeaders,
               body: JSON.stringify(createBody),
             },
+            { attempts: 3, baseMs: 600, idempotent: false },
           );
+          createRes = r.res;
+          if (!createRes) {
+            await reportError(supabaseAdmin, {
+              fn: "sync-printful",
+              action: "generate-mockups",
+              error: r.error || "Printful injoignable",
+              severity: "high",
+            });
+            return new Response(
+              JSON.stringify({
+                error: `Échec création tâche mockup: ${r.error}`,
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 502,
+              },
+            );
+          }
         } catch (createErr: any) {
           return new Response(
             JSON.stringify({
@@ -1452,18 +1481,28 @@ export default {
         );
       }
 
-      const listRes = await fetch("https://api.printful.com/store/products", {
-        headers: { Authorization: `Bearer ${settings.api_key}` },
-      });
+      const { res: listRes } = await fetchWithRetry(
+        "https://api.printful.com/store/products",
+        {
+          headers: { Authorization: `Bearer ${settings.api_key}` },
+        },
+        { attempts: 3, baseMs: 600, idempotent: true },
+      );
 
-      if (!listRes.ok) {
-        const errText = await listRes.text();
-        if (listRes.status === 401) {
+      if (!listRes || !listRes.ok) {
+        const errText = listRes ? await listRes.text() : "Printful injoignable";
+        if (listRes && listRes.status === 401) {
           await supabaseAdmin
             .from("pod_settings")
             .update({ is_connected: false, sync_status: "error" })
             .eq("id", settings.id);
         }
+        await reportError(supabaseAdmin, {
+          fn: "sync-printful",
+          action: "sync",
+          error: errText.slice(0, 300),
+          severity: "critical",
+        });
         return new Response(
           JSON.stringify({ error: `Erreur Printful: ${errText}` }),
           {
@@ -1480,14 +1519,15 @@ export default {
 
       for (const pfProduct of printfulProducts) {
         try {
-          const detailRes = await fetch(
+          const { res: detailRes } = await fetchWithRetry(
             `https://api.printful.com/store/products/${pfProduct.id}`,
             { headers: { Authorization: `Bearer ${settings.api_key}` } },
+            { attempts: 3, baseMs: 500, idempotent: true },
           );
 
-          if (!detailRes.ok) {
+          if (!detailRes || !detailRes.ok) {
             errors.push(
-              `Erreur détails produit ${pfProduct.id}: ${detailRes.status}`,
+              `Erreur détails produit ${pfProduct.id}: ${detailRes ? detailRes.status : "injoignable"}`,
             );
             continue;
           }
@@ -1508,10 +1548,12 @@ export default {
           let catalogVariants: any[] = [];
           if (catalogProductId) {
             try {
-              const catalogRes = await fetch(
+              const { res: catalogRes } = await fetchWithRetry(
                 `https://api.printful.com/products/${catalogProductId}`,
+                {},
+                { attempts: 2, baseMs: 400, idempotent: true },
               );
-              if (catalogRes.ok) {
+              if (catalogRes && catalogRes.ok) {
                 const catalogData = await catalogRes.json();
                 const catalogResult =
                   catalogData?.result?.product || catalogData?.result;
@@ -1526,10 +1568,12 @@ export default {
           let sizeGuideData: any = undefined;
           if (catalogProductId) {
             try {
-              const sizesRes = await fetch(
+              const { res: sizesRes } = await fetchWithRetry(
                 `https://api.printful.com/products/${catalogProductId}/sizes`,
+                {},
+                { attempts: 2, baseMs: 400, idempotent: true },
               );
-              if (sizesRes.ok) {
+              if (sizesRes && sizesRes.ok) {
                 const sizesData = await sizesRes.json();
                 sizeGuideData = sizesData.result || undefined;
               }
@@ -1779,6 +1823,20 @@ export default {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     } catch (error) {
+      // Gap 13 : échec fatal du handler = CRITICAL. Client reconstruit
+      // (supabaseAdmin du try hors scope ici). Best-effort, jamais bloquant.
+      try {
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await reportError(admin, {
+          fn: "sync-printful",
+          action: "handler",
+          error,
+          severity: "critical",
+        });
+      } catch {}
       return new Response(
         JSON.stringify({
           error: error instanceof Error ? error.message : "Erreur inconnue",
