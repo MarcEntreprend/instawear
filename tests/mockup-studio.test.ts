@@ -13,6 +13,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { needsMockups } from "../src/admin/MockupStudio.tsx";
 import { mockupCoverage } from "../src/admin/MockupStudio.tsx";
+import { latestJobForProduct } from "../src/admin/MockupStudio.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const syncSource = readFileSync(
@@ -181,6 +182,36 @@ test("couverture : X/Y variantes imagées", () => {
 test("couverture : sans variantes → 0/0", () => {
   assert.deepEqual(mockupCoverage({ variants: [] } as any), { total: 0, imaged: 0 });
   assert.deepEqual(mockupCoverage({} as any), { total: 0, imaged: 0 });
+});
+
+// ─── Marqueur file par produit (vrai code) ──────────────────────────────────
+
+const PJOBS: { product_id: string; status: string; updated_at: string }[] = [
+  { product_id: "p1", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p1", status: "queued", updated_at: "2026-01-02T10:00:00Z" },
+  { product_id: "p2", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p2", status: "failed", updated_at: "2026-01-03T10:00:00Z" },
+  { product_id: "p3", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p3", status: "done", updated_at: "2026-01-05T10:00:00Z" },
+];
+
+test("sans job → null (bouton Mettre en file)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "px"), null);
+});
+
+test("en-cours prioritaire sur terminé (bouton En file…)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "p1")?.status, "queued");
+});
+
+test("échoué prioritaire sur terminé (bouton Relancer)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "p2")?.status, "failed");
+});
+
+test("à égalité : le plus récent gagne", () => {
+  assert.equal(
+    latestJobForProduct(PJOBS, "p3")?.updated_at,
+    "2026-01-05T10:00:00Z",
+  );
 });
 
 // ─── buildMockupFiles : 1 fichier par placement (miroir edge) ───────────────

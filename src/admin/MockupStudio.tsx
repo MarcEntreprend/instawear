@@ -40,6 +40,38 @@ export function mockupCoverage(p: {
   return { total: variants.length, imaged };
 }
 
+export type JobStatus = "queued" | "processing" | "done" | "failed";
+
+/**
+ * Job le plus pertinent par produit pour le marqueur visuel :
+ * en-cours > échoué > terminé (à updated_at égal ou plus récent d'abord).
+ */
+export function latestJobForProduct(
+  jobs: { product_id: string; status: string; updated_at: string }[],
+  productId: string,
+): { product_id: string; status: string; updated_at: string } | null {
+  const rank: Record<string, number> = {
+    queued: 0,
+    processing: 0,
+    failed: 1,
+    done: 2,
+  };
+  let best: { product_id: string; status: string; updated_at: string } | null = null;
+  for (const j of jobs || []) {
+    if (j.product_id !== productId) continue;
+    if (!best) {
+      best = j;
+      continue;
+    }
+    const rj = rank[j.status] ?? 3;
+    const rb = rank[best.status] ?? 3;
+    if (rj < rb || (rj === rb && j.updated_at > best.updated_at)) {
+      best = j;
+    }
+  }
+  return best;
+}
+
 interface ProductCfg {
   open: boolean;
   placements: string[];
@@ -117,6 +149,21 @@ export default function MockupStudio({
     () => (products || []).filter((p) => !!(p as any).externalProductId),
     [products],
   );
+
+  const jobsByProduct = useMemo(() => {
+    const groups = new Map<string, { product_id: string; status: string; updated_at: string }[]>();
+    for (const j of status?.jobs || []) {
+      const list = groups.get(j.product_id) || [];
+      list.push(j);
+      groups.set(j.product_id, list);
+    }
+    const map = new Map<string, { product_id: string; status: string; updated_at: string }>();
+    for (const [pid, list] of groups) {
+      const best = latestJobForProduct(list, pid);
+      if (best) map.set(pid, best);
+    }
+    return map;
+  }, [status]);
 
   const [cfg, setCfg] = useState<Record<string, ProductCfg>>({});
   const getCfg = (id: string): ProductCfg => cfg[id] || defaultCfg();
@@ -612,22 +659,70 @@ export default function MockupStudio({
                           </span>
                         </td>
                         <td style={{ padding: "10px 12px" }}>
-                          <button
-                            type="button"
-                            onClick={() => handleQueueOne(p)}
-                            style={{
-                              padding: "4px 10px",
-                              borderRadius: 8,
-                              border: "1px solid var(--color-border2)",
-                              background: "var(--color-surface)",
-                              color: "var(--color-ink2)",
-                              fontWeight: 700,
-                              fontSize: 11,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Mettre en file
-                          </button>
+                          {(() => {
+                            const job = jobsByProduct.get(p.id);
+                            const st = job
+                              ? STATUS_STYLE[job.status] || STATUS_STYLE.queued
+                              : null;
+                            const label = !job
+                              ? "Mettre en file"
+                              : job.status === "done"
+                                ? "Régénérer"
+                                : job.status === "failed"
+                                  ? "Relancer"
+                                  : "En file…";
+                            return (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                {st && (
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "2px 8px",
+                                      borderRadius: 999,
+                                      fontSize: 10,
+                                      fontWeight: 800,
+                                      color: st.color,
+                                      background: st.bg,
+                                    }}
+                                  >
+                                    {st.label}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      job?.status === "done" &&
+                                      !window.confirm(
+                                        `Régénérer les mockups de « ${p.title} » ? (nouvelle tâche Printful, les visuels seront écrasés)`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    handleQueueOne(p);
+                                  }}
+                                  style={{
+                                    padding: "4px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid var(--color-border2)",
+                                    background: "var(--color-surface)",
+                                    color: "var(--color-ink2)",
+                                    fontWeight: 700,
+                                    fontSize: 11,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {label}
+                                </button>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td style={{ padding: "10px 12px" }}>
                           <button
