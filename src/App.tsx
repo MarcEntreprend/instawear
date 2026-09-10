@@ -155,12 +155,19 @@ export default function App() {
     } else if (path === "/suivi") {
       const c = new URLSearchParams(search).get("code") || "";
       setTrackingPageCode(c);
-    } else if (path.startsWith("/order/success/") || path.startsWith("/orderResult/") || path.startsWith("/orderResult/success/")) {
+    } else if (
+      path.startsWith("/order/success/") ||
+      path.startsWith("/orderResult/") ||
+      path.startsWith("/orderResult/success/")
+    ) {
       const parts = path.split("/").filter(Boolean);
       const id = parts[parts.length - 1];
-      if (id && id !== "success" && id.startsWith("ORD-")) setOrderSuccessId(id);
+      if (id && id !== "success" && id.startsWith("ORD-"))
+        setOrderSuccessId(id);
       else {
-        const qId = new URLSearchParams(search).get("id") || new URLSearchParams(search).get("orderId");
+        const qId =
+          new URLSearchParams(search).get("id") ||
+          new URLSearchParams(search).get("orderId");
         if (qId) setOrderSuccessId(qId);
       }
     } else if (path === "/order/success" || path === "/orderResult") {
@@ -269,13 +276,17 @@ export default function App() {
     if (typeof window === "undefined") return null;
     const path = window.location.pathname;
     const search = window.location.search;
-    if (path.startsWith("/order/success/") || path.startsWith("/orderResult/")) {
+    if (
+      path.startsWith("/order/success/") ||
+      path.startsWith("/orderResult/")
+    ) {
       const parts = path.split("/").filter(Boolean);
       const last = parts[parts.length - 1];
       if (last && last.startsWith("ORD-")) return last;
     }
     const params = new URLSearchParams(search);
-    if (params.get("order") === "success" && params.get("id")) return params.get("id");
+    if (params.get("order") === "success" && params.get("id"))
+      return params.get("id");
     if (path === "/order/success" && params.get("id")) return params.get("id");
     return null;
   });
@@ -1124,7 +1135,10 @@ export default function App() {
     setStripeConfirmOrderId(orderId);
     setOrderSuccessId(orderId);
     // Pousse la nouvelle URL si on est encore sur l'ancienne forme ?order=success
-    if (window.location.pathname === "/" && window.location.search.includes("order=success")) {
+    if (
+      window.location.pathname === "/" &&
+      window.location.search.includes("order=success")
+    ) {
       window.history.replaceState({}, "", `/order/success/${orderId}`);
     } else {
       cleanUrl();
@@ -1202,7 +1216,10 @@ export default function App() {
       const path = window.location.pathname;
       const search = window.location.search;
       let id: string | null = null;
-      if (path.startsWith("/order/success/") || path.startsWith("/orderResult/")) {
+      if (
+        path.startsWith("/order/success/") ||
+        path.startsWith("/orderResult/")
+      ) {
         const parts = path.split("/").filter(Boolean);
         const last = parts[parts.length - 1];
         if (last && last.startsWith("ORD-")) id = last;
@@ -1336,7 +1353,12 @@ export default function App() {
         "/orderResult",
         "/orderResult/success",
       ];
-      const knownPrefixes = ["/produit/", "/legal/", "/order/success/", "/orderResult/"];
+      const knownPrefixes = [
+        "/produit/",
+        "/legal/",
+        "/order/success/",
+        "/orderResult/",
+      ];
       // Chemins statiques (fichiers dans /public)
       const isStaticFile =
         path.startsWith("/flags/") ||
@@ -1435,14 +1457,19 @@ export default function App() {
         }
         onNavigateHome={() => {
           setSelectedProduct(null);
+          setSelectedProductInitialColor(null);
+          setSelectedProductInitialSize(null);
           setLegalSlug(null);
           setShowFaqPage(false);
           setShowContactPage(false);
           setShowPromotionsPage(false);
           setSearchPageQuery(null);
           setTrackingPageCode(null);
+          setOrderSuccessId(null);
+          setStripeConfirmOrderId(null);
           setActiveTab("store");
-          history.pushState({}, "", "/");
+          window.history.pushState({}, "", "/");
+          window.scrollTo({ top: 0, behavior: "instant" });
         }}
         onOpenFaqPage={openFaqPage}
         onOpenContactPage={openContactPage}
@@ -1494,6 +1521,7 @@ export default function App() {
         }}
         onOpenAccount={() => setShowAccountPage(true)}
         onScrollToSection={scrollToSection}
+        onSelectProduct={(p) => openProduct(p)}
         onOpenTracking={() => setTrackingOpen(true)}
         searchSuggestions={productTitles}
         products={products}
@@ -1570,14 +1598,19 @@ export default function App() {
             onRetry={() => fetchProducts()}
             onNavigateHome={() => {
               setSelectedProduct(null);
+              setSelectedProductInitialColor(null);
+              setSelectedProductInitialSize(null);
               setLegalSlug(null);
               setShowFaqPage(false);
               setShowContactPage(false);
               setShowPromotionsPage(false);
               setSearchPageQuery(null);
               setTrackingPageCode(null);
+              setOrderSuccessId(null);
+              setStripeConfirmOrderId(null);
               setActiveTab("store");
-              history.pushState({}, "", "/");
+              window.history.pushState({}, "", "/");
+              window.scrollTo({ top: 0, behavior: "instant" });
             }}
           />
 

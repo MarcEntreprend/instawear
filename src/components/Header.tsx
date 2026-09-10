@@ -29,7 +29,11 @@ import { useCurrency } from "../hooks/useCurrency";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
-import { useOffline, SEARCH_PLACEHOLDER_OFFLINE, SEARCH_PLACEHOLDER_ONLINE } from "../hooks/useOffline";
+import {
+  useOffline,
+  SEARCH_PLACEHOLDER_OFFLINE,
+  SEARCH_PLACEHOLDER_ONLINE,
+} from "../hooks/useOffline";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -61,6 +65,7 @@ interface HeaderProps {
       | "contact"
       | "filters",
   ) => void;
+  onSelectProduct?: (p: Product) => void;
   onOpenTracking: () => void;
   onNavigateHome?: () => void;
   onOpenFaqPage?: () => void;
@@ -301,6 +306,7 @@ export default function Header({
   onOpenProfile,
   onOpenAccount,
   onScrollToSection,
+  onSelectProduct,
   onOpenTracking,
   onNavigateHome,
   onOpenFaqPage,
@@ -438,6 +444,19 @@ export default function Header({
     setIsSearchOpen(false);
     setIsDesktopSuggestOpen(false);
   };
+
+  // Esc pour fermer les suggestions
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsDesktopSuggestOpen(false);
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const handleNavClick = (link: NavLink) => {
     // Contact → modal/page (garder tel quel)
     if (link.section === "contact" && onOpenContactPage) {
@@ -479,8 +498,10 @@ export default function Header({
     setQuery("");
     setIsDesktopSuggestOpen(false);
     setIsSearchOpen(false);
-    const el = document.getElementById(`product-card-${p.id}`);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    // Navigation vers la page produit (cohérent avec les catégories)
+    if (onSelectProduct) {
+      onSelectProduct(p);
+    }
   };
   const handleAccountClick = () => {
     if (isUserLoggedIn && onOpenAccount) onOpenAccount();
