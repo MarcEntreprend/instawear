@@ -2,9 +2,11 @@
 import { Heart, Star, Flame, Check, ShoppingBag } from "lucide-react";
 import DealCountdown from "./DealCountdown";
 import type { Product } from "../types";
-import { useProductAvailability } from "../hooks/useProductAvailability";
-import { useCurrency } from "../hooks/useCurrency";
-import { formatPrice } from "../data/currency";
+import {
+  useProductAvailability,
+  pickAvailableVariant,
+} from "../hooks/useProductAvailability";
+import { formatAmount } from "../data/currency";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 
 interface StoreProductCardProps {
@@ -34,6 +36,11 @@ export default function StoreProductCard({
 }: StoreProductCardProps) {
   const availability = useProductAvailability(product);
   const unavailable = availability !== "available";
+  // Première variante réellement achetable (couleur × taille dispo).
+  // Aucune → carte non achetable, même si une taille est présélectionnée
+  // par défaut (zéro toast d'erreur, zéro commande impossible).
+  const firstAvailable = pickAvailableVariant(product);
+  const purchasable = !unavailable && firstAvailable != null;
 
   const swatches = product.variants?.length
     ? product.variants.map((v) => ({ hex: v.color, name: v.color_name }))
@@ -43,8 +50,6 @@ export default function StoreProductCard({
       }));
   const visibleSwatches = swatches.slice(0, 4);
   const extraSwatches = swatches.length - visibleSwatches.length;
-
-  const { currency } = useCurrency();
   const dealLive =
     product.dealActive && !dealExpired && product.dealPrice != null;
 
@@ -229,14 +234,14 @@ export default function StoreProductCard({
                   color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
                 }}
               >
-                {formatPrice(displayPrice, currency)}
+                {formatAmount(displayPrice, currencySymbol)}
               </span>
               {strikePrice != null && (
                 <span
                   className="text-xs line-through"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  {formatPrice(strikePrice, currency)}
+                  {formatAmount(strikePrice, currencySymbol)}
                 </span>
               )}
             </div>
@@ -284,7 +289,7 @@ export default function StoreProductCard({
       </a>
 
       <div className="px-5 pb-5">
-        {unavailable ? (
+        {!purchasable ? (
           <button
             disabled
             className="btn w-full bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
@@ -296,8 +301,8 @@ export default function StoreProductCard({
             onClick={() =>
               onAddToCart(
                 product,
-                product.colors?.[0] || swatches[0]?.hex || "#000000",
-                "M",
+                firstAvailable.color,
+                firstAvailable.size,
               )
             }
             className="btn btn-primary w-full"

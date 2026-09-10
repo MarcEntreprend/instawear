@@ -337,8 +337,29 @@ export default {
             .select("*")
             .eq("order_id", orderId);
 
-          const currencySymbol =
-            order.shipping_address_country === "US" ? "$" : "€";
+          // Symbole depuis les settings boutique (source de vérité),
+          // jamais deviné depuis le pays de livraison.
+          const CURRENCY_SYMBOLS: Record<string, string> = {
+            USD: "$",
+            EUR: "€",
+            GBP: "£",
+            BRL: "R$",
+            CAD: "CA$",
+            CHF: "CHF",
+            JPY: "¥",
+            MXN: "MX$",
+            AUD: "A$",
+          };
+          let currencySymbol = "$";
+          try {
+            const { data: ss } = await supabaseAdmin
+              .from("store_settings")
+              .select("currency")
+              .eq("id", true)
+              .maybeSingle();
+            const code = String((ss as any)?.currency || "USD").toUpperCase();
+            currencySymbol = CURRENCY_SYMBOLS[code] || "$";
+          } catch {}
 
           // 1. Telegram (API Bot)
           await sendTelegramServer(

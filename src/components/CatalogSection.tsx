@@ -415,7 +415,7 @@ export default function CatalogSection({
                     className="text-xs mr-1"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    €
+                    {currencySymbol}
                   </span>
                   <input
                     type="number"
@@ -440,7 +440,7 @@ export default function CatalogSection({
                     className="text-xs mr-1"
                     style={{ color: "var(--color-ink4)" }}
                   >
-                    €
+                    {currencySymbol}
                   </span>
                   <input
                     type="number"
@@ -1000,7 +1000,7 @@ export default function CatalogSection({
                         className="text-xs mr-1"
                         style={{ color: "var(--color-ink4)" }}
                       >
-                        €
+                        {currencySymbol}
                       </span>
                       <input
                         type="number"
@@ -1025,7 +1025,7 @@ export default function CatalogSection({
                         className="text-xs mr-1"
                         style={{ color: "var(--color-ink4)" }}
                       >
-                        €
+                        {currencySymbol}
                       </span>
                       <input
                         type="number"
