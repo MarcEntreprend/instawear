@@ -1,82 +1,58 @@
-# Audit Frontstore — InstaWear_gem — Launch Readiness 10/09/2026 22:00
+# Audit Frontstore — InstaWear_gem — Launch Readiness 10/09/2026
 
 **Scope :** frontstore `src/`, `index.html`, `public/`. Vérifié par lecture/grep le 10/09/2026.
-**Note :** ce document ne liste **que le restant à faire**. Tout ce qui était bloquant au 05/09 et qui est désormais vérifié OK a été retiré (détail en bas).
+**Note :** ce document ne liste **que le restant à faire** (2 points). Tout le reste est vérifié OK — détail en bas.
 
 ---
 
-### 1. i18n / Textes en dur — ✅ fait le 10/09 (frontstore 100% EN, admin en FR)
+### 1. Images / CLS / Cache statique — ❌ à faire (Core Web Vitals)
 
-**Décision :** public américain → frontstore tout anglais, interface admin en français. Pas d'i18n (choix assumé, pas de mix).
+**Constat (re-vérifié le 10/09) :** aucune optimisation image, aucun cache long sur les assets.
 
-**Fait :** toutes les strings visibles shoppers passées en US English (~50 fichiers : `Header`, `Footer`, `CatalogSection`, `ProductPage`, `CartDrawer`, `CheckoutFlow` + messages de validation, `AccountPage`, `ContactPage`, `OrderTrackingModal`, `DealCountdown` (`${d}j` → `${d}d`), `SORT_OPTIONS` (`Popularité` → `Popularity`…), labels catégories (`Accessoires` → `Accessories`…), `index.html` (`lang="en"`, `og:locale en_US`, meta description EN). Emails clients (`emailTemplates.ts`) et `public/unsubscribe.html` déjà EN — vérifié.
+- **Pas de `srcset` / WebP / `imagetools`** — `package.json` n'a pas `vite-imagetools`. `src/components/StoreProductCard.tsx:79-87` n'a que `loading="lazy"`, pas de `decoding="async"`, pas de `fetchpriority="high"` sur le hero, pas de `srcset`. Idem `ProductPage.tsx` (image principale).
+- **Pas de `width`/`height` sur les `<img>`** — atténué par les wrappers `aspect-square` (`StoreProductCard.tsx:78`), qui réservent déjà l'espace et limitent le CLS sur la grille. Reste un risque sur `ProductPage` et les images hors ratio fixe.
+- **`server.ts:31` — `express.static(distPath)` sans `maxAge` / `immutable`.** Les assets Vite sont hashés (`assets/index-*.js/css`) → servir `Cache-Control: public, max-age=31536000, immutable` sur `/assets/*` (et court sur `index.html`). Sans ça, chaque reload re-télécharge tout sur le path VPS. (Sur Vercel le CDN gère le cache tout seul — ce point ne concerne que le path `node dist/server.cjs`.)
+- **Bundle :** déjà réglé (`vite.config.ts:22-30` `manualChunks` + 3 `lazy()` dans `src/App.tsx:20`). Ne reste que le poids image ci-dessus.
 
-**Laissé volontairement en FR (invisible shoppers) :** commentaires de code ; clés techniques matchées à la DB (`faq.ts` `category: "livraison"|"produit"|…` — jamais affichées, pas d'onglets ; `EVENT_TYPES` values `saisonnier`/`anniversaire` matchées à `product.eventType` ; `PRODUCT_CATEGORIES` values matchées à `product.category` ; `STYLE_OPTIONS`/`MATERIAL_OPTIONS` stockées via admin ; statuts `retrait`/`livraison`, `on_hold`) ; tout `src/admin/` ; `store_settings.shipping_delay` (jamais rendu au front — le checkout utilise `deliveryEstimate` live Printful _"4-7 business days"_).
+**Faire :**
+1. `decoding="async"` sur toutes les vignettes + `fetchpriority="high"` sur hero/produit principal.
+2. `width`/`height` (ou ratio fixe) sur les `<img>` hors `aspect-square`.
+3. `vite-imagetools` (ou preset WebP/AVIF + `srcset`) pour les visuels produits — à évaluer vs bande passante Printful/Supabase Storage (les images viennent du CDN, le `srcset` passe par `?width=` si le CDN le supporte, sinon génération au build).
+4. `server.ts` : `express.static(distPath, { maxAge: "1y", immutable: true })` monté sur `/assets`, `maxAge: 0` sur `index.html`.
 
-### 2. Mocks / Données statiques résiduelles — ⚠️ mineur
+### 2. Unsubscribe hardening — ⚠️ reco d'audit (non-bloquant launch, à planifier)
 
-- ~~`src/hooks/usePageMeta.ts:13` — `DEFAULT_IMAGE` Unsplash~~ → fait le 10/09 : `/InstaWear-logo.png`.
-- ~~`server.ts` — endpoint `/api/gemini/generate-description` + `demoFallback`~~ → fait le 10/09 : endpoint + import `@google/genai` supprimés de `server.ts`, dépendance retirée de `package.json` (+ lock sync), clé retirée de `.env.example`. Aucun appelant dans `src/` (vérifié grep). `server.cjs` passe de 4.0 → 2.1 kB.
-- `src/data/countries.ts:12-21` + `src/data/currency.ts:4-14` — vérifié le 10/09 : `COUNTRIES` (noms EN) sert aux selects pays checkout/compte/settings ; la conversion statique `COUNTRY_CURRENCY`/`formatPrice`/`rateFromEur` est du code mort (0 usage — l'affichage passe par `formatAmount` + devise `store_settings`). Le shipping est déjà live Printful (`supabase/functions/_shared/printfulRates.ts:123`) avec fallback = forfait admin `store_settings.shippingCost`, et l'admin `SettingsPage.tsx:664` affiche déjà _"rates Printful (live API)"_. Aucun `shippingRates` statique présenté comme vérité nulle part → rien à changer.
-- `src/data/testimonials.ts` / `src/components/AboutSection.tsx:18` — OK désormais (10 avis externalisés, image locale `jpg`). Plus de mock Unsplash `w=800` ici.
+**Constat (audité le 10/09) :** `public/unsubscribe.html` parle au REST Supabase en direct avec la clé anon (SELECT + INSERT/DELETE `newsletter_subscribers`, SELECT + UPDATE `customers.email_preferences`).
+Sondage live read-only : `customers?select=id` → `200 []`, `newsletter_subscribers?select=email` → `200 []` → **pas de lecture ouverte**, et la branche `UPDATE customers` est **morte en live** (le SELECT préalable ne retourne aucun id à patcher). Les `USING (true)` des migrations sont tous volontaires et safe (tables statiques/publiques by design, inserts contact contraints en type + regex email + longueur).
 
-### 3. Images / CLS / Perf front — ❌ à faire (Core Web Vitals)
-
-- **Pas de `srcset` / WebP / `imagetools`** — `package.json` n'a pas `vite-imagetools`. `src/components/StoreProductCard.tsx:82` n'a que `loading="lazy"`, pas de `decoding="async"`, `fetchpriority`, ni `width`/`height` → CLS lors du chargement grille catalogue. Idem `ProductPage`.
-- **Pas de `width`/`height` réservés** sur les vignettes produits → saut de layout sur 3G.
-- **`server.ts:93` — `express.static(distPath)` sans `maxAge` / `immutable`** pour les assets hashés (`assets/index-*.css/js`). Les `assets` Vite sont déjà hashés, ils peuvent être servis `Cache-Control: public, max-age=31536000, immutable`. Sans ça, chaque reload re-télécharge.
-- **Bundle :** déjà chunké (`vite.config.ts:22-30` `manualChunks: vendor/supabase/stripe/motion` + 3 `lazy()` sur `AccountPage`/`CheckoutFlow`/`AdminDashboardNew` dans `src/App.tsx:20`), donc le monolithe 1,1 Mo du 05/09 est réglé. Reste le poids image (point ci-dessus).
-
-### 4. Hygiène code — ✅ audité le 10/09 (rien à changer)
-
-- **`console.*`** — vérifié : **0 `console.log`/`debug`/`info` dans `src/`**. Restent 58 `warn`/`error` de diagnostic (ex: `App.tsx:780,1152,1176,1413` erreurs Supabase/Stripe/favoris) → voulus, pas de `esbuild.drop` (on garde la visibilité erreurs en prod). Les `console.log` restants sont côté serveur/CLI uniquement : 3 edges (`get-shipping-rates:150` log requête sanitizée `logSafe`, `contact-message:234`, `auth-welcome:163` → logs fonctions Supabase, utiles) + `scripts/*.ts` + `server.ts:36` (terminal, jamais shippés au navigateur).
-- **`public/unsubscribe.html` + anon key — audité le 10/09 :**
-  - `USING (true)` dans les migrations : uniquement volontaire et safe — `order_status_transitions` (table statique), `merch_config`/`product_scores`/`search_trends` (lecture publique by design), `review_helpful` select (ids + uids, besoin UI), `interactions`/`interaction_messages` insert anon **contraints** (`20261007_contact_guest.sql:7` : type + regex email + longueur 10..5000).
-  - Tables cœur (`customers`, `orders`, `newsletter_subscribers`) hors migrations (créées dashboard) → sondées en live avec la clé anon (GET read-only) : `customers?select=id` → `200 []`, `newsletter_subscribers?select=email` → `200 []` → **pas de lecture ouverte**.
-  - Point d'attention : la branche `UPDATE customers` de `unsubscribe.html` est **morte en live** (le SELECT préalable retourne `[]`, aucun id à patcher). Écriture anon non vérifiable en read-only → **reco : durcir en déplaçant les writes unsubscribe vers une edge function validée** (pattern `contact-message`), au lieu du REST anon direct. Non-bloquant launch, à planifier.
-
-### 5. SEO résiduel — ⚠️ partiel (le gros est fait)
-
-Le gros est fait : `index.html:4` `lang fr`, `robots index,follow`, `theme-color`, `og:locale fr_FR` + `en_US` alternate, `hreflang fr/en`, `<link rel=sitemap>`, `title` unifié _Wear the Moment_, description FR, `canonical`, OG absolus `https://instawear.vercel.app/InstaWear-logo.png` + `width/height/alt`, `Organization` + `WebSite+SearchAction` (`index.html:42-69`), `public/robots.txt`/`sitemap.xml`/`llms.txt`/`ai.txt`/`humans.txt`/`/.well-known/ai.txt` présents, `usePageMeta` sur **7 pages** (`ProductPage.tsx:101` + `ContactPage.tsx:17` + `FaqPage.tsx:9` + `LegalPage.tsx:35` + `PromotionsPage.tsx:12` + `SearchResultsPage.tsx:55` + `OrderTrackingPage.tsx:13`), JSON-LD `Product` (`Offer` + `AggregateRating` + `BreadcrumbList` dans `ProductPage.tsx:112-194`) + `FAQPage` (`FaqPage.tsx:15-34`).
-
-**Fait le 10/09 :**
-
-- ~~**Sitemap produits manuel**~~ → `package.json` : `"prebuild": "npm run sitemap"`. Le script dégrade gracieusement (statiques seules si env absentes, exit 0 — build jamais cassé). Vérifié : `npm run build` régénère (13 URLs / 6 produits le 10/09).
-- ~~**`site.webmanifest` manquant**~~ → créé `public/site.webmanifest` (name/short_name, `theme_color #ff5c35`, icônes `/InstaWear-logo.png`) + `<link rel="manifest">` dans `index.html:15`. Cohérent avec l'allowlist 404 (`App.tsx:1350`).
-- ~~**`llms.txt` minimal**~~ → `scripts/generate-sitemap.ts` réécrit désormais aussi le bloc `<!-- PRODUCTS -->` de `public/llms.txt` (`- [Titre](url)` par produit actif, curation préservée hors marqueurs). Bonus : ligne devise corrigée (USD, pas EUR) + events en anglais.
-
-**Fait le 10/09 — prerender statique (plus aucun risque SPA) :**
-
-- **`scripts/prerender.ts` (run auto via `"postbuild"`)** génère après chaque build, depuis `dist/index.html` : `/` (enrichi), `/faq`, `/contact`, `/promotions`, `/recherche`, `/suivi`, `/legal/cgv|privacy|cookies` (depuis `src/data/legal.ts`, même source que la page), `/produit/:id` (un HTML par produit actif). Chaque fichier a son `<title>`/meta/OG/canonical dédiés + JSON-LD (`Product` + `BreadcrumbList` sur produits, `FAQPage` sur `/faq`) + snapshot de contenu réel dans `#root` (visible sans JS, remplacé au boot React — mêmes assets, SPA intacte).
-- **`vercel.json` : `"cleanUrls": true`** → `/faq` sert `faq.html`, `/produit/:id` sert `produit/:id.html` (fichiers servis avant le rewrite catch-all). `server.ts` (`express.static`) sert aussi les fichiers en premier sur le path VPS.
-- **Sans env Supabase au build** : produits ignorés, routes statiques générées quand même, exit 0. Vérifié le 10/09 : 15 HTML (6 produits), page produit avec OG image réelle + JSON-LD + snapshot.
-- Contenu légal extrait vers **`src/data/legal.ts`** (LegalPage importe, zéro changement visuel).
-
-### 6. Cookies / CNIL — ⚠️ quasi-OK
-
-.
-
-**Reste (si exigence CNIL stricte) :** tableau détaillé des cookies (nom / finalité / durée / éditeur) sur la page `/legal/cookies` ou dans la bannière. Actuellement la bannière n'expose pas ce tableau. Non-bloquant si la page légale le contient, bloquant si audit CNIL formel. -> NON, je ne mets pas les details.
+**Faire (quand planifié) :** déplacer les writes unsubscribe vers une edge function validée (pattern `contact-message` : validation email + rate-limit + `service_role`), et retirer le REST anon direct de `unsubscribe.html`. État actuel acceptable pour le launch.
 
 ---
 
-### Top bloquants restants (priorisés)
+### Top restants (priorisés)
 
-1. **Images/CLS** (`srcset`/`width/height`/`imagetools` + `server.ts` `maxAge` static) — impact LCP/CLS direct.
-2. **Unsubscribe hardening** — déplacer les writes vers une edge function validée (reco d'audit, non-bloquant).
-3. **Tableau CNIL cookies** — seulement si audit CNIL formel exigé.
+1. **Images/CLS/cache statique** — impact LCP/CLS direct, seul vrai chantier restant.
+2. **Unsubscribe hardening** — reco, non-bloquant.
+
+### Volontairement abandonné (choix produit, ne plus tracker)
+
+- **Tableau CNIL détaillé des cookies** (nom / finalité / durée / éditeur) — jugé non essentiel pour un user lambda. Le système actuel suffit : `useCookieConsent.ts` v2 (`necessary` + `nonEssential`, 365j, migration auto), bannière 2 boutons, gate analytics, lien `Gérer les cookies` (`Footer.tsx:471` → `resetConsent()`).
 
 ---
 
-### Retiré depuis le 05/09 (vérifié OK le 10/09 — ne plus tracker)
+### Retiré (vérifié OK le 10/09 — ne plus tracker)
 
 - 404 overlay double `fixed z-50` → `src/App.tsx:1321-1367` `knownPaths`/`knownPrefixes`/`isStaticFile` complets.
 - Header logo reload → `src/components/Header.tsx:529-539` `onNavigateHome()` + `history.pushState`.
 - Produit crawlable → `src/components/StoreProductCard.tsx:67` `<a href="/produit/:id">` + `preventDefault`.
 - Footer `href="#faq"` / sociaux `href="#"` → `src/components/Footer.tsx:97` `#section-faq` + `Footer.tsx:178` `<span>` + `Footer.tsx:471` lien `Gérer les cookies`.
 - `main.tsx:8` import `NotFound` supprimé.
-- Contact factice → `src/pages/ContactPage.tsx:1-210` vrai `POST /functions/v1/contact-message` + `supabase/functions/contact-message/index.ts:1-255` (rate-limit 5/min/IP, Resend).
+- Contact factice → `src/pages/ContactPage.tsx:1-210` vrai `POST /functions/v1/contact-message` + edge (rate-limit 5/min/IP, Resend).
 - Géo sans cache → `src/App.tsx:1238-1288` cache 7j + `AbortController 8s` + fallback.
 - Cookies v1 4 toggles → v2 `necessary/nonEssential` + bannière 2 boutons + `resetConsent`.
-- SEO `index.html` + `usePageMeta` 1 page + 0 JSON-LD → 7 pages + `Product`/`FAQPage`/`BreadcrumbList` + `public/sitemap.xml` 5 produits + `robots.txt`/`llms.txt`/`ai.txt`/`humans.txt`.
-- Perf monolithe 0 `lazy`/0 `manualChunks` → 3 `lazy()` + `vite.config.ts:22-30` `manualChunks`.
+- Frontstore 100% EN (admin en FR) : ~50 fichiers, `index.html` (`lang="en"`, `og:locale en_US`), emails clients + `unsubscribe.html` EN. Invisible FR conservé : commentaires, clés DB, `src/admin/`.
+- `usePageMeta.ts:13` `DEFAULT_IMAGE` → `/InstaWear-logo.png`.
+- `server.ts` : endpoint Gemini + `demoFallback` supprimés, `@google/genai` retiré (`server.cjs` 4.0 → 2.1 kB).
+- Shipping : live Printful + fallback forfait admin, rien de statique présenté comme vérité ; conversion `COUNTRY_CURRENCY` = code mort (affichage via `formatAmount` + devise store).
+- SEO : `index.html` (robots, OG absolus, `Organization` + `WebSite+SearchAction`), `usePageMeta` 7 pages, JSON-LD `Product`/`FAQPage`/`BreadcrumbList`, `robots.txt`/`llms.txt`/`ai.txt`/`humans.txt`, sitemap auto (`prebuild`), `llms.txt` bloc produits auto, `site.webmanifest` + link, **prerender statique** (`scripts/prerender.ts` via `postbuild` + `vercel.json` `cleanUrls`) — plus aucun risque SPA.
+- Hygiène `console.*` : 0 `console.log` dans `src/` (58 `warn`/`error` de diagnostic gardés ; logs edges/CLI légitimes).
