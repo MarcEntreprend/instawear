@@ -1154,6 +1154,23 @@ async function getPodAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+export interface ServiceCheck {
+  ok: boolean;
+  detail?: string;
+  ms: number;
+}
+
+export interface ServicesHealth {
+  status: "ok" | "degraded";
+  service: string;
+  checks: {
+    database: ServiceCheck;
+    printful: ServiceCheck;
+    stripe: ServiceCheck;
+  };
+  ts: string;
+}
+
 export interface PrintfulReport {
   currency: string;
   period: { from: string; to: string };
@@ -1596,6 +1613,28 @@ export const podApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Erreur rapports Printful");
+    }
+    return res.json();
+  },
+
+  /**
+   * État des dépendances (Supabase, Printful, Stripe) via l'edge health.
+   * ADMIN uniquement. Utilisé par la section "État des services" (Settings)
+   * et bônus diagnostic.
+   */
+  async getServicesHealth(): Promise<ServicesHealth> {
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({}),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur health check");
     }
     return res.json();
   },

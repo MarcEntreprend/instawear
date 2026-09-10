@@ -768,15 +768,50 @@ export default {
           params = { stock_updated: { product_ids: productIds } };
         }
 
+        // Secret webhook obligatoire (gap 18) : ajouté à l'URL Printful
+        // AUTOMATIQUEMENT depuis l'Edge Secret — l'admin n'a qu'à cliquer
+        // "Enregistrer dans Printful". Sans secret configuré, on échoue
+        // proprement plutôt que de déployer une URL non authentifiée.
+        let webhookSecret = "";
+        try {
+          webhookSecret = Deno.env.get("PRINTFUL_WEBHOOK_SECRET") || "";
+        } catch {}
+        if (!webhookSecret) {
+          return new Response(
+            JSON.stringify({
+              error:
+                "Secret webhook manquant côté serveur : supabase secrets set PRINTFUL_WEBHOOK_SECRET=<64 hex> puis réessayez.",
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+        let finalUrl = webhookUrl;
+        try {
+          const u = new URL(webhookUrl);
+          u.searchParams.set("secret", webhookSecret);
+          finalUrl = u.toString();
+        } catch {
+          return new Response(
+            JSON.stringify({ error: "webhookUrl invalide" }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            },
+          );
+        }
+
         // Remplace la config : POST idempotent, retry 429/5xx (gap 14).
         const { res } = await fetchWithRetry("https://api.printful.com/webhooks", {
           method: "POST",
           headers,
-          body: JSON.stringify(
-            params
-              ? { url: webhookUrl, types: cleanTypes, params }
-              : { url: webhookUrl, types: cleanTypes },
-          ),
+          body: JSON.stringify({
+            url: finalUrl,
+            types: cleanTypes,
+            ...(params ? { params } : {}),
+          }),
         }, { attempts: 3, baseMs: 500, idempotent: true });
 
         if (!res || !res.ok) {

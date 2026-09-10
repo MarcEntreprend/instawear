@@ -5,19 +5,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
-// BISECT TEMP: import opsUtils neutralisé pour isoler le BOOT_ERROR.
-// import { fetchWithRetry } from "./_shared/opsUtils.ts";
-async function fetchWithRetry(
-  url: string,
-  init: RequestInit = {},
-): Promise<{ res: Response | null; error?: string }> {
-  try {
-    const res = await fetch(url, init);
-    return { res };
-  } catch (e: any) {
-    return { res: null, error: e?.message || "network" };
-  }
-}
+import { fetchWithRetry } from "./_shared/opsUtils.ts";
+
+// CORS complet (dont preflight OPTIONS) : sans Access-Control-Allow-Origin
+// le navigateur bloque l'appel avant même le POST ("Failed to fetch").
+// La protection reste la garde admin (401 sans JWT admin valide), pas CORS.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
 
 // Vérifie une dépendance avec timeout (jamais plus de ~8s par check pour
 // rester sous la limite d'exécution de l'edge).
@@ -43,18 +40,13 @@ async function checkWithTimeout(
 export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
-      return new Response("ok", {
-        headers: {
-          "Access-Control-Allow-Headers":
-            "authorization, x-client-info, apikey, content-type",
-        },
-      });
+      return new Response("ok", { headers: corsHeaders });
     }
     try {
       if (await isRateLimited(req, rateLimitKey(req, "health"))) {
         return new Response(JSON.stringify({ error: "Trop de requetes." }), {
           status: 429,
-          headers: { "Content-Type": "application/json", "Retry-After": "60" },
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
         });
       }
       const auth = req.headers.get("Authorization") || "";
@@ -80,18 +72,20 @@ export default {
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: "Admin requis" }), {
           status: 401,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // ── Checks réels des dépendances (gap 17) ─────────────────────
       // database : lecture pod_settings (prouve Supabase + RLS service_role)
       // printful : GET /stores avec la clé pod-main (prouve token + réseau)
       // stripe   : lecture du solde (prouve clé secrète ; non configuré =
       //            "not_configured", pas une erreur).
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const admin = createClient(supabaseUrl, serviceRoleKey);
+      // NOTE : réutilise serviceRoleKey déclaré plus haut (re-déclarer ici
+      // serait un SyntaxError "already declared" → BOOT_ERROR du déploiement.
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        serviceRoleKey,
+      );
 
       const database = await checkWithTimeout("database", async () => {
         const { error } = await admin
@@ -171,6 +165,7 @@ export default {
         {
           status: 200,
           headers: {
+            ...corsHeaders,
             "Content-Type": "application/json",
             "Cache-Control": "no-store",
           },
@@ -179,7 +174,7 @@ export default {
     } catch (e) {
       return new Response(JSON.stringify({ error: logSafe(String(e)) }), {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   },

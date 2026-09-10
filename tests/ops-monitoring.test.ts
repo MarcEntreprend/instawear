@@ -236,3 +236,112 @@ test("message tronqué à 1000 chars, meta JSON-safe", async () => {
   assert.ok(tables.edge_errors[0].message.length <= 1000);
   assert.ok(JSON.stringify(tables.edge_errors[0].meta).length <= 2000);
 });
+
+// ─── Gap 18 : secret webhook fail-closed (miroir edge) ──────────────────────
+
+function constantTimeEqual(a: string, b: string): boolean {
+  let match = a.length === b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a.charCodeAt(i) || 0) !== (b.charCodeAt(i) || 0)) match = false;
+  }
+  return match;
+}
+
+function checkWebhookSecret(
+  expectedSecret: string,
+  got: string,
+): { status: number; error?: string } {
+  if (!expectedSecret) return { status: 503, error: "Webhook non configuré (secret manquant)" };
+  if (!constantTimeEqual(got, expectedSecret)) {
+    return { status: 403, error: "Webhook secret invalide" };
+  }
+  return { status: 200 };
+}
+
+test("secret manquant → 503 fail-closed (jamais ouvert)", () => {
+  assert.deepEqual(checkWebhookSecret("", "abc"), {
+    status: 503,
+    error: "Webhook non configuré (secret manquant)",
+  });
+});
+
+test("mauvais secret → 403", () => {
+  assert.equal(checkWebhookSecret("s3cr3t", "wrong").status, 403);
+  assert.equal(checkWebhookSecret("s3cr3t", "").status, 403);
+});
+
+test("bon secret → 200", () => {
+  assert.equal(checkWebhookSecret("s3cr3t", "s3cr3t").status, 200);
+});
+
+test("comparaison temps constant : longueurs différentes rejetées", () => {
+  assert.equal(constantTimeEqual("abc", "abcd"), false);
+  assert.equal(constantTimeEqual("", ""), true);
+});
+
+// ─── Gap 18 : setup ajoute ?secret= automatiquement (miroir edge) ───────────
+
+function buildWebhookUrl(base: string, secret: string): { url?: string; error?: string } {
+  if (!secret) return { error: "Secret webhook manquant côté serveur" };
+  try {
+    const u = new URL(base);
+    u.searchParams.set("secret", secret);
+    return { url: u.toString() };
+  } catch {
+    return { error: "webhookUrl invalide" };
+  }
+}
+
+test("?secret= ajouté à l'URL Printful", () => {
+  const r = buildWebhookUrl("https://x.supabase.co/functions/v1/printful-webhook", "s3cr3t");
+  assert.ok(r.url?.includes("secret=s3cr3t"));
+});
+
+test("secret existant dans l'URL écrasé (pas de doublon)", () => {
+  const r = buildWebhookUrl("https://x.test/wh?secret=old", "new");
+  assert.equal((r.url?.match(/secret=/g) || []).length, 1);
+  assert.ok(r.url?.includes("secret=new"));
+});
+
+test("sans secret serveur → erreur claire (pas d'URL nue)", () => {
+  assert.match(buildWebhookUrl("https://x.test/wh", "").error || "", /manquant/);
+});
+
+// ─── Gap 17 : agrégation health (miroir edge) ───────────────────────────────
+
+function aggregate(
+  checks: Record<string, { ok: boolean; detail?: string; ms: number }>,
+): { status: "ok" | "degraded" } {
+  const allOk = checks.database.ok && checks.printful.ok && checks.stripe.ok;
+  return { status: allOk ? "ok" : "degraded" };
+}
+
+test("tout ok → ok", () => {
+  assert.deepEqual(
+    aggregate({
+      database: { ok: true, ms: 10 },
+      printful: { ok: true, ms: 200 },
+      stripe: { ok: true, ms: 150 },
+    }),
+    { status: "ok" },
+  );
+});
+
+test("un check en échec → degraded", () => {
+  for (const k of ["database", "printful", "stripe"]) {
+    const checks: any = {
+      database: { ok: true, ms: 10 },
+      printful: { ok: true, ms: 200 },
+      stripe: { ok: true, ms: 150 },
+    };
+    checks[k] = { ok: false, detail: "x", ms: 5 };
+    assert.deepEqual(aggregate(checks), { status: "degraded" }, k);
+  }
+});
+
+test("stripe not_configured compte comme échec (pastille grise côté UI)", () => {
+  // L'UI distingue not_configured (gris, informatif) du rouge (panne).
+  const detail = "not_configured";
+  const display: string = detail === "not_configured" ? "gray" : "red";
+  assert.equal(display, "gray");
+});

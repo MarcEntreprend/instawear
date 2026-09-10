@@ -437,18 +437,61 @@ export default {
         );
       }
 
-      // P-C (4) Blind Trust: secret token optionnel pour le webhook Printful
-      // Configurez PRINTFUL_WEBHOOK_SECRET en Edge Secret et ajoutez ?secret=xxx à l'URL webhook Printful
-      try {
-        const expectedSecret = Deno.env.get("PRINTFUL_WEBHOOK_SECRET");
-        if (expectedSecret) {
-          const url = new URL(req.url);
-          const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
-          if (got !== expectedSecret) {
-            return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
-          }
+      // P-C (4) Secret webhook OBLIGATOIRE (fail-closed, gap 18).
+      // Sans secret configuré côté serveur, on refuse tout plutôt que
+      // d'accepter des webhooks non authentifiés. Le secret est posé via
+      // `supabase secrets set PRINTFUL_WEBHOOK_SECRET=...` et ajouté à
+      // l'URL Printful AUTOMATIQUEMENT par setup-webhook (sync-printful) :
+      // un clic "Enregistrer dans Printful" suffit. Rotation : générer une
+      // nouvelle valeur, `secrets set`, re-cliquer Enregistrer (l'ancienne
+      // URL cesse de fonctionner dès le remplacement côté Printful).
+      // Printful retente les 2xx manqués (1..1024 min) : aucune perte
+      // pendant la bascule.
+      const expectedSecret = (() => {
+        try {
+          return Deno.env.get("PRINTFUL_WEBHOOK_SECRET") || "";
+        } catch {
+          return "";
         }
-      } catch {}
+      })();
+      if (!expectedSecret) {
+        return new Response(
+          JSON.stringify({ error: "Webhook non configuré (secret manquant)" }),
+          {
+            status: 503,
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+      try {
+        const url = new URL(req.url);
+        const got = url.searchParams.get("secret") || url.searchParams.get("token") || req.headers.get("x-webhook-secret") || req.headers.get("x-pf-secret") || "";
+        // Comparaison temps constant (anti timing-attack sur le secret).
+        let match = got.length === expectedSecret.length;
+        for (let i = 0; i < Math.max(got.length, expectedSecret.length); i++) {
+          if ((got.charCodeAt(i) || 0) !== (expectedSecret.charCodeAt(i) || 0)) match = false;
+        }
+        if (!match) {
+          try {
+            const admin = createClient(
+              Deno.env.get("SUPABASE_URL")!,
+              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            );
+            await reportError(admin, {
+              fn: "printful-webhook",
+              action: "auth",
+              error: "Secret webhook invalide (tentative rejetée)",
+              severity: "high",
+            });
+          } catch {}
+          return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+        }
+      } catch {
+        return new Response(JSON.stringify({ error: "Webhook secret invalide" }), { status: 403, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
+      }
 
       const type = payload?.type;
       const store = payload?.store;

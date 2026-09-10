@@ -364,6 +364,30 @@ export default function SettingsPage() {
   const [visibleLogsCount, setVisibleLogsCount] = useState(10);
   const [showWebhookSettings, setShowWebhookSettings] = useState(false);
 
+  // ─── État des services (gap 17) : checks réels via l'edge health ─────
+  const [servicesHealth, setServicesHealth] = useState<any | null>(null);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+
+  const loadServicesHealth = async () => {
+    setServicesLoading(true);
+    setServicesError(null);
+    try {
+      const { podApi } = await import("../api/supabaseApi");
+      setServicesHealth(await podApi.getServicesHealth());
+    } catch (e: any) {
+      setServicesError(e?.message || "Health check indisponible");
+      setServicesHealth(null);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadServicesHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ═══════════════════════════════════════════════════════════════════════
   // Rendu (possible après tous les hooks)
   // ═══════════════════════════════════════════════════════════════════════
@@ -1448,6 +1472,149 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* ─── Section : État des services (gap 17) ───────────────────────── */}
+      <div
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 18,
+          padding: "16px 22px",
+          boxShadow: "var(--shadow-xs)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 12,
+          }}
+        >
+          <h3
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: "var(--color-ink)",
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            État des services
+          </h3>
+          {servicesHealth && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                padding: "2px 10px",
+                borderRadius: 999,
+                color:
+                  servicesHealth.status === "ok" ? "#065f46" : "#991b1b",
+                background:
+                  servicesHealth.status === "ok" ? "#d1fae5" : "#fee2e2",
+              }}
+            >
+              {servicesHealth.status === "ok" ? "Opérationnel" : "Dégradé"}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => loadServicesHealth()}
+            disabled={servicesLoading}
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--color-border2)",
+              background: "var(--color-surface2)",
+              color: "var(--color-ink2)",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: servicesLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            <RefreshCw
+              size={13}
+              strokeWidth={2.5}
+              className={servicesLoading ? "animate-spin" : ""}
+            />
+            {servicesLoading ? "Test…" : "Tester"}
+          </button>
+        </div>
+        {servicesError ? (
+          <p style={{ fontSize: 13, color: "var(--color-negative)", margin: 0 }}>
+            {servicesError}
+          </p>
+        ) : servicesHealth ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {(
+              [
+                ["database", "Base de données"],
+                ["printful", "Printful API"],
+                ["stripe", "Stripe"],
+              ] as const
+            ).map(([key, label]) => {
+              const check = servicesHealth.checks?.[key];
+              const ok = check?.ok === true;
+              const unknown = key === "stripe" && check?.detail === "not_configured";
+              return (
+                <span
+                  key={key}
+                  title={
+                    check?.detail ||
+                    (ok ? `${check?.ms ?? "?"} ms` : "Échec")
+                  }
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "5px 12px",
+                    borderRadius: 999,
+                    color: ok
+                      ? "#065f46"
+                      : unknown
+                        ? "var(--color-ink3)"
+                        : "#991b1b",
+                    background: ok
+                      ? "#d1fae5"
+                      : unknown
+                        ? "var(--color-surface2)"
+                        : "#fee2e2",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: ok
+                        ? "#059669"
+                        : unknown
+                          ? "#9ca3af"
+                          : "#dc2626",
+                    }}
+                  />
+                  {label}
+                  {unknown ? " (non configuré)" : ""}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          !servicesLoading && (
+            <p style={{ fontSize: 13, color: "var(--color-ink3)", margin: 0 }}>
+              Cliquez sur Tester pour vérifier les connexions.
+            </p>
+          )
+        )}
       </div>
 
       {/* ─── Section : Webhooks Printful ──────────────────────────────────── */}
