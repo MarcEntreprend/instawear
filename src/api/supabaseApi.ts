@@ -1154,6 +1154,25 @@ async function getPodAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+export interface PrintfulReport {
+  currency: string;
+  period: { from: string; to: string };
+  totals: {
+    profit: number | null;
+    printful_costs: number | null;
+    paid_orders: number | null;
+    order_count: number | null;
+  };
+  deltas: {
+    profit: number | null;
+    printful_costs: number | null;
+    paid_orders: number | null;
+  };
+  daily: { date: string; order_count: number; costs: number; profit: number }[];
+  cached: boolean;
+  fetched_at: string;
+}
+
 export const podApi = {
   async getSettings(): Promise<PodSettings> {
     const { data, error } = await supabase
@@ -1536,6 +1555,49 @@ export const podApi = {
       const err = await res.json();
       throw new Error(err.error || "Erreur suppression webhook");
     }
+  },
+
+  /**
+   * Rapports Printful (profit, coûts fulfillment, ventes) avec cache local
+   * 12h. Période max 6 mois (limite Printful). ADMIN uniquement.
+   */
+  async getPrintfulReport(
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<PrintfulReport> {
+    return this.fetchPrintfulReport("get", dateFrom, dateTo);
+  },
+
+  async refreshPrintfulReport(
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<PrintfulReport> {
+    return this.fetchPrintfulReport("refresh", dateFrom, dateTo);
+  },
+
+  async fetchPrintfulReport(
+    action: "get" | "refresh",
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<PrintfulReport> {
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/printful-reports`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action,
+          date_from: dateFrom,
+          date_to: dateTo,
+        }),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur rapports Printful");
+    }
+    return res.json();
   },
 
   /**

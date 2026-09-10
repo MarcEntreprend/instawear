@@ -512,38 +512,118 @@ export default {
         }
       }
 
-      // ── 4. Gestion stock_updated (P6 POD) — MAJ variantes sans bloquer commande ──
+      // ── 4. Gestion stock_updated (Phase B : temps réel) ──────────
+      // Payload doc : data = { product_id, variant_stock: {...} } avec les
+      // IDs des variantes discontinued + en rupture (clés `discontinued` et
+      // `out` ou `out_of_stock` selon versions). IDs = sync ou catalogue :
+      // on matche les deux (sizes[].sync_variant_id / catalog_variant_id /
+      // external_variant_id, posés au sync). Doc : les IDs absents des deux
+      // listes sont actifs/en stock → restauration ciblée (jamais aveugle :
+      // seules les tailles à ID connu et non-available sont restaurées).
+      // La sync complète reste la source de vérité (reconstruction).
       if (type === "stock_updated") {
         const productId = (data as any).product_id;
         const variantStock = (data as any).variant_stock || {};
-        const outIds: number[] = Array.isArray(variantStock.out) ? variantStock.out : [];
-        const discIds: number[] = Array.isArray(variantStock.discontinued) ? variantStock.discontinued : [];
-        const summary = `Stock Printful: ${discIds.length} discontinued, ${outIds.length} rupture (product_id ${productId})`;
-        // notif admin toujours
+        const numList = (v: unknown): string[] =>
+          (Array.isArray(v) ? v : [])
+            .map((x) => String(x))
+            .filter((s) => s.length > 0);
+        const outIds = new Set([
+          ...numList(variantStock.out),
+          ...numList(variantStock.out_of_stock),
+        ]);
+        const discIds = new Set(numList(variantStock.discontinued));
+        const summary = `Stock Printful: ${discIds.size} discontinued, ${outIds.size} rupture (product_id ${productId})`;
+
+        let appliedOut = 0;
+        let appliedDisc = 0;
+        let appliedRestored = 0;
+        let productTitle: string | null = null;
+        try {
+          const { data: prod } = await supabaseAdmin
+            .from("products")
+            .select("id, title, variants, variant_availability, in_stock")
+            .eq("external_product_id", String(productId))
+            .maybeSingle();
+          if (prod && Array.isArray((prod as any).variants)) {
+            let anyAvailable = false;
+            const variants = (prod as any).variants.map((v: any) => {
+              const sizes = { ...(v.sizes || {}) };
+              for (const [sz, sd] of Object.entries(sizes)) {
+                const entry: any = { ...(sd as any) };
+                const knownIds = [
+                  entry.sync_variant_id,
+                  entry.catalog_variant_id,
+                  v.external_variant_id,
+                ]
+                  .filter((x) => x !== undefined && x !== null && String(x).length > 0)
+                  .map((x) => String(x));
+                if (knownIds.length === 0) continue; // pré-ID : audit seul
+                const isDisc = knownIds.some((id) => discIds.has(id));
+                const isOut = knownIds.some((id) => outIds.has(id));
+                const cur = entry.stock_status || "available";
+                if (isDisc && cur !== "discontinued") {
+                  entry.stock_status = "discontinued";
+                  appliedDisc++;
+                } else if (!isDisc && isOut && cur !== "out_of_stock" && cur !== "discontinued") {
+                  entry.stock_status = "out_of_stock";
+                  appliedOut++;
+                } else if (!isDisc && !isOut && cur !== "available") {
+                  entry.stock_status = "available";
+                  appliedRestored++;
+                }
+                sizes[sz] = entry;
+              }
+              return { ...v, sizes };
+            });
+            for (const v of variants) {
+              for (const sd of Object.values(v.sizes || {}) as any[]) {
+                if ((sd?.stock_status || "available") === "available") {
+                  anyAvailable = true;
+                  break;
+                }
+              }
+              if (anyAvailable) break;
+            }
+            productTitle = (prod as any).title || null;
+            const audit = {
+              ...((prod as any).variant_availability || {}),
+              _stock_updated_at: new Date().toISOString(),
+              _out: [...outIds],
+              _discontinued: [...discIds],
+              _applied: { out: appliedOut, discontinued: appliedDisc, restored: appliedRestored },
+            };
+            const patch: Record<string, any> = { variants, variant_availability: audit };
+            if (!anyAvailable) patch.in_stock = false; // sens unique : on ne réactive jamais ici
+            await supabaseAdmin.from("products").update(patch).eq("id", (prod as any).id);
+          }
+        } catch (e) { console.warn("stock_updated apply failed", e); }
+
+        // notif admin (enrichie du appliqué)
         try {
           await supabaseAdmin.from("notifications").insert({
             title: `Stock Printful mis à jour — produit ${productId}`,
-            description: summary,
+            description: [
+              summary,
+              productTitle ? `« ${productTitle} ».` : null,
+              (appliedOut + appliedDisc + appliedRestored) > 0
+                ? `Appliqué : ${appliedDisc} supprimée(s), ${appliedOut} en rupture, ${appliedRestored} restaurée(s).`
+                : "Aucune taille à ID connu à mettre à jour (prochain sync complet).",
+            ].filter(Boolean).join(" "),
             category: "products",
-            priority: discIds.length > 0 ? "high" : "medium",
+            priority: discIds.size > 0 ? "high" : "medium",
             status: "unread",
-            metadata: { productId: String(productId), out: outIds, discontinued: discIds, linkTo: "/admin/products", source: "Printful" },
+            metadata: {
+              productId: String(productId),
+              out: [...outIds],
+              discontinued: [...discIds],
+              applied: { out: appliedOut, discontinued: appliedDisc, restored: appliedRestored },
+              linkTo: "/admin/products",
+              source: "Printful",
+            },
             action_label: "Voir le produit",
           });
         } catch {}
-        // Tentative de MAJ directe du produit concerné (si external_product_id == productId)
-        try {
-          const { data: prod } = await supabaseAdmin.from("products").select("id, variants, variant_availability").eq("external_product_id", String(productId)).maybeSingle();
-          if (prod) {
-            // Audit léger pour que la prochaine sync sache quoi griser — on stocke les listes
-            const audit = { ...(prod.variant_availability || {}), _stock_updated_at: new Date().toISOString(), _out: outIds, _discontinued: discIds };
-            await supabaseAdmin.from("products").update({ variant_availability: audit }).eq("id", prod.id);
-            // Optionnel: si toutes les variantes sont discontinued, passer in_stock=false pour masquer du catalogue
-            if (discIds.length > 0 && outIds.length === 0) {
-              // on ne touche pas aux prix, le prochain sync complet reconstruira stock_status proprement
-            }
-          }
-        } catch (e) { console.warn("stock_updated update failed", e); }
         return new Response(JSON.stringify({ received: true, handled: true, type: "stock_updated" }), {
           headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });

@@ -191,7 +191,17 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       }
       const existing = entry.sizes.get(v.size);
       if (!existing) {
-        entry.sizes.set(v.size, { price: parseFloat(v.retail_price), stock_status: stockStatus });
+        // IDs tracés par taille (additifs, ignorés par l'affichage) : le
+        // webhook stock_updated les utilise pour MAJ temps réel (Phase B).
+        // v.id = sync variant ID ; catalogVid = catalogue variant ID.
+        const syncId = v.id != null ? Number(v.id) : NaN;
+        const catId = catalogVid != null ? Number(catalogVid) : NaN;
+        entry.sizes.set(v.size, {
+          price: parseFloat(v.retail_price),
+          stock_status: stockStatus,
+          ...(Number.isFinite(syncId) ? { sync_variant_id: syncId } : {}),
+          ...(Number.isFinite(catId) ? { catalog_variant_id: catId } : {}),
+        });
       } else {
         const order: Record<string, number> = { available: 0, out_of_stock: 1, discontinued: 2 };
         if ((order[stockStatus] ?? 0) > (order[existing.stock_status] ?? 0)) {

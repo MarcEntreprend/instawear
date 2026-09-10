@@ -309,14 +309,19 @@ test("+N : pas de dépassement → 0", () => {
   assert.equal(computeDownCount(400, 0, 420, 74), 0);
 });
 
-test("+N : 3 miniatures cachées en bas", () => {
-  // 10 thumbs de 74px = 740, viewport 420, scroll 0 → (740-0-420)/74 ≈ 4.32 → 5
-  assert.equal(computeDownCount(740, 0, 420, 74), 5);
+test("+N : miniatures entièrement cachées en bas", () => {
+  // 10 thumbs de 74px = 740, viewport 420, scroll 0 → cachés 320px,
+  // marge 8px : floor(312/74) = 4
+  assert.equal(computeDownCount(740, 0, 420, 74), 4);
 });
 
-test("+N : diminue en scrollant", () => {
-  assert.equal(computeDownCount(740, 296, 420, 74), 1);
+test("+N : diminue en scrollant, ignoré pour un bout qui dépasse", () => {
+  // scroll 222 → cachés 98px → floor(90/74) = 1
+  assert.equal(computeDownCount(740, 222, 420, 74), 1);
+  // scroll 320 → rien caché → 0
   assert.equal(computeDownCount(740, 320, 420, 74), 0);
+  // que 24px cachés (< 1 miniature + marge) → 0, pas de pastille
+  assert.equal(computeDownCount(740, 296, 420, 74), 0);
 });
 
 test("+N : thumbSize invalide → 0 (pas de crash)", () => {
