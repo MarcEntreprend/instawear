@@ -61,6 +61,19 @@ npx supabase functions deploy printful-reports --no-verify-jwt
 
 ```
 
+or
+
+**Déployer TOUTES les fonctions d'un coup**
+`supabase functions deploy`
+
+**Lister les dossiers de fonctions (ceux avec index.ts)**
+
+```
+  Get-ChildItem supabase\functions -Directory | Where-Object {
+      Test-Path "$($_.FullName)\index.ts"
+  } | Select-Object Name
+```
+
 ---
 
 ## 📦 Test livraison
