@@ -1456,20 +1456,7 @@ export default function App() {
           !stripeConfirmOrderId
         }
         onNavigateHome={() => {
-          setSelectedProduct(null);
-          setSelectedProductInitialColor(null);
-          setSelectedProductInitialSize(null);
-          setLegalSlug(null);
-          setShowFaqPage(false);
-          setShowContactPage(false);
-          setShowPromotionsPage(false);
-          setSearchPageQuery(null);
-          setTrackingPageCode(null);
-          setOrderSuccessId(null);
-          setStripeConfirmOrderId(null);
-          setActiveTab("store");
-          window.history.pushState({}, "", "/");
-          window.scrollTo({ top: 0, behavior: "instant" });
+          window.location.href = "/";
         }}
         onOpenFaqPage={openFaqPage}
         onOpenContactPage={openContactPage}
@@ -1597,20 +1584,7 @@ export default function App() {
             onClearFavorites={() => setShowFavoritesOnly(false)}
             onRetry={() => fetchProducts()}
             onNavigateHome={() => {
-              setSelectedProduct(null);
-              setSelectedProductInitialColor(null);
-              setSelectedProductInitialSize(null);
-              setLegalSlug(null);
-              setShowFaqPage(false);
-              setShowContactPage(false);
-              setShowPromotionsPage(false);
-              setSearchPageQuery(null);
-              setTrackingPageCode(null);
-              setOrderSuccessId(null);
-              setStripeConfirmOrderId(null);
-              setActiveTab("store");
-              window.history.pushState({}, "", "/");
-              window.scrollTo({ top: 0, behavior: "instant" });
+              window.location.href = "/";
             }}
           />
 
