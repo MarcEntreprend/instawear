@@ -94,8 +94,8 @@ export const imageKitUrl = (
   options: ImageTransformOptions = {},
 ): string => {
   if (!sourceUrl || typeof sourceUrl !== "string") return sourceUrl;
-  if (!imageKitConfig.enabled) return sourceUrl;
-  if (isImageKitUrl(sourceUrl)) return sourceUrl; // idempotent
+  if (!imageKitConfig.enabled) return imagekitOriginal(sourceUrl); // kill-switch : restaure les originales
+  if (isImageKitUrl(sourceUrl)) return normalizeImagekitUrl(sourceUrl, options);
   if (!validateSourceUrl(sourceUrl)) {
     if (isDevEnv()) {
       console.warn(`[imageKit] source rejetée, original conservé: ${sourceUrl}`);
@@ -114,8 +114,46 @@ export const imageKitUrl = (
   if (options.blur && options.blur > 0) parts.push(`bl-${Math.round(options.blur)}`);
 
   const tr = parts.length > 0 ? `tr:${parts.join(",")}/` : "";
-  return `${imageKitConfig.urlEndpoint}/${tr}${encodeURIComponent(sourceUrl)}`;
+  // Format fetch ImageKit (doc officielle) : source NON encodée, sauf si elle
+  // contient ? ou # (sinon le parser ImageKit tronque). L'encodage systématique
+  // donne des 404 (vérifié live).
+  const needsEncoding = /[?#]/.test(sourceUrl);
+  const src = needsEncoding ? encodeURIComponent(sourceUrl) : sourceUrl;
+  return `${imageKitConfig.urlEndpoint}/${tr}${src}`;
 };
+
+/**
+ * Retrouve l'URL originale embarquée dans une URL ImageKit (fetch).
+ * Gère l'ancien format encodé (%3A%2F%2F) et le format brut. Sinon : inchangé.
+ * Utilisé pour les fallbacks (endpoint en panne) et la normalisation.
+ */
+export function imagekitOriginal(url: string): string {
+  if (!url || typeof url !== "string") return url;
+  if (!isImageKitUrl(url)) return url;
+  const m = url.match(/\/((?:https?)(?::\/\/|%3A%2F%2F).*)$/i);
+  if (!m) return url;
+  const tail = m[1];
+  try {
+    const decoded = decodeURIComponent(tail);
+    if (/^https?:\/\//i.test(decoded)) return decoded;
+  } catch {
+    /* ignore */
+  }
+  if (/^https?:\/\//i.test(tail)) return tail;
+  return url;
+}
+
+/** Reconstruit une URL ImageKit au format courant (répare l'ancien encodé). */
+export function normalizeImagekitUrl(
+  url: string,
+  options: ImageTransformOptions = {},
+): string {
+  const original = imagekitOriginal(url);
+  if (original === url) return url;
+  if (!imageKitConfig.enabled) return original;
+  if (!validateSourceUrl(original)) return original;
+  return imageKitUrl(original, options);
+}
 
 /** srcSet WebP responsive (largeurs en px, descripteurs `w`). */
 export const imageKitSrcSet = (

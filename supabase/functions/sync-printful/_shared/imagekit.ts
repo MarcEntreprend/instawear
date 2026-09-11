@@ -33,6 +33,20 @@ export function imagekitEndpoint(): string {
   return readEnv("IMAGEKIT_URL_ENDPOINT").trim().replace(/\/+$/, "");
 }
 
+/**
+ * Coupe-circuit : IMAGEKIT_ENABLED=false (ou 0/off) désactive toute conversion.
+ * Défaut : activé dès qu'un endpoint est configuré.
+ */
+export function imagekitEnabledFlag(): boolean {
+  const v = readEnv("IMAGEKIT_ENABLED").trim().toLowerCase();
+  return v !== "false" && v !== "0" && v !== "off";
+}
+
+/** Faux si endpoint absent OU coupe-circuit → passthrough. */
+export function imagekitEnabled(): boolean {
+  return imagekitEnabledFlag() && imagekitEndpoint().length > 0;
+}
+
 function supabaseHost(): string | null {
   try {
     const base = readEnv("SUPABASE_URL");
@@ -97,8 +111,9 @@ export interface IkOptions {
 export function imagekitUrl(sourceUrl: string, options: IkOptions = {}): string {
   if (!sourceUrl || typeof sourceUrl !== "string") return sourceUrl;
   const endpoint = imagekitEndpoint();
-  if (!endpoint) return sourceUrl;
-  if (isImagekitUrl(sourceUrl)) return sourceUrl;
+  // Coupe-circuit : on restaure les originales (répare les URLs IK stockées).
+  if (!endpoint || !imagekitEnabledFlag()) return imagekitOriginal(sourceUrl);
+  if (isImagekitUrl(sourceUrl)) return normalizeImagekitUrl(sourceUrl, options);
   if (!validateImageSource(sourceUrl)) return sourceUrl;
   const parts: string[] = [];
   if (options.width && options.width > 0) parts.push(`w-${Math.round(options.width)}`);
@@ -109,7 +124,36 @@ export function imagekitUrl(sourceUrl: string, options: IkOptions = {}): string 
   }
   if (options.format && options.format !== "auto") parts.push(`f-${options.format}`);
   const tr = parts.length > 0 ? `tr:${parts.join(",")}/` : "";
-  return `${endpoint}/${tr}${encodeURIComponent(sourceUrl)}`;
+  // Format fetch doc officielle : source NON encodée (l'encodage systématique
+  // donne des 404), sauf ?/# qui tronqueraient le parsing → encodées.
+  const needsEncoding = /[?#]/.test(sourceUrl);
+  const src = needsEncoding ? encodeURIComponent(sourceUrl) : sourceUrl;
+  return `${endpoint}/${tr}${src}`;
+}
+
+/** Originale embarquée dans une URL ImageKit (ancien format encodé + brut). */
+export function imagekitOriginal(url: string): string {
+  if (!url || typeof url !== "string") return url;
+  if (!isImagekitUrl(url)) return url;
+  const m = url.match(/\/((?:https?)(?::\/\/|%3A%2F%2F).*)$/i);
+  if (!m) return url;
+  const tail = m[1];
+  try {
+    const decoded = decodeURIComponent(tail);
+    if (/^https?:\/\//i.test(decoded)) return decoded;
+  } catch { /* ignore */ }
+  if (/^https?:\/\//i.test(tail)) return tail;
+  return url;
+}
+
+/** Reconstruit une URL ImageKit au format courant (répare l'ancien encodé). */
+export function normalizeImagekitUrl(url: string, options: IkOptions = {}): string {
+  const original = imagekitOriginal(url);
+  if (original === url) return url; // pas une URL IK reconnue
+  const endpoint = imagekitEndpoint();
+  if (!endpoint || !imagekitEnabledFlag()) return original;
+  if (!validateImageSource(original)) return original;
+  return imagekitUrl(original, options);
 }
 
 /** Convertit une URL d'AFFICHAGE (WebP q80). Les originaux Printful restent intacts. */

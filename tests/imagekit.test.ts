@@ -7,6 +7,8 @@ import {
   validateSourceUrl,
   imageKitUrl,
   isImageKitUrl,
+  imagekitOriginal,
+  normalizeImagekitUrl,
 } from "../src/lib/imagekit.ts";
 
 const PF = "https://files.cdn.printful.com/o/uploaded-url/test.jpg";
@@ -42,18 +44,41 @@ test("imageKitUrl: sans endpoint → originale (jamais d'image cassée)", () => 
   );
 });
 
-test("imageKitUrl: format fetch ImageKit correct", () => {
+test("imageKitUrl: format fetch brut (doc officielle), encodé si ?/#", () => {
   process.env.VITE_IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  delete process.env.VITE_IMAGEKIT_ENABLED;
   const out = imageKitUrl(PF, { quality: 80, format: "webp", width: 800 });
+  assert.equal(out, `https://ik.imagekit.io/testid/tr:w-800,q-80,f-webp/${PF}`);
+  const withQuery = PF + "?v=1&x=2";
   assert.equal(
-    out,
-    "https://ik.imagekit.io/testid/tr:w-800,q-80,f-webp/" + encodeURIComponent(PF),
+    imageKitUrl(withQuery, { quality: 80 }),
+    "https://ik.imagekit.io/testid/tr:q-80/" + encodeURIComponent(withQuery),
   );
 });
 
-test("imageKitUrl: idempotent (jamais de fetch-dans-fetch)", () => {
+test("imageKitUrl: idempotent + normalize l'ancien encodé", () => {
   process.env.VITE_IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  delete process.env.VITE_IMAGEKIT_ENABLED;
   const once = imageKitUrl(PF, { quality: 80, format: "webp" });
   assert.ok(isImageKitUrl(once));
   assert.equal(imageKitUrl(once, { quality: 80, format: "webp" }), once);
+  const legacy = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${encodeURIComponent(PF)}`;
+  assert.equal(normalizeImagekitUrl(legacy, { quality: 80, format: "webp" }), once);
+});
+
+test("imagekitOriginal: décode l'originale (brut + encodé)", () => {
+  const raw = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}`;
+  const legacy = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${encodeURIComponent(PF)}`;
+  assert.equal(imagekitOriginal(raw), PF);
+  assert.equal(imagekitOriginal(legacy), PF);
+  assert.equal(imagekitOriginal(PF), PF);
+});
+
+test("coupe-circuit VITE_IMAGEKIT_ENABLED=false : restaure les originales", () => {
+  process.env.VITE_IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  process.env.VITE_IMAGEKIT_ENABLED = "false";
+  const ik = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}`;
+  assert.equal(imageKitUrl(PF, { quality: 80, format: "webp" }), PF);
+  assert.equal(imageKitUrl(ik, { quality: 80, format: "webp" }), PF);
+  delete process.env.VITE_IMAGEKIT_ENABLED;
 });

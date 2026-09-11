@@ -64,3 +64,16 @@ npx supabase secrets set IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/<votre-id>
 - **Anciens produits (URLs originales)** → bouton admin **« Réparer »**
   (ProductsPage, visible si variantes sans tailles) : re-synchronise
   tailles/prix + images WebP + guide des tailles (`repair-product`).
+- **ImageKit répond 404 sur toutes les URLs** → problème côté compte, pas côté
+  code. Vérifier dans le dashboard ImageKit, dans l'ordre :
+  1. l'ID d'endpoint (`https://ik.imagekit.io/<id>` — tester
+     `https://ik.imagekit.io/<id>/https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg`
+     : 200 attendu) ; 2. compte actif/vérifié ; 3. fetch distant autorisé.
+- **Endpoint en panne (images cassées)** → coupe-circuit immédiat :
+  `VITE_IMAGEKIT_ENABLED=false` (frontend) ; les helpers restaurent les
+  originales (décodées depuis les URLs stockées). Puis bouton **Réparer**
+  pour réécrire la DB en originales. Remettre `true` (ou retirer) après
+  réparation côté ImageKit, puis Réparer à nouveau pour le WebP.
+- **Format d'URL** : source NON encodée (doc officielle — l'encodage
+  systématique donne des 404), encodée uniquement si `?`/`#`.
+  `normalizeImagekitUrl` reconstruit les anciennes URLs encodées.

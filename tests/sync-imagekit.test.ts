@@ -8,6 +8,8 @@ import {
   imagekitUrl,
   displayImageUrl,
   imagekitEndpoint,
+  imagekitOriginal,
+  normalizeImagekitUrl,
 } from "../supabase/functions/sync-printful/_shared/imagekit.ts";
 
 const PF = "https://files.cdn.printful.com/o/uploaded-url/test.jpg";
@@ -31,17 +33,30 @@ test("sans endpoint: passthrough (jamais d'image cassée)", () => {
   assert.equal(displayImageUrl(PF), PF);
 });
 
-test("avec endpoint: format fetch + idempotent", () => {
+test("avec endpoint: format brut + idempotent + normalize", () => {
   process.env.IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid/";
+  delete process.env.IMAGEKIT_ENABLED;
   const out = imagekitUrl(PF, { quality: 80, format: "webp", width: 800 });
-  assert.equal(
-    out,
-    "https://ik.imagekit.io/testid/tr:w-800,q-80,f-webp/" + encodeURIComponent(PF),
-  );
+  assert.equal(out, `https://ik.imagekit.io/testid/tr:w-800,q-80,f-webp/${PF}`);
   assert.ok(isImagekitUrl(out));
-  assert.equal(imagekitUrl(out, { quality: 80, format: "webp" }), out);
+  assert.equal(
+    imagekitUrl(out, { quality: 80, format: "webp", width: 800 }),
+    out,
+  );
+  const legacy = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${encodeURIComponent(PF)}`;
+  assert.equal(normalizeImagekitUrl(legacy), `https://ik.imagekit.io/testid/${PF}`);
+  assert.equal(imagekitOriginal(legacy), PF);
   assert.equal(
     displayImageUrl(SB),
-    "https://ik.imagekit.io/testid/tr:q-80,f-webp/" + encodeURIComponent(SB),
+    `https://ik.imagekit.io/testid/tr:q-80,f-webp/${SB}`,
   );
+});
+
+test("coupe-circuit IMAGEKIT_ENABLED=false : originales", () => {
+  process.env.IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  process.env.IMAGEKIT_ENABLED = "false";
+  const ik = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}`;
+  assert.equal(imagekitUrl(PF, { quality: 80, format: "webp" }), PF);
+  assert.equal(imagekitUrl(ik), PF);
+  delete process.env.IMAGEKIT_ENABLED;
 });

@@ -892,20 +892,25 @@ async function finalizeMockupTask(
   const newGallery: string[] = [];
   const newColorImages: string[] = [];
 
+  // Les URLs stockées en affichage passent en WebP côté serveur quand
+  // l'endpoint est configuré (displayImageUrl = passthrough sinon).
+  // storageUrls/product_mockups gardent les originaux (source de vérité).
   const updatedVariants = existingVariants.map((v: any) => {
     const hex = v.color;
     const storageUrl = storageUrls[hex];
     if (storageUrl) {
-      newColorImages.push(storageUrl);
-      newGallery.push(storageUrl);
-      return { ...v, image: storageUrl };
+      const displayUrl = displayImageUrl(storageUrl);
+      newColorImages.push(displayUrl);
+      newGallery.push(displayUrl);
+      return { ...v, image: displayUrl };
     }
     if (v.image) newGallery.push(v.image);
     return v;
   });
   // Visuels secondaires (multi-placements) après les principaux.
   for (const u of extraGalleryUrls) {
-    if (!newGallery.includes(u)) newGallery.push(u);
+    const displayUrl = displayImageUrl(u);
+    if (!newGallery.includes(displayUrl)) newGallery.push(displayUrl);
   }
 
   // Legacy : galerie reconstruite (cap 20). Opt-in appendGallery (Phase 4) :
@@ -925,7 +930,7 @@ async function finalizeMockupTask(
   }
   // Legacy : image principale = premier mockup. Opt-in keepMainImage.
   if (firstMockupUrl && !opts?.keepMainImage) {
-    updatePayload.image = firstMockupUrl;
+    updatePayload.image = displayImageUrl(firstMockupUrl);
   }
 
   try {
@@ -1373,7 +1378,7 @@ export default {
                 fields: Object.keys(imgs),
               };
               if (!fresh.imagekit_enabled) {
-                warnings.push("IMAGEKIT_URL_ENDPOINT non configuré : images réparées sans conversion WebP");
+                warnings.push("Conversion WebP inactive (endpoint non configuré ou coupe-circuit) : images réparées en originales");
               }
             } else {
               warnings.push("Aucune image fraîche renvoyée (rien écrasé)");

@@ -33,9 +33,20 @@ export function getEndpoint(): string {
   return envVar("VITE_IMAGEKIT_URL_ENDPOINT").trim().replace(/\/+$/, "");
 }
 
-/** Faux tant que l'endpoint n'est pas configuré → les helpers renvoient l'original. */
+/**
+ * Coupe-circuit global : VITE_IMAGEKIT_ENABLED=false désactive toute
+ * conversion (retour aux originales). Secours immédiat si l'endpoint
+ * ImageKit est en panne (sinon : images cassées partout).
+ * Défaut : activé dès qu'un endpoint est configuré.
+ */
+export function isEnabledFlag(): boolean {
+  const v = envVar("VITE_IMAGEKIT_ENABLED").trim().toLowerCase();
+  return v !== "false" && v !== "0" && v !== "off";
+}
+
+/** Faux si endpoint absent OU coupe-circuit → les helpers renvoient l'original. */
 export function isEnabled(): boolean {
-  return getEndpoint().length > 0;
+  return isEnabledFlag() && getEndpoint().length > 0;
 }
 
 export const imageKitConfig = {
