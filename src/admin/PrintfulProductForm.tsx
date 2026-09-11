@@ -1,4 +1,4 @@
-// src/admin/PrintfulProductForm.tsx
+﻿// src/admin/PrintfulProductForm.tsx
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
@@ -8,6 +8,7 @@ import { AdminProduct } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+import { imageKitUrl } from "../lib/imagekit";
 
 interface PrintfulProductFormProps {
   onBack: () => void;
@@ -36,7 +37,7 @@ export default function PrintfulProductForm({
   const [style, setStyle] = useState<string>("street");
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isLimitedTime, setIsLimitedTime] = useState(false);
-  // Image et galerie éditables
+  // Image et galerie Ã©ditables
   const [mainImageUrl, setMainImageUrl] = useState<string>("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
 
@@ -68,7 +69,7 @@ export default function PrintfulProductForm({
       .finally(() => setLoadingList(false));
   }, []);
 
-  // Charger les variantes quand un produit est sélectionné
+  // Charger les variantes quand un produit est sÃ©lectionnÃ©
   useEffect(() => {
     if (!selectedProductId) {
       setVariants([]);
@@ -80,7 +81,7 @@ export default function PrintfulProductForm({
     podApi
       .getProductDetails(selectedProductId)
       .then((data) => {
-        // Utiliser sync_variants ou catalog_variants comme fallback pour le sélecteur
+        // Utiliser sync_variants ou catalog_variants comme fallback pour le sÃ©lecteur
         const rawVariants = data.sync_variants || data.catalog_variants || [];
         setVariants(rawVariants);
         if (rawVariants.length > 0) {
@@ -91,7 +92,7 @@ export default function PrintfulProductForm({
           const currency = first.currency || data.currency || "USD";
           setPfCurrency(currency);
 
-          // Détection automatique catégorie / eventType / style
+          // DÃ©tection automatique catÃ©gorie / eventType / style
           const productName = (data.name || "").toLowerCase();
           const productType = (data.type || "").toLowerCase();
           const combined = `${productName} ${productType}`;
@@ -135,7 +136,7 @@ export default function PrintfulProductForm({
           }
           if (matchedSty) setStyle(matchedSty);
 
-          // Pré-remplir les images depuis les données enrichies
+          // PrÃ©-remplir les images depuis les donnÃ©es enrichies
           setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
 
           const colorGallery = (data.color_images || []) as string[];
@@ -148,8 +149,8 @@ export default function PrintfulProductForm({
           ].slice(0, 12);
           setGalleryImages(initialGallery.length > 0 ? initialGallery : []);
         }
-        // Pré-remplir les couleurs, noms de couleurs, tailles et images par couleur
-        // Couleurs – avec fallback si l'Edge Function ne les remonte pas
+        // PrÃ©-remplir les couleurs, noms de couleurs, tailles et images par couleur
+        // Couleurs â€“ avec fallback si l'Edge Function ne les remonte pas
         const rawColors: string[] = (data.colors as string[]) || [];
         if (rawColors.length === 0 && data.sync_variants?.length) {
           // Fallback : extraire les couleurs des sync_variants
@@ -192,7 +193,7 @@ export default function PrintfulProductForm({
       .finally(() => setLoadingVariants(false));
   }, [selectedProductId]);
 
-  // Récupérer le Printful price (retail_price) depuis les données déjà chargées
+  // RÃ©cupÃ©rer le Printful price (retail_price) depuis les donnÃ©es dÃ©jÃ  chargÃ©es
   useEffect(() => {
     if (!selectedVariantId || variants.length === 0) return;
     const v = variants.find((v: any) => v.id.toString() === selectedVariantId);
@@ -201,7 +202,7 @@ export default function PrintfulProductForm({
     }
   }, [selectedVariantId, variants]);
 
-  // Récupérer l'estimation des frais de port Printful pour la variante sélectionnée
+  // RÃ©cupÃ©rer l'estimation des frais de port Printful pour la variante sÃ©lectionnÃ©e
   useEffect(() => {
     if (!selectedVariantId || variants.length === 0) return;
     const v = variants.find((v: any) => v.id.toString() === selectedVariantId);
@@ -210,10 +211,10 @@ export default function PrintfulProductForm({
     podApi
       .getShippingEstimate(catalogVariantId)
       .then(({ min, max }) => {
-        setShippingEstimate(max); // pré-remplit avec la valeur haute
+        setShippingEstimate(max); // prÃ©-remplit avec la valeur haute
         setShippingRange({ min, max });
       })
-      .catch((err) => console.warn("Estimation shipping non récupérée", err));
+      .catch((err) => console.warn("Estimation shipping non rÃ©cupÃ©rÃ©e", err));
   }, [selectedVariantId, variants]);
 
   // Recalcul dynamique du Retail price
@@ -226,7 +227,7 @@ export default function PrintfulProductForm({
   // Revenue = retail - (printful cost + shipping)
   const revenue = price - (printfulCost + shippingEstimate);
 
-  // Helper : retrouve un code hex pour une couleur, même si Printful ne renvoie que le nom
+  // Helper : retrouve un code hex pour une couleur, mÃªme si Printful ne renvoie que le nom
   const findHexForColor = (colorNameOrCode: string): string => {
     if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(colorNameOrCode))
       return colorNameOrCode;
@@ -296,27 +297,27 @@ export default function PrintfulProductForm({
   const handleImport = async () => {
     setError(null);
     if (!selectedProductId || !selectedVariantId) {
-      setError("Sélectionnez un produit et une variante.");
+      setError("SÃ©lectionnez un produit et une variante.");
       return;
     }
     if (printfulCost <= 0) {
       setError(
-        "Le coût d'impression (Printful price) doit être supérieur à 0 avant d'importer.",
+        "Le coÃ»t d'impression (Printful price) doit Ãªtre supÃ©rieur Ã  0 avant d'importer.",
       );
       return;
     }
     setImporting(true);
     try {
       const pfData = await podApi.getProductDetails(selectedProductId);
-      // Récupérer et sauvegarder le guide des tailles Printful
+      // RÃ©cupÃ©rer et sauvegarder le guide des tailles Printful
       let sizeGuideData: any = undefined;
       try {
         sizeGuideData = await podApi.getProductSizes(selectedProductId);
       } catch (e) {
-        console.warn("Impossible de récupérer le size guide Printful", e);
+        console.warn("Impossible de rÃ©cupÃ©rer le size guide Printful", e);
       }
       const title = pfData.name || "";
-      const mainImage = mainImageUrl || pfData.thumbnail_url || "";
+      const mainImage = mainImageUrl ? imageKitUrl(mainImageUrl, { quality: 80, format: 'webp' }) : (pfData.thumbnail_url ? imageKitUrl(pfData.thumbnail_url, { quality: 80, format: 'webp' }) : "");
 
       const allImages: string[] =
         galleryImages.length > 0
@@ -376,16 +377,16 @@ export default function PrintfulProductForm({
         brand: "INSTAWEAR",
         description: title,
         fullDescription: "",
-        image: mainImage,
-        gallery: allImages,
+        image: mainImage ? imageKitUrl(mainImage, { quality: 80, format: 'webp' }) : mainImage,
+        gallery: allImages.map(url => url ? imageKitUrl(url, { quality: 80, format: 'webp' }) : url),
         mockupPreset: "",
-        price: price, // Retail price calculé
+        price: price, // Retail price calculÃ©
         originalPrice: undefined,
         inStock: true,
         stockQuantity: 100,
         colors: colors.filter((c) => c && c.trim().length > 0),
         colorNames: colorNames.slice(0, colors.length),
-        colorImages: cleanColorImgs.length > 0 ? cleanColorImgs : null,
+        colorImages: cleanColorImgs.length > 0 ? cleanColorImgs.map(url => url ? imageKitUrl(url, { quality: 80, format: 'webp' }) : url) : null,
         sizes: sizes.filter((s) => s && s.trim().length > 0),
         variants: computedVariants.length > 0 ? computedVariants : undefined,
         sizeSurcharge: {},
@@ -405,7 +406,7 @@ export default function PrintfulProductForm({
         externalProductId: selectedProductId,
         externalVariantId: selectedVariantId,
         lastExternalSync: new Date().toISOString(),
-        printfulPrice: printfulCost, // coût d'impression réel
+        printfulPrice: printfulCost, // coÃ»t d'impression rÃ©el
         printfulCurrency: pfCurrency,
         shippingEstimate: shippingEstimate,
         ratings: { score: 5, count: 0 },
@@ -417,8 +418,8 @@ export default function PrintfulProductForm({
       import("../api/supabaseApi").then(({ notificationApi }) => {
         notificationApi
           .create({
-            title: `Produit Printful importé`,
-            description: `"${title}" importé avec succès`,
+            title: `Produit Printful importÃ©`,
+            description: `"${title}" importÃ© avec succÃ¨s`,
             category: "products",
             priority: "low",
             metadata: {
@@ -479,7 +480,7 @@ export default function PrintfulProductForm({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* En-tête */}
+      {/* En-tÃªte */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={onBack}
@@ -509,7 +510,7 @@ export default function PrintfulProductForm({
               .catch(() => setError("Erreur chargement produits Printful."))
               .finally(() => setLoadingList(false));
           }}
-          title="Rafraîchir la liste"
+          title="RafraÃ®chir la liste"
           style={{
             background: "var(--color-surface2)",
             border: "1px solid var(--color-border)",
@@ -553,7 +554,7 @@ export default function PrintfulProductForm({
           maxWidth: 700,
         }}
       >
-        {/* Sélecteur produit Printful */}
+        {/* SÃ©lecteur produit Printful */}
         <div>
           <label style={labelStyle}>Produit Printful</label>
           {loadingList ? (
@@ -782,7 +783,7 @@ export default function PrintfulProductForm({
                       lineHeight: 1,
                     }}
                   >
-                    ×
+                    Ã—
                   </button>
                 </span>
               ))}
@@ -893,12 +894,12 @@ export default function PrintfulProductForm({
           </div>
         </div>
 
-        {/* ── Variantes : tableau couleurs (lignes) × tailles (colonnes) ── */}
+        {/* â”€â”€ Variantes : tableau couleurs (lignes) Ã— tailles (colonnes) â”€â”€ */}
         {colors.length > 0 && sizes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <label style={labelStyle}>
-              Variantes – {colors.length} couleur{colors.length > 1 ? "s" : ""}{" "}
-              × {sizes.length} taille{sizes.length > 1 ? "s" : ""}
+              Variantes â€“ {colors.length} couleur{colors.length > 1 ? "s" : ""}{" "}
+              Ã— {sizes.length} taille{sizes.length > 1 ? "s" : ""}
             </label>
 
             <div
@@ -916,7 +917,7 @@ export default function PrintfulProductForm({
                   color: "var(--color-ink)",
                 }}
               >
-                {/* En-tête : première cellule vide + une colonne par taille */}
+                {/* En-tÃªte : premiÃ¨re cellule vide + une colonne par taille */}
                 <thead>
                   <tr style={{ background: "var(--color-surface2)" }}>
                     <th style={thStyle}></th>
@@ -947,7 +948,7 @@ export default function PrintfulProductForm({
                               : "var(--color-surface2)",
                         }}
                       >
-                        {/* Première cellule : image miniature */}
+                        {/* PremiÃ¨re cellule : image miniature */}
                         <td style={tdStyle}>
                           <div
                             style={{
@@ -985,10 +986,10 @@ export default function PrintfulProductForm({
 
                         {/* Prix pour chaque taille */}
                         {sizes.map((size) => {
-                          // Chercher le prix dans les données Printful
+                          // Chercher le prix dans les donnÃ©es Printful
                           let price: number | null = null;
 
-                          // 1) catalog_variants (données catalogue Printful)
+                          // 1) catalog_variants (donnÃ©es catalogue Printful)
                           const cat = (catalogVariants || []).find(
                             (v: any) =>
                               (v.color || v.color_code || "").toLowerCase() ===
@@ -996,7 +997,7 @@ export default function PrintfulProductForm({
                           );
                           if (cat?.price != null) price = parseFloat(cat.price);
 
-                          // 2) sync_variants (données brutes du store Printful)
+                          // 2) sync_variants (donnÃ©es brutes du store Printful)
                           if (price == null) {
                             const syn = (variants || []).find(
                               (v: any) =>
@@ -1033,7 +1034,7 @@ export default function PrintfulProductForm({
                                     fontStyle: "italic",
                                   }}
                                 >
-                                  —
+                                  â€”
                                 </span>
                               )}
                             </td>
@@ -1046,7 +1047,7 @@ export default function PrintfulProductForm({
               </table>
             </div>
 
-            {/* Édition rapide des listes */}
+            {/* Ã‰dition rapide des listes */}
             <details style={{ marginTop: 8 }}>
               <summary
                 style={{
@@ -1095,7 +1096,7 @@ export default function PrintfulProductForm({
           </div>
         )}
 
-        {/* ── Pricing ────────────────────────────────────────────── */}
+        {/* â”€â”€ Pricing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div
           style={{
             background: "var(--color-surface2)",
@@ -1116,7 +1117,7 @@ export default function PrintfulProductForm({
               marginBottom: 4,
             }}
           >
-            💰 Pricing
+            ðŸ’° Pricing
           </h3>
 
           {/* Printful price (non modifiable) */}
@@ -1142,7 +1143,7 @@ export default function PrintfulProductForm({
             <p
               style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}
             >
-              (Retail price défini dans Printful)
+              (Retail price dÃ©fini dans Printful)
             </p>
           </div>
 
@@ -1168,7 +1169,7 @@ export default function PrintfulProductForm({
                     marginTop: 4,
                   }}
                 >
-                  Frais de port estimés : {shippingRange.min.toFixed(2)}{" "}
+                  Frais de port estimÃ©s : {shippingRange.min.toFixed(2)}{" "}
                   {pfCurrency}
                 </p>
               ) : (
@@ -1179,7 +1180,7 @@ export default function PrintfulProductForm({
                     marginTop: 4,
                   }}
                 >
-                  Plage estimée : {shippingRange.min.toFixed(2)} –{" "}
+                  Plage estimÃ©e : {shippingRange.min.toFixed(2)} â€“{" "}
                   {shippingRange.max.toFixed(2)} {pfCurrency}
                 </p>
               )
@@ -1191,14 +1192,14 @@ export default function PrintfulProductForm({
                   marginTop: 4,
                 }}
               >
-                (estimation en cours…)
+                (estimation en coursâ€¦)
               </p>
             )}
           </div>
 
-          {/* Marge souhaitée (%) */}
+          {/* Marge souhaitÃ©e (%) */}
           <div>
-            <label style={labelStyle}>Marge souhaitée (%)</label>
+            <label style={labelStyle}>Marge souhaitÃ©e (%)</label>
             <input
               type="number"
               value={marginPercent}
@@ -1211,7 +1212,7 @@ export default function PrintfulProductForm({
             />
           </div>
 
-          {/* Retail price (calculé) */}
+          {/* Retail price (calculÃ©) */}
           <div
             style={{
               background: "var(--color-success-bg)",
@@ -1242,7 +1243,7 @@ export default function PrintfulProductForm({
             </span>
           </div>
           <p style={{ fontSize: 11, color: "var(--color-ink4)" }}>
-            Retail price = (Printful price + Shipping) × (1 + Marge%)
+            Retail price = (Printful price + Shipping) Ã— (1 + Marge%)
           </p>
 
           {/* Revenue */}
@@ -1273,21 +1274,21 @@ export default function PrintfulProductForm({
                 color: revenue >= 0 ? "var(--color-success)" : "#ef4444",
               }}
             >
-              {revenue <= 0 ? "⚠️ " : ""}
+              {revenue <= 0 ? "âš ï¸ " : ""}
               {revenue.toFixed(2)} {pfCurrency}
             </span>
           </div>
           <p style={{ fontSize: 11, color: "var(--color-ink4)" }}>
-            Revenue = Retail price – (Printful price + Shipping)
+            Revenue = Retail price â€“ (Printful price + Shipping)
           </p>
         </div>
 
-        {/* Champs manuels (catégorie, etc.) */}
+        {/* Champs manuels (catÃ©gorie, etc.) */}
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
         >
           <div>
-            <label style={labelStyle}>Catégorie</label>
+            <label style={labelStyle}>CatÃ©gorie</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -1301,7 +1302,7 @@ export default function PrintfulProductForm({
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Type d'événement</label>
+            <label style={labelStyle}>Type d'Ã©vÃ©nement</label>
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value)}
@@ -1360,7 +1361,7 @@ export default function PrintfulProductForm({
               checked={isLimitedTime}
               onChange={(e) => setIsLimitedTime(e.target.checked)}
             />
-            Offre limitée
+            Offre limitÃ©e
           </label>
         </div>
 
@@ -1413,7 +1414,7 @@ export default function PrintfulProductForm({
             ) : (
               <ExternalLink size={15} />
             )}
-            Importer et créer
+            Importer et crÃ©er
           </button>
         </div>
       </div>
