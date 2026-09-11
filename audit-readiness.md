@@ -7,7 +7,7 @@
 
 ### 1. Images / CLS / Cache statique — (Core Web Vitals, sans risque sécu)
 
-**Non-fait volontairement (documenté) :** `srcset`/WebP — images distantes (Supabase Storage + CDN Printful) sans API de transformation fiable (params `?width=` à l'aveugle = risque 400). Aucun changement CSP, RLS, headers sécu.
+**Non-fait actuellement (documenté) :** `srcset`/WebP — images distantes (Supabase Storage + CDN Printful) sans API de transformation fiable (params `?width=` à l'aveugle = risque 400). Aucun changement CSP, RLS, headers sécu.
 
 ---
 
