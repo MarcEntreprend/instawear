@@ -579,7 +579,10 @@ export default function ProductPage({
                   className="text-sm line-through"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  {formatAmount(currentVariantPrice ?? product.price, currencySymbol)}
+                  {formatAmount(
+                    currentVariantPrice ?? product.price,
+                    currencySymbol,
+                  )}
                 </span>
               )}
             </div>
