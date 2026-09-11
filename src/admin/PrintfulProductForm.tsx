@@ -366,7 +366,8 @@ export default function PrintfulProductForm({
           return {
             color: colorCode,
             color_name: cname,
-            image: cimg,
+            // Convertie comme colorImages (imageKitUrl est idempotent de toute façon)
+            image: cimg ? imageKitUrl(cimg, { quality: 80, format: 'webp' }) : cimg,
             sizes: sizesWithPrices,
           };
         });
@@ -377,7 +378,7 @@ export default function PrintfulProductForm({
         brand: "INSTAWEAR",
         description: title,
         fullDescription: "",
-        image: mainImage ? imageKitUrl(mainImage, { quality: 80, format: 'webp' }) : mainImage,
+        image: mainImage, // déjà convertie ligne ~320 (imageKitUrl idempotent)
         gallery: allImages.map(url => url ? imageKitUrl(url, { quality: 80, format: 'webp' }) : url),
         mockupPreset: "",
         price: price, // Retail price calculÃ©

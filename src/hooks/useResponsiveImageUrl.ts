@@ -1,7 +1,7 @@
 // src/hooks/useResponsiveImageUrl.ts
 import { useMemo } from 'react';
 import { imageKitUrl, imageKitSrcSet } from '../lib/imagekit';
-import { useIsMobile } from '../hooks/useIsMobile';
+import { useIsMobile } from './useIsMobile';
 
 interface UseResponsiveImageUrlOptions {
   quality?: number;
