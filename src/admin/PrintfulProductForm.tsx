@@ -338,39 +338,86 @@ export default function PrintfulProductForm({
         (url) => url && url.trim().length > 0,
       );
 
+      // Variantes résolues CÔTÉ SERVEUR (edge get-product : tailles + prix +
+      // stock déjà fusionnés depuis sync retail_price + catalogue). Le formulaire
+      // ne refait PLUS de re-match fragile : il mappe ses couleurs (éditables)
+      // vers les variantes edge par clé normalisée (hex, puis nom).
+      const normKey = (s: unknown) => String(s || "").trim().toLowerCase();
+      const edgeVariants: any[] = Array.isArray((pfData as any).variants)
+        ? (pfData as any).variants
+        : [];
+      const edgeByHex = new Map(edgeVariants.map((v: any) => [normKey(v.color), v]));
+      const edgeByName = new Map(edgeVariants.map((v: any) => [normKey(v.color_name), v]));
+      const findEdgeVariant = (colorCode: string, cname: string): any | null =>
+        edgeByHex.get(normKey(colorCode)) ||
+        edgeByName.get(normKey(cname)) ||
+        edgeByHex.get(normKey(cname)) ||
+        edgeByName.get(normKey(colorCode)) ||
+        null;
+
       const computedVariants = colors
         .filter((c) => c && c.trim().length > 0)
         .map((colorCode, idx) => {
           const cname = colorNames[idx] || colorCode;
           const cimg = cleanColorImgs[idx] || "";
+          const edgeVar = findEdgeVariant(colorCode, cname);
+          if (edgeVar && edgeVar.sizes && Object.keys(edgeVar.sizes).length > 0) {
+            return {
+              color: colorCode,
+              color_name: cname,
+              image: edgeVar.image
+                ? imageKitUrl(edgeVar.image, { quality: 80, format: "webp" })
+                : cimg
+                  ? imageKitUrl(cimg, { quality: 80, format: "webp" })
+                  : cimg,
+              sizes: edgeVar.sizes,
+              ...(edgeVar.external_variant_id
+                ? { external_variant_id: edgeVar.external_variant_id }
+                : {}),
+            };
+          }
+          // Fallback historique : re-match local durci (l'edge n'a rien renvoyé
+          // pour cette couleur). Chaîne de prix : catalogue → retail sync →
+          // prix retail calculé (on ne jette JAMAIS une taille faute de prix).
           const sizesWithPrices: Record<string, { price: number }> = {};
           for (const size of sizes) {
-            // Chercher d'abord dans catalogVariants, puis dans les variants bruts
-            let catVar = (catalogVariants || []).find(
+            const catVar = (catalogVariants || []).find(
               (v: any) =>
-                (v.color || v.color_code || "").toLowerCase() ===
-                  cname.toLowerCase() && v.size === size,
+                normKey(v.color || v.color_code) === normKey(cname) &&
+                String(v.size || "") === String(size),
             );
-            if (!catVar) {
-              catVar = (variants || []).find(
-                (v: any) =>
-                  (v.color || v.color_code || "").toLowerCase() ===
-                    cname.toLowerCase() && v.size === size,
-              );
-            }
-
-            if (catVar?.price != null) {
-              sizesWithPrices[size] = { price: parseFloat(catVar.price) };
-            }
+            const syncVar = (variants || []).find(
+              (v: any) =>
+                (normKey(v.color || v.color_code) === normKey(cname) ||
+                  normKey(v.color || v.color_code) === normKey(colorCode)) &&
+                String(v.size || "") === String(size),
+            );
+            const rawPrice =
+              catVar?.price ?? syncVar?.retail_price ?? syncVar?.price ?? null;
+            const numPrice = rawPrice != null ? parseFloat(rawPrice) : NaN;
+            sizesWithPrices[size] = {
+              price: Number.isFinite(numPrice) ? numPrice : price,
+            };
           }
           return {
             color: colorCode,
             color_name: cname,
-            // Convertie comme colorImages (imageKitUrl est idempotent de toute façon)
-            image: cimg ? imageKitUrl(cimg, { quality: 80, format: 'webp' }) : cimg,
+            image: cimg ? imageKitUrl(cimg, { quality: 80, format: "webp" }) : cimg,
             sizes: sizesWithPrices,
           };
         });
+
+      // Garde-fou : un import sans aucune taille/prix est invendable.
+      // On bloque avec un message explicite plutôt qu'un produit cassé silencieux.
+      const totalSizes = computedVariants.reduce(
+        (n, v: any) => n + Object.keys(v.sizes || {}).length,
+        0,
+      );
+      if (computedVariants.length > 0 && totalSizes === 0) {
+        throw new Error(
+          "Aucune taille avec prix trouvée pour ces couleurs (Printful ne renvoie rien d'exploitable). Import annulé : vérifiez le produit côté Printful puis réessayez.",
+        );
+      }
 
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,

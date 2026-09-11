@@ -7,6 +7,14 @@ import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
+import {
+  displayImageUrl,
+  imagekitEndpoint,
+} from "./_shared/imagekit.ts";
+import {
+  buildCatalogPriceIndex,
+  resolveUnitPrice as resolveUnitPriceShared,
+} from "./_shared/variantPricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,6 +171,13 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     if (!cv.id) continue;
     catalogIdToStatus.set(Number(cv.id), resolveCatalogStockStatus(cv));
   }
+  // Prix catalogue par variant (fallback quand le sync n'a pas de retail_price :
+  // doc API Printful : le sync porte retail_price, le catalogue porte price).
+  // Logique pure externalisée (testée) : _shared/variantPricing.ts.
+  const catalogIdToPrice = buildCatalogPriceIndex(catalogVariants);
+  /** Prix unitaire : retail sync → prix catalogue → null (taille conservée). */
+  const resolveUnitPrice = (v: any): number | null =>
+    resolveUnitPriceShared(v, catalogIdToPrice);
   const syncIdToStatus = new Map<number, string>();
   for (const sv of syncVariants || []) {
     const vid = sv.variant_id || sv.product?.variant_id;
@@ -183,7 +198,8 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", id: null });
     const entry = byColor.get(hex)!;
     if (!entry.id && v.id) entry.id = v.id;
-    if (v.size && v.retail_price != null) {
+    const unitPrice = v.size ? resolveUnitPrice(v) : null;
+    if (v.size && unitPrice != null) {
       const catalogVid = v.variant_id || v.product?.variant_id;
       let stockStatus = "available";
       if (catalogVid && catalogIdToStatus.has(Number(catalogVid))) {
@@ -210,7 +226,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
         const syncId = v.id != null ? Number(v.id) : NaN;
         const catId = catalogVid != null ? Number(catalogVid) : NaN;
         entry.sizes.set(v.size, {
-          price: parseFloat(v.retail_price),
+          price: unitPrice,
           stock_status: stockStatus,
           ...(Number.isFinite(syncId) ? { sync_variant_id: syncId } : {}),
           ...(Number.isFinite(catId) ? { catalog_variant_id: catId } : {}),
@@ -260,8 +276,10 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     .map(([hex, entry]) => ({
       color: hex,
       color_name: entry.name,
-      image: entry.image,
-      mockup_image: entry.mockup_image || undefined,
+      // Affichage uniquement (files[] d'impression restent intacts) : WebP
+      // côté serveur quand IMAGEKIT_URL_ENDPOINT est configuré, sinon original.
+      image: displayImageUrl(entry.image),
+      mockup_image: entry.mockup_image ? displayImageUrl(entry.mockup_image) : undefined,
       external_variant_id: entry.id ? String(entry.id) : undefined,
       sizes: Object.fromEntries(
         [...entry.sizes.entries()].map(([size, data]) => [
@@ -310,7 +328,11 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   const colors = deduped.map((v) => v.color);
   const colorNames = deduped.map((v) => v.color_name);
   const colorImages = deduped.map((v) => v.image).filter(Boolean);
-  const mockupImages = [...new Set(deduped.map((v) => v.mockup_image).filter(Boolean))];
+  const mockupImages = [
+    ...new Set(
+      deduped.map((v) => v.mockup_image).filter(Boolean).map(displayImageUrl),
+    ),
+  ];
   const sizesSet = new Set<string>();
   deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
 
@@ -1174,7 +1196,7 @@ export default {
                     size: v.size || "",
                     price: v.price,
                     currency: v.currency,
-                    image: v.image || "",
+                    image: v.image ? displayImageUrl(v.image) : "",
                     availability_status: v.availability_status,
                   }),
                 );
@@ -1192,12 +1214,15 @@ export default {
           id: syncProduct?.id || detail.id,
           name: syncProduct?.name || detail.name || catalogProductName || "",
           description: syncProduct?.description || "",
-          thumbnail_url:
+          thumbnail_url: displayImageUrl(
             syncProduct?.thumbnail_url ||
-            catalogProductImage ||
-            mainVariant?.files?.[0]?.preview_url ||
-            "",
+              catalogProductImage ||
+              mainVariant?.files?.[0]?.preview_url ||
+              "",
+          ),
           currency: mainVariant?.currency || "USD",
+          // Traçabilité admin : l'import stocke-t-il déjà des URLs ImageKit ?
+          imagekit_enabled: imagekitEndpoint().length > 0,
           colors,
           color_names: colorNames,
           color_images: colorImages,
@@ -1228,6 +1253,194 @@ export default {
         return new Response(JSON.stringify(productData), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // ─── Mode "repair-product" ─────────────────────────────────────
+      // Répare un produit importé avec variantes sans tailles/prix (bug
+      // d'import pré-fix) et/ou images non-WebP : rejoue get-product +
+      // get-product-sizes côté serveur puis patch la ligne products.
+      // Admin uniquement (même gate que les autres actions, plus haut).
+      // Body : { productId: <uuid DB>, fix?: ("sizes"|"images"|"sizeguide")[] }
+      if (body.action === "repair-product" && body.productId) {
+        try {
+          const dbId = String(body.productId);
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbId)) {
+            return new Response(JSON.stringify({ error: "productId invalide (uuid attendu)" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            });
+          }
+          const wanted: string[] = Array.isArray(body.fix) && body.fix.length > 0
+            ? body.fix.filter((f: any) => ["sizes", "images", "sizeguide"].includes(f))
+            : ["sizes", "images", "sizeguide"];
+          if (wanted.length === 0) {
+            return new Response(JSON.stringify({ error: "fix vide (sizes|images|sizeguide)" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 400,
+            });
+          }
+
+          const { data: row, error: rowError } = await supabaseAdmin
+            .from("products")
+            .select("id, title, external_product_id, variants, image, gallery, color_images")
+            .eq("id", dbId)
+            .maybeSingle();
+          if (rowError || !row) {
+            return new Response(JSON.stringify({ error: "Produit introuvable" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 404,
+            });
+          }
+          if (!row.external_product_id) {
+            return new Response(
+              JSON.stringify({ error: "Produit non lié à Printful (pas d'external_product_id)" }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 422,
+              },
+            );
+          }
+
+          // Self-call avec la clé service_role (contourne le gate admin :
+          // on est déjà authentifié admin ici). Même logique exacte que l'import.
+          const selfBase = Deno.env.get("SUPABASE_URL")!;
+          const selfKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const callSelf = async (payload: unknown) => {
+            const r = await fetch(`${selfBase}/functions/v1/sync-printful`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: selfKey },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+              const t = await r.text().catch(() => "");
+              throw new Error(`self-call ${JSON.stringify(payload).slice(0, 60)} → ${r.status} ${t.slice(0, 120)}`);
+            }
+            return r.json();
+          };
+          const fresh: any = await callSelf({
+            action: "get-product",
+            productId: String(row.external_product_id),
+          });
+
+          const patch: Record<string, unknown> = {
+            updated_at: new Date().toISOString(),
+            last_external_sync: new Date().toISOString(),
+          };
+          const fixed: Record<string, unknown> = {};
+          const warnings: string[] = [];
+
+          if (wanted.includes("sizes")) {
+            const freshVariants = Array.isArray(fresh.variants) ? fresh.variants : [];
+            const freshSizes: string[] = Array.isArray(fresh.sizes) ? fresh.sizes : [];
+            const withSizes = freshVariants.filter(
+              (v: any) => v.sizes && Object.keys(v.sizes).length > 0,
+            );
+            if (withSizes.length > 0) {
+              patch.variants = freshVariants;
+              patch.sizes = freshSizes;
+              patch.colors = Array.isArray(fresh.colors) ? fresh.colors : undefined;
+              patch.color_names = Array.isArray(fresh.color_names) ? fresh.color_names : undefined;
+              if (patch.colors === undefined) delete patch.colors;
+              if (patch.color_names === undefined) delete patch.color_names;
+              fixed.sizes = {
+                variants: freshVariants.length,
+                sizes: freshSizes,
+              };
+            } else {
+              warnings.push("Printful ne renvoie aucune taille avec prix pour ce produit (rien écrasé)");
+            }
+          }
+
+          if (wanted.includes("images")) {
+            const imgs: Record<string, unknown> = {};
+            if (typeof fresh.thumbnail_url === "string" && fresh.thumbnail_url) {
+              imgs.image = fresh.thumbnail_url;
+            }
+            if (Array.isArray(fresh.color_images) && fresh.color_images.length > 0) {
+              const gallery = [
+                ...(Array.isArray(fresh.color_images) ? fresh.color_images : []),
+                ...((fresh.mockupImages || []) as string[]),
+              ].filter(Boolean);
+              if (gallery.length > 0) {
+                imgs.gallery = [...new Set(gallery)].slice(0, 12);
+                imgs.color_images = fresh.color_images;
+              }
+            }
+            if (Object.keys(imgs).length > 0) {
+              Object.assign(patch, imgs);
+              fixed.images = {
+                imagekit: !!fresh.imagekit_enabled,
+                fields: Object.keys(imgs),
+              };
+              if (!fresh.imagekit_enabled) {
+                warnings.push("IMAGEKIT_URL_ENDPOINT non configuré : images réparées sans conversion WebP");
+              }
+            } else {
+              warnings.push("Aucune image fraîche renvoyée (rien écrasé)");
+            }
+          }
+
+          if (wanted.includes("sizeguide")) {
+            try {
+              const guide: any = await callSelf({
+                action: "get-product-sizes",
+                productId: String(row.external_product_id),
+              });
+              if (guide && (Array.isArray(guide.size_tables) ? guide.size_tables.length > 0 : Object.keys(guide).length > 0)) {
+                patch.size_guide = guide;
+                fixed.sizeguide = true;
+              } else {
+                warnings.push("Pas de guide des tailles côté Printful (normal hors textile)");
+              }
+            } catch (e: any) {
+              warnings.push(`Guide des tailles illisible : ${String(e?.message || e).slice(0, 120)}`);
+            }
+          }
+
+          const keys = Object.keys(patch).filter((k) => k !== "updated_at" && k !== "last_external_sync");
+          if (keys.length === 0) {
+            return new Response(JSON.stringify({ ok: true, fixed: {}, warnings, noop: true }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const { error: upError } = await supabaseAdmin
+            .from("products")
+            .update(patch)
+            .eq("id", dbId);
+          if (upError) {
+            console.error("repair-product update:", logSafe(upError));
+            return new Response(JSON.stringify({ error: "Écriture impossible" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            });
+          }
+
+          // Traçabilité admin (best-effort)
+          try {
+            await supabaseAdmin.from("notifications").insert({
+              title: `Produit réparé — ${row.title || dbId}`,
+              description: `Réparation Printful : ${Object.keys(fixed).join(", ") || "rien à réparer"}${warnings.length ? ` (${warnings.length} avertissement(s))` : ""}`.slice(0, 300),
+              category: "products",
+              priority: "low",
+              status: "unread",
+              timestamp: new Date().toISOString(),
+              metadata: { productId: dbId, fixed, warnings, source: "repair-product" },
+            });
+          } catch { /* ignore */ }
+
+          return new Response(JSON.stringify({ ok: true, fixed, warnings }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (err: any) {
+          console.error("repair-product fatal:", logSafe(err));
+          return new Response(
+            JSON.stringify({ error: String(err?.message || "Réparation impossible").slice(0, 200) }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            },
+          );
+        }
       }
 
       // ─── Mode "get-catalog-product" ─────────────────────────────────
