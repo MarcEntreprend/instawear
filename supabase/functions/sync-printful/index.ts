@@ -1032,11 +1032,57 @@ export default {
       }
 
       // ─── Mode "get-product-sizes" ─────────────────────────────────
+      // L'appelant (PrintfulProductForm) donne un id produit STORE (sync,
+      // ex: 452127947) alors que /products/{id}/sizes attend un id CATALOGUE
+      // (ex: 438). Sans résolution → 404 Printful systématique.
+      // Chaîne : direct (id catalogue) → résolution store→catalogue → 404
+      // finale = état légitime (mugs, posters… : pas de guide) → 200 vide.
       if (body.action === "get-product-sizes" && body.productId) {
         try {
-          const res = await fetch(
-            `https://api.printful.com/products/${body.productId}/sizes`,
-          );
+          const { data: podSettings } = await supabaseAdmin
+            .from("pod_settings")
+            .select("api_key")
+            .single();
+          const pfHeaders: Record<string, string> = podSettings?.api_key
+            ? { Authorization: `Bearer ${podSettings.api_key}` }
+            : {};
+          const sizesUrl = (id: string | number) =>
+            `https://api.printful.com/products/${id}/sizes`;
+
+          let res = await fetch(sizesUrl(body.productId), {
+            headers: pfHeaders,
+          });
+
+          if (res.status === 404 && podSettings?.api_key) {
+            try {
+              const storeRes = await fetch(
+                `https://api.printful.com/store/products/${body.productId}`,
+                { headers: pfHeaders },
+              );
+              if (storeRes.ok) {
+                const storeData = await storeRes.json();
+                const catalogId =
+                  storeData?.result?.sync_variants?.[0]?.product?.product_id;
+                if (catalogId) {
+                  res = await fetch(sizesUrl(catalogId), {
+                    headers: pfHeaders,
+                  });
+                }
+              }
+            } catch {
+              /* ignore → gestion ci-dessous */
+            }
+          }
+
+          if (res.status === 404) {
+            return new Response(
+              JSON.stringify({ size_tables: [], _no_size_guide: true }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+              },
+            );
+          }
           if (!res.ok) {
             return new Response(
               JSON.stringify({
