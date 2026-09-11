@@ -50,6 +50,9 @@
     },
     "/printful-reports": {
       "post": { "summary": "Printful reports statistics (profit/costs/sales) with 12h local snapshot cache", "x-roles": ["admin"], "x-edges": ["printful-reports"] }
+    },
+    "/email-preferences": {
+      "post": { "summary": "Public email preferences get/save (newsletter + customer prefs, merged, logged, rate-limited 10/min)", "x-roles": ["public"], "x-edges": ["email-preferences"] }
     }
   }
 }

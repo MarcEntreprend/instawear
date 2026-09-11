@@ -57,6 +57,7 @@ export default function ThumbStrip({
 }: ThumbStripProps) {
   const vertical = orientation === "vertical";
   const trackRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
   const [canUp, setCanUp] = useState(false);
   const [downCount, setDownCount] = useState(0);
 
@@ -74,6 +75,14 @@ export default function ThumbStrip({
     setDownCount(computeDownCount(size, scrollPos, client, thumb || 1));
   };
 
+  const handleScroll = () => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      refresh();
+    });
+  };
+
   useEffect(() => {
     // Petit délai pour que le DOM soit bien mis à jour
     const timer = setTimeout(refresh, 50);
@@ -81,6 +90,10 @@ export default function ThumbStrip({
     return () => {
       clearTimeout(timer);
       window.removeEventListener("resize", refresh);
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images.length, orientation, maxPx]);
@@ -111,7 +124,7 @@ export default function ThumbStrip({
       {canUp && (
         <button
           type="button"
-          aria-label="Voir précédentes"
+          aria-label="See previous"
           onClick={() => step(-1)}
           className="absolute z-10 flex items-center justify-center w-6 h-6 rounded-full shadow"
           style={
@@ -139,7 +152,7 @@ export default function ThumbStrip({
       )}
       <div
         ref={trackRef}
-        onScroll={refresh}
+        onScroll={handleScroll}
         className={
           vertical
             ? "flex flex-col overflow-y-auto no-scrollbar"
@@ -160,7 +173,13 @@ export default function ThumbStrip({
                   : "1px solid var(--color-border)",
             }}
           >
-            <img src={img} alt="" className="w-full h-full object-cover" />
+            <img
+              src={img}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
           </button>
         ))}
       </div>
@@ -186,7 +205,7 @@ export default function ThumbStrip({
                   color: "var(--color-bg)",
                 }
           }
-          aria-label={`Voir ${downCount} images suivantes`}
+          aria-label={`See ${downCount} following images`}
           title={`${downCount} more`}
         >
           +{downCount} <DownIcon size={12} />

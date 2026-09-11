@@ -18,6 +18,8 @@ export default function AboutSection() {
                 src="/group_of_friends_celebrating_–_one_wearing_a_custom_shirt-0.jpg"
                 alt="The InstaWear team"
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>

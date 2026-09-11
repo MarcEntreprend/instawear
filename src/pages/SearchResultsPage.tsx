@@ -6,6 +6,8 @@ import { EVENT_TYPES } from "../data/categories";
 import StoreProductCard from "../components/StoreProductCard";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useOffline, SEARCH_PLACEHOLDER_OFFLINE, SEARCH_PLACEHOLDER_ONLINE } from "../hooks/useOffline";
+import { NO_INTERNET } from "../constants/assets";
 
 function normalize(text: string): string {
   return text
@@ -39,6 +41,7 @@ export default function SearchResultsPage({
   onSelectProduct,
   onToggleFavourite,
   onQuickAdd,
+  networkError = false,
 }: {
   query: string;
   products: Product[];
@@ -48,7 +51,11 @@ export default function SearchResultsPage({
   onSelectProduct: (p: Product) => void;
   onToggleFavourite: (p: Product) => void;
   onQuickAdd: (p: Product) => void;
+  networkError?: boolean;
 }) {
+  // Hors-ligne : catalogue vide = pas de recherche possible → bloc dédié.
+  const isOffline = useOffline(networkError);
+  const showOfflineBlock = isOffline && products.length === 0;
   const [draft, setDraft] = useState(query);
   const [activeEventType, setActiveEventType] = useState<string | null>(null);
   const currencySymbol = useCurrencySymbol();
@@ -101,7 +108,7 @@ export default function SearchResultsPage({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               type="search"
-              placeholder="Search for an item, an event…"
+              placeholder={isOffline ? SEARCH_PLACEHOLDER_OFFLINE : SEARCH_PLACEHOLDER_ONLINE}
               className="flex-1 bg-transparent outline-none px-3 text-sm"
               style={{ color: "var(--color-ink)" }}
             />
@@ -141,7 +148,30 @@ export default function SearchResultsPage({
             ))}
           </div>
         )}
-        {results.length > 0 ? (
+        {showOfflineBlock ? (
+          <div className="text-center py-16">
+            <img
+              src={NO_INTERNET}
+              alt="No internet connection"
+              className="w-16 h-16 mx-auto mb-5 opacity-70"
+              loading="lazy"
+              decoding="async"
+            />
+            <p
+              className="text-base font-bold mb-1"
+              style={{ color: "var(--color-ink)" }}
+            >
+              Oops! Something went wrong while loading the page.
+            </p>
+            <p className="text-sm mb-8" style={{ color: "var(--color-ink3)" }}>
+              Please try again later or, if you prefer, return to the home
+              page.
+            </p>
+            <button onClick={onBack} className="btn btn-secondary mx-auto">
+              Back to home
+            </button>
+          </div>
+        ) : results.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {results.map((product) => (
               <StoreProductCard

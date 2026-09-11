@@ -64,6 +64,7 @@ export default function ImageLightbox({
               src={img}
               alt={`${alt} ${i + 1}`}
               className="max-w-full max-h-full object-contain"
+              decoding="async"
             />
           </div>
         ))}
@@ -82,7 +83,12 @@ export default function ImageLightbox({
                     : "1px solid rgba(255,255,255,.2)",
               }}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+              <img
+                src={img}
+                alt=""
+                className="w-full h-full object-cover"
+                decoding="async"
+              />
             </button>
           ))}
         </div>

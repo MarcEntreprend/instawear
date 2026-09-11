@@ -471,12 +471,12 @@ export default function ProductPage({
         >
           <button
             onClick={onClose}
-            aria-label="Retour"
+            aria-label="Back"
             className="btn-icon w-8 h-8 mr-1"
           >
             <ArrowLeft size={15} />
           </button>
-          <span className="capitalize">{product.eventType || "Produit"}</span>
+          <span className="capitalize">{product.eventType || "Product"}</span>
           <span>/</span>
           <span
             style={{ color: "var(--color-ink)" }}
@@ -638,6 +638,8 @@ export default function ProductPage({
                           src={thumb}
                           alt={label}
                           className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">

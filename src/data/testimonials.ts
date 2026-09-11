@@ -59,7 +59,7 @@ export const TESTIMONIALS: Testimonial[] = [
     location: "Sydney",
     rating: 4,
     text: "the backpack is solid, been using it for work and gym. zippers feel premium",
-    product: "Accessoires",
+    product: "Accessories",
     date: "2026-01-25",
   },
   {

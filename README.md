@@ -58,7 +58,7 @@ npx supabase functions deploy merch-scorer --no-verify-jwt
 npx supabase functions deploy approve-printful-design --no-verify-jwt
 npx supabase functions deploy get-shipping-rates --no-verify-jwt
 npx supabase functions deploy printful-reports --no-verify-jwt
-
+npx supabase functions deploy email-preferences --no-verify-jwt
 ```
 
 or

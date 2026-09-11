@@ -161,6 +161,8 @@ export default function Footer({
               src={LOGO_URL}
               alt="InstaWear"
               className="w-9 h-9 rounded-2xl object-cover"
+              loading="lazy"
+              decoding="async"
             />
             <span
               className="text-lg font-extrabold"

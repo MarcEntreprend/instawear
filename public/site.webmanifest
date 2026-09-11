@@ -1,0 +1,24 @@
+{
+  "name": "InstaWear — Wear the Moment",
+  "short_name": "InstaWear",
+  "description": "Print-on-demand clothing for global events. Organic cotton, AI designs, 3–7 day delivery.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5c35",
+  "icons": [
+    {
+      "src": "/InstaWear-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/InstaWear-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

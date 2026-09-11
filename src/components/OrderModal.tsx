@@ -232,6 +232,8 @@ export default function OrderModal({
                     src={item.product.image}
                     alt={item.product.title}
                     className="w-12 h-12 rounded-lg object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                   <div className="flex-1 min-w-0">
                     <p

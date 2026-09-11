@@ -1,69 +1,118 @@
-# fixes and improvements
+# fixes and improvements — restant à faire (vérifié 10/09/2026)
 
-## when no internet :
+> Scope : `src/`, `public/`, `supabase/`. Vérifié par lecture/grep le 10/09/2026.
+> Ce document ne liste **que le restant à faire**. Tout ce qui est vérifié OK a été retiré en bas.
 
-- when no item is load yet, search bar should show text like "t-shirt for birthday"
-- change this to a more generic (exclsively when there's no internet) : <<Aucun article ne correspond à votre recherche -Modifiez vos filtres ou lancez une autre recherche !>>, like "Oups !
-  Une erreur inattendue s'est produite lors de l'accès à la page. Veuillez réessayer plus tard ou, si vous préférez, retourner à la page d'accueil."
-- make sure there's a fallback for images (other texts too ??)
+---
 
-## right side bar :
+## when no internet — ✅
 
-- make it close when clicked outside ?
+### ✅ 1. Placeholder search bar offline — NOT DONE
 
-## product card
+- **Actuel :** `src/components/Header.tsx:601,791` et `src/pages/SearchResultsPage.tsx:104` affichent partout `"Search for an item, an event…"`. Aucune branche `offline` ou `products.length===0`.
+- **Attendu :** quand aucun item n'est chargé (offline / fetch échoué), afficher un exemple FR générique type `"t-shirt for birthday"` / `"hoodie festival, mug anniversaire…"` pour guider.
+- **Faire :** brancher le placeholder sur `networkError` (`src/App.tsx:101`) ou `navigator.onLine` → si offline, placeholder FR d'exemple.
 
-- qd on ouvre le modal d un produit et qu'on ajoute dans le panier, le popup s affiche derriere... ce qui fait que l'on a pas de reponse visuel
+### ✅ 2. Message d'erreur générique offline — NOT DONE
 
-## panier
+- **Actuel :** `src/components/CatalogSection.tsx:790-812` affiche toujours `"No items match these filters / Try broadening search"` même quand `networkError` est vrai. Aucun `if (networkError)` et la string `"Oups !"` n'existe nulle part (`grep 0`). L'asset `NO_INTERNET` (`src/constants/assets.ts:21`) est importé `CatalogSection.tsx:14` mais jamais rendu.
+- **Attendu :** remplacer `<<Aucun article ne correspond à votre recherche - Modifiez vos filtres…>>` **uniquement** en cas offline par : `"Oups ! Une erreur inattendue s'est produite lors de l'accès à la page. Veuillez réessayer plus tard ou, si vous préférez, retourner à la page d'accueil."` + CTA Accueil.
+- **Faire :** dans `CatalogSection.tsx`, si `networkError` → rendre le bloc offline dédié (icône `NO_INTERNET` + message ci-dessus + bouton `onNavigateHome`).
 
-- ppr eviter que le panier disparait si le user avait commencé lecheckout mais par exemple avait refresh la page, faire que quand le checkout est terminé, le panier cleared. sinon, persiste.
-- qd on clique sur ajouter au panier (sur item) ou sur acheter maintenant (product card), parfois cela passe 2 items au lieu d'un, au right side bar. donc verifier que c est bien un item par clic.
-- payment -> qd il manque un champ, faut que cela navigue vers le champ (et le mets en surbrillance?)
-- qd on commence a remplir le champ, effacer e=le msg : L'email est requis pour la confirmation de commande
-- qd on choisis stripe, et que cela prend du temps, donner une animation spin, ou un truc ...
+### ✅ 3. Fallback textes (hors images) — PARTIAL
 
-## notification page :
+- **Images : OK** — `src/constants/assets.ts:18` `PLACEHOLDER_IMG = "/Instawear-missing-item.svg"` utilisé partout (`StoreProductCard.tsx:80,84` `onError`, `CartDrawer.tsx:299`, `ProductPage.tsx:229,242`, `ProductQuickViewModal.tsx:66`).
+- **Reste :** textes offline (titres catégories, reassurance, FAQ) n'ont pas de fallback. Si fetch produits échoue, la page est vide sans explication.
+- **Faire :** rien de plus pour les images. Pour les textes, le bloc offline du point 2 suffit.
 
-- qd on selectionne x elements (certains lus, d autres non lus) : bulk actions : et btn lues et nonlues doivent etre actives
+---
 
-## orderpage :
+## product card — ⚠️ reste admin
 
-- qd on utilise le 'Actions' pour changer le statut, faire que 'en production' ait la meme action que le btn du modal 'envoyer à printful'
+### Popup derrière le modal — PARTIAL
 
-## header :
+- **Storefront : OK** — `src/pages/ProductPage.tsx:465` modal `z-50` < `src/components/ToastContainer.tsx:174` toast `z-100` → toast au-dessus.
+- **Reste admin : NOT DONE** — `src/admin/ProductQuickViewModal.tsx:77` `zIndex: 300` > toast `z-100` → quand on ajoute au panier depuis le quick-view admin, le toast `src/App.tsx:926` s'affiche **derrière** le modal, pas de feedback visuel.
+- **Faire :** soit porter le toast admin en `z-[400]`, soit `closeModal()` avant `showToast()` dans `ProductQuickViewModal`.
 
-- qd on clique sur le logo ou nom de instawear, faire que cela reellement refresh la page.
-- barre de recherche : qd on clique sur un resultat -> rediriger vers
+---
 
-## footer :
+## FR
 
-- text and links
-- - news letter :
-    really ? thinking as a customer, it'd be interesting for bonuses and stuffs
+- Look for FR dans le code : `toLocaleTimeString("fr-FR",`. QUID ?
 
-## reactive :
+---
 
-for buttons (each kind : link button, 'pills', etc)
-for items / products (like art macé logo)
+## panier — ⚠️ 1 reste (guest)
 
-## order :
+### Persistance après refresh — PARTIAL
 
-- send the telegram msg, as an email
+- **Connecté : OK** — `src/App.tsx:347-425` `customerApi.getCart/addCartItem/clearCart` + `src/App.tsx:1122,1141` clear uniquement après `orderSuccessId` → persiste bien, vidé seulement à la fin du checkout.
+- **Reste guest : NOT DONE** — si `!user.email`, le panier est en mémoire seule (`grep "localStorage.*cart" = 0`). Un refresh perd le panier commencé, contrairement à la demande "persiste si refresh, clear seulement à la fin".
+- **Faire :** ajouter fallback `localStorage "instawear-cart"` pour guest (hydrate au `useEffect` initial, sync à chaque `setCart`), et le vider uniquement sur `order_success`.
 
-## order page :
+---
 
-- qd #"envoyer a printful" button > Envoyer cette commande à Printful (mode draft) ? > ok >Commande envoyée à Printful (statut mis à jour).#, faut que le refreshcw ait l animation. prévoir un 'point' dans le bouton de menu gauche
+## header — ❌ 2 restants
 
-## new notif :
+### 1. Logo/nom → vrai refresh — NOT DONE
 
-dans tab du navigateur , have a number, just like whatsapp, even make it ping
+- **Actuel :** `src/components/Header.tsx:529-540` `onClick` fait `onNavigateHome()` → `history.pushState({}, "/")` + scroll, **sans reload**. Seul `src/admin/AdminSidebar.tsx:220` fait `window.location.reload()`.
+- **Attendu :** clic logo/nom = vrai refresh page (demande initiale).
+- **Faire :** remplacer le `pushState` du logo par `window.location.href = "/"` ou `window.location.reload()` (ou rendre le comportement configurable : `if (event.metaKey) pushState else reload`).
 
-## product
+### 2. Barre de recherche → clic résultat doit rediriger — NOT DONE
 
-- je veux qu'on standardise la disponibilité d'un produit (au lieu de reproduire les codes dans chaque fichier). on crée un fichier, on l appelle a chaque fois (comme pour l effet surbrillance)
-  certes, le parametres de mettre en actif ou inactif repose dans productpage, et les effets et conditions sont visibles dans promotions et deals, frontstore, mais pas dans les autres pages admin
+- **Actuel :** `src/components/Header.tsx:468-473` `handlePickProductSuggestion` fait `document.getElementById("product-card-${id}").scrollIntoView()` — scroll dans la grille, pas de navigation.
+- **Attendu :** clic sur un résultat produit → aller sur `ProductPage` (`/produit/:id`).
+- **Faire :** remplacer le scroll par `onSelectProduct(p)` ou `history.pushState({}, "", "/produit/"+p.id)` (comme `StoreProductCard.tsx:67` le fait déjà). `handlePickCategorySuggestion:459` est déjà correct pour catégories.
 
-- scenario qd une commande n est pas passé a printiful mais que sur le site ça dit que c est passé
+---
 
-- interface pr le user de voir ses orders, etc
+## footer — ⚠️ 1 reste (newsletter bonus)
+
+- **Liens/textes : OK** — `src/components/Footer.tsx:192-347` Shop/Help/Légal + `373-419` newsletter branchée `newsletterApi.subscribe`.
+- **Reste : NOT DONE** — copy actuelle `Footer.tsx:414` `"Subscribe to get new arrivals and exclusive offers, no spam."` ne mentionne pas d'incitation bonus (`-10%`, code bienvenue, etc.) demandée : _"thinking as a customer, it'd be interesting for bonuses and stuffs"_.
+- **Faire :** ajouter teaser bonus dans la copy + éventuellement champ `promo_code` retourné à l'inscription (si existant côté `newsletterApi`).
+
+---
+
+## reactive — ⚠️ vague / partiel
+
+- **Actuel :** boutons ont déjà `transition-colors`, `hover:-translate-y-0.5`, `active:scale-[0.98]` (`CatalogSection.tsx:472-483` pills, `ProductPage.tsx` etc.), mais pas de système "reactive" dédié (ex: `motion`/`framer` hover, effet sur logo "art macé").
+- **Reste :** spec trop vague pour être vérifiable. Si attendu = micro-interactions cohérentes par variant (`link button`, `pills`, `product card` + logo), **à préciser** : quel effet sur quel composant ?
+- **Faire :** soit clore (état actuel jugé suffisant), soit lister 2-3 exemples concrets attendus.
+
+---
+
+## order — ❌ 1 reste
+
+### Telegram → aussi en email — NOT DONE
+
+- **Actuel :** `src/components/CheckoutFlow.tsx:149-184` `sendTelegramNotification()` ouvre seulement `https://t.me/marcrubenmacean?text=…` (`window.open`), appelé `1472,2575` après `shouldSendTelegram()`.
+- **Attendu :** dupliquer chaque notif Telegram en email (demande : _"send the telegram msg, as an email"_).
+- **Faire :** à côté de `sendTelegramNotification`, appeler `supabase.functions.invoke("send-order-email")` ou `emailTemplates` + Resend (déjà utilisé `OrdersPage.tsx:1061` `sendCancelledEmail`). Ne pas remplacer Telegram, ajouter l'email.
+
+---
+
+## order page — ⚠️ 1 reste (point menu gauche)
+
+- **Refresh animation : OK** — `src/admin/OrdersPage.tsx:188` `sendingToPrintful`/`sendingOrderIds` + `814-824` spinner `RefreshCw animate-spin Envoi…` + `1034` spinner modal + `refetch()` après succès.
+- **Reste : NOT DONE** — point/badge dans le menu gauche demandé : _"prévoir un 'point' dans le bouton de menu gauche"_ quand une commande attend l'envoi Printful. `src/admin/AdminSidebar.tsx:82-416` n'affiche un dot que pour `notifications` (`urgentCount` shake `364`, `unreadCount` badge `388`), rien pour `orders`.
+- **Faire :** ajouter `pendingPrintfulCount` (ex: `orders.filter(o => o.status==="pending" && !o.printful_order_id).length`) et badge/dot sur le bouton `Orders` de `AdminSidebar`.
+
+---
+
+### Retiré depuis la version précédente (vérifié OK le 10/09 — ne plus tracker)
+
+- Right sidebar close outside → `src/components/CartDrawer.tsx:96-99` backdrop `onClick={onClose}` OK.
+- Panier double-add → `src/App.tsx:337,908` `addToCartLock` + 400ms OK.
+- Panier payment highlight/scroll → `src/components/CheckoutFlow.tsx:2265` `scrollIntoView` + `CheckoutFlow.tsx:240` `border #fca5a5` OK.
+- Panier email clear on input → `src/components/CheckoutFlow.tsx:898` `onClearError` OK.
+- Panier Stripe spin → `src/components/CheckoutFlow.tsx:2336,2597` `processing` + `minDelay 1100ms` OK.
+- Notifications bulk lues/nonlues → `src/admin/NotificationsPage.tsx:1158-1202` `allRead/allUnread` OK (mixte = deux boutons actifs).
+- OrderPage `en production` = `envoyer à printful` → `src/admin/OrdersPage.tsx:290-313` `podApi.createOrder` avant `updateStatus` OK.
+- Tab notif WhatsApp-like → `src/hooks/useTabBadge.ts:15-72` `document.title (N)` + `drawFaviconBadge` + poll 30s + `AdminSidebar.tsx:364` shake OK.
+- Product disponibilité standardisée → `src/hooks/useProductAvailability.ts:1-119` `getProductAvailability/isProductUnavailable` utilisé partout OK.
+- Scenario commande Printful désync → `src/admin/OrdersPage.tsx:290` garde `catch` sans changement de statut OK.
+- Interface user orders → `src/components/AccountPage.tsx:386-985` `OrdersTab` + tier/stats/reorder OK.

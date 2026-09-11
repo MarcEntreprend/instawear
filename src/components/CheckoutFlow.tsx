@@ -424,6 +424,8 @@ function OrderSummaryPanel({
                         src={getVariantImage(item.product, item.selectedColor)}
                         alt={item.product.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     <span
@@ -566,6 +568,8 @@ function CartReviewStep({
                 src={getVariantImage(item.product, item.selectedColor)}
                 alt={item.product.title}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
@@ -1441,7 +1445,7 @@ function StripeCardForm({
                       ((e as any).stock_status || "available") === "available"
                     );
                   }).length
-                } article(s) indisponible(s) non facturé(s)]`
+                } unavailable item(s) not charged]`
               : ""),
           items: cart
             .filter((it: any) => {
@@ -2035,6 +2039,7 @@ function EmptyCartGuard({ onClose }: { onClose: () => void }) {
           src={CART_X_ICON}
           alt="Cart"
           className="w-10 h-10 mx-auto mb-3"
+          decoding="async"
           style={{ opacity: 0.5 }}
         />
         <p className="font-bold text-(--color-ink) mb-1">Your cart is empty</p>
@@ -2337,7 +2342,7 @@ export default function CheckoutFlow({
     if (!validateContact()) return;
     if (!hasFulfillable) {
       setPaymentError(
-        "Tous les articles du panier sont indisponibles (supprimés ou rupture Printful) — retirez-les ou choisissez d'autres variantes.",
+        "All items in your cart are unavailable (removed by the supplier or Printful stockout) — remove them or choose other variants.",
       );
       return;
     }
@@ -2389,7 +2394,7 @@ export default function CheckoutFlow({
         notes:
           message +
           (blockedCount > 0
-            ? ` [POD: ${blockedCount} article(s) indisponible(s) non facturé(s)]`
+            ? ` [POD: ${blockedCount} unavailable item(s) not charged]`
             : ""),
         items: fulfillableCart.map((item, idx) => ({
           id: `item-${newOrderId}-${idx}`,
@@ -2484,7 +2489,7 @@ export default function CheckoutFlow({
     if (!validatePayment()) return;
     if (!hasFulfillable) {
       setPaymentError(
-        "Aucun article disponible — retirez les variantes indisponibles.",
+        "No items available — remove the unavailable variants.",
       );
       return;
     }
@@ -2537,7 +2542,7 @@ export default function CheckoutFlow({
           notes:
             message +
             (blockedCount > 0
-              ? ` [POD: ${blockedCount} article(s) indisponible(s) exclus]`
+              ? ` [POD: ${blockedCount} unavailable item(s) excluded]`
               : ""),
           items: fulfillableCart.map((item, idx) => ({
             id: `item-${newOrderId}-${idx}`,
@@ -2644,6 +2649,7 @@ export default function CheckoutFlow({
             src={LOGO_URL}
             alt="InstaWear"
             className="h-7 w-7 rounded-lg object-cover"
+            decoding="async"
           />
           <span className="font-black text-sm sm:text-base text-(--color-ink)">
             InstaWear
@@ -2685,11 +2691,11 @@ export default function CheckoutFlow({
         >
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <p className="text-xs font-semibold leading-snug">
-            {blockedCount} article{blockedCount > 1 ? "s" : ""} indisponible
-            {blockedCount > 1 ? "s" : ""} dans votre panier —{" "}
+            {blockedCount} item{blockedCount > 1 ? "s" : ""} unavailable
+            {blockedCount > 1 ? "s" : ""} in your cart —{" "}
             {hasFulfillable
-              ? `seuls les ${fulfillableCart.length} disponibles seront commandés et facturés (${cartTotal.toFixed(2)} ${currencySymbol})`
-              : "retirez-les pour continuer"}
+              ? `only the ${fulfillableCart.length} available will be ordered and charged (${cartTotal.toFixed(2)} ${currencySymbol})`
+              : "remove them to continue"}
             .
           </p>
         </div>

@@ -85,6 +85,7 @@ export default function OrderSuccessPage({
             src="/InstaWear-logo.png"
             alt="InstaWear"
             className="h-7 w-7 rounded-lg object-cover"
+            decoding="async"
           />
           <span
             className="font-black text-sm sm:text-base"

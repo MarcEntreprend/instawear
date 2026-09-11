@@ -51,6 +51,8 @@ export default function ZoomImage({
             alt={alt}
             className="w-full h-full object-cover"
             draggable={false}
+            fetchPriority="high"
+            decoding="async"
           />
           <button
             type="button"

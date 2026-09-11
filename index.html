@@ -1,23 +1,26 @@
 <!-- index.html -->
 
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="index,follow" />
     <meta name="theme-color" content="#ff5c35" />
-    <meta property="og:locale" content="fr_FR" />
-    <meta property="og:locale:alternate" content="en_US" />
-    <link rel="alternate" hreflang="fr" href="https://instawear.vercel.app/" />
-    <link rel="alternate" hreflang="en" href="https://instawear.vercel.app/en" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <link rel="alternate" hreflang="en" href="https://instawear.vercel.app/" />
+    <link rel="alternate" hreflang="fr" href="https://instawear.vercel.app/fr" />
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!-- LCP: early connection to the product-image CDN (no fetch here, headers/CSP unchanged) -->
+    <link rel="preconnect" href="https://hkbybsycaylobvbnnwak.supabase.co" crossorigin />
 
     <!-- SEO Primary -->
     <title>InstaWear — Wear the Moment</title>
     <meta
       name="description"
-      content="InstaWear, la boutique print-on-demand célébrant les plus grands événements : Champions League, Rio Carnival, Oktoberfest, Halloween. Coton bio, designs IA, livraison 3–7 jours."
+      content="InstaWear, the print-on-demand shop celebrating the biggest events: Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, AI designs, 3–7 day delivery."
     />
     <link rel="canonical" href="https://instawear.vercel.app/" />
 
@@ -25,7 +28,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="InstaWear" />
     <meta property="og:title" content="InstaWear — Wear the Moment" />
-    <meta property="og:description" content="Print-on-demand pour chaque événement majeur. Designs IA exclusifs, coton bio, livraison express." />
+    <meta property="og:description" content="Print-on-demand for every major event. Exclusive AI designs, organic cotton, express delivery." />
     <meta property="og:image" content="https://instawear.vercel.app/InstaWear-logo.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -35,7 +38,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="InstaWear — Wear the Moment" />
-    <meta name="twitter:description" content="Print-on-demand événementiel. UCL, Rio Carnival, Oktoberfest, Halloween. Livraison express." />
+    <meta name="twitter:description" content="Event print-on-demand. UCL, Rio Carnival, Oktoberfest, Halloween. Express delivery." />
     <meta name="twitter:image" content="https://instawear.vercel.app/InstaWear-logo.png" />
 
     <!-- Schema.org Organization + WebSite SearchAction -->
@@ -50,7 +53,7 @@
         "contactPoint": {
           "@type": "ContactPoint",
           "contactType": "customer service",
-          "availableLanguage": ["French", "English"]
+          "availableLanguage": ["English", "French"]
         }
       }
     </script>

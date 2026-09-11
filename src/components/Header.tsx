@@ -29,6 +29,11 @@ import { useCurrency } from "../hooks/useCurrency";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
+import {
+  useOffline,
+  SEARCH_PLACEHOLDER_OFFLINE,
+  SEARCH_PLACEHOLDER_ONLINE,
+} from "../hooks/useOffline";
 
 interface HeaderProps {
   cart: CartItem[];
@@ -49,6 +54,7 @@ interface HeaderProps {
   onSelectEventType: (type: string | null) => void;
   currentEventType: string | null;
   currentCategory: string | null;
+  networkError?: boolean;
   onOpenAccount?: () => void;
   onScrollToSection: (
     section:
@@ -59,6 +65,7 @@ interface HeaderProps {
       | "contact"
       | "filters",
   ) => void;
+  onSelectProduct?: (p: Product) => void;
   onOpenTracking: () => void;
   onNavigateHome?: () => void;
   onOpenFaqPage?: () => void;
@@ -258,6 +265,8 @@ function SuggestionsList({
                   src={p.image}
                   alt=""
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </span>
               <span className="flex-1 min-w-0">
@@ -297,6 +306,7 @@ export default function Header({
   onOpenProfile,
   onOpenAccount,
   onScrollToSection,
+  onSelectProduct,
   onOpenTracking,
   onNavigateHome,
   onOpenFaqPage,
@@ -309,7 +319,13 @@ export default function Header({
   onSelectCategory,
   onSelectEventType,
   isHomePage = true,
+  networkError = false,
 }: HeaderProps) {
+  // Placeholder générique quand hors-ligne (navigateur ou fetch produits en échec).
+  const isOffline = useOffline(networkError);
+  const searchPlaceholder = isOffline
+    ? SEARCH_PLACEHOLDER_OFFLINE
+    : SEARCH_PLACEHOLDER_ONLINE;
   const { theme: themeHook, toggleTheme: toggleHook } = useTheme();
   const {
     country: shipTo,
@@ -428,6 +444,19 @@ export default function Header({
     setIsSearchOpen(false);
     setIsDesktopSuggestOpen(false);
   };
+
+  // Esc pour fermer les suggestions
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsDesktopSuggestOpen(false);
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const handleNavClick = (link: NavLink) => {
     // Contact → modal/page (garder tel quel)
     if (link.section === "contact" && onOpenContactPage) {
@@ -469,8 +498,10 @@ export default function Header({
     setQuery("");
     setIsDesktopSuggestOpen(false);
     setIsSearchOpen(false);
-    const el = document.getElementById(`product-card-${p.id}`);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    // Navigation vers la page produit (cohérent avec les catégories)
+    if (onSelectProduct) {
+      onSelectProduct(p);
+    }
   };
   const handleAccountClick = () => {
     if (isUserLoggedIn && onOpenAccount) onOpenAccount();
@@ -549,6 +580,7 @@ export default function Header({
                   src="/InstaWear-logo.png"
                   alt="InstaWear"
                   className="w-full h-full object-cover"
+                  decoding="async"
                 />
               </span>
               <span
@@ -598,7 +630,7 @@ export default function Header({
                   setTimeout(() => setIsDesktopSuggestOpen(false), 120);
                 }}
                 type="search"
-                placeholder="Search for an item, an event…"
+                placeholder={searchPlaceholder}
                 className="flex-1 bg-transparent outline-none px-3 text-sm"
                 style={{ color: "var(--color-ink)", outline: "none" }}
               />
@@ -788,7 +820,7 @@ export default function Header({
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
                 type="search"
-                placeholder="Search for an item, an event…"
+                placeholder={searchPlaceholder}
                 className="flex-1 bg-transparent outline-none px-3 text-sm [&::-webkit-search-cancel-button]:hidden"
                 style={{
                   color: "var(--color-ink)",
