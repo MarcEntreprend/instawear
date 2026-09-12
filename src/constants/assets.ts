@@ -6,13 +6,13 @@
  */
 
 // Logo principal (header, footer)
-export const LOGO_URL = "/InstaWear-logo.png";
+export const LOGO_URL = "/InstaWear-logo.webp";
 
 // Logo principal sans  background (Favicon)
-export const LOGO_NO_BACKGROUND = "/InstaWear-logo-wh-middle-no-BG.png";
+export const LOGO_NO_BACKGROUND = "/InstaWear-logo-wh-middle-no-BG.webp";
 
 // Logo admin (sidebar)
-export const LOGO_SETTINGS_URL = "/InstaWear-logo-settings.png";
+export const LOGO_SETTINGS_URL = "/InstaWear-logo-settings.webp";
 
 // Image placeholder pour les produits (si pas d'image fournie)
 export const PLACEHOLDER_IMG = "/Instawear-missing-item.svg";

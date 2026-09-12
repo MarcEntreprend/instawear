@@ -80,7 +80,7 @@ function drawFaviconBadge(totalCount: number) {
 
   const img = new Image();
   const link = document.querySelector("link[rel='icon']") as HTMLLinkElement;
-  const faviconUrl = link?.href || "/InstaWear-logo-wh-middle-no-BG.png";
+  const faviconUrl = link?.href || "/InstaWear-logo-wh-middle-no-BG.webp";
 
   img.crossOrigin = "anonymous";
   img.onload = () => {

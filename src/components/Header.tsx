@@ -577,7 +577,7 @@ export default function Header({
                 style={{ background: "var(--color-accent)" }}
               >
                 <img
-                  src="/InstaWear-logo.png"
+                  src="/InstaWear-logo.webp"
                   alt="InstaWear"
                   className="w-full h-full object-cover"
                   decoding="async"

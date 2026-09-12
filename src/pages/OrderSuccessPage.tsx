@@ -82,7 +82,7 @@ export default function OrderSuccessPage({
       >
         <div className="flex items-center gap-2.5">
           <img
-            src="/InstaWear-logo.png"
+            src="/InstaWear-logo.webp"
             alt="InstaWear"
             className="h-7 w-7 rounded-lg object-cover"
             decoding="async"

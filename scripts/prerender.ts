@@ -9,7 +9,7 @@ import { FAQS } from "../src/data/faq";
 import { DOCS } from "../src/data/legal";
 
 const SITE = "https://instawear.vercel.app";
-const LOGO = `${SITE}/InstaWear-logo.png`;
+const LOGO = `${SITE}/InstaWear-logo.webp`;
 
 // ── env (même pattern que generate-sitemap.ts) ──
 function loadEnv(): Record<string, string> {
@@ -39,7 +39,13 @@ function absImg(src: string | null | undefined): string {
   return SITE + (src.startsWith("/") ? src : `/${src}`);
 }
 
-const SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", CAD: "$", CHF: "CHF " };
+const SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  CAD: "$",
+  CHF: "CHF ",
+};
 let currencyCode = "USD";
 
 interface Product {
@@ -72,18 +78,30 @@ function pickImage(p: any): string {
 }
 function pickText(p: any): string {
   const t = p.description || p.fullDescription || "";
-  return String(t).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return String(t)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ── gabarit head ──
 function setHead(
   html: string,
-  opts: { title: string; desc: string; url: string; image?: string; type?: string },
+  opts: {
+    title: string;
+    desc: string;
+    url: string;
+    image?: string;
+    type?: string;
+  },
 ): string {
   const image = opts.image || LOGO;
   const type = opts.type || "website";
   let out = html;
-  out = out.replace(/<title>.*?<\/title>/s, `<title>${esc(opts.title)} · InstaWear</title>`);
+  out = out.replace(
+    /<title>.*?<\/title>/s,
+    `<title>${esc(opts.title)} · InstaWear</title>`,
+  );
   out = out.replace(
     /<meta\s+name="description"\s+content="[^"]*"\s*\/>/,
     `<meta name="description" content="${esc(opts.desc)}" />`,
@@ -122,27 +140,44 @@ function addJsonLd(html: string, obj: unknown): string {
 }
 
 function setRoot(html: string, snapshot: string): string {
-  return html.replace('<div id="root"></div>', `<div id="root">${snapshot}</div>`);
+  return html.replace(
+    '<div id="root"></div>',
+    `<div id="root">${snapshot}</div>`,
+  );
 }
 
 // ── snapshot partagé ──
-function shell(inner: string): string {
+// Dans <noscript> : les navigateurs AVEC JS ne l'affichent pas (zéro flash,
+// React remplace le contenu au boot), les bots SANS JS voient le contenu réel
+// (SEO/LLM préservés, même contenu que l'app = pas de cloaking).
+// leadHero (accueil uniquement) : image LCP VISIBLE peinte avant même le JS
+// (mêmes dimensions que le carrousel : swap quasi invisible au boot).
+function shell(inner: string, leadHero?: { src: string; alt: string }): string {
+  const heroFigure = leadHero
+    ? `<div style="height:78vh;min-height:420px;max-height:760px;overflow:hidden;background:#eceae6;">` +
+      `<img src="${leadHero.src}" alt="${leadHero.alt}" fetchpriority="high" decoding="async" ` +
+      `style="width:100%;height:100%;object-fit:cover;display:block;" ` +
+      `onerror="this.closest('div').style.display='none'" /></div>`
+    : "";
   return (
-    `<main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
+    heroFigure +
+    `<noscript><main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
     `<p><a href="${SITE}/" style="font-weight:800;font-size:20px;color:#ff5c35;text-decoration:none;">InstaWear</a></p>` +
     inner +
     `<hr style="margin:32px 0;border:none;border-top:1px solid #eee;" />` +
     `<p style="font-size:13px;color:#666;">` +
     `<a href="${SITE}/">Home</a> · <a href="${SITE}/promotions">Promotions</a> · ` +
     `<a href="${SITE}/faq">FAQ</a> · <a href="${SITE}/contact">Contact</a> · ` +
-    `<a href="${SITE}/suivi">Track order</a></p></main>`
+    `<a href="${SITE}/suivi">Track order</a></p></main></noscript>`
   );
 }
 
 // ── main ──
 const templatePath = "dist/index.html";
 if (!existsSync(templatePath)) {
-  console.error("prerender: dist/index.html introuvable — lancez vite build d'abord");
+  console.error(
+    "prerender: dist/index.html introuvable — lancez vite build d'abord",
+  );
   process.exit(0);
 }
 const template = readFileSync(templatePath, "utf-8");
@@ -160,11 +195,18 @@ let products: Product[] = [];
 if (url && anon) {
   try {
     const supabase = createClient(url, anon);
-    const { data: settings } = await supabase.from("store_settings").select("currency").limit(1).maybeSingle();
+    const { data: settings } = await supabase
+      .from("store_settings")
+      .select("currency")
+      .limit(1)
+      .maybeSingle();
     if (settings && typeof (settings as any).currency === "string") {
       currencyCode = String((settings as any).currency).toUpperCase();
     }
-    const { data, error } = await supabase.from("products").select("*").eq("is_active", true);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true);
     if (error) {
       console.error("prerender: products query failed:", error.message);
     } else {
@@ -188,10 +230,54 @@ if (url && anon) {
     console.error("prerender: supabase indisponible:", e?.message || e);
   }
 } else {
-  console.warn("prerender: VITE_SUPABASE_URL/ANON_KEY manquants — routes statiques uniquement");
+  console.warn(
+    "prerender: VITE_SUPABASE_URL/ANON_KEY manquants — routes statiques uniquement",
+  );
 }
 const sym = SYMBOLS[currencyCode] || "$";
 const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
+
+// 1b) 1re image hero (même règle que App.tsx : 1re promo active avec produit
+// actif, sinon rien). Peinte en visible avant le JS (LCP instantané).
+let leadHero: { src: string; alt: string } | undefined;
+if (url && anon && products.length > 0) {
+  try {
+    const supabase = createClient(url, anon);
+    const { data: promos } = await supabase
+      .from("hero_promotions")
+      .select("image, product_id, title, headline")
+      .order("order", { ascending: true });
+    const first = (promos ?? []).find((pr: any) => {
+      if (pr == null) return false;
+      if ((pr as any).isActive === false || (pr as any).is_active === false)
+        return false;
+      const prod = products.find(
+        (p) => p.id === String((pr as any).productId || (pr as any).product_id),
+      );
+      return !!prod;
+    });
+    if (first) {
+      const prod = products.find(
+        (p) =>
+          p.id ===
+          String((first as any).productId || (first as any).product_id),
+      )!;
+      const src = String((first as any).image || prod.image || "");
+      if (src && !src.includes("missing-item")) {
+        leadHero = {
+          src: esc(src),
+          alt: esc(
+            String(
+              (first as any).title || (first as any).headline || prod.title,
+            ),
+          ),
+        };
+      }
+    }
+  } catch (e: any) {
+    console.error("prerender: hero query failed:", e?.message || e);
+  }
+}
 
 // 2) Accueil (index.html enrichi, head inchangé = déjà bon)
 {
@@ -199,20 +285,34 @@ const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
     `<h1>Wear the Moment — print-on-demand for every major event</h1>` +
       `<p>Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, exclusive AI designs, delivery in 3–7 business days.</p>` +
       `<ul>${["T-Shirts", "Hoodies", "Accessories", "Mugs"]
-        .map((c) => `<li><a href="${SITE}/recherche?q=${encodeURIComponent(c)}">${c}</a></li>`)
+        .map(
+          (c) =>
+            `<li><a href="${SITE}/recherche?q=${encodeURIComponent(c)}">${c}</a></li>`,
+        )
         .join("")}</ul>` +
       (products.length > 0
         ? `<h2>Featured products</h2><ul>${products
             .slice(0, 6)
-            .map((p) => `<li><a href="${SITE}/produit/${esc(p.id)}">${esc(p.title)}</a> — ${fmt(p.dealPrice ?? p.price)}</li>`)
+            .map(
+              (p) =>
+                `<li><a href="${SITE}/produit/${esc(p.id)}">${esc(p.title)}</a> — ${fmt(p.dealPrice ?? p.price)}</li>`,
+            )
             .join("")}</ul>`
         : ""),
+    leadHero,
   );
   write("index.html", setRoot(template, snap));
 }
 
 // 3) Pages statiques
-const STATIC: { file: string; title: string; desc: string; url: string; body: () => string; jsonLd?: () => unknown }[] = [
+const STATIC: {
+  file: string;
+  title: string;
+  desc: string;
+  url: string;
+  body: () => string;
+  jsonLd?: () => unknown;
+}[] = [
   {
     file: "faq.html",
     title: "Frequently Asked Questions",
@@ -220,7 +320,9 @@ const STATIC: { file: string; title: string; desc: string; url: string; body: ()
     url: `${SITE}/faq`,
     body: () =>
       `<h1>Frequently Asked Questions</h1>` +
-      FAQS.map((f) => `<h2>${esc(f.question)}</h2><p>${esc(f.answer)}</p>`).join(""),
+      FAQS.map(
+        (f) => `<h2>${esc(f.question)}</h2><p>${esc(f.answer)}</p>`,
+      ).join(""),
     jsonLd: () => ({
       "@context": "https://schema.org",
       "@type": "FAQPage",
@@ -268,8 +370,21 @@ const STATIC: { file: string; title: string; desc: string; url: string; body: ()
     url: `${SITE}/recherche`,
     body: () =>
       `<h1>Search the catalog</h1><p>Browse by category or event:</p><ul>` +
-      ["T-Shirts", "Hoodies", "Accessories", "Mugs", "Festival", "Sport", "Concert", "Seasonal", "Birthday"]
-        .map((c) => `<li><a href="${SITE}/recherche?q=${encodeURIComponent(c)}">${c}</a></li>`)
+      [
+        "T-Shirts",
+        "Hoodies",
+        "Accessories",
+        "Mugs",
+        "Festival",
+        "Sport",
+        "Concert",
+        "Seasonal",
+        "Birthday",
+      ]
+        .map(
+          (c) =>
+            `<li><a href="${SITE}/recherche?q=${encodeURIComponent(c)}">${c}</a></li>`,
+        )
         .join("") +
       `</ul>`,
   },
@@ -300,14 +415,19 @@ for (const slug of Object.keys(DOCS)) {
   const snap =
     `<h1>${esc(doc.title)}</h1><p>${esc(doc.intro)}</p>` +
     doc.sections
-      .map((sec) => `<h2>${esc(sec.heading)}</h2>${sec.body.map((p) => `<p>${esc(p)}</p>`).join("")}`)
+      .map(
+        (sec) =>
+          `<h2>${esc(sec.heading)}</h2>${sec.body.map((p) => `<p>${esc(p)}</p>`).join("")}`,
+      )
       .join("");
   write(`legal/${slug}.html`, setRoot(html, shell(snap)));
 }
 
 // 5) Produits
 for (const p of products) {
-  const desc = (p.description ? p.description.slice(0, 155) + " " : "") + `${p.title} — ${fmt(p.dealPrice ?? p.price)} · InstaWear print-on-demand.`;
+  const desc =
+    (p.description ? p.description.slice(0, 155) + " " : "") +
+    `${p.title} — ${fmt(p.dealPrice ?? p.price)} · InstaWear print-on-demand.`;
   let html = setHead(template, {
     title: p.title,
     desc: desc.slice(0, 300),
@@ -345,7 +465,12 @@ for (const p of products) {
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` },
       { "@type": "ListItem", position: 2, name: "Catalog", item: `${SITE}/` },
-      { "@type": "ListItem", position: 3, name: p.title, item: `${SITE}/produit/${p.id}` },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: p.title,
+        item: `${SITE}/produit/${p.id}`,
+      },
     ],
   });
   const snap =
@@ -355,10 +480,16 @@ for (const p of products) {
     (p.dealPrice != null ? ` <s style="color:#888;">${fmt(p.price)}</s>` : "") +
     `</p>` +
     (p.description ? `<p>${esc(p.description.slice(0, 600))}</p>` : "") +
-    (p.category || p.eventType ? `<p style="color:#666;">${esc([p.category, p.eventType].filter(Boolean).join(" · "))}</p>` : "") +
-    (p.rating != null && p.ratingCount > 0 ? `<p>Rated ${p.rating}/5 (${p.ratingCount} reviews)</p>` : "") +
+    (p.category || p.eventType
+      ? `<p style="color:#666;">${esc([p.category, p.eventType].filter(Boolean).join(" · "))}</p>`
+      : "") +
+    (p.rating != null && p.ratingCount > 0
+      ? `<p>Rated ${p.rating}/5 (${p.ratingCount} reviews)</p>`
+      : "") +
     `<p><a href="${SITE}/produit/${esc(p.id)}">View and customize this product on InstaWear →</a></p>`;
   write(`produit/${p.id}.html`, setRoot(html, shell(snap)));
 }
 
-console.log(`prerender: ${written} fichiers HTML (${products.length} produits) → dist/`);
+console.log(
+  `prerender: ${written} fichiers HTML (${products.length} produits) → dist/`,
+);
