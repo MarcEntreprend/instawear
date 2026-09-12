@@ -116,3 +116,28 @@
 - Product disponibilité standardisée → `src/hooks/useProductAvailability.ts:1-119` `getProductAvailability/isProductUnavailable` utilisé partout OK.
 - Scenario commande Printful désync → `src/admin/OrdersPage.tsx:290` garde `catch` sans changement de statut OK.
 - Interface user orders → `src/components/AccountPage.tsx:386-985` `OrdersTab` + tier/stats/reorder OK.
+
+---
+
+## TEXTS
+
+_remove generic texts_ :
+look for
+
+```
+[InstaWear](https://instawear.vercel.app/)
+
+Wear the Moment --- print-on-demand for every major event
+=======================================================
+
+Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, exclusive AI designs, delivery in 3--7 business days.
+
+-   [T-Shirts](https://instawear.vercel.app/recherche?q=T-Shirts)
+-   [Hoodies](https://instawear.vercel.app/recherche?q=Hoodies)
+-   [Accessories](https://instawear.vercel.app/recherche?q=Accessories)
+-   [Mugs](https://instawear.vercel.app/recherche?q=Mugs)
+
+* * * * *
+
+[Home](https://instawear.vercel.app/) - [Promotions](https://instawear.vercel.app/promotions) - [FAQ](https://instawear.vercel.app/faq) - [Contact](https://instawear.vercel.app/contact) - [Track order](https://instawear.vercel.app/suivi)
+```
