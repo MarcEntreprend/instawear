@@ -43,7 +43,7 @@ import { PLACEHOLDER_IMG, LOGO_URL, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
 import { COUNTRIES } from "../data/countries";
 import { loadStripe } from "@stripe/stripe-js";
-import { validateUSZip } from "../utils/zipValidation";
+import { validateUSZip, isValidUSState } from "../utils/zipValidation";
 import {
   Elements,
   CardNumberElement,
@@ -361,6 +361,7 @@ function OrderSummaryPanel({
   shippingMethodName,
   shippingDeliveryEstimate,
   shippingLoading,
+  shippingNotice,
   total,
   currencySymbol,
   reception,
@@ -372,6 +373,8 @@ function OrderSummaryPanel({
   shippingMethodName?: string | null;
   shippingDeliveryEstimate?: string | null;
   shippingLoading?: boolean;
+  /** Taux live indisponibles (fallback forfaitaire) : explication visible. */
+  shippingNotice?: string | null;
   total: number;
   currencySymbol: string;
   reception: "retrait" | "livraison";
@@ -492,6 +495,11 @@ function OrderSummaryPanel({
               {shippingDeliveryEstimate && (
                 <p className="text-[10px] text-(--color-ink4) mt-0.5">
                   Est. delivery: {shippingDeliveryEstimate}
+                </p>
+              )}
+              {shippingNotice && (
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--color-warning, #d97706)" }}>
+                  {shippingNotice}
                 </p>
               )}
               {shippingCost > 0 && reception === "livraison" && (
@@ -2250,7 +2258,21 @@ export default function CheckoutFlow({
     selectedRate,
     deliveryEstimate,
     loading: shippingLoading,
+    error: shippingRatesError,
   } = useShippingSettings(country, shippingItems, shippingAddress);
+  // Taux live en échec + adresse complète + pas de chargement : on explique le
+  // forfait (au lieu du fallback silencieux). Masqué si port gratuit ou pickup.
+  const showShippingNotice =
+    !!shippingRatesError &&
+    !shippingLoading &&
+    reception === "livraison" &&
+    country.trim() !== "" &&
+    zip.trim() !== "" &&
+    city.trim() !== "" &&
+    cartTotal < countryThreshold;
+  const shippingNotice = showShippingNotice
+    ? "Live carrier rates unavailable — flat rate applied."
+    : null;
   const shippingCost =
     reception === "retrait" || cartTotal >= countryThreshold
       ? 0
@@ -2280,6 +2302,13 @@ export default function CheckoutFlow({
       if (!zip.trim()) e.zip = "ZIP code is required.";
       if (STATE_REQUIRED_COUNTRIES.includes(country) && !stateCode.trim())
         e.stateCode = "This field is required.";
+      else if (
+        country === "US" &&
+        stateCode.trim() &&
+        !isValidUSState(stateCode)
+      )
+        e.stateCode =
+          "Enter a valid 2-letter US state code (e.g. CA).";
       if (
         country === "US" &&
         zip.trim() &&
@@ -2840,6 +2869,7 @@ export default function CheckoutFlow({
               shippingMethodName={shippingMethodName}
               shippingDeliveryEstimate={shippingDeliveryEstimate}
               shippingLoading={shippingLoading}
+              shippingNotice={shippingNotice}
               total={total}
               currencySymbol={currencySymbol}
               reception={reception}

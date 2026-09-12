@@ -20,7 +20,18 @@ export default function VariablesModal({ open, onClose }: VariablesModalProps) {
     { var: "{{email}}", desc: "Email du destinataire" },
     { var: "{{brand}}", desc: "Nom de la marque (InstaWear)" },
     { var: "{{discount}}", desc: "Pourcentage de réduction (ex. 20)" },
-    { var: "{{cta_link}}", desc: "Lien vers la page d’accueil du site" },
+    {
+      var: "{{cta_link}}",
+      desc: "Lien du bouton (défini dans Infos de la campagne : accueil, suivi, produit /produit/<id>, collection /recherche?q=<mot>)",
+    },
+    {
+      var: "{{track_link}}",
+      desc: "Page suivi de commande (/suivi, code à saisir)",
+    },
+    {
+      var: "{{catalog_link}}",
+      desc: "Catalogue / recherche (/recherche)",
+    },
     {
       var: "{{unsubscribe_link}}",
       desc: "Lien de désabonnement généré automatiquement",

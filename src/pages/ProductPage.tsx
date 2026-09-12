@@ -27,6 +27,8 @@ import ThumbStrip from "../components/product/ThumbStrip";
 import ImageLightbox from "../components/product/ImageLightbox";
 import SizeGuideModal from "../components/product/SizeGuideModal";
 import { DEFAULT_SIZE_GUIDE } from "../data/defaultSizeGuide";
+import ProductUnavailable from "../components/ProductUnavailable";
+import ShareProduct from "../components/ShareProduct";
 import RelatedProductCard from "../components/product/RelatedProductCard";
 import FrequentlyBoughtTogether from "../components/product/FrequentlyBoughtTogether";
 import RecentlyViewedSection from "../components/product/RecentlyViewedSection";
@@ -461,6 +463,12 @@ export default function ProductPage({
     return onAddMany(items);
   };
 
+  // Q2.1 : un produit inactif ouvert directement (favori, historique) ne
+  // s'affiche jamais comme achetable — message uniforme à la place.
+  if (product.isActive === false) {
+    return <ProductUnavailable reason="inactive" onBackHome={onClose} />;
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-(--color-bg) animate-fade-in">
       <div className="max-w-350 mx-auto px-4 sm:px-6 pt-4 pb-24 lg:pb-16">
@@ -804,6 +812,7 @@ export default function ProductPage({
                   ? "Remove from wishlist"
                   : "Wishlist"}
               </button>
+              <ShareProduct title={product.title} productId={product.id} />
               <div
                 className="flex items-center gap-4 text-xs mt-6"
                 style={{ color: "var(--color-ink3)" }}

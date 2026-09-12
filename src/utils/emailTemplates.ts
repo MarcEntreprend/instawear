@@ -79,7 +79,7 @@ export async function sendShippedEmail(order: any) {
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Shipped 🚚</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${clientName}</strong>,<br><br>Your order <strong>${id}</strong> has been shipped and is on its way to you.</p>
-<a href="${BASE_URL}?track=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="${BASE_URL}?order=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
@@ -96,7 +96,7 @@ export async function sendDeliveredEmail(order: any) {
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Delivered ✅</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${clientName}</strong>,<br><br>Your order <strong>${id}</strong> has been delivered. We hope you love it!</p>
-<a href="${BASE_URL}?track=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="${BASE_URL}?order=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#FF5C35;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
@@ -113,7 +113,7 @@ export async function sendInProductionEmail(order: any) {
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">In Production 🖨️</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${clientName}</strong>,<br><br>Your order <strong>${id}</strong> is now being printed. We'll notify you as soon as it ships.</p>
-<a href="${BASE_URL}?track=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
+<a href="${BASE_URL}?order=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 
@@ -130,7 +130,8 @@ export async function sendCancelledEmail(order: any) {
 <div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
 <h2 style="margin:0 0 8px;font-size:18px;">Your order has been cancelled</h2>
 <p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${clientName}</strong>,<br><br>Your order <strong>${id}</strong> has been cancelled. If you have any questions, please contact our support team.</p>
-<a href="${BASE_URL}" style="display:inline-block;padding:12px 24px;background:#999;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Visit InstaWear →</a>
+<a href="${BASE_URL}?order=${encodeURIComponent(id)}" style="display:inline-block;padding:12px 24px;background:#cc0000;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a><br><br>
+<a href="${BASE_URL}/contact" style="display:inline-block;padding:12px 24px;background:#999;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Contact support →</a>
 ${buildFooter(clientEmail)}
 </div></body></html>`;
 

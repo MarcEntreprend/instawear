@@ -6,6 +6,21 @@ interface ZipValidationResult {
   message?: string;
 }
 
+/** 50 États US + DC (whitelist anti "Invalid state code" Printful). */
+export const US_STATE_CODES = new Set(
+  (
+    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD " +
+    "MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD " +
+    "TN TX UT VT VA WA WV WI WY"
+  ).split(" "),
+);
+
+/** Code state US valide (2 lettres, whitelist). */
+export function isValidUSState(code: unknown): boolean {
+  if (typeof code !== "string") return false;
+  return US_STATE_CODES.has(code.trim().toUpperCase());
+}
+
 export async function validateUSZip(
   zip: string,
   state: string,

@@ -237,6 +237,10 @@ export default function CatalogSection({
     }));
   }, [searchTerm, selectedCategory, selectedEventType]);
   useEffect(() => {
+    // Ne jamais écraser une deep-route (/produit/:id, /contact, /faq…) :
+    // la synchro d'URL des filtres n'a de sens que sur l'accueil. Sans ce
+    // garde, chaque chargement direct d'une page profonde était rabattu sur "/".
+    if (window.location.pathname !== "/") return;
     const qs = serializeFiltersToSearch(filters, sort, viewMode);
     const url = qs ? `/?${qs}` : "/";
     window.history.replaceState(window.history.state, "", url);
