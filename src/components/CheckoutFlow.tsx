@@ -192,6 +192,77 @@ async function shouldSendTelegram(): Promise<boolean> {
   }
 }
 
+/**
+ * Doublon email de la notif Telegram (filet si Telegram rate).
+ * Fire-and-forget : n'échoue jamais vers l'appelant, ne bloque jamais l'UX.
+ * L'edge vérifie le JWT admin, valide, rate-limite et résout l'email admin
+ * côté serveur (aucune adresse exposée au client).
+ */
+function sendAdminOrderEmail(
+  orderId: string,
+  name: string,
+  phone: string,
+  email: string,
+  reception: string,
+  address: string,
+  city: string,
+  zip: string,
+  country: string,
+  cart: CartItem[],
+  total: number,
+  currencySymbol: string,
+): void {
+  (async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-order-notify`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            ...(session?.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            orderId,
+            name,
+            phone,
+            email,
+            reception,
+            address,
+            city,
+            zip,
+            country,
+            items: cart.map((item) => ({
+              title: item.product.title,
+              size: item.selectedSize,
+              color: item.selectedColor,
+              quantity: item.quantity,
+              price: item.unitPrice,
+            })),
+            total,
+            currency: currencySymbol,
+          }),
+        },
+      );
+      if (!res.ok) {
+        console.warn(
+          "[admin-order-notify] edge:",
+          res.status,
+          (await res.text()).slice(0, 200),
+        );
+      }
+    } catch (err) {
+      console.warn("[admin-order-notify] réseau:", err);
+    }
+  })();
+}
+
 // Resolves the best image for a specific product color
 function getVariantImage(
   product: CartItem["product"],
@@ -1483,6 +1554,19 @@ function StripeCardForm({
         } as any);
         shouldSendTelegram().then((should) => {
           if (should) {
+            const recapCart = cart.filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find(
+                (vv: any) =>
+                  String(vv.color).toLowerCase() ===
+                  String(it.selectedColor).toLowerCase(),
+              );
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            });
             sendTelegramNotification(
               orderId,
               contactName,
@@ -1493,19 +1577,22 @@ function StripeCardForm({
               city,
               zip,
               country,
-              cart.filter((it: any) => {
-                const p: any = it.product;
-                if (!p?.isActive) return false;
-                const v = p.variants?.find(
-                  (vv: any) =>
-                    String(vv.color).toLowerCase() ===
-                    String(it.selectedColor).toLowerCase(),
-                );
-                if (!v) return p.variants?.length ? false : true;
-                const e = v.sizes?.[it.selectedSize];
-                if (!e) return false;
-                return ((e as any).stock_status || "available") === "available";
-              }),
+              recapCart,
+              total,
+              currencySymbol,
+            );
+            // Doublon email (filet si Telegram rate) — fire-and-forget.
+            sendAdminOrderEmail(
+              orderId,
+              contactName,
+              contactPhone,
+              contactEmail,
+              reception,
+              address,
+              city,
+              zip,
+              country,
+              recapCart,
               total,
               currencySymbol,
             );
@@ -2609,6 +2696,21 @@ export default function CheckoutFlow({
         shouldSendTelegram().then((should) => {
           if (should) {
             sendTelegramNotification(
+              newOrderId,
+              name,
+              phone,
+              email,
+              reception,
+              address,
+              city,
+              zip,
+              country,
+              fulfillableCart,
+              total,
+              currencySymbol,
+            );
+            // Doublon email (filet si Telegram rate) — fire-and-forget.
+            sendAdminOrderEmail(
               newOrderId,
               name,
               phone,
