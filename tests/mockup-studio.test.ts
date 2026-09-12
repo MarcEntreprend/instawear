@@ -146,11 +146,20 @@ test("worker : limite respectée", () => {
 // ─── Non-régression finalize (contrat d'écriture legacy) ────────────────────
 
 test("finalize écrit variants[].image + color_images + gallery + image", () => {
-  assert.ok(syncSource.includes("return { ...v, image: storageUrl }"));
+  assert.ok(syncSource.includes("return { ...v, image: displayUrl }"));
   assert.ok(syncSource.includes("updatePayload.color_images = newColorImages"));
-  assert.ok(syncSource.includes("updatePayload.image = firstMockupUrl"));
+  assert.ok(syncSource.includes("updatePayload.image = displayImageUrl(firstMockupUrl)"));
   assert.ok(syncSource.includes(".from(\"product_mockups\").insert(mockupInserts)"));
-  assert.ok(syncSource.includes("newGallery.push(storageUrl)"));
+  assert.ok(syncSource.includes("newGallery.push(displayUrl)"));
+});
+
+test("finalize : les URLs stockées passent en WebP serveur (originaux préservés)", () => {
+  // storageUrls / product_mockups gardent les originaux (source de vérité),
+  // seuls les champs d'affichage sont convertis (displayImageUrl = passthrough sinon).
+  assert.ok(syncSource.includes("storageUrls[hex] = storageUrl;"));
+  assert.ok(syncSource.includes("mockup_url: mockupUrl,"));
+  assert.ok(syncSource.includes("storage_url: storageUrl,"));
+  assert.ok(syncSource.includes("newColorImages.push(displayUrl)"));
 });
 
 test("legacy generate-mockups orchestre les mêmes helpers", () => {

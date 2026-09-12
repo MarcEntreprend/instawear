@@ -7,6 +7,10 @@ export interface AdminProductVariant {
   image: string;
   // POD: stock_status additif (absent = available) -> ne casse pas prix/couleurs existants
   sizes: Record<string, { price: number; stock_status?: string }>;
+  // IDs Phase B (webhook stock_updated) : préservés à l'import/réparation.
+  external_variant_id?: string;
+  sync_variant_id?: number;
+  catalog_variant_id?: number;
 }
 
 export interface AdminProduct {

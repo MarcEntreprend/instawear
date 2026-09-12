@@ -1,4 +1,4 @@
-// src/admin/PrintfulProductForm.tsx
+﻿// src/admin/PrintfulProductForm.tsx
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
@@ -8,6 +8,7 @@ import { AdminProduct } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
+
 
 interface PrintfulProductFormProps {
   onBack: () => void;
@@ -28,6 +29,9 @@ export default function PrintfulProductForm({
   const [catalogVariants, setCatalogVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
   const [loadingVariants, setLoadingVariants] = useState(false);
+  // Signature ImageKit côté serveur (null = pas encore chargé) : si false,
+  // les images importées ne seront PAS signées (401 avec restriction active).
+  const [ikSigned, setIkSigned] = useState<boolean | null>(null);
 
   // Champs du formulaire
   const [price, setPrice] = useState<number>(29.99);
@@ -187,6 +191,11 @@ export default function PrintfulProductForm({
 
         setColorImages((data.color_images as string[]) || []);
         setCatalogVariants((data.catalog_variants as any[]) || []);
+        setIkSigned(
+          typeof (data as any).imagekit_signed === "boolean"
+            ? (data as any).imagekit_signed
+            : null,
+        );
       })
       .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
@@ -316,6 +325,9 @@ export default function PrintfulProductForm({
         console.warn("Impossible de récupérer le size guide Printful", e);
       }
       const title = pfData.name || "";
+      // Les URLs edge sont déjà converties + signées côté serveur (restriction
+      // unsigned active : toute conversion cliente produirait des 401).
+      // On stocke tel quel ; l'edge renvoie les originales si non configuré.
       const mainImage = mainImageUrl || pfData.thumbnail_url || "";
 
       const allImages: string[] =
@@ -337,30 +349,62 @@ export default function PrintfulProductForm({
         (url) => url && url.trim().length > 0,
       );
 
+      // Variantes résolues CÔTÉ SERVEUR (edge get-product : tailles + prix +
+      // stock déjà fusionnés depuis sync retail_price + catalogue). Le formulaire
+      // ne refait PLUS de re-match fragile : il mappe ses couleurs (éditables)
+      // vers les variantes edge par clé normalisée (hex, puis nom).
+      const normKey = (s: unknown) => String(s || "").trim().toLowerCase();
+      const edgeVariants: any[] = Array.isArray((pfData as any).variants)
+        ? (pfData as any).variants
+        : [];
+      const edgeByHex = new Map(edgeVariants.map((v: any) => [normKey(v.color), v]));
+      const edgeByName = new Map(edgeVariants.map((v: any) => [normKey(v.color_name), v]));
+      const findEdgeVariant = (colorCode: string, cname: string): any | null =>
+        edgeByHex.get(normKey(colorCode)) ||
+        edgeByName.get(normKey(cname)) ||
+        edgeByHex.get(normKey(cname)) ||
+        edgeByName.get(normKey(colorCode)) ||
+        null;
+
       const computedVariants = colors
         .filter((c) => c && c.trim().length > 0)
         .map((colorCode, idx) => {
           const cname = colorNames[idx] || colorCode;
           const cimg = cleanColorImgs[idx] || "";
+          const edgeVar = findEdgeVariant(colorCode, cname);
+          if (edgeVar && edgeVar.sizes && Object.keys(edgeVar.sizes).length > 0) {
+            return {
+              color: colorCode,
+              color_name: cname,
+              image: edgeVar.image || cimg,
+              sizes: edgeVar.sizes,
+              ...(edgeVar.external_variant_id
+                ? { external_variant_id: edgeVar.external_variant_id }
+                : {}),
+            };
+          }
+          // Fallback historique : re-match local durci (l'edge n'a rien renvoyé
+          // pour cette couleur). Chaîne de prix : catalogue → retail sync →
+          // prix retail calculé (on ne jette JAMAIS une taille faute de prix).
           const sizesWithPrices: Record<string, { price: number }> = {};
           for (const size of sizes) {
-            // Chercher d'abord dans catalogVariants, puis dans les variants bruts
-            let catVar = (catalogVariants || []).find(
+            const catVar = (catalogVariants || []).find(
               (v: any) =>
-                (v.color || v.color_code || "").toLowerCase() ===
-                  cname.toLowerCase() && v.size === size,
+                normKey(v.color || v.color_code) === normKey(cname) &&
+                String(v.size || "") === String(size),
             );
-            if (!catVar) {
-              catVar = (variants || []).find(
-                (v: any) =>
-                  (v.color || v.color_code || "").toLowerCase() ===
-                    cname.toLowerCase() && v.size === size,
-              );
-            }
-
-            if (catVar?.price != null) {
-              sizesWithPrices[size] = { price: parseFloat(catVar.price) };
-            }
+            const syncVar = (variants || []).find(
+              (v: any) =>
+                (normKey(v.color || v.color_code) === normKey(cname) ||
+                  normKey(v.color || v.color_code) === normKey(colorCode)) &&
+                String(v.size || "") === String(size),
+            );
+            const rawPrice =
+              catVar?.price ?? syncVar?.retail_price ?? syncVar?.price ?? null;
+            const numPrice = rawPrice != null ? parseFloat(rawPrice) : NaN;
+            sizesWithPrices[size] = {
+              price: Number.isFinite(numPrice) ? numPrice : price,
+            };
           }
           return {
             color: colorCode,
@@ -369,6 +413,18 @@ export default function PrintfulProductForm({
             sizes: sizesWithPrices,
           };
         });
+
+      // Garde-fou : un import sans aucune taille/prix est invendable.
+      // On bloque avec un message explicite plutôt qu'un produit cassé silencieux.
+      const totalSizes = computedVariants.reduce(
+        (n, v: any) => n + Object.keys(v.sizes || {}).length,
+        0,
+      );
+      if (computedVariants.length > 0 && totalSizes === 0) {
+        throw new Error(
+          "Aucune taille avec prix trouvée pour ces couleurs (Printful ne renvoie rien d'exploitable). Import annulé : vérifiez le produit côté Printful puis réessayez.",
+        );
+      }
 
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,
@@ -1364,6 +1420,24 @@ export default function PrintfulProductForm({
           </label>
         </div>
 
+        {ikSigned === false && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--color-warning, #d97706)",
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              margin: "8px 0 0",
+            }}
+          >
+            Images non signées côté serveur (clé privée ImageKit absente) : avec
+            la restriction « unsigned » active, les visuels répondront 401.
+            Ajoutez le secret <code>IMAGEKIT_PRIVATE_KEY</code> puis
+            ré-importez (ou utilisez « Réparer »).
+          </p>
+        )}
         <div
           style={{
             display: "flex",

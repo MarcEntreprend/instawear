@@ -1,4 +1,4 @@
-﻿// src/pages/ProductPage.tsx â€” V2 full + live Supabase
+﻿// src/pages/ProductPage.tsx — V2 full + live Supabase
 import { useEffect, useState, useMemo } from "react";
 import {
   ArrowLeft,
@@ -64,7 +64,7 @@ export default function ProductPage({
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre,
-  // sans interfÃ©rence (null = suivre la sÃ©lection courante).
+  // sans interférence (null = suivre la sélection courante).
   const [frameOverride, setFrameOverride] = useState<string | null>(null);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [pickedColor, setPickedColor] = useState<string>(
@@ -209,9 +209,9 @@ export default function ProductPage({
   const activeVariant =
     hasVariants && colorIdx >= 0 ? product.variants![colorIdx] : null;
   // Colonne gauche = image principale + MOCKUPS uniquement.
-  // Les visuels avec design vivent sur les miniatures de variantes Ã  droite.
-  // Ordre : principale, mockups des variantes (donnÃ©es resync), galerie
-  // (mockups depuis le resync â€” mixte avant resync, dÃ©dupliquÃ©e ici).
+  // Les visuels avec design vivent sur les miniatures de variantes à droite.
+  // Ordre : principale, mockups des variantes (données resync), galerie
+  // (mockups depuis le resync — mixte avant resync, dédupliquée ici).
   const variantMockups =
     hasVariants && product.variants
       ? product.variants
@@ -230,7 +230,7 @@ export default function ProductPage({
       arr.indexOf(u) === idx,
   );
   // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
-  // mockups. L'index galerie est rÃ©initialisÃ© au changement de couleur.
+  // mockups. L'index galerie est réinitialisé au changement de couleur.
   const variantFrameImage =
     activeVariant?.image && activeVariant.image.trim().length > 0
       ? activeVariant.image
@@ -248,9 +248,9 @@ export default function ProductPage({
     product.dealActive && !dealExpired && product.dealPrice != null;
   const unitPrice = dealLive ? product.dealPrice! : displayPrice;
 
-  // â”€â”€ Phase 1+4 Merchandising : affinitÃ© co-achats rÃ©els + pins/excludes.
-  // Fail-open : toute erreur â†’ rÃ¨gles legacy. Kill switch par section.
-  // Scores prÃ©-calculÃ©s (edge merch-scorer) ignorÃ©s s'ils sont absents/pÃ©rimÃ©s.
+  // ── Phase 1+4 Merchandising : affinité co-achats réels + pins/excludes.
+  // Fail-open : toute erreur → règles legacy. Kill switch par section.
+  // Scores pré-calculés (edge merch-scorer) ignorés s'ils sont absents/périmés.
   const [affinityIds, setAffinityIds] = useState<string[]>([]);
   const [merchConfig, setMerchConfig] = useState<
     Record<string, MerchSectionConfig>
@@ -299,11 +299,11 @@ export default function ProductPage({
         )
         .slice(0, 3);
     if (cfg && cfg.enabled === false) return legacy();
-    // A/B : variante A = rÃ¨gle legacy pure (mesure l'apport rÃ©el de l'affinitÃ©).
+    // A/B : variante A = règle legacy pure (mesure l'apport réel de l'affinité).
     if ((cfg?.settings as any)?.ab === true && getVariant() === "A")
       return legacy();
-    // RÃ©el d'abord (affinitÃ©, catÃ©gorie diffÃ©rente = complÃ©ment), puis rÃ¨gle
-    // triÃ©e par score prÃ©-calculÃ© quand il est frais.
+    // Réel d'abord (affinité, catégorie différente = complément), puis règle
+    // triée par score pré-calculé quand il est frais.
     const ruleFill = products.filter(
       (p: Product) =>
         p.id !== product.id &&
@@ -366,8 +366,8 @@ export default function ProductPage({
         .filter((p: Product) => p.id !== product.id && p.isActive)
         .slice(0, 8);
     }
-    // AffinitÃ© d'abord (ordre co-achats), puis mÃªme catÃ©gorie/event et reste
-    // triÃ©s par score prÃ©-calculÃ© quand il est frais (sinon ordre catalogue).
+    // Affinité d'abord (ordre co-achats), puis même catégorie/event et reste
+    // triés par score pré-calculé quand il est frais (sinon ordre catalogue).
     // A/B : variante A = ordre legacy (sans scores).
     const useScores =
       !!scoreMap &&
@@ -415,8 +415,8 @@ export default function ProductPage({
         return p && p.id !== product.id && isMerchEligible(p) ? p : undefined;
       },
     });
-    // Filet anti-vide : si la dÃ©dup a trop rÃ©duit, remplit depuis le pool
-    // Ã©ligible (jamais d'inÃ©ligible rÃ©introduit).
+    // Filet anti-vide : si la dédup a trop réduit, remplit depuis le pool
+    // éligible (jamais d'inéligible réintroduit).
     return ensureMin(list, eligiblePool, Math.min(3, eligiblePool.length));
   }, [
     affinityIds,
@@ -443,8 +443,8 @@ export default function ProductPage({
     if (!canAdd || !pickedSize) return;
     onBuyNow(product, pickedColor || dispColors[0] || "#000000", pickedSize);
   };
-  // Ajout rapide : premiÃ¨re variante dispo (pas "M" en dur â€” inexistant
-  // sur mugs/accessoires). Si rien de dispo, on laisse App rÃ©pondre
+  // Ajout rapide : première variante dispo (pas "M" en dur — inexistant
+  // sur mugs/accessoires). Si rien de dispo, on laisse App répondre
   // avec le vrai motif de blocage via le toast d'erreur.
   const quickAdd = (p: any) => {
     const v = pickAvailableVariant(p);
@@ -579,7 +579,10 @@ export default function ProductPage({
                   className="text-sm line-through"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  {formatAmount(currentVariantPrice ?? product.price, currencySymbol)}
+                  {formatAmount(
+                    currentVariantPrice ?? product.price,
+                    currencySymbol,
+                  )}
                 </span>
               )}
             </div>
@@ -594,7 +597,7 @@ export default function ProductPage({
                 className="text-xs font-bold uppercase tracking-wider mb-2.5"
                 style={{ color: "var(--color-ink3)" }}
               >
-                Color â€” {dispColorNames?.[colorIdx] || pickedColor}
+                Color — {dispColorNames?.[colorIdx] || pickedColor}
               </p>
               <div className="flex items-center gap-2.5 flex-wrap">
                 {dispColors.map((c: string, i: number) => {
@@ -620,7 +623,7 @@ export default function ProductPage({
                       aria-label={label}
                       title={
                         blocked
-                          ? `${label} â€” ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
+                          ? `${label} — ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
                           : label
                       }
                       className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
@@ -658,7 +661,7 @@ export default function ProductPage({
                   className="text-xs font-bold uppercase tracking-wider"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Size {pickedSize && `â€” ${pickedSize}`}
+                  Size {pickedSize && `— ${pickedSize}`}
                 </p>
                 <button
                   onClick={() => setIsSizeGuideOpen(true)}

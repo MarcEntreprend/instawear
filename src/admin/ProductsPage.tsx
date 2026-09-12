@@ -17,6 +17,7 @@ import {
   Settings,
   Sparkles,
   Images,
+  Wrench,
 } from "lucide-react";
 import { useProducts, useReferenceLists } from "./adminHooks";
 import MockupStudio from "./MockupStudio";
@@ -106,6 +107,38 @@ export default function ProductsPage() {
   const [showMockupStudio, setShowMockupStudio] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<string | null>(null);
+
+  const repairBrokenProducts = async () => {
+    if (brokenProducts.length === 0) return;
+    if (
+      !window.confirm(
+        `Réparer ${brokenProducts.length} produit(s) ? Tailles/prix, images WebP et guide des tailles seront re-synchronisés depuis Printful (seuls les blocs non vides sont écrasés).`,
+      )
+    )
+      return;
+    setRepairing(true);
+    setRepairResult(null);
+    let ok = 0;
+    const failures: string[] = [];
+    for (const p of brokenProducts) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await podApi.repairProduct(p.id);
+        ok += 1;
+      } catch (e: any) {
+        failures.push(`${p.title || p.id} : ${e?.message || "erreur"}`);
+      }
+    }
+    await refetch();
+    setRepairing(false);
+    setRepairResult(
+      failures.length === 0
+        ? `${ok} produit(s) réparé(s). Vérifiez les fiches (tailles + images).`
+        : `${ok} réparé(s), ${failures.length} échec(s) : ${failures.slice(0, 3).join(" | ")}${failures.length > 3 ? "…" : ""}`,
+    );
+  };
   const [hideInactive, setHideInactive] = useState(() => {
     return localStorage.getItem("products-hide-inactive") === "true";
   });
@@ -251,6 +284,21 @@ export default function ProductsPage() {
       return ia - ib;
     });
   }, [products, manualOrder]);
+
+  /** Produits Printful dont toutes les variantes sont sans tailles (import cassé). */
+  const brokenProducts = useMemo(
+    () =>
+      (orderedProducts || []).filter(
+        (p) =>
+          (p as any).externalProductId &&
+          Array.isArray((p as any).variants) &&
+          (p as any).variants.length > 0 &&
+          (p as any).variants.every(
+            (v: any) => !v.sizes || Object.keys(v.sizes).length === 0,
+          ),
+      ),
+    [orderedProducts],
+  );
 
   const toggleSort = (key: keyof AdminProduct) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -531,7 +579,18 @@ export default function ProductsPage() {
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
             {orderedProducts.length} produit
             {orderedProducts.length !== 1 ? "s" : ""}
+            {brokenProducts.length > 0 && (
+              <span style={{ color: "var(--color-warning, #d97706)", fontWeight: 600 }}>
+                {" "}
+                · {brokenProducts.length} sans tailles
+              </span>
+            )}
           </p>
+          {repairResult && (
+            <p style={{ fontSize: 12, color: "var(--color-ink2)", marginTop: 4 }}>
+              {repairResult}
+            </p>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
@@ -598,6 +657,34 @@ export default function ProductsPage() {
             <Images size={15} strokeWidth={2} />
             Mockup Studio
           </button>
+
+          {brokenProducts.length > 0 && (
+            <button
+              onClick={repairBrokenProducts}
+              disabled={repairing}
+              title="Re-synchronise tailles/prix, images WebP et guide des tailles depuis Printful (seuls les blocs non vides sont écrasés)"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 20px",
+                borderRadius: 12,
+                border: "1.5px solid var(--color-warning, #d97706)",
+                background: "transparent",
+                color: "var(--color-warning, #d97706)",
+                fontFamily: "var(--font-body)",
+                fontWeight: 700,
+                fontSize: 13.5,
+                cursor: repairing ? "wait" : "pointer",
+                opacity: repairing ? 0.6 : 1,
+              }}
+            >
+              <Wrench size={15} strokeWidth={2} />
+              {repairing
+                ? "Réparation…"
+                : `Réparer ${brokenProducts.length} produit${brokenProducts.length > 1 ? "s" : ""}`}
+            </button>
+          )}
 
           {/* Menu setting */}
           <div style={{ position: "relative" }}>

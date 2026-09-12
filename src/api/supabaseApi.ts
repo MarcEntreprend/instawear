@@ -1537,6 +1537,33 @@ export const podApi = {
     return res.json();
   },
 
+  /**
+   * Répare un produit importé (variantes sans tailles/prix, images non-WebP,
+   * guide des tailles manquant) en rejouant l'import côté serveur.
+   * N'écrase jamais avec du vide : seuls les blocs non vides sont patchés.
+   */
+  async repairProduct(
+    productId: string,
+    fix?: ("sizes" | "images" | "sizeguide")[],
+  ): Promise<{ ok: boolean; fixed: Record<string, unknown>; warnings: string[]; noop?: boolean }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        action: "repair-product",
+        productId,
+        ...(fix ? { fix } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur réparation produit");
+    }
+    return res.json();
+  },
+
   // ─── Webhook Printful ─────────────────────────────────────────────────
 
   /**

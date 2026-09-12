@@ -1,6 +1,7 @@
 // src/components/ImageZoom.tsx
 
 import { useRef, useState } from "react";
+import { imagekitOriginal } from "../lib/imagekit";
 
 interface ImageZoomProps {
   src: string;
@@ -23,6 +24,10 @@ export default function ImageZoom({
 
   // State pour contrôler l'apparition/disparition au survol
   const [isHovered, setIsHovered] = useState(false);
+  // Fallback : si le CDN ImageKit échoue (endpoint en panne), on retombe sur
+  // l'URL originale embarquée (jamais d'image cassée sans recours).
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const shownSrc = failedSrc || src;
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || !lensRef.current || !zoomPanelRef.current)
@@ -52,11 +57,17 @@ export default function ImageZoom({
         onMouseLeave={() => setIsHovered(false)}
       >
         <img
-          src={src}
+          src={shownSrc}
           alt={alt}
           className="w-full h-full object-contain"
           fetchPriority="high"
           decoding="async"
+          onError={() => {
+            if (!failedSrc) {
+              const original = imagekitOriginal(src);
+              if (original !== src) setFailedSrc(original);
+            }
+          }}
         />
 
         {/* Lentille (Suivi synchrone via ref) */}
@@ -78,7 +89,7 @@ export default function ImageZoom({
         ref={zoomPanelRef}
         className="absolute top-0 left-[calc(100%+16px)] w-75 h-75 border border-(--color-border) rounded-xl shadow-xl bg-no-repeat bg-white z-20 hidden sm:block"
         style={{
-          backgroundImage: `url(${src})`,
+          backgroundImage: `url(${shownSrc})`,
           backgroundSize: `${zoomFactor * 100}%`,
           display: isHovered ? "block" : "none",
         }}
