@@ -129,7 +129,7 @@ const SIZE_OPTIONS = SIZE_OPTIONS_US;
 
 // normHex vit dans utils/colors (évite les imports circulaires avec StoreProductCard).
 // Ré-exporté ici pour compatibilité (tests + appelants existants).
-import { normHex } from "../utils/colors";
+import { normHex, hexToRgb } from "../utils/colors";
 export { normHex };
 
 export interface FacetColor {
@@ -271,6 +271,21 @@ export default function CatalogSection({
     () => buildColorFacets(filteredProducts),
     [filteredProducts],
   );
+
+  // Pastille "Color: <nom>" (nom d'abord, hex/RGB en fallback + tooltip).
+  const activeColorFacet = useMemo(() => {
+    if (!filters.color) return null;
+    const facet = availableColors.find((c) => c.hex === filters.color);
+    const name =
+      facet && facet.name && facet.name !== facet.hex
+        ? facet.name
+        : filters.color;
+    const rgb = hexToRgb(filters.color);
+    return {
+      label: name,
+      title: rgb ? `${name} · ${filters.color} · ${rgb}` : name,
+    };
+  }, [filters.color, availableColors]);
 
   const extraFiltered = useMemo(() => {
     let list = filteredProducts.filter((p) => {
@@ -786,14 +801,31 @@ export default function CatalogSection({
                     {filters.size} <X size={12} />
                   </span>
                 )}
-                {filters.color && (
+                {filters.color && activeColorFacet && (
                   <span
                     className="chip"
                     data-active="true"
                     onClick={() => setFilters((f) => ({ ...f, color: null }))}
-                    style={{ cursor: "pointer" }}
+                    style={{
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                    title={activeColorFacet.title}
                   >
-                    Color <X size={12} />
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        background: filters.color,
+                        border: "1px solid var(--color-border2)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    Color: {activeColorFacet.label} <X size={12} />
                   </span>
                 )}
                 {filters.style && (

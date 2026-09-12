@@ -14,6 +14,16 @@ export function normHex(raw: unknown): string {
   return /^#[0-9a-f]{6}$/.test(h) ? h : "";
 }
 
+/** "rgb(r, g, b)" depuis un hex (normalisé d'abord). "" si invalide. */
+export function hexToRgb(raw: unknown): string {
+  const hex = normHex(raw);
+  if (!hex) return "";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 interface VariantLike {
   color?: string;
   color_name?: string;

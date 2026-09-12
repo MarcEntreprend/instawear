@@ -2,7 +2,7 @@
 // Facettes couleur du catalogue : normalisation + agrégation depuis les produits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normHex, variantImageForColor } from "../src/utils/colors.ts";
+import { normHex, hexToRgb, variantImageForColor } from "../src/utils/colors.ts";
 import { buildColorFacets } from "../src/components/CatalogSection.tsx";
 
 test("normHex: casse, #, raccourcis, invalides", () => {
@@ -39,6 +39,14 @@ test("buildColorFacets: nom = hex si pas de nom, vide si rien", () => {
   assert.equal(out[0].name, "#123456");
   assert.deepEqual(buildColorFacets([]), []);
   assert.deepEqual(buildColorFacets([{ colors: ["x"] }]), []);
+});
+
+test("hexToRgb: conversion + invalides", () => {
+  assert.equal(hexToRgb("#f5f0e8"), "rgb(245, 240, 232)");
+  assert.equal(hexToRgb("#000"), "rgb(0, 0, 0)");
+  assert.equal(hexToRgb("#FFF"), "rgb(255, 255, 255)");
+  assert.equal(hexToRgb("red"), "");
+  assert.equal(hexToRgb(""), "");
 });
 
 test("variantImageForColor: hex, nom, fallbacks, null", () => {
