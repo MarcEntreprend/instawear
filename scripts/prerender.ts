@@ -126,16 +126,28 @@ function setRoot(html: string, snapshot: string): string {
 }
 
 // ── snapshot partagé ──
-function shell(inner: string): string {
+// Dans <noscript> : les navigateurs AVEC JS ne l'affichent pas (zéro flash,
+// React remplace le contenu au boot), les bots SANS JS voient le contenu réel
+// (SEO/LLM préservés, même contenu que l'app = pas de cloaking).
+// leadHero (accueil uniquement) : image LCP VISIBLE peinte avant même le JS
+// (mêmes dimensions que le carrousel : swap quasi invisible au boot).
+function shell(inner: string, leadHero?: { src: string; alt: string }): string {
+  const heroFigure = leadHero
+    ? `<div style="height:78vh;min-height:420px;max-height:760px;overflow:hidden;background:#eceae6;">` +
+      `<img src="${leadHero.src}" alt="${leadHero.alt}" fetchpriority="high" decoding="async" ` +
+      `style="width:100%;height:100%;object-fit:cover;display:block;" ` +
+      `onerror="this.closest('div').style.display='none'" /></div>`
+    : "";
   return (
-    `<main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
+    heroFigure +
+    `<noscript><main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
     `<p><a href="${SITE}/" style="font-weight:800;font-size:20px;color:#ff5c35;text-decoration:none;">InstaWear</a></p>` +
     inner +
     `<hr style="margin:32px 0;border:none;border-top:1px solid #eee;" />` +
     `<p style="font-size:13px;color:#666;">` +
     `<a href="${SITE}/">Home</a> · <a href="${SITE}/promotions">Promotions</a> · ` +
     `<a href="${SITE}/faq">FAQ</a> · <a href="${SITE}/contact">Contact</a> · ` +
-    `<a href="${SITE}/suivi">Track order</a></p></main>`
+    `<a href="${SITE}/suivi">Track order</a></p></main></noscript>`
   );
 }
 
@@ -193,6 +205,36 @@ if (url && anon) {
 const sym = SYMBOLS[currencyCode] || "$";
 const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
 
+// 1b) 1re image hero (même règle que App.tsx : 1re promo active avec produit
+// actif, sinon rien). Peinte en visible avant le JS (LCP instantané).
+let leadHero: { src: string; alt: string } | undefined;
+if (url && anon && products.length > 0) {
+  try {
+    const supabase = createClient(url, anon);
+    const { data: promos } = await supabase
+      .from("hero_promotions")
+      .select("image, product_id, title, headline")
+      .order("order", { ascending: true });
+    const first = (promos ?? []).find((pr: any) => {
+      if (pr == null) return false;
+      if ((pr as any).isActive === false || (pr as any).is_active === false) return false;
+      const prod = products.find((p) => p.id === String((pr as any).productId || (pr as any).product_id));
+      return !!prod;
+    });
+    if (first) {
+      const prod = products.find(
+        (p) => p.id === String((first as any).productId || (first as any).product_id),
+      )!;
+      const src = String((first as any).image || prod.image || "");
+      if (src && !src.includes("missing-item")) {
+        leadHero = { src: esc(src), alt: esc(String((first as any).title || (first as any).headline || prod.title)) };
+      }
+    }
+  } catch (e: any) {
+    console.error("prerender: hero query failed:", e?.message || e);
+  }
+}
+
 // 2) Accueil (index.html enrichi, head inchangé = déjà bon)
 {
   const snap = shell(
@@ -206,7 +248,8 @@ const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
             .slice(0, 6)
             .map((p) => `<li><a href="${SITE}/produit/${esc(p.id)}">${esc(p.title)}</a> — ${fmt(p.dealPrice ?? p.price)}</li>`)
             .join("")}</ul>`
-        : ""),
+          : ""),
+    leadHero,
   );
   write("index.html", setRoot(template, snap));
 }

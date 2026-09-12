@@ -1062,6 +1062,33 @@ export default function App() {
       });
   }, [heroPromotions, products]);
 
+  // LCP : précharge la 1re image hero dès qu'elle est connue (découverte plus
+  // tôt que le rendu <img>, sans attendre le paint). Rien si placeholder.
+  useEffect(() => {
+    const first = heroBanners[0]?.image;
+    if (!first || first === PLACEHOLDER_IMG) return;
+    const KEY = "data-hero-preload";
+    let link = document.head.querySelector<HTMLLinkElement>(`link[${KEY}]`);
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "preload";
+      link.setAttribute("as", "image");
+      link.setAttribute(KEY, "");
+      try {
+        (link as HTMLLinkElement & { fetchPriority?: string }).fetchPriority =
+          "high";
+      } catch {
+        /* navigateurs sans support : preload simple */
+      }
+      // href AVANT append : sinon le navigateur log
+      // "<link rel=preload> has an invalid href value".
+      link.setAttribute("href", first);
+      document.head.appendChild(link);
+    } else if (link.getAttribute("href") !== first) {
+      link.setAttribute("href", first);
+    }
+  }, [heroBanners]);
+
   const scrollToSection = (
     section:
       | "catalog"
