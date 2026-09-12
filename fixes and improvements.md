@@ -141,3 +141,12 @@ Champions League, Rio Carnival, Oktoberfest, Halloween. Organic cotton, exclusiv
 
 [Home](https://instawear.vercel.app/) - [Promotions](https://instawear.vercel.app/promotions) - [FAQ](https://instawear.vercel.app/faq) - [Contact](https://instawear.vercel.app/contact) - [Track order](https://instawear.vercel.app/suivi)
 ```
+
+## FEATS
+
+### Colors :
+
+les 'Color' du filter sont generiques
+fais que ce soit fonctionnel :
+1- passer reellement les vrais couleurs issues des images
+2- cliquer sur une couleur montre ts les items lies
