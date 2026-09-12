@@ -1135,11 +1135,14 @@ function OrdersTab({
   initialOrderId?: string | null;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  // Deep-link email : ouvre le détail une seule fois quand les commandes arrivent.
+  // Deep-link email : pré-remplit "Search by order ID" + ouvre le détail
+  // une seule fois quand les commandes arrivent (comme le tracking invité).
   const deepOpenedRef = useRef(false);
   useEffect(() => {
-    if (deepOpenedRef.current || !initialOrderId || selectedOrder) return;
+    if (deepOpenedRef.current || !initialOrderId) return;
     if (!Array.isArray(orders) || orders.length === 0) return;
+    deepOpenedRef.current = true;
+    setSearch(initialOrderId);
     const match =
       orders.find((o: any) => o?.id === initialOrderId) ||
       orders.find(
@@ -1147,11 +1150,8 @@ function OrdersTab({
           typeof o?.id === "string" &&
           o.id.toLowerCase() === String(initialOrderId).toLowerCase(),
       );
-    if (match) {
-      deepOpenedRef.current = true;
-      setSelectedOrder(match);
-    }
-  }, [orders, initialOrderId, selectedOrder]);
+    if (match) setSelectedOrder(match);
+  }, [orders, initialOrderId]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");

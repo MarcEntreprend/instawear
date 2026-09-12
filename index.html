@@ -91,24 +91,11 @@
       }
     </script>
 
-    <!-- Favicon / Apple Touch Icon -->
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="InstaWear-logo-wh-middle-no-BG.webp"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="192x192"
-      href="/InstaWear-logo-wh-middle-no-BG.webp"
-    />
-    <link rel="apple-touch-icon" href="/InstaWear-logo-wh-middle-no-BG.webp" />
-    <meta
-      name="msapplication-TileImage"
-      content="/InstaWear-logo-wh-middle-no-BG.webp"
-    />
+    <!-- Favicon / Apple Touch Icon (PNG réels : iOS + crawlers refusent le WebP) -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="msapplication-TileImage" content="/icon-192.png" />
 
     <script>
       try {
