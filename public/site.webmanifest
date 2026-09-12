@@ -9,13 +9,13 @@
   "theme_color": "#ff5c35",
   "icons": [
     {
-      "src": "/InstaWear-logo.png",
+      "src": "/InstaWear-logo.webp",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/InstaWear-logo.png",
+      "src": "/InstaWear-logo.webp",
       "sizes": "any",
       "type": "image/png",
       "purpose": "maskable"

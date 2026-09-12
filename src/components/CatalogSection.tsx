@@ -96,7 +96,7 @@ function parseFiltersFromSearch(
     priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
     inStockOnly: params.get("stock") === "1",
     size: params.get("size") ?? null,
-    color: params.get("color") ? `#${params.get("color")}` : null,
+    color: normHex(params.get("color") || "") || null,
   };
   const sortParam = params.get("sort");
   const sort = SORT_OPTIONS.some((o) => o.value === sortParam)
@@ -126,16 +126,56 @@ function serializeFiltersToSearch(
   return params.toString();
 }
 const SIZE_OPTIONS = SIZE_OPTIONS_US;
-const COLOR_OPTIONS = [
-  { hex: "#000000", name: "Black" },
-  { hex: "#ffffff", name: "White" },
-  { hex: "#ff0000", name: "Red" },
-  { hex: "#0000ff", name: "Blue" },
-  { hex: "#00ff00", name: "Green" },
-  { hex: "#ffff00", name: "Yellow" },
-  { hex: "#ff00ff", name: "Pink" },
-  { hex: "#ffa500", name: "Orange" },
-];
+
+/** Normalise un hex (casse, #rgb → #rrggbb). "" si invalide. */
+export function normHex(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  let h = raw.trim().toLowerCase();
+  if (!h) return "";
+  if (!h.startsWith("#")) h = `#${h}`;
+  const short = /^#([0-9a-f]{3})$/i.exec(h);
+  if (short) {
+    h = `#${short[1].split("").map((c) => `${c}${c}`).join("")}`;
+  }
+  return /^#[0-9a-f]{6}$/.test(h) ? h : "";
+}
+
+export interface FacetColor {
+  hex: string;
+  name: string;
+  count: number;
+}
+
+/**
+ * Couleurs RÉELLES du catalogue : agrégées depuis products[].colors
+ * (+ noms via colorNames alignés), triées par popularité. Remplace
+ * l'ancienne liste générique en dur (qui ne matchait aucun vrai produit).
+ */
+export function buildColorFacets(
+  products: { colors?: string[] | null; colorNames?: string[] | null }[],
+): FacetColor[] {
+  const map = new Map<string, FacetColor>();
+  for (const p of products) {
+    const colors = Array.isArray(p.colors) ? p.colors : [];
+    const names = Array.isArray(p.colorNames) ? p.colorNames : [];
+    colors.forEach((raw, i) => {
+      const hex = normHex(raw);
+      if (!hex) return;
+      const name =
+        typeof names[i] === "string" && names[i].trim()
+          ? names[i].trim()
+          : hex;
+      const cur = map.get(hex);
+      if (cur) {
+        cur.count += 1;
+        if (cur.name === cur.hex && name !== hex) cur.name = name;
+      } else {
+        map.set(hex, { hex, name, count: 1 });
+      }
+    });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count);
+}
 
 export default function CatalogSection({
   filteredProducts,
@@ -233,12 +273,25 @@ export default function CatalogSection({
     }
   }, [isFilterDrawerOpen]);
 
+  // Facettes couleur réelles (tous les produits du contexte, AVANT le filtre
+  // couleur lui-même : sélectionner ne fait jamais disparaître d'options).
+  const availableColors = useMemo(
+    () => buildColorFacets(filteredProducts),
+    [filteredProducts],
+  );
+
   const extraFiltered = useMemo(() => {
     let list = filteredProducts.filter((p) => {
       if (p.price < filters.priceMin || p.price > filters.priceMax)
         return false;
       if (filters.size && !p.sizes.includes(filters.size)) return false;
-      if (filters.color && !p.colors.includes(filters.color)) return false;
+      if (
+        filters.color &&
+        !(Array.isArray(p.colors)
+          ? p.colors.some((c) => normHex(c) === filters.color)
+          : false)
+      )
+        return false;
       if (filters.inStockOnly && p.inStock === false) return false;
       if (filters.style && p.style !== filters.style) return false;
       if (filters.material && p.material !== filters.material) return false;
@@ -549,13 +602,17 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            <FilterGroup title="Color">
-              <ColorPicker
-                colors={COLOR_OPTIONS}
-                selectedColor={filters.color}
-                onSelect={(hex) => setFilters((f) => ({ ...f, color: hex }))}
-              />
-            </FilterGroup>
+            {availableColors.length > 0 && (
+              <FilterGroup title="Color">
+                <ColorPicker
+                  colors={availableColors}
+                  selectedColor={filters.color}
+                  onSelect={(hex) =>
+                    setFilters((f) => ({ ...f, color: normHex(hex) || null }))
+                  }
+                />
+              </FilterGroup>
+            )}
             <label className="flex items-center justify-between cursor-pointer">
               <span
                 className="text-sm font-semibold"
@@ -1175,15 +1232,17 @@ export default function CatalogSection({
                   </div>
                 </FilterGroup>
 
-                <FilterGroup title="Color">
-                  <ColorPicker
-                    colors={COLOR_OPTIONS}
-                    selectedColor={filters.color}
-                    onSelect={(hex) =>
-                      setFilters((f) => ({ ...f, color: hex }))
-                    }
-                  />
-                </FilterGroup>
+                {availableColors.length > 0 && (
+                  <FilterGroup title="Color">
+                    <ColorPicker
+                      colors={availableColors}
+                      selectedColor={filters.color}
+                      onSelect={(hex) =>
+                        setFilters((f) => ({ ...f, color: normHex(hex) || null }))
+                      }
+                    />
+                  </FilterGroup>
+                )}
 
                 <label
                   className="flex items-center justify-between cursor-pointer pt-2"
