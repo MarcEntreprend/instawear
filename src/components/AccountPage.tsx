@@ -69,6 +69,8 @@ interface AccountPageProps {
     initialSize?: string,
   ) => void;
   onNameUpdated?: (newName: string) => void;
+  /** Deep-link commande (depuis email) : ouvre l'onglet orders + le détail. */
+  initialOrderId?: string | null;
 }
 
 // ─── Local types ─────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ export default function AccountPage({
   onClose,
   onViewProduct,
   onNameUpdated,
+  initialOrderId = null,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
 
@@ -996,6 +999,7 @@ export default function AccountPage({
                 hasMore={hasMoreOrders}
                 customerEmail={customerEmail}
                 customerId={customerId}
+                initialOrderId={initialOrderId}
               />
             )}
             {tab === "favorites" && (
@@ -1113,6 +1117,7 @@ function OrdersTab({
   hasMore,
   customerEmail,
   customerId,
+  initialOrderId = null,
 }: {
   orders: Order[];
   loading: boolean;
@@ -1127,8 +1132,26 @@ function OrdersTab({
   hasMore?: boolean;
   customerEmail?: string;
   customerId?: string | null;
+  initialOrderId?: string | null;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  // Deep-link email : ouvre le détail une seule fois quand les commandes arrivent.
+  const deepOpenedRef = useRef(false);
+  useEffect(() => {
+    if (deepOpenedRef.current || !initialOrderId || selectedOrder) return;
+    if (!Array.isArray(orders) || orders.length === 0) return;
+    const match =
+      orders.find((o: any) => o?.id === initialOrderId) ||
+      orders.find(
+        (o: any) =>
+          typeof o?.id === "string" &&
+          o.id.toLowerCase() === String(initialOrderId).toLowerCase(),
+      );
+    if (match) {
+      deepOpenedRef.current = true;
+      setSelectedOrder(match);
+    }
+  }, [orders, initialOrderId, selectedOrder]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");

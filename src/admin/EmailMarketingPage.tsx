@@ -1158,6 +1158,9 @@ function ComposeSection({
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  // Lien du bouton {{cta_link}} : même contrat que les mails transactionnels
+  // (accueil, /suivi, /recherche, /produit/:id). Session uniquement.
+  const [ctaLink, setCtaLink] = useState("https://instawear.vercel.app");
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showQualityDetails, setShowQualityDetails] = useState(false);
@@ -1292,12 +1295,20 @@ function ComposeSection({
         .replace(/{{title}}/g, ""); // sera remplacé dans le corps par le sujet
 
       // Personnaliser le corps HTML
+      // Lien du bouton : même domaine imposé (anti open-redirect/phishing).
+      const safeCtaLink =
+        ctaLink.trim().startsWith("https://instawear.vercel.app/") ||
+        ctaLink.trim() === "https://instawear.vercel.app"
+          ? ctaLink.trim()
+          : "https://instawear.vercel.app";
       let personalizedHtml = html
         .replace(/{{name}}/g, recipientName)
         .replace(/{{email}}/g, email)
         .replace(/{{brand}}/g, "InstaWear")
         .replace(/{{discount}}/g, "20")
-        .replace(/{{cta_link}}/g, "https://instawear.vercel.app")
+        .replace(/{{cta_link}}/g, safeCtaLink)
+        .replace(/{{track_link}}/g, "https://instawear.vercel.app/suivi")
+        .replace(/{{catalog_link}}/g, "https://instawear.vercel.app/recherche")
         .replace(/{{cart_link}}/g, "https://instawear.vercel.app")
         .replace(/{{order_id}}/g, "—")
         .replace(/{{product_name}}/g, "our new collection")
@@ -1439,6 +1450,49 @@ function ComposeSection({
                 onChange={setPreviewText}
                 placeholder="Visible dans la boîte mail avant ouverture…"
               />
+              <div>
+                <InputField
+                  label="Lien du bouton ({{cta_link}})"
+                  value={ctaLink}
+                  onChange={setCtaLink}
+                  placeholder="https://instawear.vercel.app/produit/<id>"
+                  hint="Produit : /produit/<id> · Collection : /recherche?q=<mot> · Suivi : /suivi"
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    flexWrap: "wrap",
+                    marginTop: 6,
+                  }}
+                >
+                  {[
+                    { label: "Accueil", href: "https://instawear.vercel.app" },
+                    { label: "Suivi", href: "https://instawear.vercel.app/suivi" },
+                    {
+                      label: "Catalogue",
+                      href: "https://instawear.vercel.app/recherche",
+                    },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setCtaLink(p.href)}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 6,
+                        border: "1px solid var(--color-border)",
+                        background: "var(--color-surface2)",
+                        color: "var(--color-ink3)",
+                        fontSize: 11,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1542,6 +1596,8 @@ function ComposeSection({
                   "{{discount}}",
                   "{{brand}}",
                   "{{cta_link}}",
+                  "{{track_link}}",
+                  "{{catalog_link}}",
                   "{{footer}}",
                 ].map((v) => (
                   <button

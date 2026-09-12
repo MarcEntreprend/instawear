@@ -28,6 +28,7 @@ import ImageLightbox from "../components/product/ImageLightbox";
 import SizeGuideModal from "../components/product/SizeGuideModal";
 import { DEFAULT_SIZE_GUIDE } from "../data/defaultSizeGuide";
 import ProductUnavailable from "../components/ProductUnavailable";
+import ShareProduct from "../components/ShareProduct";
 import RelatedProductCard from "../components/product/RelatedProductCard";
 import FrequentlyBoughtTogether from "../components/product/FrequentlyBoughtTogether";
 import RecentlyViewedSection from "../components/product/RecentlyViewedSection";
@@ -811,6 +812,7 @@ export default function ProductPage({
                   ? "Remove from wishlist"
                   : "Wishlist"}
               </button>
+              <ShareProduct title={product.title} productId={product.id} />
               <div
                 className="flex items-center gap-4 text-xs mt-6"
                 style={{ color: "var(--color-ink3)" }}

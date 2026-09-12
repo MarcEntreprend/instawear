@@ -1238,6 +1238,35 @@ export default function App() {
     }
   }, []);
 
+  // Lien intelligent commande (?order=ORD-...) : connecté → compte + détail,
+  // invité → suivi pré-rempli. Param nettoyé après lecture (une seule fois).
+  const [pendingAccountOrderId, setPendingAccountOrderId] = useState<
+    string | null
+  >(null);
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get("order");
+    if (!orderId || !orderId.trim()) return;
+    const code = orderId.trim();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("order");
+    window.history.replaceState({}, "", url.toString());
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user?.email) {
+          setPendingAccountOrderId(code);
+          setShowAccountPage(true);
+        } else {
+          setTrackingInitialCode(code);
+          setTrackingOpen(true);
+        }
+      })
+      .catch(() => {
+        setTrackingInitialCode(code);
+        setTrackingOpen(true);
+      });
+  }, []);
+
   // Order success dedicated page — handle /order/success/:id and legacy ?order=success
   // Garanti: ne jamais écraser /order/success/:id vers "/"
   useEffect(() => {
@@ -1468,8 +1497,13 @@ export default function App() {
   // Exclude inactive products from suggestions
   const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
+  // Tick forcé : pushState seul ne re-rend pas. Sans ça, goHome() depuis un
+  // écran d'erreur (états déjà null) ne repeindrait rien (URL changée, UI figée).
+  const [, setUiTick] = useState(0);
+
   // Retour accueil (même reset que le logo, factorisé pour les écrans d'erreur).
   const goHome = () => {
+    setUiTick((t) => t + 1);
     setSelectedProduct(null);
     setLegalSlug(null);
     setShowFaqPage(false);
@@ -1910,7 +1944,11 @@ export default function App() {
       {showAccountPage && (
         <Suspense fallback={<LazyFallback />}>
           <AccountPage
-            onClose={() => setShowAccountPage(false)}
+            initialOrderId={pendingAccountOrderId}
+            onClose={() => {
+              setShowAccountPage(false);
+              setPendingAccountOrderId(null);
+            }}
             onViewProduct={(productId, initialColor, initialSize) => {
               const product = products.find((p) => p.id === productId);
               if (product) {
