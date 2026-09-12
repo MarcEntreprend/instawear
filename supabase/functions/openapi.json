@@ -55,7 +55,7 @@
       "post": { "summary": "Public email preferences get/save (newsletter + customer prefs, merged, logged, rate-limited 10/min)", "x-roles": ["public"], "x-edges": ["email-preferences"] }
     },
     "/admin-order-notify": {
-      "post": { "summary": "Admin order duplicate email + in-app notification (admin JWT, validated payload, rate-limited 10/min)", "x-roles": ["admin"], "x-edges": ["admin-order-notify"] }
+      "post": { "summary": "Admin order duplicate email (admin JWT, validated payload, rate-limited 10/min; in-app via SQL trigger)", "x-roles": ["admin"], "x-edges": ["admin-order-notify"] }
     }
   }
 }

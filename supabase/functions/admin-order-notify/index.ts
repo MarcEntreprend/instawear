@@ -156,30 +156,10 @@ export default {
         console.error("admin-order-notify resend:", logSafe(e));
       }
 
-      // ── Notification in-app (cloche + badge, best-effort) ──
-      let notified = false;
-      try {
-        const { error: notifError } = await supabaseAdmin
-          .from("notifications")
-          .insert({
-            title: `New order — ${order.orderId}`,
-            description: `${order.name || order.email} · ${order.total.toFixed(2)} ${order.currency} · ${order.items.length} item(s)`.slice(0, 300),
-            category: "orders",
-            priority: "high",
-            status: "unread",
-            timestamp: new Date().toISOString(),
-            metadata: { orderId: order.orderId, linkTo: "/admin/orders", source: "admin-order-notify" },
-            action_label: "Voir la commande",
-          });
-        notified = !notifError;
-        if (notifError) {
-          console.error("admin-order-notify notification:", logSafe(notifError));
-        }
-      } catch (e) {
-        console.error("admin-order-notify notification:", logSafe(e));
-      }
-
-      return json({ ok: true, emailed, notified });
+      // Note : la notification in-app vient du trigger SQL
+      // trg_notify_new_paid_order (migration 20261022, universel tous flux,
+      // dédupliqué). Cette edge ne fait QUE l'email (sinon doublon).
+      return json({ ok: true, emailed });
     } catch (e) {
       console.error("admin-order-notify fatal:", logSafe(e));
       return json({ error: "Notification failed. Please try again later." }, 500);
