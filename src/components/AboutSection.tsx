@@ -15,7 +15,7 @@ export default function AboutSection() {
           <div className="bezel-outer order-2 lg:order-1">
             <div className="bezel-inner aspect-4/5">
               <img
-                src="/group_of_friends_celebrating_–_one_wearing_a_custom_shirt-0.jpg"
+                src="/group_of_friends_celebrating_–_one_wearing_a_custom_shirt-0.webp"
                 alt="The InstaWear team"
                 className="w-full h-full object-cover"
                 loading="lazy"
