@@ -2,10 +2,8 @@
 // Facettes couleur du catalogue : normalisation + agrégation depuis les produits.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  normHex,
-  buildColorFacets,
-} from "../src/components/CatalogSection.tsx";
+import { normHex, variantImageForColor } from "../src/utils/colors.ts";
+import { buildColorFacets } from "../src/components/CatalogSection.tsx";
 
 test("normHex: casse, #, raccourcis, invalides", () => {
   assert.equal(normHex("#F5F0E8"), "#f5f0e8");
@@ -41,4 +39,21 @@ test("buildColorFacets: nom = hex si pas de nom, vide si rien", () => {
   assert.equal(out[0].name, "#123456");
   assert.deepEqual(buildColorFacets([]), []);
   assert.deepEqual(buildColorFacets([{ colors: ["x"] }]), []);
+});
+
+test("variantImageForColor: hex, nom, fallbacks, null", () => {
+  const variants = [
+    { color: "#F5F0E8", color_name: "Vintage White", image: "vw.jpg" },
+    { color: "#1a1a1a", color_name: "Black", image: "" },
+  ];
+  const colors = ["#f5f0e8", "#1a1a1a"];
+  const names = ["Vintage White", "Black"];
+  assert.equal(variantImageForColor(variants, colors, names, "#f5f0e8"), "vw.jpg");
+  assert.equal(variantImageForColor(variants, colors, names, "#F5F0E8"), "vw.jpg");
+  // Sans image variante → null (la carte garde le défaut)
+  assert.equal(variantImageForColor(variants, colors, names, "#1a1a1a"), null);
+  assert.equal(variantImageForColor(variants, colors, names, "#ff0000"), null);
+  assert.equal(variantImageForColor(variants, colors, names, null), null);
+  assert.equal(variantImageForColor([], colors, names, "#f5f0e8"), null);
+  assert.equal(variantImageForColor(undefined, colors, names, "#f5f0e8"), null);
 });

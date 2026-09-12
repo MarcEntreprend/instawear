@@ -127,18 +127,10 @@ function serializeFiltersToSearch(
 }
 const SIZE_OPTIONS = SIZE_OPTIONS_US;
 
-/** Normalise un hex (casse, #rgb → #rrggbb). "" si invalide. */
-export function normHex(raw: unknown): string {
-  if (typeof raw !== "string") return "";
-  let h = raw.trim().toLowerCase();
-  if (!h) return "";
-  if (!h.startsWith("#")) h = `#${h}`;
-  const short = /^#([0-9a-f]{3})$/i.exec(h);
-  if (short) {
-    h = `#${short[1].split("").map((c) => `${c}${c}`).join("")}`;
-  }
-  return /^#[0-9a-f]{6}$/.test(h) ? h : "";
-}
+// normHex vit dans utils/colors (évite les imports circulaires avec StoreProductCard).
+// Ré-exporté ici pour compatibilité (tests + appelants existants).
+import { normHex } from "../utils/colors";
+export { normHex };
 
 export interface FacetColor {
   hex: string;
@@ -942,6 +934,7 @@ export default function CatalogSection({
                     onToggleFavorite={onToggleFavorite}
                     onAddToCart={onAddToCart}
                     onSelectProduct={onSelectProduct}
+                    activeColor={filters.color}
                   />
                 ))}
               </div>

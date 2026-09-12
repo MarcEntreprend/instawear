@@ -1,7 +1,9 @@
 // src/components/StoreProductCard.tsx — V2 ticket-card visuals + V1 logic (availability, deal, currency)
+import { useEffect, useState } from "react";
 import { Heart, Star, Flame, Check, ShoppingBag } from "lucide-react";
 import DealCountdown from "./DealCountdown";
 import type { Product } from "../types";
+import { variantImageForColor } from "../utils/colors";
 import {
   useProductAvailability,
   pickAvailableVariant,
@@ -21,6 +23,8 @@ interface StoreProductCardProps {
   onSelectProduct: (product: Product) => void;
   showDeliveryInfo?: boolean;
   getDeliverEstimateString?: (days: number) => string;
+  /** Couleur active du filtre : la carte montre le visuel de cette variante. */
+  activeColor?: string | null;
 }
 
 export default function StoreProductCard({
@@ -33,7 +37,32 @@ export default function StoreProductCard({
   onToggleFavorite,
   onAddToCart,
   onSelectProduct,
+  activeColor = null,
 }: StoreProductCardProps) {
+  const fallbackSrc = product.image || PLACEHOLDER_IMG;
+  // Progressif : on affiche l'image par défaut TEL QUEL, puis on bascule sur
+  // le visuel de la variante dès qu'il est chargé (jamais de trou ni de flash).
+  const [variantSrc, setVariantSrc] = useState<string | null>(null);
+  useEffect(() => {
+    setVariantSrc(null);
+    const found = variantImageForColor(
+      product.variants,
+      (product as any).colors,
+      (product as any).colorNames,
+      activeColor,
+    );
+    if (!found || found === fallbackSrc) return;
+    let cancelled = false;
+    const preloader = new Image();
+    preloader.onload = () => {
+      if (!cancelled) setVariantSrc(found);
+    };
+    preloader.src = found;
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id, activeColor]);
+  const shownSrc = variantSrc || fallbackSrc;
   const availability = useProductAvailability(product);
   const unavailable = availability !== "available";
   // Première variante réellement achetable (couleur × taille dispo).
@@ -77,13 +106,17 @@ export default function StoreProductCard({
           <div className="bezel-outer overflow-hidden rounded-xl">
             <div className="bezel-inner aspect-square overflow-hidden">
               <img
-                src={product.image || PLACEHOLDER_IMG}
+                src={shownSrc}
                 alt={product.title}
                 loading="lazy"
                 decoding="async"
-                onError={(e) =>
-                  ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)
-                }
+                onError={() => {
+                  // Visuel variante KO → retour image par défaut (jamais de trou).
+                  if (shownSrc !== fallbackSrc) setVariantSrc(null);
+                  else if (fallbackSrc !== PLACEHOLDER_IMG) {
+                    setVariantSrc(PLACEHOLDER_IMG);
+                  }
+                }}
                 className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
               />
             </div>
