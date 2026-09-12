@@ -10,6 +10,9 @@ import {
   imagekitEndpoint,
   imagekitOriginal,
   normalizeImagekitUrl,
+  hasImagekitPrivateKey,
+  signImagekitUrl,
+  signImagekitDeep,
 } from "../supabase/functions/sync-printful/_shared/imagekit.ts";
 
 const PF = "https://files.cdn.printful.com/o/uploaded-url/test.jpg";
@@ -59,4 +62,73 @@ test("coupe-circuit IMAGEKIT_ENABLED=false : originales", () => {
   assert.equal(imagekitUrl(PF, { quality: 80, format: "webp" }), PF);
   assert.equal(imagekitUrl(ik), PF);
   delete process.env.IMAGEKIT_ENABLED;
+});
+
+test("signature HMAC-SHA1 (ik-t TOUJOURS : restriction l'exige, vérifié live)", async () => {
+  process.env.IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  process.env.IMAGEKIT_PRIVATE_KEY = "test_private_key_123";
+  assert.equal(hasImagekitPrivateKey(), true);
+  const src = "https://files.cdn.printful.com/x.jpg";
+  const unsigned = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${src}`;
+  const realNow = Date.now;
+  (Date as any).now = () => 1710000000000 - 5000;
+  try {
+    // Expiry explicite : vecteur exact
+    const signed = await signImagekitUrl(unsigned, 5);
+    assert.equal(
+      signed,
+      `${unsigned}?ik-t=1710000000&ik-s=883865fe375755827d7b24fab9688d3d68c3f822`,
+    );
+    // Défaut : ik-t = now + 10 ans (déterministe ici)
+    const def = await signImagekitUrl(unsigned);
+    assert.ok(def.includes(`ik-t=${1710000000 - 5 + 10 * 365 * 86400}`));
+    assert.ok(/[?&]ik-s=[0-9a-f]{40}$/.test(def));
+  } finally {
+    (Date as any).now = realNow;
+    delete process.env.IMAGEKIT_PRIVATE_KEY;
+  }
+  // Déjà signée → inchangée (jamais de double signature)
+  process.env.IMAGEKIT_PRIVATE_KEY = "test_private_key_123";
+  const once = await signImagekitUrl(unsigned, 5);
+  const realNow2 = Date.now;
+  (Date as any).now = () => 1710000000000 - 5000;
+  try {
+    assert.equal(await signImagekitUrl(once, 5), once);
+  } finally {
+    (Date as any).now = realNow2;
+    delete process.env.IMAGEKIT_PRIVATE_KEY;
+  }
+  // Non-IK → inchangée
+  process.env.IMAGEKIT_PRIVATE_KEY = "test_private_key_123";
+  assert.equal(await signImagekitUrl(PF), PF);
+  delete process.env.IMAGEKIT_PRIVATE_KEY;
+});
+
+test("signImagekitDeep: signe tout l'arbre, ignore le reste", async () => {
+  process.env.IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
+  process.env.IMAGEKIT_PRIVATE_KEY = "test_private_key_123";
+  const src = "https://files.cdn.printful.com/x.jpg";
+  const unsigned = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${src}`;
+  const out: any = await signImagekitDeep({
+    image: unsigned,
+    gallery: [unsigned, "plain"],
+    variants: [{ image: unsigned, sizes: { S: { price: 10 } } }],
+    n: 3,
+    b: null,
+  });
+  assert.ok(out.image.includes("ik-s="));
+  assert.ok(out.image.includes("ik-t="));
+  assert.ok(out.gallery[0].includes("ik-s="));
+  assert.equal(out.gallery[1], "plain");
+  assert.ok(out.variants[0].image.includes("ik-s="));
+  assert.equal(out.variants[0].sizes.S.price, 10);
+  assert.equal(out.n, 3);
+  delete process.env.IMAGEKIT_PRIVATE_KEY;
+});
+
+test("sans clé privée: pas de signature (gracieux)", async () => {
+  delete process.env.IMAGEKIT_PRIVATE_KEY;
+  const unsigned = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}`;
+  assert.equal(hasImagekitPrivateKey(), false);
+  assert.equal(await signImagekitUrl(unsigned), unsigned);
 });

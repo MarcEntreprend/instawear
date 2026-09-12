@@ -8,7 +8,7 @@ import { AdminProduct } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { imageKitUrl } from "../lib/imagekit";
+
 
 interface PrintfulProductFormProps {
   onBack: () => void;
@@ -29,6 +29,9 @@ export default function PrintfulProductForm({
   const [catalogVariants, setCatalogVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>("");
   const [loadingVariants, setLoadingVariants] = useState(false);
+  // Signature ImageKit côté serveur (null = pas encore chargé) : si false,
+  // les images importées ne seront PAS signées (401 avec restriction active).
+  const [ikSigned, setIkSigned] = useState<boolean | null>(null);
 
   // Champs du formulaire
   const [price, setPrice] = useState<number>(29.99);
@@ -188,6 +191,11 @@ export default function PrintfulProductForm({
 
         setColorImages((data.color_images as string[]) || []);
         setCatalogVariants((data.catalog_variants as any[]) || []);
+        setIkSigned(
+          typeof (data as any).imagekit_signed === "boolean"
+            ? (data as any).imagekit_signed
+            : null,
+        );
       })
       .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
@@ -317,7 +325,10 @@ export default function PrintfulProductForm({
         console.warn("Impossible de récupérer le size guide Printful", e);
       }
       const title = pfData.name || "";
-      const mainImage = mainImageUrl ? imageKitUrl(mainImageUrl, { quality: 80, format: 'webp' }) : (pfData.thumbnail_url ? imageKitUrl(pfData.thumbnail_url, { quality: 80, format: 'webp' }) : "");
+      // Les URLs edge sont déjà converties + signées côté serveur (restriction
+      // unsigned active : toute conversion cliente produirait des 401).
+      // On stocke tel quel ; l'edge renvoie les originales si non configuré.
+      const mainImage = mainImageUrl || pfData.thumbnail_url || "";
 
       const allImages: string[] =
         galleryImages.length > 0
@@ -365,11 +376,7 @@ export default function PrintfulProductForm({
             return {
               color: colorCode,
               color_name: cname,
-              image: edgeVar.image
-                ? imageKitUrl(edgeVar.image, { quality: 80, format: "webp" })
-                : cimg
-                  ? imageKitUrl(cimg, { quality: 80, format: "webp" })
-                  : cimg,
+              image: edgeVar.image || cimg,
               sizes: edgeVar.sizes,
               ...(edgeVar.external_variant_id
                 ? { external_variant_id: edgeVar.external_variant_id }
@@ -402,7 +409,7 @@ export default function PrintfulProductForm({
           return {
             color: colorCode,
             color_name: cname,
-            image: cimg ? imageKitUrl(cimg, { quality: 80, format: "webp" }) : cimg,
+            image: cimg,
             sizes: sizesWithPrices,
           };
         });
@@ -425,8 +432,8 @@ export default function PrintfulProductForm({
         brand: "INSTAWEAR",
         description: title,
         fullDescription: "",
-        image: mainImage, // déjà convertie ligne ~320 (imageKitUrl idempotent)
-        gallery: allImages.map(url => url ? imageKitUrl(url, { quality: 80, format: 'webp' }) : url),
+        image: mainImage,
+        gallery: allImages,
         mockupPreset: "",
         price: price, // Retail price calculé
         originalPrice: undefined,
@@ -434,7 +441,7 @@ export default function PrintfulProductForm({
         stockQuantity: 100,
         colors: colors.filter((c) => c && c.trim().length > 0),
         colorNames: colorNames.slice(0, colors.length),
-        colorImages: cleanColorImgs.length > 0 ? cleanColorImgs.map(url => url ? imageKitUrl(url, { quality: 80, format: 'webp' }) : url) : null,
+        colorImages: cleanColorImgs.length > 0 ? cleanColorImgs : null,
         sizes: sizes.filter((s) => s && s.trim().length > 0),
         variants: computedVariants.length > 0 ? computedVariants : undefined,
         sizeSurcharge: {},
@@ -1413,6 +1420,24 @@ export default function PrintfulProductForm({
           </label>
         </div>
 
+        {ikSigned === false && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--color-warning, #d97706)",
+              background: "var(--color-surface2)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              margin: "8px 0 0",
+            }}
+          >
+            Images non signées côté serveur (clé privée ImageKit absente) : avec
+            la restriction « unsigned » active, les visuels répondront 401.
+            Ajoutez le secret <code>IMAGEKIT_PRIVATE_KEY</code> puis
+            ré-importez (ou utilisez « Réparer »).
+          </p>
+        )}
         <div
           style={{
             display: "flex",

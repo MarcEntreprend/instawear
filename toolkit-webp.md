@@ -30,11 +30,19 @@ sans toucher aux originaux : l'URL ImageKit embarque l'URL source encodée (rév
 VITE_IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/<votre-id>
 ```
 
-### Edge (secret Supabase, pas de préfixe)
+### Edge (secrets Supabase, pas de préfixe)
 
 ```bash
 npx supabase secrets set IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/<votre-id>
+npx supabase secrets set IMAGEKIT_PRIVATE_KEY=<votre-clé-privée>
 ```
+
+La clé privée ne sert QU'à signer les URLs (HMAC-SHA1, schéma doc officielle,
+`?ik-s=` + `?ik-t=` optionnel). Sans expiry par défaut (URLs stockées
+permanentes). Sans clé : URLs non signées (401 si restriction active).
+Signées une seule fois (jamais de double signature) ; `get-product`, sync et
+mockups signent avant écriture/réponse ; le formulaire affiche un avertissement
+si `imagekit_signed === false`.
 
 ### Règles de sécurité (NE PAS changer sans revue)
 

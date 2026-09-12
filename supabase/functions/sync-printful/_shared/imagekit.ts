@@ -169,3 +169,88 @@ export function displayImageList(urls: unknown): string[] {
     .filter((u) => typeof u === "string" && (u as string).trim().length > 0)
     .map((u) => displayImageUrl(u as string));
 }
+
+// ─── Signatures (restriction "unsigned URLs" active côté ImageKit) ─────
+// Schéma doc officielle : HMAC-SHA1(private_key, chemin_sans_endpoint + expiry?),
+// en minuscules, ajouté en ?ik-s= (+ ?ik-t= si expiry). SANS expiry les URLs
+// signées ne périment pas (adapté au stockage DB). Clé UNIQUEMENT serveur.
+
+function readPrivateKey(): string {
+  try {
+    const d = (globalThis as any).Deno;
+    if (d && d.env && typeof d.env.get === "function") {
+      const v = d.env.get("IMAGEKIT_PRIVATE_KEY");
+      if (typeof v === "string" && v) return v;
+    }
+  } catch { /* ignore */ }
+  try {
+    const p = (globalThis as any).process;
+    if (p && p.env && typeof p.env.IMAGEKIT_PRIVATE_KEY === "string") {
+      return p.env.IMAGEKIT_PRIVATE_KEY;
+    }
+  } catch { /* ignore */ }
+  return "";
+}
+
+export function hasImagekitPrivateKey(): boolean {
+  return readPrivateKey().length > 0;
+}
+
+async function hmacSha1Hex(key: string, msg: string): Promise<string> {
+  const cryptoObj = (globalThis as any).crypto;
+  if (!cryptoObj || !cryptoObj.subtle) {
+    throw new Error("WebCrypto indisponible");
+  }
+  const enc = new TextEncoder();
+  const cryptoKey = await cryptoObj.subtle.importKey(
+    "raw",
+    enc.encode(key),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sig = await cryptoObj.subtle.sign("HMAC", cryptoKey, enc.encode(msg));
+  return [...new Uint8Array(sig)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Signe une URL ImageKit (ik-s + ik-t TOUJOURS : vérifié live, la restriction
+ * "unsigned" exige ik-t même si la doc le dit optionnel). Sans clé → inchangée.
+ * Expiry défaut 10 ans (URLs stockées permanentes ; anti-abus préservé : la
+ * signature prouve que l'URL vient de nous).
+ */
+const DEFAULT_EXPIRY_SEC = 10 * 365 * 86400;
+export async function signImagekitUrl(url: string, expiresInSec = DEFAULT_EXPIRY_SEC): Promise<string> {
+  if (/[?&]ik-s=/.test(url)) return url; // déjà signée : ne jamais re-signer
+  const key = readPrivateKey();
+  const endpoint = imagekitEndpoint();
+  if (!key || !endpoint || !isImagekitUrl(url)) return url;
+  let base = endpoint.endsWith("/") ? endpoint : endpoint + "/";
+  const path = url.startsWith(base) ? url.slice(base.length) : url;
+  const exp = Math.floor(Date.now() / 1000) + Math.floor(expiresInSec > 0 ? expiresInSec : DEFAULT_EXPIRY_SEC);
+  const str = path + String(exp);
+  const sig = await hmacSha1Hex(key, str);
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}ik-t=${exp}&ik-s=${sig}`;
+}
+
+/** Signe récursivement toutes les URLs ImageKit d'un objet (payloads DB). */
+export async function signImagekitDeep<T>(value: T): Promise<T> {
+  if (typeof value === "string") {
+    if (isImagekitUrl(value)) return (await signImagekitUrl(value)) as unknown as T;
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const out: unknown[] = [];
+    for (const v of value) out.push(await signImagekitDeep(v));
+    return out as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = await signImagekitDeep(v);
+    return out as unknown as T;
+  }
+  return value;
+}

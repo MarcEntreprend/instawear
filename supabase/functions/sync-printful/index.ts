@@ -10,6 +10,8 @@ import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 import {
   displayImageUrl,
   imagekitEndpoint,
+  hasImagekitPrivateKey,
+  signImagekitDeep,
 } from "./_shared/imagekit.ts";
 import {
   buildCatalogPriceIndex,
@@ -934,9 +936,11 @@ async function finalizeMockupTask(
   }
 
   try {
+    // Signature serveur des URLs d'affichage (gracieux sans clé privée).
+    const signedUpdate: Record<string, any> = await signImagekitDeep(updatePayload);
     await supabaseAdmin
       .from("products")
-      .update(updatePayload)
+      .update(signedUpdate)
       .eq("id", productId);
   } catch (updateErr: any) {
     console.error(logSafe(`Failed to update product: ${updateErr.message}`));
@@ -1226,8 +1230,9 @@ export default {
               "",
           ),
           currency: mainVariant?.currency || "USD",
-          // Traçabilité admin : l'import stocke-t-il déjà des URLs ImageKit ?
+          // Traçabilité admin : conversion + signature actives ?
           imagekit_enabled: imagekitEndpoint().length > 0,
+          imagekit_signed: hasImagekitPrivateKey(),
           colors,
           color_names: colorNames,
           color_images: colorImages,
@@ -1255,7 +1260,10 @@ export default {
           catalog_variants: catalogVariants,
         };
 
-        return new Response(JSON.stringify(productData), {
+        // Signature serveur des URLs ImageKit (restriction "unsigned" active :
+        // sans ik-s tout est 401). Sans clé privée → inchangées (gracieux).
+        const signedProductData = await signImagekitDeep(productData);
+        return new Response(JSON.stringify(signedProductData), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1379,6 +1387,8 @@ export default {
               };
               if (!fresh.imagekit_enabled) {
                 warnings.push("Conversion WebP inactive (endpoint non configuré ou coupe-circuit) : images réparées en originales");
+              } else if (!fresh.imagekit_signed) {
+                warnings.push("URLs non signées (clé privée absente) : 401 si la restriction unsigned est active côté ImageKit");
               }
             } else {
               warnings.push("Aucune image fraîche renvoyée (rien écrasé)");
@@ -2679,6 +2689,9 @@ export default {
             // column may not exist yet
           }
 
+          // Signature serveur (URLs stockées utilisables avec restriction active).
+          const signedPayload = await signImagekitDeep(productPayload);
+
           const { data: existing } = await supabaseAdmin
             .from("products")
             .select("id")
@@ -2686,7 +2699,7 @@ export default {
             .maybeSingle();
 
           if (existing) {
-            const updatePayload: any = { ...productPayload };
+            const updatePayload: any = { ...signedPayload };
             const { error: updErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
             if (updErr) {
               // fallback si colonnes P1 pas encore migrées
@@ -2700,7 +2713,7 @@ export default {
             }
           } else {
             const productId = `prod-printful-${pfProduct.id}`;
-            const insertPayload: any = { ...productPayload };
+            const insertPayload: any = { ...signedPayload };
             const { error: insErr } = await supabaseAdmin.from("products").insert({
               id: productId,
               is_active: true,
