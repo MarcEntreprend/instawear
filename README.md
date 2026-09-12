@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/InstaWear-logo-wh-middle-no-BG.png" alt="InstaWear" width="400" />
+  <img src="public/InstaWear-logo-wh-middle-no-BG.webp" alt="InstaWear" width="400" />
 </div>
 
 # InstaWear
@@ -32,32 +32,32 @@ npm run dev
 
 ## Scripts
 
-| Command              | What it does                                              |
-| -------------------- | --------------------------------------------------------- |
-| `npm run dev`        | Dev server (`tsx server.ts`)                              |
-| `npm run build`      | `vite build` + server bundle + sitemap/prerender (`prebuild`/`postbuild`) |
-| `npm start`          | Serve production build (`node dist/server.cjs`)           |
-| `npm test`           | Unit tests (`node --test`, `tests/`)                      |
-| `npm run lint`       | `tsc --noEmit --strict`                                   |
-| `npm run sitemap`    | Regenerate `public/sitemap.xml` + `llms.txt` product block |
-| `npm run inventory`  | Drift check: `supabase/functions` vs `openapi.json`       |
+| Command             | What it does                                                              |
+| ------------------- | ------------------------------------------------------------------------- |
+| `npm run dev`       | Dev server (`tsx server.ts`)                                              |
+| `npm run build`     | `vite build` + server bundle + sitemap/prerender (`prebuild`/`postbuild`) |
+| `npm start`         | Serve production build (`node dist/server.cjs`)                           |
+| `npm test`          | Unit tests (`node --test`, `tests/`)                                      |
+| `npm run lint`      | `tsc --noEmit --strict`                                                   |
+| `npm run sitemap`   | Regenerate `public/sitemap.xml` + `llms.txt` product block                |
+| `npm run inventory` | Drift check: `supabase/functions` vs `openapi.json`                       |
 
 ## Environment variables
 
 Frontend uses `VITE_*` vars (see `.env.example`). Edge Functions read
 plain names via `Deno.env` (set with `supabase secrets set NAME=value`):
 
-| Variable | Used by |
-| -------- | ------- |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` (`VITE_` prefix on frontend) | app + functions |
-| `SUPABASE_SERVICE_ROLE_KEY` | all functions (auto-injected) |
-| `STRIPE_SECRET_KEY` / `STRIPE_SECRET_KEY_TEST`, `STRIPE_WEBHOOK_SECRET` | stripe-checkout, stripe-webhook |
-| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | send-email, cart-recovery, stripe-webhook |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | stripe-webhook |
-| `PRINTFUL_API_KEY` | sync-printful (via `pod_settings`, never in client) |
-| `IMAGEKIT_URL_ENDPOINT` (`VITE_` prefix on frontend) | WebP image transforms (public endpoint) |
-| `IMAGEKIT_PRIVATE_KEY` | signing ImageKit URLs (**edge only, never frontend**) |
-| `CRON_SECRET` | protects scheduled endpoints |
+| Variable                                                                | Used by                                               |
+| ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` (`VITE_` prefix on frontend)       | app + functions                                       |
+| `SUPABASE_SERVICE_ROLE_KEY`                                             | all functions (auto-injected)                         |
+| `STRIPE_SECRET_KEY` / `STRIPE_SECRET_KEY_TEST`, `STRIPE_WEBHOOK_SECRET` | stripe-checkout, stripe-webhook                       |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                                   | send-email, cart-recovery, stripe-webhook             |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`                                | stripe-webhook                                        |
+| `PRINTFUL_API_KEY`                                                      | sync-printful (via `pod_settings`, never in client)   |
+| `IMAGEKIT_URL_ENDPOINT` (`VITE_` prefix on frontend)                    | WebP image transforms (public endpoint)               |
+| `IMAGEKIT_PRIVATE_KEY`                                                  | signing ImageKit URLs (**edge only, never frontend**) |
+| `CRON_SECRET`                                                           | protects scheduled endpoints                          |
 
 ## Deploy
 
@@ -92,13 +92,3 @@ public/             Static assets, robots/sitemap/llms.txt, unsubscribe page
 ```
 
 ---
-
-## Docs (maintainer)
-
-- `toolkit-webp.md` — ImageKit WebP pipeline (fetch, signing, kill-switch)
-- `audit-readiness.md` — launch-readiness audit (closed)
-- `database-context-100926.md` — DB snapshot (imperfect, see migrations)
-- `PRODUCT.md`, `AGENT.md` — product + agent instructions
-
-Personal ops notes and the task backlog live outside git
-(`blocNote.md`, `fixes-and-improvements.md` — gitignored).
