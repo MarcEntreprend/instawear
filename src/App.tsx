@@ -90,6 +90,7 @@ import ReassuranceBar from "./components/ReassuranceBar";
 import FaqSection from "./components/FaqSection";
 import TestimonialsSection from "./components/TestimonialsSection";
 import NotFound from "./components/NotFound";
+import ProductUnavailable from "./components/ProductUnavailable";
 
 // ── Product delivery info visibility switch ──
 const SHOW_PRODUCT_DELIVERY_INFO = false; // set to true to show delivery info on cards
@@ -142,7 +143,8 @@ export default function App() {
     const search = window.location.search;
     const match = path.match(/^\/produit\/([^/]+)/);
     if (match && products.length > 0) {
-      const p = products.find((x) => x.id === match[1]);
+      // Q2.1 : les inactifs sont invisibles (même en URL directe).
+      const p = products.find((x) => x.id === match[1] && x.isActive !== false);
       if (p) setSelectedProduct(p);
     }
     if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
@@ -181,7 +183,7 @@ export default function App() {
       const search = window.location.search;
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
-        const p = products.find((x) => x.id === m[1]);
+        const p = products.find((x) => x.id === m[1] && x.isActive !== false);
         if (p) setSelectedProduct(p);
         else setSelectedProduct(null);
       } else {
@@ -1466,6 +1468,46 @@ export default function App() {
   // Exclude inactive products from suggestions
   const productTitles = products.filter((p) => p.isActive).map((p) => p.title);
 
+  // Retour accueil (même reset que le logo, factorisé pour les écrans d'erreur).
+  const goHome = () => {
+    setSelectedProduct(null);
+    setLegalSlug(null);
+    setShowFaqPage(false);
+    setShowContactPage(false);
+    setShowPromotionsPage(false);
+    setSearchPageQuery(null);
+    setTrackingPageCode(null);
+    setActiveTab("store");
+    history.pushState({}, "", "/");
+  };
+
+  // Garde deep-route /produit/:id lue AU RENDU (l'URL ne ment jamais) :
+  // - chargement → spinner (pas de faux accueil)
+  // - fetch échoué → erreur + retry (pas de home silencieux)
+  // - id inconnu → "deleted", inactif → "inactive" (Q2.1 + Q2.2)
+  const livePath =
+    typeof window !== "undefined" ? window.location.pathname : "/";
+  const bootProductMatch = livePath.match(/^\/produit\/([^/]+)/);
+  const bootProductId = bootProductMatch ? bootProductMatch[1] : null;
+  const bootProduct = bootProductId
+    ? products.find((x) => x.id === bootProductId)
+    : undefined;
+  const showBootSpinner =
+    !!bootProductId && loadingProducts && !networkError && !selectedProduct;
+  const showBootLoadError =
+    !!bootProductId && !loadingProducts && networkError && !selectedProduct;
+  const showBadProduct =
+    !!bootProductId &&
+    !loadingProducts &&
+    !networkError &&
+    !bootProduct &&
+    !selectedProduct;
+  const showInactiveProduct =
+    !!bootProduct &&
+    bootProduct.isActive === false &&
+    !selectedProduct &&
+    !loadingProducts;
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       {/* App Header */}
@@ -1644,6 +1686,36 @@ export default function App() {
         <Suspense fallback={<LazyFallback />}>
           <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
         </Suspense>
+      )}
+
+      {/* Deep-route /produit/:id : chargement, erreur fetch, id inconnu/inactif.
+          Jamais de faux accueil silencieux (diagnostic deep-link + Q2.1/Q2.2). */}
+      {showBootSpinner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-(--color-bg)">
+          <div
+            className="animate-spin"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "3px solid var(--color-border)",
+              borderTopColor: "var(--color-accent)",
+            }}
+          />
+        </div>
+      )}
+      {showBootLoadError && (
+        <ProductUnavailable
+          reason="load-error"
+          onBackHome={goHome}
+          onRetry={() => fetchProducts()}
+        />
+      )}
+      {showBadProduct && (
+        <ProductUnavailable reason="deleted" onBackHome={goHome} />
+      )}
+      {showInactiveProduct && (
+        <ProductUnavailable reason="inactive" onBackHome={goHome} />
       )}
 
       {/* Product Page (V2) — replaces modal, with URL pushState */}

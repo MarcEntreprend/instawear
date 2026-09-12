@@ -66,19 +66,24 @@ export default function SearchResultsPage({
     url: `https://instawear.vercel.app/recherche?q=${encodeURIComponent(query.trim())}`,
   });
   const nq = normalize(query.trim());
+  // Q2.1 : les inactifs sont invisibles en recherche (comme le catalogue).
+  const liveProducts = useMemo(
+    () => products.filter((p) => p.isActive !== false),
+    [products],
+  );
   const baseResults = useMemo(
-    () => (nq ? products.filter((p) => matchesQuery(p, nq)) : []),
-    [products, nq],
+    () => (nq ? liveProducts.filter((p) => matchesQuery(p, nq)) : []),
+    [liveProducts, nq],
   );
   const results = activeEventType
     ? baseResults.filter((p) => p.eventType === activeEventType)
     : baseResults;
   const suggestions = useMemo(
     () =>
-      [...products]
+      [...liveProducts]
         .sort((a, b) => b.boughtLastMonth - a.boughtLastMonth)
         .slice(0, 4),
-    [products],
+    [liveProducts],
   );
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
