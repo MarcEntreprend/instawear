@@ -1479,9 +1479,10 @@ export default function OrdersPage() {
                 </div>
               )}
 
-            {/* Suivi des colis — visible pour les commandes expédiées/livrées
-                ayant au moins un colis enregistré par le webhook Printful. */}
+            {/* Suivi des colis — visible dès le 1er colis (partial/shipped),
+                conservé sur delivered (historique de livraison). */}
             {(selectedOrder.status === "shipped" ||
+              selectedOrder.status === "partial" ||
               selectedOrder.status === "delivered") &&
               selectedOrder.trackingInfo?.length > 0 && (
                 <div

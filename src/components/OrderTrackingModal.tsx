@@ -297,16 +297,41 @@ export default function OrderTrackingModal({
                 <Clock size={18} color="#92400e" style={{ marginTop: 1, flexShrink: 0 }} />
                 <div>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#92400e" }}>
-                    Your order is under review
+                    Your order is temporarily paused
                   </p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>
-                    We're checking that your design looks perfect on the product. Production will resume within 24-48h. No action is needed on your part.
+                    We're resolving a production detail (design review or supplier check). Production will resume shortly — no action is needed on your part.
                   </p>
                 </div>
               </div>
             )}
 
-            {order.status === "shipped" && order.shipments.length > 0 && (
+            {(order.status === "partial" ||
+              (order.status === "on_hold" &&
+                order.items.some((it: any) =>
+                  String(it.print_status || "").startsWith("blocked"),
+                ))) && (
+              <div
+                style={{
+                  background: "#fef3c7",
+                  border: "1px solid #fcd34d",
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 14,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  color: "#92400e",
+                  lineHeight: 1.5,
+                }}
+              >
+                ⚠️ Partial order — some unavailable items were not sent to
+                print (see per-line details). A partial refund will be issued
+                if you were charged.
+              </div>
+            )}
+
+            {(order.status === "shipped" || order.status === "partial") &&
+              order.shipments.length > 0 && (
               <div
                 style={{
                   borderTop: "1px solid var(--color-border)",
@@ -556,7 +581,9 @@ export default function OrderTrackingModal({
                       }}
                     />
                     <span>
-                      {item.title} ({item.selectedSize}) × {item.quantity}
+                      {item.title} ({item.selectedSize}
+                      {item.selectedColor ? ` · ${item.selectedColor}` : ""}) ×{" "}
+                      {item.quantity}
                     </span>
                   </div>
                   <span style={{ fontWeight: 600, marginLeft: 8 }}>
@@ -572,15 +599,46 @@ export default function OrderTrackingModal({
                 borderTop: "1px solid var(--color-border)",
                 paddingTop: 10,
                 display: "flex",
-                justifyContent: "space-between",
-                fontWeight: 700,
-                fontSize: 14,
+                flexDirection: "column",
+                gap: 6,
+                fontSize: 13,
               }}
             >
-              <span>Total</span>
-              <span>
-                {order.totalAmount.toFixed(2)} {currencySymbol}
-              </span>
+              {order.shippingCost != null && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    color: "var(--color-ink3)",
+                    fontSize: 12.5,
+                  }}
+                >
+                  <span>
+                    Shipping
+                    {order.shippingMethodName
+                      ? ` (${order.shippingMethodName})`
+                      : ""}
+                  </span>
+                  <span>
+                    {order.shippingCost === 0
+                      ? "Free"
+                      : `${order.shippingCost.toFixed(2)} ${currencySymbol}`}
+                  </span>
+                </div>
+              )}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontWeight: 700,
+                  fontSize: 14,
+                }}
+              >
+                <span>Total</span>
+                <span>
+                  {order.totalAmount.toFixed(2)} {currencySymbol}
+                </span>
+              </div>
             </div>
           </div>
         )}

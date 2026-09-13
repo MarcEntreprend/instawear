@@ -1705,9 +1705,11 @@ function OrderDetail({
       {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
 
-      {/* Suivi des colis expédiés — visible uniquement pour les commandes
-          expédiées/livrées ayant au moins un colis enregistré par le webhook. */}
-      {(order.status === "shipped" || order.status === "delivered") &&
+      {/* Suivi des colis — visible dès le 1er colis (partial/shipped),
+          conservé sur delivered (historique de livraison). */}
+      {(order.status === "shipped" ||
+        order.status === "partial" ||
+        order.status === "delivered") &&
         order.trackingInfo?.length > 0 && (
           <div
             className="rounded-2xl p-4"
@@ -1749,9 +1751,9 @@ function OrderDetail({
           </p>
         </div>
 
-        {/* P4/P6 POD: alerte partielle côté client */}
+        {/* P4/P6 POD: alerte partielle — seulement si des articles sont
+            réellement bloqués ou si la commande est partielle. */}
         {(order.status === "partial" ||
-          order.status === "on_hold" ||
           order.items?.some((it: any) =>
             (it.print_status || "").startsWith("blocked"),
           )) && (
@@ -1770,6 +1772,27 @@ function OrderDetail({
             </span>
           </div>
         )}
+        {/* Pause générique (review design ou contrôle fournisseur) — même
+            message que le suivi public et l'email on_hold. */}
+        {order.status === "on_hold" &&
+          !order.items?.some((it: any) =>
+            (it.print_status || "").startsWith("blocked"),
+          ) && (
+            <div
+              className="mt-4 rounded-xl p-3 flex gap-2 items-start"
+              style={{
+                background: "#fef3c7",
+                border: "1px solid #fde68a",
+                color: "#92400e",
+              }}
+            >
+              <span className="text-xs font-bold">
+                ⏸️ Your order is temporarily paused while we resolve a
+                production detail. Production will resume shortly — no action
+                is needed on your part.
+              </span>
+            </div>
+          )}
         {/* Items */}
         <div
           className="flex flex-col gap-3 pt-3"
@@ -1816,7 +1839,9 @@ function OrderDetail({
                   className="text-[11.5px] mt-0.5"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Size {item.selectedSize} · Qty {item.quantity}
+                  Size {item.selectedSize}
+                  {item.selectedColor ? ` · ${item.selectedColor}` : ""} · Qty{" "}
+                  {item.quantity}
                 </p>
                 {(item as any).print_status?.startsWith("blocked") && (
                   <span
