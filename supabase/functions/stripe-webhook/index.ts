@@ -534,11 +534,11 @@ export default {
       }
 
       // ── Carte directe (PaymentIntent, sans Checkout Session) ──────────
-      // PHASE 5 : remplacer tout ce bloc par handlePaidOrder(supabaseAdmin,
-      // orderId, pi.id, { expectedAmountCents: pi.amount_received ?? null })
-      // pour obtenir les mêmes 4 garanties (Telegram + email client +
-      // Printful + email admin). COMPORTEMENT PHASE 1 INCHANGÉ ci-dessous
-      // (admin-notify seul) — ne pas modifier avant Phase 5.
+      // Phase 5 : même ensemble partagé que le hosted (Telegram + email
+      // client + Printful + email admin). Nécessite l'événement
+      // payment_intent.succeeded abonné côté dashboard Stripe (sinon cette
+      // branche ne reçoit rien — sans erreur). Montant vérifié via
+      // pi.amount_received (centimes, comme amount_total côté hosted).
       if (event.type === "payment_intent.succeeded") {
         const pi = event.data.object as any;
         const orderId = pi?.metadata?.orderId;
@@ -547,77 +547,25 @@ export default {
             headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
           });
         }
-        const { data: existing } = await supabaseAdmin
-          .from("orders")
-          .select("id, status")
-          .eq("id", orderId)
-          .maybeSingle();
-        if (!existing) {
-          return new Response(JSON.stringify({ error: "Commande introuvable" }), {
-            status: 404,
-            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        try {
+          await handlePaidOrder(supabaseAdmin, orderId, pi.id, {
+            expectedAmountCents:
+              typeof pi.amount_received === "number" ? pi.amount_received : null,
           });
-        }
-        if (existing.status === "paid") {
-          return new Response(JSON.stringify({ received: true }), {
-            headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        } catch (err: any) {
+          const msg = String(err?.message || err);
+          const status = msg.startsWith("Montant incohérent")
+            ? 400
+            : msg === "Commande introuvable"
+              ? 404
+              : 500;
+          return new Response(JSON.stringify({ error: msg }), {
+            status,
+            headers: {
+              ...getCorsHeaders(req),
+              "Content-Type": "application/json",
+            },
           });
-        }
-        await supabaseAdmin
-          .from("orders")
-          .update({ status: "paid", external_order_id: pi.id })
-          .eq("id", orderId);
-        const { data: order } = await supabaseAdmin
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
-        if (order) {
-          const { data: items } = await supabaseAdmin
-            .from("order_items")
-            .select("*")
-            .eq("order_id", orderId);
-          let currencyCode = "USD";
-          try {
-            const { data: ss } = await supabaseAdmin
-              .from("store_settings")
-              .select("currency")
-              .eq("id", true)
-              .maybeSingle();
-            currencyCode = String((ss as any)?.currency || "USD").toUpperCase();
-          } catch {}
-          try {
-            await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/admin-order-notify`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-                },
-                body: JSON.stringify({
-                  orderId,
-                  name: order.client_name || "",
-                  phone: order.shipping_address_phone || "",
-                  email: order.client_email || "",
-                  reception: "livraison",
-                  address: order.shipping_address_address || "",
-                  city: order.shipping_address_city || "",
-                  zip: order.shipping_address_zip || "",
-                  country: order.shipping_address_country || "",
-                  items: (items ?? []).map((it: any) => ({
-                    title: it.product_title || "Item",
-                    size: it.selected_size || "",
-                    color: it.selected_color || "",
-                    quantity: it.quantity,
-                    price: it.unit_price,
-                  })),
-                  total: Number(order.total_amount) || 0,
-                  currency: currencyCode,
-                }),
-              },
-            );
-          } catch {}
         }
       }
 

@@ -126,9 +126,73 @@ test("email checkout malformé → skip silencieux", () => {
   );
 });
 
-// ─── Ordre des effets (contrat, anti-régression) ────────────────────────────
+// ─── Branche carte (payment_intent.succeeded, Phase 5) ─────────────────────
+// Même ensemble handlePaidOrder : orderId via pi.metadata, montant via
+// pi.amount_received (centimes). Mêmes codes : 404/400/200.
+
+function cardBranch(
+  pi: { metadata?: { orderId?: string }; amount_received?: unknown; id: string },
+  existing: { status: string; external_order_id: string | null } | null,
+  totalAmount: unknown,
+): { status: number; body: string } {
+  const orderId = pi?.metadata?.orderId;
+  if (!orderId) return { status: 200, body: "received:true" };
+  const g = gate(existing, pi.id);
+  if (g === "not-found") return { status: 404, body: "Commande introuvable" };
+  if (g === "duplicate") return { status: 200, body: "received:true" };
+  const cents = typeof pi.amount_received === "number" ? pi.amount_received : null;
+  const err = checkAmount(totalAmount, cents);
+  if (err) return { status: 400, body: err };
+  return { status: 200, body: "paid" };
+}
+
+test("carte sans metadata.orderId → 200 silencieux (pas d'erreur)", () => {
+  assert.deepEqual(
+    cardBranch({ id: "pi_1" }, { status: "pending", external_order_id: null }, 10),
+    { status: 200, body: "received:true" },
+  );
+});
+
+test("carte montant OK (amount_received) → paid comme le hosted", () => {
+  assert.deepEqual(
+    cardBranch(
+      { id: "pi_1", metadata: { orderId: "ORD-1" }, amount_received: 3293 },
+      { status: "pending", external_order_id: null },
+      32.93,
+    ),
+    { status: 200, body: "paid" },
+  );
+});
+
+test("carte montant incohérent → 400, jamais paid", () => {
+  const r = cardBranch(
+    { id: "pi_1", metadata: { orderId: "ORD-1" }, amount_received: 100 },
+    { status: "pending", external_order_id: null },
+    32.93,
+  );
+  assert.equal(r.status, 400);
+});
+
+test("carte commande absente → 404", () => {
+  assert.equal(
+    cardBranch({ id: "pi_1", metadata: { orderId: "X" }, amount_received: 100 }, null, 1).status,
+    404,
+  );
+});
+
+test("carte retry même PI → duplicate 200 (pas de doublon Telegram/email)", () => {
+  assert.deepEqual(
+    cardBranch(
+      { id: "pi_1", metadata: { orderId: "ORD-1" }, amount_received: 3293 },
+      { status: "paid", external_order_id: "pi_1" },
+      32.93,
+    ),
+    { status: 200, body: "received:true" },
+  );
+});
 
 test("ordre contractuel : telegram → email client → printful → email admin", () => {
+  // Contrat : handlePaidOrder hosted ET carte partagent le même ordre.
   const EFFECT_ORDER = [
     "telegram",
     "customer-email",

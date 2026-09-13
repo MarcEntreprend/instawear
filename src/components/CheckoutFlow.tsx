@@ -1397,11 +1397,14 @@ function StripeCardForm({
           .catch(console.warn);
       }
 
-      // 3. Save order in Supabase
+      // 3. Save order in Supabase (clientId lié si loggé — comme le hosted :
+      // guest et loggé partagent le même flux, seul client_id diffère et
+      // sert aux notifs in-app ; l'email part vers contactEmail dans tous
+      // les cas via le webhook payment_intent.succeeded → handlePaidOrder).
       try {
         await orderApi.create({
           id: orderId,
-          clientId: null,
+          clientId,
           clientName: contactName,
           clientEmail: contactEmail || null,
           createdAt: new Date().toISOString(),
@@ -1510,9 +1513,12 @@ function StripeCardForm({
               total,
               currencySymbol,
             );
-            // PAS d'appel email client : le serveur envoie (webhook Stripe →
-            // admin-order-notify). Requiert payment_intent.succeeded abonné
-            // côté dashboard Stripe, sinon les achats carte restent sans email
+            // PAS d'appel email client : le serveur envoie tout via le webhook
+            // payment_intent.succeeded → handlePaidOrder (Telegram serveur +
+            // email client + Printful + email admin, Phase 5). Requiert
+            // l'événement payment_intent.succeeded abonné côté dashboard
+            // Stripe (Developers → Webhooks → endpoint → Add events),
+            // sinon les achats carte restent pending sans notifications
             // (un appel client en plus ferait doublon une fois abonné).
           }
         });
