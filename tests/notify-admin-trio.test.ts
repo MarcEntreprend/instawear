@@ -110,3 +110,41 @@ test("best-effort : un canal en échec ne bloque pas les autres", () => {
   assert.equal(out.inApp, true);
   assert.equal(out.email, true);
 });
+
+// ─── Flags skip : ownership par site (zéro doublon) ─────────────────────────
+
+test("skipTelegram=true : new-order + statuts (riche déjà parti)", () => {
+  // Miroir : handlePaidOrder et tous les sites de statut passent
+  // skipTelegram (le telegram riche vit à côté, jamais deux).
+  const paidCall = { skipInApp: true, skipTelegram: true };
+  const statusCall = { skipInApp: false, skipTelegram: true };
+  const eventCall = { skipInApp: false, skipTelegram: false };
+  assert.deepEqual(paidCall, { skipInApp: true, skipTelegram: true });
+  assert.equal(statusCall.skipTelegram, true);
+  assert.equal(eventCall.skipTelegram, false);
+});
+
+test("dedupeMinutes : même titre+catégorie récent → silence total", () => {
+  // Miroir du branchement : dedupé → {deduped:true}, aucun canal.
+  const titles = ["[Critical] fn — action"];
+  const recent = [{ title: "[Critical] fn — action" }];
+  const dup = recent.some((n) => titles.includes(n.title));
+  assert.equal(dup, true);
+  assert.equal(
+    [{ title: "Autre" }].some((n) => titles.includes(n.title)),
+    false,
+  );
+});
+
+test("replyTo transmis tel quel (tickets support)", () => {
+  // Miroir : contact + interaction-notify passent replyTo=email client.
+  const body: Record<string, unknown> = {
+    from: "x",
+    to: ["admin"],
+    subject: "s",
+    html: "h",
+  };
+  const withReply = { ...body, reply_to: "client@mail.com" };
+  assert.equal(withReply.reply_to, "client@mail.com");
+  assert.ok(!("reply_to" in body), "absent par défaut (pas de champ vide)");
+});

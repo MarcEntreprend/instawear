@@ -2618,8 +2618,9 @@ export default function CheckoutFlow({
 
         // Send recap via Telegram — admin only (non-blocking).
         // PAS de doublon email ici : le fetch mourrait à la redirection
-        // Stripe. L'email admin part côté serveur (webhook
-        // checkout.session.completed → admin-order-notify, garanti + retry).
+        // Stripe. Tout part côté serveur (webhook checkout.session.completed
+        // → handlePaidOrder → trio : telegram riche + email admin riche,
+        // destinataire pinné, garanti + retry).
         shouldSendTelegram().then((should) => {
           if (should) {
             sendTelegramNotification(

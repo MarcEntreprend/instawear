@@ -11,7 +11,7 @@
 //   spam). Ne lance JAMAIS d'exception (le monitoring ne doit
 //   pas casser les flux). Métadonnées assainies (pas de secrets).
 
-import { sendTelegramNotice } from "./telegramNotify.ts";
+import { notifyAdmin } from "./notifyAdmin.ts";
 
 // Runtime Deno (edges) : déclaration minimale pour tsc (ce fichier est
 // partagé tel quel, sans @ts-nocheck comme ses copies).
@@ -144,58 +144,49 @@ export async function reportError(
 
     if (severity !== "critical") return;
 
-    // Anti-spam : pas de 2e notif pour le même (fn, action) dans la fenêtre.
-    // Comparaison sur metadata (volume faible, requête simple).
-    const windowMin = input.dedupeMinutes ?? 30;
+    // Trio admin : cloche + telegram + email (même déduplication 30 min
+    // qu'avant — jamais de spam sur les retries). Destinataire email pinné
+    // via ADMIN_NOTIFY_EMAIL (skippé + warn si absent).
     try {
-      const since = new Date(Date.now() - windowMin * 60000).toISOString();
-      const { data: recentFull } = await supabaseAdmin
-        .from("notifications")
-        .select("metadata")
-        .eq("category", input.notifyCategory || "api")
-        .gte("created_at", since)
-        .limit(50);
-      const dup = ((recentFull || []) as any[]).some(
-        (n) =>
-          n?.metadata?.source === "edge-monitor" &&
-          n?.metadata?.fn === input.fn &&
-          n?.metadata?.action === input.action,
+      const supabaseUrl =
+        typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") || "" : "";
+      const serviceRoleKey =
+        typeof Deno !== "undefined"
+          ? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+          : "";
+      await notifyAdmin(
+        {
+          supabaseAdmin,
+          supabaseUrl,
+          serviceRoleKey,
+          resendApiKey:
+            typeof Deno !== "undefined" ? Deno.env.get("RESEND_API_KEY") || "" : "",
+          resendFrom:
+            typeof Deno !== "undefined"
+              ? Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev"
+              : "onboarding@resend.dev",
+          adminEmail:
+            typeof Deno !== "undefined"
+              ? Deno.env.get("ADMIN_NOTIFY_EMAIL") || ""
+              : "",
+        },
+        {
+          title: `[Critical] ${input.fn} — ${input.action}`,
+          description: message.slice(0, 280),
+          category: input.notifyCategory || "api",
+          priority: "high",
+          linkTo: "/admin/monitoring",
+          metadata: {
+            fn: input.fn,
+            action: input.action,
+            source: "edge-monitor",
+          },
+          actionLabel: "Voir le monitoring",
+          dedupeMinutes: input.dedupeMinutes ?? 30,
+        },
       );
-      if (dup) return;
     } catch {
-      // En cas de doute on notifie (mieux qu'un silence).
-    }
-
-    await supabaseAdmin.from("notifications").insert({
-      title: `[Critical] ${input.fn} — ${input.action}`,
-      description: message.slice(0, 280),
-      category: input.notifyCategory || "api",
-      priority: "high",
-      status: "unread",
-      metadata: {
-        fn: input.fn,
-        action: input.action,
-        linkTo: "/admin/monitoring",
-        source: "edge-monitor",
-      },
-      action_label: "Voir le monitoring",
-    });
-
-    // Telegram court : même déduplication que la notif (jamais de spam),
-    // best-effort (Deno.env absent en tests → skip silencieux).
-    try {
-      const token =
-        typeof Deno !== "undefined" ? Deno.env.get("TELEGRAM_BOT_TOKEN") || "" : "";
-      const chatId =
-        typeof Deno !== "undefined" ? Deno.env.get("TELEGRAM_CHAT_ID") || "" : "";
-      await sendTelegramNotice(token, chatId, {
-        category: input.notifyCategory || "api",
-        title: `[Critical] ${input.fn} — ${input.action}`,
-        description: message.slice(0, 200),
-        priority: "high",
-      });
-    } catch {
-      // Best-effort uniquement.
+      // Le monitoring ne doit jamais casser le flux appelant.
     }
   } catch {
     // Le monitoring ne doit jamais casser le flux appelant.

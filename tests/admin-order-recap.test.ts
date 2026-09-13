@@ -1,12 +1,14 @@
-// tests/admin-order-notify.test.ts
-// Logique pure de l'edge admin-order-notify (pas d'accès réseau/DB).
+// tests/admin-order-recap.test.ts
+// Récap riche admin d'achat (supabase/functions/stripe-webhook/_shared/
+// adminOrderRecap.ts — ex admin-order-notify, edge supprimée Phase B :
+// l'email part désormais via le trio dans handlePaidOrder).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   validateNotifyBody,
   buildAdminOrderHtml,
   escapeHtml,
-} from "../supabase/functions/admin-order-notify/_shared/notify.ts";
+} from "../supabase/functions/stripe-webhook/_shared/adminOrderRecap.ts";
 
 function validBody() {
   return {

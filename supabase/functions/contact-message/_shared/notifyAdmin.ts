@@ -57,6 +57,14 @@ export interface NotifyAdminInput {
   emailHtml?: string | null;
   /** True UNIQUEMENT si le trigger SQL possède déjà la cloche (paid). */
   skipInApp?: boolean;
+  /** True quand un telegram riche est déjà parti (new-order, statuts). */
+  skipTelegram?: boolean;
+  /** True quand un autre envoi couvre déjà l'email (rare, documenter). */
+  skipEmail?: boolean;
+  /** Reply-To de l'email (tickets support : répondre au client). */
+  replyTo?: string | null;
+  /** Déduplication : skip tout si même titre+catégorie récent (minutes). */
+  dedupeMinutes?: number | null;
 }
 
 export interface NotifyAdminDeps {
@@ -73,6 +81,7 @@ export interface NotifyAdminResult {
   inApp: boolean;
   telegram: boolean;
   email: boolean;
+  deduped?: boolean;
 }
 
 const SITE_URL = "https://instawear.vercel.app";
@@ -141,6 +150,24 @@ export async function notifyAdmin(
   if (!title) return out;
   const description = safeStr(input.description, 500) || null;
 
+  // Déduplication optionnelle (erreurs critiques qui retentent : même
+  // titre+catégorie récent → silence total, jamais de spam).
+  if (input.dedupeMinutes && input.dedupeMinutes > 0) {
+    try {
+      const since = new Date(Date.now() - input.dedupeMinutes * 60000).toISOString();
+      const { data: recent } = await deps.supabaseAdmin
+        .from("notifications")
+        .select("title")
+        .eq("category", String(input.category))
+        .gte("created_at", since)
+        .limit(50);
+      const dup = ((recent || []) as any[]).some((n) => n?.title === title);
+      if (dup) return { ...out, deduped: true };
+    } catch {
+      // Doute → on notifie (mieux qu'un silence).
+    }
+  }
+
   // 1. Cloche in-app (sauf trigger SQL propriétaire : entrée paid).
   if (!input.skipInApp) {
     if (!isKnownCategory(input.category)) {
@@ -170,56 +197,63 @@ export async function notifyAdmin(
   }
 
   // 2. Telegram court (formats canoniques existants, inchangés).
-  try {
-    const token =
-      typeof Deno !== "undefined"
-        ? (Deno as any).env.get("TELEGRAM_BOT_TOKEN") || ""
-        : "";
-    const chatId =
-      typeof Deno !== "undefined"
-        ? (Deno as any).env.get("TELEGRAM_CHAT_ID") || ""
-        : "";
-    out.telegram = await sendTelegramNotice(token, chatId, {
-      category: String(input.category),
-      title,
-      description,
-      priority,
-    });
-  } catch {
-    // Best-effort uniquement.
+  // Skippé quand un telegram riche est déjà parti (new-order, statuts).
+  if (!input.skipTelegram) {
+    try {
+      const token =
+        typeof Deno !== "undefined"
+          ? (Deno as any).env.get("TELEGRAM_BOT_TOKEN") || ""
+          : "";
+      const chatId =
+        typeof Deno !== "undefined"
+          ? (Deno as any).env.get("TELEGRAM_CHAT_ID") || ""
+          : "";
+      out.telegram = await sendTelegramNotice(token, chatId, {
+        category: String(input.category),
+        title,
+        description,
+        priority,
+      });
+    } catch {
+      // Best-effort uniquement.
+    }
   }
 
   // 3. Email Resend (destinataire exigé, jamais de fallback silencieux).
-  const dest = (deps.adminEmail || "").trim();
-  if (!dest) {
-    try {
-      console.warn("[notifyAdmin] ADMIN_NOTIFY_EMAIL manquant : email skippé");
-    } catch {}
-    return out;
-  }
-  try {
-    const built = buildAdminEmail(input);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${deps.resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: deps.resendFrom,
-        to: [dest],
-        subject: built.subject,
-        html: built.html,
-      }),
-    });
-    out.email = res.ok;
-    if (!res.ok) {
+  // Skippé uniquement si un autre envoi le couvre (documenter le site).
+  if (!input.skipEmail) {
+    const dest = (deps.adminEmail || "").trim();
+    if (!dest) {
       try {
-        console.warn(`[notifyAdmin] resend HTTP ${res.status}`);
+        console.warn("[notifyAdmin] ADMIN_NOTIFY_EMAIL manquant : email skippé");
       } catch {}
+      return out;
     }
-  } catch {
-    // Best-effort uniquement.
+    try {
+      const built = buildAdminEmail(input);
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${deps.resendApiKey}`,
+        },
+        body: JSON.stringify({
+          from: deps.resendFrom,
+          to: [dest],
+          ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+          subject: built.subject,
+          html: built.html,
+        }),
+      });
+      out.email = res.ok;
+      if (!res.ok) {
+        try {
+          console.warn(`[notifyAdmin] resend HTTP ${res.status}`);
+        } catch {}
+      }
+    } catch {
+      // Best-effort uniquement.
+    }
   }
   return out;
 }

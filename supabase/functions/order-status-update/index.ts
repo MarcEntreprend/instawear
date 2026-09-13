@@ -39,6 +39,27 @@ import {
   wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
 import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
+
+// Trio admin avec dépendances câblées : UN appel = cloche + telegram
+// court + email. Appelé avec skipTelegram:true partout ici (le telegram
+// riche de statut part séparément — zéro doublon).
+async function adminTrio(
+  supabaseAdmin: any,
+  input: Record<string, any>,
+): Promise<{ inApp: boolean; telegram: boolean; email: boolean }> {
+  return notifyAdmin(
+    {
+      supabaseAdmin,
+      supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+      serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+      resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+      adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+    },
+    { ...(input as any), skipTelegram: true },
+  );
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -259,7 +280,9 @@ export default {
             .eq("id", orderId)
             .maybeSingle();
           const actual = String((fresh as any)?.status || "in_production");
-          await notifyBoth(supabaseAdmin, { ...order, status: actual }, orderId, fr);
+          // Côté admin possédé par la transmission (trio du callee) : ici
+          // seule l'in-app CLIENT reste (le callee ne l'écrit pas).
+          await notifyCustomer(supabaseAdmin, { ...order, status: actual }, orderId);
           if (actual === "on_hold") {
             // Printful a mis en pause (broderie/coût async) : l'email
             // in_production n'est pas parti, on notifie la pause.
@@ -277,23 +300,43 @@ export default {
           }
           return json({ ok: true, emailed: true, status: actual, transmitted: true });
         }
-        // Déjà transmise (external_order_id posé) : simple mise à jour +
-        // in-app, SANS email (la transmission l'a déjà envoyé — zéro doublon).
-        // Telegram : possédé par cet edge (écriture locale, pas de callee).
+        // Déjà transmise (external_order_id posé) : simple mise à jour.
+        // SANS email client (la transmission l'a déjà envoyé — zéro doublon).
+        // Trio : cloche + email admin concis (le telegram riche part juste
+        // après — skipTelegram). In-app client conservée (le trio est admin).
         await supabaseAdmin.from("orders").update({ status: toStatus }).eq("id", orderId);
-        await notifyBoth(supabaseAdmin, order, orderId, fr);
+        await notifyCustomer(supabaseAdmin, order, orderId);
+        await adminTrio(supabaseAdmin, {
+          title: "Statut commande mis à jour",
+          description: `Commande ${orderId} → "${fr}"`,
+          category: "orders",
+          priority: toStatus === "cancelled" ? "high" : "low",
+          linkTo: "/admin/orders",
+          metadata: { orderId, source: "Admin" },
+          actionLabel: "Voir la commande",
+        });
         await telegramStatus(order.status, order, toStatus, (order as any)?.updated_at ?? null);
         return json({ ok: true, emailed: false, status: toStatus, transmitted: false });
       }
 
-      // ── Cas général : update + in-app + email canonique + telegram ──
+      // ── Cas général : update + trio (cloche + email admin) + telegram
+      // riche de statut + email client canonique ──
       const patch: Record<string, any> = { status: toStatus };
       if (reason) {
         const prev = typeof order.notes === "string" ? order.notes : "";
         patch.notes = (prev ? prev + "\n" : "") + `[Admin] ${reason}`.slice(0, 900);
       }
       await supabaseAdmin.from("orders").update(patch).eq("id", orderId);
-      await notifyBoth(supabaseAdmin, order, orderId, fr);
+      await notifyCustomer(supabaseAdmin, order, orderId);
+      await adminTrio(supabaseAdmin, {
+        title: "Statut commande mis à jour",
+        description: `Commande ${orderId} → "${fr}"${reason ? ` — ${reason}` : ""}`,
+        category: "orders",
+        priority: toStatus === "cancelled" ? "high" : "low",
+        linkTo: "/admin/orders",
+        metadata: { orderId, source: "Admin" },
+        actionLabel: "Voir la commande",
+      });
       await telegramStatus(order.status, order, toStatus, (order as any)?.updated_at ?? null);
       const emailed = await sendStatusEmail(
         supabaseUrl,
@@ -337,8 +380,10 @@ async function telegramStatus(
   }
 }
 
-// ── In-app client + admin (mêmes tables que le front écrivait en direct) ──
-async function notifyBoth(supabaseAdmin: any, order: any, orderId: string, fr: string) {
+// ── In-app CLIENT (le trio ne couvre que le côté admin) ───────────────────
+// Conservée ici : sans elle, les changements manuels seraient invisibles
+// dans le compte client (cloche + pastille).
+async function notifyCustomer(supabaseAdmin: any, order: any, orderId: string) {
   const status = order.status;
   try {
     let customerId = order.client_id;
@@ -361,18 +406,6 @@ async function notifyBoth(supabaseAdmin: any, order: any, orderId: string, fr: s
     }
   } catch (e) {
     console.warn("Échec insertion notification client", logSafe(e));
-  }
-  try {
-    await supabaseAdmin.from("notifications").insert({
-      title: "Statut commande mis à jour",
-      description: `Commande ${orderId} → "${fr}"`,
-      category: "orders",
-      priority: status === "cancelled" ? "high" : "low",
-      metadata: { orderId, linkTo: "/admin/orders", source: "Admin" },
-      action_label: "Voir la commande",
-    });
-  } catch (e) {
-    console.warn("Échec création notification statut", logSafe(e));
   }
 }
 

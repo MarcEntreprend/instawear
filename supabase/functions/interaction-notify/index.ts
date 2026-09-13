@@ -21,7 +21,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isPayloadTooLarge } from "./_shared/validators.ts";
 import { logSafe } from "./_shared/logSafe.ts";
-import { sendTelegramNotice } from "./_shared/telegramNotify.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,89 +129,43 @@ export default {
       const type = String((inter as any).type || "question");
       const orderId = (inter as any)?.metadata?.orderId || null;
 
-      // 1. Notif admin (même form que /contact : urgente).
-      try {
-        await supabaseAdmin.from("notifications").insert({
+      // Trio admin (remplace notif + telegram + email direct) : cloche +
+      // telegram court + email RICHE (contexte ticket + reply_to client).
+      // Destinataire pinné ADMIN_NOTIFY_EMAIL (chaîne CONTACT_NOTIFY →
+      // super_admin abandonnée : fallback silencieux = emails fantômes).
+      await notifyAdmin(
+        {
+          supabaseAdmin,
+          supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+          serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+          resendFrom: Deno.env.get("RESEND_FROM_EMAIL")!,
+          adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+        },
+        {
           title: `Nouveau message — compte client (${type})`,
-          description: `"${email}" : ${subject}`.slice(0, 200),
+          description: `"${email}" : ${subject}${orderId ? ` [${orderId}]` : ""}`.slice(0, 200),
           category: "interactions",
           priority: "urgent",
-          status: "unread",
-          timestamp: new Date().toISOString(),
+          linkTo: "/admin/interactions",
           metadata: {
             interactionId,
             customerEmail: email,
             orderId,
-            linkTo: "/admin/interactions",
             source: "account-page",
           },
-          action_label: "Voir le message",
-        });
-      } catch (e) {
-        console.warn("interaction-notify notif:", logSafe(e));
-      }
-
-      // 2. Telegram court (best-effort).
-      try {
-        await sendTelegramNotice(
-          Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
-          Deno.env.get("TELEGRAM_CHAT_ID") || "",
-          {
-            category: "interactions",
-            title: `Nouveau message — compte client (${type})`,
-            description: `"${email}" : ${subject}${orderId ? ` [${orderId}]` : ""}`.slice(0, 200),
-            priority: "urgent",
-          },
-        );
-      } catch (e) {
-        console.warn("interaction-notify telegram:", logSafe(e));
-      }
-
-      // 3. Email admin Resend (même résolution que contact-message).
-      let adminEmail: string | null = Deno.env.get("CONTACT_NOTIFY_EMAIL") || null;
-      if (!adminEmail) {
-        const { data: superAdmin } = await supabaseAdmin
-          .from("admin_users")
-          .select("email")
-          .eq("role", "super_admin")
-          .limit(1)
-          .maybeSingle();
-        adminEmail = (superAdmin as any)?.email || null;
-      }
-      if (!adminEmail) {
-        const { data: anyAdmin } = await supabaseAdmin
-          .from("admin_users")
-          .select("email")
-          .limit(1)
-          .maybeSingle();
-        adminEmail = (anyAdmin as any)?.email || null;
-      }
-      if (adminEmail) {
-        try {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")!}`,
-            },
-            body: JSON.stringify({
-              from: Deno.env.get("RESEND_FROM_EMAIL")!,
-              to: [adminEmail],
-              reply_to: email || undefined,
-              subject: `[Support compte] ${email} — ${subject}`.slice(0, 120),
-              html:
-                `<div style="font-family:sans-serif;max-width:600px">` +
-                `<h2>Nouveau ticket — compte client</h2>` +
-                `<p><b>De :</b> ${escapeHtml(email)} (${escapeHtml(type)})</p>` +
-                (orderId ? `<p><b>Commande :</b> ${escapeHtml(orderId)}</p>` : "") +
-                `<p><b>Sujet :</b> ${escapeHtml(subject)}</p>` +
-                `<hr><p style="color:#888;font-size:12px">Ticket <b>${escapeHtml(interactionId)}</b> — voir Admin → Interactions.</p></div>`,
-            }),
-          });
-        } catch (e) {
-          console.warn("interaction-notify resend:", logSafe(e));
-        }
-      }
+          actionLabel: "Voir le message",
+          replyTo: email || undefined,
+          emailSubject: `[Support compte] ${email} — ${subject}`.slice(0, 120),
+          emailHtml:
+            `<div style="font-family:sans-serif;max-width:600px">` +
+            `<h2>Nouveau ticket — compte client</h2>` +
+            `<p><b>De :</b> ${escapeHtml(email)} (${escapeHtml(type)})</p>` +
+            (orderId ? `<p><b>Commande :</b> ${escapeHtml(orderId)}</p>` : "") +
+            `<p><b>Sujet :</b> ${escapeHtml(subject)}</p>` +
+            `<hr><p style="color:#888;font-size:12px">Ticket <b>${escapeHtml(interactionId)}</b> — voir Admin → Interactions.</p></div>`,
+        },
+      );
 
       return json({ ok: true, notified: true });
     } catch (e) {

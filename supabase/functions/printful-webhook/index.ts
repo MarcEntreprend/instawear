@@ -27,7 +27,28 @@ import {
   buildReturnedEmail,
   wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
-import { sendTelegramStatus, sendTelegramNotice } from "./_shared/telegramNotify.ts";
+import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
+
+// Trio admin avec dépendances câblées (service_role + secrets serveur) :
+// UN appel = cloche + telegram court + email. skipTelegram=true sur les
+// sites couverts par le telegram riche de statut (zéro doublon).
+async function adminTrio(
+  supabaseAdmin: any,
+  input: Record<string, any>,
+): Promise<{ inApp: boolean; telegram: boolean; email: boolean }> {
+  return notifyAdmin(
+    {
+      supabaseAdmin,
+      supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+      serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+      resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+      adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+    },
+    input as any,
+  );
+}
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -886,47 +907,29 @@ export default {
           }
         } catch (e) { console.warn("stock_updated apply failed", e); }
 
-        // notif admin (enrichie du appliqué)
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: `Stock Printful mis à jour — produit ${productId}`,
-            description: [
-              summary,
-              productTitle ? `« ${productTitle} ».` : null,
-              (appliedOut + appliedDisc + appliedRestored) > 0
-                ? `Appliqué : ${appliedDisc} supprimée(s), ${appliedOut} en rupture, ${appliedRestored} restaurée(s).`
-                : "Aucune taille à ID connu à mettre à jour (prochain sync complet).",
-            ].filter(Boolean).join(" "),
-            category: "products",
-            priority: discIds.size > 0 ? "high" : "medium",
-            status: "unread",
-            metadata: {
-              productId: String(productId),
-              out: [...outIds],
-              discontinued: [...discIds],
-              applied: { out: appliedOut, discontinued: appliedDisc, restored: appliedRestored },
-              linkTo: "/admin/products",
-              source: "Printful",
-            },
-            action_label: "Voir le produit",
-          });
-        } catch {}
-        // Telegram court products (ruptures/suppressions = action admin
-        // probable). Best-effort, jamais de 500 pour ça.
-        try {
-          await sendTelegramNotice(
-            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
-            Deno.env.get("TELEGRAM_CHAT_ID") || "",
-            {
-              category: "products",
-              title: `Stock Printful — produit ${productId}`,
-              description: summary,
-              priority: discIds.size > 0 ? "high" : "medium",
-            },
-          );
-        } catch (err) {
-          console.warn("Telegram products error:", logSafe(err));
-        }
+        // Trio admin (remplace insert + telegram) : cloche + telegram
+        // court + email concis, best-effort.
+        await adminTrio(supabaseAdmin, {
+          title: `Stock Printful mis à jour — produit ${productId}`,
+          description: [
+            summary,
+            productTitle ? `« ${productTitle} ».` : null,
+            (appliedOut + appliedDisc + appliedRestored) > 0
+              ? `Appliqué : ${appliedDisc} supprimée(s), ${appliedOut} en rupture, ${appliedRestored} restaurée(s).`
+              : "Aucune taille à ID connu à mettre à jour (prochain sync complet).",
+          ].filter(Boolean).join(" "),
+          category: "products",
+          priority: discIds.size > 0 ? "high" : "medium",
+          linkTo: "/admin/products",
+          metadata: {
+            productId: String(productId),
+            out: [...outIds],
+            discontinued: [...discIds],
+            applied: { out: appliedOut, discontinued: appliedDisc, restored: appliedRestored },
+            source: "Printful",
+          },
+          actionLabel: "Voir le produit",
+        });
         return new Response(JSON.stringify({ received: true, handled: true, type: "stock_updated" }), {
           headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
@@ -991,54 +994,54 @@ export default {
           });
         } catch (e) { console.warn("product event sync_logs failed", e); }
 
+        // Trio admin products : suppressions seulement en telegram+email
+        // (delete), sync/modif de routine = cloche seule (skipTelegram +
+        // skipEmail — sinon bruit à chaque import).
         // Notification admin (catégorie products, déjà affichée)
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: isDelete
-              ? `Produit supprimé côté Printful — ${displayName}`
-              : `Produit ${type === "product_synced" ? "synchronisé" : "modifié"} côté Printful — ${displayName}`,
+        if (!isDelete) {
+          try {
+            await supabaseAdmin.from("notifications").insert({
+              title: `Produit ${type === "product_synced" ? "synchronisé" : "modifié"} côté Printful — ${displayName}`,
+              description: [
+                localProduct ? `Produit local : ${localProduct.title}.` : `Aucun produit local lié (sync product ${pfProductId ?? "?"}).`,
+                "Lancez une resynchronisation pour répercuter le changement.",
+              ].join(" "),
+              category: "products",
+              priority: "medium",
+              status: "unread",
+              metadata: {
+                syncProductId: pfProductId != null ? String(pfProductId) : null,
+                syncVariantId: pfVariant?.id != null ? String(pfVariant.id) : null,
+                productId: localProduct?.id || null,
+                deactivated,
+                linkTo: "/admin/products",
+                source: "Printful",
+              },
+              // NOTE: colonne DB en snake_case (insert direct, pas le trio).
+              action_label: "Voir les produits",
+            });
+          } catch (err) { console.warn("Échec notification admin (produit):", err); }
+        } else {
+          await adminTrio(supabaseAdmin, {
+            title: `Produit supprimé côté Printful — ${displayName}`,
             description: [
               localProduct ? `Produit local : ${localProduct.title}.` : `Aucun produit local lié (sync product ${pfProductId ?? "?"}).`,
-              isDelete
-                ? deactivated
-                  ? "Masqué de la vente (in_stock=false). Vérifiez puis resynchronisez."
-                  : "Vérifiez le catalogue puis resynchronisez si besoin."
-                : "Lancez une resynchronisation pour répercuter le changement.",
+              deactivated
+                ? "Masqué de la vente (in_stock=false). Vérifiez puis resynchronisez."
+                : "Vérifiez le catalogue puis resynchronisez si besoin.",
             ].join(" "),
             category: "products",
-            priority: isDelete ? "high" : "medium",
-            status: "unread",
+            priority: "high",
+            linkTo: "/admin/products",
             metadata: {
               syncProductId: pfProductId != null ? String(pfProductId) : null,
               syncVariantId: pfVariant?.id != null ? String(pfVariant.id) : null,
               productId: localProduct?.id || null,
               deactivated,
-              linkTo: "/admin/products",
               source: "Printful",
             },
-            action_label: "Voir les produits",
+            actionLabel: "Voir les produits",
           });
-        } catch (err) { console.warn("Échec notification admin (produit):", err); }
-
-        // Telegram court products — suppressions seulement (high) : les
-        // sync/modif de routine resteraient du bruit à chaque import.
-        if (isDelete) {
-          try {
-            await sendTelegramNotice(
-              Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
-              Deno.env.get("TELEGRAM_CHAT_ID") || "",
-              {
-                category: "products",
-                title: `Produit supprimé côté Printful — ${displayName}`,
-                description: localProduct
-                  ? `Produit local : ${localProduct.title}.`
-                  : `Sync product ${pfProductId ?? "?"}.`,
-                priority: "high",
-              },
-            );
-          } catch (err) {
-            console.warn("Telegram products error:", logSafe(err));
-          }
         }
 
         return new Response(JSON.stringify({ received: true, handled: true, type }), {
@@ -1503,38 +1506,34 @@ export default {
           }
         }
 
-        // Notification admin (table notifications, RLS is_admin) — visible
-        // dans NotificationsPage (supervision), avec l'estimation.
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title:
-              newStatus === "partial"
-                ? `Commande ${orderId} partiellement expédiée`
-                : `Commande ${orderId} expédiée`,
-            description: [
-              `${order.client_name || "Client"} — ${carrier ? `${carrier} — ` : ""}${trackingNumber || "numéro de suivi inconnu"}.`,
-              estLabel ? `Arrivée estimée : ${estLabel}.` : null,
-            ]
-              .filter(Boolean)
-              .join(" "),
-            category: "orders",
-            priority: "low",
-            status: "unread",
-            metadata: {
-              orderId,
-              customerName: order.client_name || null,
-              tracking_number: trackingNumber || null,
-              tracking_url: trackingUrl || null,
-              estimated_min_date: estMin || null,
-              estimated_max_date: estMax || null,
-              linkTo: "/admin/orders",
-              source: "Printful",
-            },
-            action_label: "Voir la commande",
-          });
-        } catch (err) {
-          console.warn("Échec notification admin:", err);
-        }
+        // Trio admin : cloche + email concis (le telegram riche de statut
+        // est déjà parti plus haut — skipTelegram, zéro doublon).
+        await adminTrio(supabaseAdmin, {
+          title:
+            newStatus === "partial"
+              ? `Commande ${orderId} partiellement expédiée`
+              : `Commande ${orderId} expédiée`,
+          description: [
+            `${order.client_name || "Client"} — ${carrier ? `${carrier} — ` : ""}${trackingNumber || "numéro de suivi inconnu"}.`,
+            estLabel ? `Arrivée estimée : ${estLabel}.` : null,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          category: "orders",
+          priority: "low",
+          linkTo: "/admin/orders",
+          metadata: {
+            orderId,
+            customerName: order.client_name || null,
+            tracking_number: trackingNumber || null,
+            tracking_url: trackingUrl || null,
+            estimated_min_date: estMin || null,
+            estimated_max_date: estMax || null,
+            source: "Printful",
+          },
+          actionLabel: "Voir la commande",
+          skipTelegram: true,
+        });
 
         // Email d'expédition automatique (uniquement sur une nouvelle
         // transition vers "shipped", pas sur les ré-expéditions répétées).
@@ -1578,74 +1577,52 @@ export default {
         await sendApprovalEmail(supabaseUrl, serviceRoleKey, order, reason);
       }
 
-      // ── 6c. order_created : notif admin uniquement à la 1re liaison ──
+      // ── 6c. order_created : trio à la 1re liaison (pas de statut, donc
+      // pas de telegram de statut — le trio envoie le court) ──
       // (les retries Printful ne renotifient pas). Pas de notif client ni
-      // d'email : la confirmation d'achat est déjà partie au checkout.
+      // d'email client : la confirmation d'achat est déjà partie au checkout.
       if (type === "order_created" && firstLink) {
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: `Commande ${orderId} confirmée côté Printful`,
-            description: `${order.client_name || "Client"} — ID Printful ${pfOrderId}. La production va démarrer.`,
-            category: "orders",
-            priority: "low",
-            status: "unread",
-            metadata: {
-              orderId,
-              printfulOrderId: pfOrderId != null ? String(pfOrderId) : null,
-              linkTo: "/admin/orders",
-              source: "Printful",
-            },
-            action_label: "Voir la commande",
-          });
-        } catch (err) {
-          console.warn("Échec notification admin:", err);
-        }
-
-        // Telegram court APPROBATIONS (design à valider — action admin
-        // attendue, high). Les autres events du bloc ont déjà leur telegram
-        // de statut (zéro doublon).
-        if (type === "order_put_hold_approval") {
-          try {
-            await sendTelegramNotice(
-              Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
-              Deno.env.get("TELEGRAM_CHAT_ID") || "",
-              {
-                category: "approval",
-                title: `Approbation requise — commande ${orderId}`,
-                description: notes.length
-                  ? `${order.client_name || "Client"} — ${notes.join(" ")}`.slice(0, 200)
-                  : order.client_name || "Client",
-                priority: "high",
-              },
-            );
-          } catch (err) {
-            console.warn("Telegram approval error:", logSafe(err));
-          }
-        }
+        await adminTrio(supabaseAdmin, {
+          title: `Commande ${orderId} confirmée côté Printful`,
+          description: `${order.client_name || "Client"} — ID Printful ${pfOrderId}. La production va démarrer.`,
+          category: "orders",
+          priority: "low",
+          linkTo: "/admin/orders",
+          metadata: {
+            orderId,
+            printfulOrderId: pfOrderId != null ? String(pfOrderId) : null,
+            source: "Printful",
+          },
+          actionLabel: "Voir la commande",
+        });
       }
 
-      // ── 6d. order_updated : notifs uniquement sur vrai changement ──
+      // ── 6d. order_updated : trio uniquement sur vrai changement ──
       // (les updates sans changement de statut sont acquittés en silence).
-      // Pas d'email : les événements dédiés (shipped/failed/...) ont le leur.
+      // skipTelegram : le telegram riche de statut est déjà parti.
+      // Pas d'email client : les événements dédiés (shipped/failed/...) ont le leur.
       if (type === "order_updated" && newStatus) {
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: `Commande ${orderId} → ${newStatus === "in_production" ? "en production" : "partielle"}`,
-            description: `${order.client_name || "Client"} — statut Printful synchronisé (${(orderData as any)?.status || "?"}).`,
-            category: "orders",
-            priority: "low",
-            status: "unread",
-            metadata: {
-              orderId,
-              newStatus,
-              linkTo: "/admin/orders",
-              source: "Printful",
-            },
-            action_label: "Voir la commande",
-          });
-        } catch (err) {
-          console.warn("Échec notification admin (updated):", err);
-        }
+        const fr: Record<string, string> = {
+          in_production: "en production",
+          partial: "partielle",
+          shipped: "expédiée",
+          cancelled: "annulée",
+          on_hold: "en pause",
+        };
+        await adminTrio(supabaseAdmin, {
+          title: `Commande ${orderId} → ${fr[newStatus] || newStatus}`,
+          description: `${order.client_name || "Client"} — statut Printful synchronisé (${(orderData as any)?.status || "?"}).`,
+          category: "orders",
+          priority: "low",
+          linkTo: "/admin/orders",
+          metadata: {
+            orderId,
+            newStatus,
+            source: "Printful",
+          },
+          actionLabel: "Voir la commande",
+          skipTelegram: true,
+        });
 
         if (order.client_id) {
           try {
@@ -1697,26 +1674,24 @@ export default {
 
       const adminMeta = ADMIN_EVENT_META[type];
       if (adminMeta && type !== "package_shipped") {
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: adminMeta.title,
-            description: notes.length
-              ? `${order.client_name || "Client"} — ${notes.join(" ")}`
-              : order.client_name || "Client",
-            category: type === "order_put_hold_approval" ? "approval" : "orders",
-            priority: adminMeta.priority,
-            status: "unread",
-            metadata: {
-              orderId,
-              customerName: order.client_name || null,
-              linkTo: "/admin/orders",
-              source: "Printful",
-            },
-            action_label: "Voir la commande",
-          });
-        } catch (err) {
-          console.warn("Échec notification admin:", err);
-        }
+        // Trio admin : cloche + email concis (le telegram riche de statut
+        // est déjà parti plus haut — skipTelegram, zéro doublon).
+        await adminTrio(supabaseAdmin, {
+          title: adminMeta.title,
+          description: notes.length
+            ? `${order.client_name || "Client"} — ${notes.join(" ")}`
+            : order.client_name || "Client",
+          category: type === "order_put_hold_approval" ? "approval" : "orders",
+          priority: adminMeta.priority,
+          linkTo: "/admin/orders",
+          metadata: {
+            orderId,
+            customerName: order.client_name || null,
+            source: "Printful",
+          },
+          actionLabel: "Voir la commande",
+          skipTelegram: true,
+        });
 
         // Emails client Phase 2 (moule canonique) + notif in-app, UNIQUEMENT
         // sur transition réelle (newStatus) : les retries Printful ne
