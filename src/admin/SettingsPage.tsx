@@ -1557,6 +1557,7 @@ export default function SettingsPage() {
                 ["database", "Base de données"],
                 ["printful", "Printful API"],
                 ["stripe", "Stripe"],
+                ["stripe_webhooks", "Webhooks Stripe"],
               ] as const
             ).map(([key, label]) => {
               const check = servicesHealth.checks?.[key];
