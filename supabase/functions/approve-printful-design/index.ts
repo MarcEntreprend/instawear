@@ -8,6 +8,7 @@ import { logSafe } from "../_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey } from "../_shared/rateLimit.ts";
 import { isValidOrderId } from "../_shared/validators.ts";
 import { fetchWithRetry, reportError } from "../_shared/opsUtils.ts";
+import { buildInProductionEmail } from "../_shared/orderStatusEmails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -327,6 +328,52 @@ export default {
           }
         } catch (e) {
           console.warn("Customer notification (approve):", e);
+        }
+
+        // Email client "production reprise" (moule canonique Phase 2) :
+        // validation design = retour en production, le client est notifié
+        // comme pour toute entrée en production. Best-effort.
+        try {
+          const { data: o } = await supabaseAdmin
+            .from("orders")
+            .select("*")
+            .eq("id", orderId)
+            .maybeSingle();
+          if (o?.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(o.client_email).trim())) {
+            const { data: oItems } = await supabaseAdmin
+              .from("order_items")
+              .select("*")
+              .eq("order_id", orderId);
+            let symbol = "$";
+            try {
+              const { data: ss } = await supabaseAdmin
+                .from("store_settings")
+                .select("currency")
+                .eq("id", true)
+                .maybeSingle();
+              const symbols: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", BRL: "R$", CAD: "CA$", CHF: "CHF", JPY: "¥", MXN: "MX$", AUD: "A$" };
+              symbol = symbols[String((ss as any)?.currency || "USD").toUpperCase()] || "$";
+            } catch {}
+            const built = buildInProductionEmail(
+              o,
+              Array.isArray(oItems) ? oItems : [],
+              symbol,
+            );
+            await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+              },
+              body: JSON.stringify({
+                to: String(o.client_email).trim(),
+                subject: built.subject,
+                html: built.html,
+              }),
+            });
+          }
+        } catch (e) {
+          console.warn("Customer email (approve):", logSafe(e));
         }
 
         return new Response(

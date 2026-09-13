@@ -1,6 +1,6 @@
 // src/admin/OrdersPage.tsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Search,
   X,
@@ -69,7 +69,24 @@ function OrderStatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Small action button ──────────────────────────────────────────────────
+// ─── Transitions manuelles autorisées (miroir UX de
+// order_status_transitions — le serveur tranche, jamais l'UI).
+// `paid` (webhook Stripe) et `pending` (état initial) ne sont jamais des
+// cibles manuelles. Statuts terminaux → aucune cible (badge seul).
+const ALLOWED_MANUAL_TARGETS: Record<string, string[]> = {
+  pending: ["cancelled"],
+  paid: ["in_production", "partial", "on_hold", "cancelled"],
+  in_production: ["shipped", "partial", "on_hold", "cancelled"],
+  partial: ["shipped", "on_hold", "cancelled", "refunded"],
+  on_hold: ["in_production", "partial", "cancelled", "refunded"],
+  shipped: ["delivered", "returned", "refunded"],
+  delivered: ["returned", "refunded"],
+  cancelled: [],
+  refunded: [],
+  returned: [],
+};
+
+// ─── Small action button ────────────────────────────────────────────────
 const iconBtn: React.CSSProperties = {
   background: "var(--color-surface2)",
   border: "1px solid var(--color-border)",
@@ -286,29 +303,42 @@ export default function OrdersPage() {
     );
   };
 
+  const [statusMessage, setStatusMessage] = useState<{
+    text: string;
+    kind: "success" | "error";
+  } | null>(null);
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashStatus = (
+    text: string,
+    kind: "success" | "error" = "success",
+  ) => {
+    setStatusMessage({ text, kind });
+    if (statusTimer.current) clearTimeout(statusTimer.current);
+    statusTimer.current = setTimeout(() => setStatusMessage(null), 5000);
+  };
+
   // ── Actions ──────────────────────────────────────────────────────────────
+  // Voie unique Phase 3 : l'edge order-status-update fait tout (transmission
+  // Printful pour in_production, state-machine, in-app, email canonique).
+  // Fini le double email in_production et les statuts muets.
   const handleStatusChange = async (orderId: string, newStatus: string) => {
-    if (newStatus === "in_production") {
-      // Envoi à Printful avant changement de statut
-      if (sendingOrderIds.has(orderId)) return; // déjà en cours
-      setSendingOrderIds((prev) => new Set(prev).add(orderId));
-      try {
-        const { podApi } = await import("../api/supabaseApi");
-        await podApi.createOrder(orderId);
-        // Si succès, on met à jour le statut
-        await updateStatus(orderId, "in_production");
-      } catch (e: any) {
-        alert("Erreur d'envoi à Printful : " + (e.message || ""));
-        // On ne change pas le statut en cas d'échec
-      } finally {
-        setSendingOrderIds((prev) => {
-          const next = new Set(prev);
-          next.delete(orderId);
-          return next;
-        });
-      }
-    } else {
-      await updateStatus(orderId, newStatus as any);
+    if (sendingOrderIds.has(orderId)) return; // déjà en cours
+    setSendingOrderIds((prev) => new Set(prev).add(orderId));
+    try {
+      const result = await updateStatus(orderId, newStatus as any);
+      flashStatus(
+        result.emailed
+          ? `Statut → ${ORDER_STATUS_LABEL[newStatus]?.label ?? newStatus} · email client envoyé.`
+          : `Statut → ${ORDER_STATUS_LABEL[newStatus]?.label ?? newStatus} (sans email).`,
+      );
+    } catch (e: any) {
+      flashStatus(e?.message || "Erreur de changement de statut.", "error");
+    } finally {
+      setSendingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
@@ -421,6 +451,24 @@ export default function OrdersPage() {
           Exporter CSV
         </button>
       </div>
+
+      {/* Feedback changement de statut (edge : email envoyé ou non) */}
+      {statusMessage && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            background:
+              statusMessage.kind === "success" ? "#dcfce7" : "#fee2e2",
+            color: statusMessage.kind === "success" ? "#166534" : "#991b1b",
+            border: `1px solid ${statusMessage.kind === "success" ? "#86efac" : "#fca5a5"}`,
+          }}
+        >
+          {statusMessage.text}
+        </div>
+      )}
 
       {/* Filter bar – sticky on scroll within admin content */}
       <div
@@ -823,6 +871,10 @@ export default function OrdersPage() {
                       >
                         <RefreshCw size={12} className="animate-spin" /> Envoi…
                       </span>
+                    ) : (ALLOWED_MANUAL_TARGETS[order.status] ?? []).length === 0 ? (
+                      <span style={{ fontSize: 11, color: "var(--color-ink3)" }}>
+                        {ORDER_STATUS_LABEL[order.status]?.label ?? order.status}
+                      </span>
                     ) : (
                       <select
                         value={order.status}
@@ -840,9 +892,12 @@ export default function OrdersPage() {
                           cursor: "pointer",
                         }}
                       >
-                        {Object.keys(ORDER_STATUS_LABEL).map((key) => (
+                        <option value={order.status}>
+                          {ORDER_STATUS_LABEL[order.status]?.label ?? order.status}
+                        </option>
+                        {(ALLOWED_MANUAL_TARGETS[order.status] ?? []).map((key) => (
                           <option key={key} value={key}>
-                            {ORDER_STATUS_LABEL[key].label}
+                            → {ORDER_STATUS_LABEL[key].label}
                           </option>
                         ))}
                       </select>
@@ -1056,17 +1111,11 @@ export default function OrdersPage() {
                           try {
                             const { podApi } = await import("../api/supabaseApi");
                             await podApi.cancelPrintfulOrder(selectedOrder.id);
-                            // Email annulé via le template existant (même
-                            // circuit que tout passage à cancelled).
-                            const { sendCancelledEmail } = await import(
-                              "../utils/emailTemplates"
+                            // Email annulé envoyé côté serveur par l'edge
+                            // (moule canonique) — rien à envoyer ici.
+                            flashStatus(
+                              `Commande ${selectedOrder.id} annulée chez Printful · email client envoyé.`,
                             );
-                            if (selectedOrder.clientEmail) {
-                              await sendCancelledEmail({
-                                ...selectedOrder,
-                                status: "cancelled",
-                              });
-                            }
                             await refetch();
                             alert("Commande annulée chez Printful.");
                             setSelectedOrder(null);
@@ -1144,8 +1193,14 @@ export default function OrdersPage() {
                           onClick={async () => {
                             if (!window.confirm("Marquer la commande comme remboursée partiellement ?")) return;
                             try {
-                              const { orderApi } = await import("../api/supabaseApi");
-                              await orderApi.updateStatus(selectedOrder.id, "refunded" as any);
+                              // Voie unique Phase 3 : state-machine + in-app +
+                              // email canonique côté serveur.
+                              const result = await updateStatus(selectedOrder.id, "refunded" as any);
+                              flashStatus(
+                                result.emailed
+                                  ? "Commande marquée remboursée · email client envoyé."
+                                  : "Commande marquée remboursée (sans email).",
+                              );
                               await refetch();
                               setSelectedOrder(null);
                             } catch (e: any) {

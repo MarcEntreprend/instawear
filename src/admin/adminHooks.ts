@@ -241,33 +241,24 @@ export function useOrders() {
   const [saving, setSaving] = useState(false);
 
   const updateStatus = useCallback(
-    async (id: string, status: OrderStatus) => {
+    async (
+      id: string,
+      status: OrderStatus,
+      reason?: string,
+    ): Promise<{ emailed: boolean; status: string }> => {
       setSaving(true);
       try {
-        await orderApi.updateStatus(id, status);
-        // Send appropriate email
-        const order = (data ?? []).find((o) => o.id === id);
-        if (order && order.clientEmail) {
-          import("../utils/emailTemplates").then(
-            ({
-              sendDeliveredEmail,
-              sendCancelledEmail,
-              sendShippedEmail,
-              sendInProductionEmail,
-            }) => {
-              if (status === "delivered") sendDeliveredEmail(order);
-              else if (status === "cancelled") sendCancelledEmail(order);
-              else if (status === "shipped") sendShippedEmail(order);
-              else if (status === "in_production") sendInProductionEmail(order);
-            },
-          );
-        }
+        // Voie unique Phase 3 : edge serveur (JWT admin, state-machine,
+        // in-app + email canonique). Plus aucun email front (fini les
+        // doublons in_production et les statuts muets).
+        const result = await orderApi.updateStatusViaEdge(id, status, reason);
         refetch();
+        return { emailed: result.emailed, status: result.status };
       } finally {
         setSaving(false);
       }
     },
-    [refetch, data],
+    [refetch],
   );
 
   const exportCsv = useCallback(async () => {

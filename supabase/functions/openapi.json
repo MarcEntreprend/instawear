@@ -56,6 +56,9 @@
     },
     "/admin-order-notify": {
       "post": { "summary": "Admin order duplicate email (admin JWT, validated payload, rate-limited 10/min; in-app via SQL trigger)", "x-roles": ["admin"], "x-edges": ["admin-order-notify"] }
+    },
+    "/order-status-update": {
+      "post": { "summary": "Admin: manual order status change (state-machine checked, in-app + canonical customer email)", "x-roles": ["admin"], "x-edges": ["order-status-update"] }
     }
   }
 }

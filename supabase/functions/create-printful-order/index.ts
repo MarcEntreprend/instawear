@@ -10,6 +10,7 @@ import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 // orderStatusEmails.ts — toute modification se fait là-bas puis recopie
 // à l'identique ici + printful-webhook + tests).
 import { buildInProductionEmail } from "./_shared/orderStatusEmails.ts";
+import { buildCancelledEmail } from "./_shared/orderStatusEmails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,8 +179,10 @@ async function handleCancelPrintfulOrder(
     })
     .eq("id", orderId);
 
-  // Notif admin + notif client (l'email annulé part côté frontend via le
-  // template existant, comme pour tout passage à cancelled).
+  // Notif admin + notif client + email client canonique (moule Phase 2).
+  // Le front n'envoie plus rien sur ce chemin (order-status-update est la
+  // voie unique) : un seul email garanti, même si l'admin clique deux fois
+  // (le 2e appel trouve le statut distant déjà supprimé → 409 avant email).
   try {
     await supabaseAdmin.from("notifications").insert({
       title: `Commande ${orderId} annulée chez Printful`,
@@ -202,6 +205,44 @@ async function handleCancelPrintfulOrder(
         metadata: { orderId, status: "cancelled" },
       });
     } catch {}
+  }
+  if (order.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(order.client_email).trim())) {
+    try {
+      const { data: oItems } = await supabaseAdmin
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderId);
+      let symbol = "$";
+      try {
+        const { data: ss } = await supabaseAdmin
+          .from("store_settings")
+          .select("currency")
+          .eq("id", true)
+          .maybeSingle();
+        const symbols: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", BRL: "R$", CAD: "CA$", CHF: "CHF", JPY: "¥", MXN: "MX$", AUD: "A$" };
+        symbol = symbols[String((ss as any)?.currency || "USD").toUpperCase()] || "$";
+      } catch {}
+      const built = buildCancelledEmail(
+        order,
+        Array.isArray(oItems) ? oItems : [],
+        symbol,
+        "Annulée chez notre fournisseur d'impression.",
+      );
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        },
+        body: JSON.stringify({
+          to: String(order.client_email).trim(),
+          subject: built.subject,
+          html: built.html,
+        }),
+      });
+    } catch (err) {
+      console.error("Cancelled email (printful cancel) error:", logSafe(err));
+    }
   }
 
   return new Response(

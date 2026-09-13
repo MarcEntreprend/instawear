@@ -13,14 +13,14 @@ test("inventory-check.ts existe", () => {
   assert.ok(existsSync(join(root, "scripts/inventory-check.ts")));
 });
 
-test("openapi.json liste 17 paths", () => {
+test("openapi.json liste 18 paths", () => {
   const spec = JSON.parse(readFileSync(join(root, "supabase/functions/openapi.json"), "utf-8"));
   const paths = Object.keys(spec.paths).sort();
-  assert.equal(paths.length, 17, `paths=${JSON.stringify(paths)}`);
+  assert.equal(paths.length, 18, `paths=${JSON.stringify(paths)}`);
   const attendu = [
     "/admin-order-notify", "/approve-printful-design", "/auth-welcome", "/cart-recovery", "/contact-message", "/create-printful-order", "/delete-account",
     "/email-preferences", "/get-shipping-rates", "/health", "/merch-scorer", "/printful-reports", "/printful-webhook", "/send-email", "/stripe-checkout",
-    "/stripe-webhook", "/sync-printful",
+    "/stripe-webhook", "/sync-printful", "/order-status-update",
   ].sort();
   assert.deepEqual(paths, attendu, "paths doivent correspondre a l'inventaire");
 });
