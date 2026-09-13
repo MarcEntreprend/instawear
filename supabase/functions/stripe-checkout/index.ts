@@ -526,6 +526,29 @@ export default {
           );
         }
 
+        // Le webhook compare pi.amount_received au total en base : on y
+        // enregistre le total autoritatif calculé ci-dessus (produits +
+        // port serveur). Sans ça, le front et Stripe divergeraient
+        // (ex. port) → 400 définitif → commande pending muette.
+        // Échec ici = 400 immédiat (mieux qu'un paiement non réconcilié :
+        // le webhook répondrait 404 en boucle).
+        if (orderId) {
+          const { data: touched, error: totalError } = await supabaseAdmin
+            .from("orders")
+            .update({ total_amount: total })
+            .eq("id", orderId)
+            .select("id");
+          if (totalError || !touched || touched.length === 0) {
+            return new Response(
+              JSON.stringify({ error: "Commande introuvable pour ce paiement" }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 400,
+              },
+            );
+          }
+        }
+
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(total * 100),
           currency,

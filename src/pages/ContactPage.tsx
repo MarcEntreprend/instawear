@@ -68,8 +68,16 @@ export default function ContactPage({ onBack }: { onBack: () => void }) {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok)
+      if (!res.ok) {
+        // TICKET_FAILED = le serveur n'a pas pu enregistrer (schéma/DB) :
+        // message actionnable, sans détails internes (sécurité).
+        if (data.code === "TICKET_FAILED") {
+          throw new Error(
+            "We couldn't save your message just now. Please email us directly at bonjour@instawear.com — we'll reply within 24 business hours.",
+          );
+        }
         throw new Error(data.error || "Sending failed at the moment.");
+      }
       try {
         window.localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
       } catch {

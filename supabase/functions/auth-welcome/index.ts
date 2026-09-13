@@ -13,6 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
 import { logSafe } from "./_shared/logSafe.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,28 +107,32 @@ export default {
 
       const displayName = name || customer.name || email;
 
-      // Notification admin (compteur + badge) — ici plutôt que dans le front
-      // car l'insert direct échoue en RLS 403 pour un compte frais.
-      const { error: notifError } = await supabaseAdmin
-        .from("notifications")
-        .insert({
+      // Trio admin (remplace insert + telegram) : cloche + telegram
+      // court + email concis. Best-effort, après vérifications uniquement.
+      // Le front ne peut pas le faire (RLS 403 sur compte frais).
+      await notifyAdmin(
+        {
+          supabaseAdmin,
+          supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+          serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+          resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+          adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+        },
+        {
           title: "New customer registered",
           description: `"${displayName}" signed up on the store`,
           category: "customers",
           priority: "low",
-          status: "unread",
-          timestamp: new Date().toISOString(),
+          linkTo: "/admin/customers",
           metadata: {
             customerId: customer.id,
             customerName: displayName,
-            linkTo: "/admin/customers",
             source: "auth-welcome",
           },
-          action_label: "View profile",
-        });
-      if (notifError) {
-        console.error("auth-welcome notification:", logSafe(notifError));
-      }
+          actionLabel: "View profile",
+        },
+      );
 
       const safeName = escapeHtml(displayName);
       // Resend API direct (même mécanisme que stripe-webhook qui fonctionne :

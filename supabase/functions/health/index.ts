@@ -152,8 +152,71 @@ export default {
         return { ok: true };
       });
 
-      const checks = { database, printful, stripe };
-      const allOk = database.ok && printful.ok && stripe.ok;
+      // stripe_webhooks : l'endpoint webhook est-il abonné aux 2 events
+      // requis (checkout.session.completed + payment_intent.succeeded) ?
+      // Sans payment_intent.succeeded, les achats carte restent pending
+      // sans notifications — panne silencieuse classique, d'où ce check.
+      // N'expose que des noms d'events (jamais de secret).
+      const REQUIRED_STRIPE_EVENTS = [
+        "checkout.session.completed",
+        "payment_intent.succeeded",
+      ];
+      const stripe_webhooks = await checkWithTimeout("stripe_webhooks", async () => {
+        const key =
+          Deno.env.get("STRIPE_SECRET_KEY_TEST") ||
+          Deno.env.get("STRIPE_SECRET_KEY") ||
+          "";
+        if (!key) return { ok: false, detail: "not_configured" };
+        const { res, error } = await fetchWithRetry(
+          "https://api.stripe.com/v1/webhook_endpoints?limit=100",
+          {
+            headers: {
+              Authorization: `Bearer ${key}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          },
+          { attempts: 2, baseMs: 500, idempotent: true },
+        );
+        if (!res) return { ok: false, detail: error || "injoignable" };
+        if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
+        const body = await res.json().catch(() => ({}));
+        const endpoints: any[] = Array.isArray(body?.data) ? body.data : [];
+        const ours = endpoints.find((e) =>
+          String(e?.url || "").includes("/functions/v1/stripe-webhook"),
+        );
+        if (!ours) {
+          return {
+            ok: false,
+            detail: "endpoint stripe-webhook introuvable côté Stripe",
+            events: [],
+            missing: REQUIRED_STRIPE_EVENTS,
+          };
+        }
+        const subscribed: string[] = Array.isArray(ours.enabled_events)
+          ? ours.enabled_events
+          : [];
+        const all = subscribed.includes("*");
+        const missing = all
+          ? []
+          : REQUIRED_STRIPE_EVENTS.filter((e) => !subscribed.includes(e));
+        if (missing.length > 0) {
+          return {
+            ok: false,
+            detail: `manque: ${missing.join(", ")}`,
+            events: subscribed,
+            missing,
+          };
+        }
+        return {
+          ok: true,
+          detail: `${REQUIRED_STRIPE_EVENTS.length}/${REQUIRED_STRIPE_EVENTS.length} events`,
+          events: subscribed,
+        };
+      });
+
+      const checks = { database, printful, stripe, stripe_webhooks };
+      const allOk =
+        database.ok && printful.ok && stripe.ok && stripe_webhooks.ok;
 
       return new Response(
         JSON.stringify({

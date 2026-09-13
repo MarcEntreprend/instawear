@@ -2609,6 +2609,29 @@ function SupportTab({
           from_field: "customer",
           text: message.trim(),
         });
+        // Notifie l'admin (notif + telegram + email, edge dédiée) :
+        // best-effort, n'échoue jamais la création du ticket.
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/interaction-notify`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ interactionId: inter.id }),
+              },
+            ).catch(() => {});
+          }
+        } catch {
+          /* notification admin best-effort : silencieuse */
+        }
       }
       setSent(true);
       setTimeout(() => {

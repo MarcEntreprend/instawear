@@ -11,6 +11,54 @@ import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 // à l'identique ici + printful-webhook + tests).
 import { buildInProductionEmail } from "./_shared/orderStatusEmails.ts";
 import { buildCancelledEmail } from "./_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
+
+// Trio admin avec dépendances câblées : UN appel = cloche + telegram
+// court + email. skipTelegram=true UNIQUEMENT sur les sites couverts par
+// le telegram riche de statut (zéro doublon) — sinon trio complet.
+async function adminTrio(
+  supabaseAdmin: any,
+  input: Record<string, any>,
+): Promise<{ inApp: boolean; telegram: boolean; email: boolean }> {
+  return notifyAdmin(
+    {
+      supabaseAdmin,
+      supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+      serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+      resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+      adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+    },
+    input as any,
+  );
+}
+
+// Telegram admin ORDER STATUS UPDATE — possédé par cette edge quand elle
+// écrit elle-même (transmission, pause, annulation). Best-effort.
+async function telegramStatus(
+  from: string,
+  order: any,
+  to: string,
+  prevAt: unknown,
+) {
+  try {
+    await sendTelegramStatus(
+      Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+      Deno.env.get("TELEGRAM_CHAT_ID") || "",
+      {
+        orderId: order.id,
+        from,
+        to,
+        customer: order.client_name || order.client_email || null,
+        updatedAt: new Date(),
+        prevAt,
+      },
+    );
+  } catch (err) {
+    console.error("[create-printful-order] telegram:", logSafe(err));
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -179,21 +227,21 @@ async function handleCancelPrintfulOrder(
     })
     .eq("id", orderId);
 
-  // Notif admin + notif client + email client canonique (moule Phase 2).
-  // Le front n'envoie plus rien sur ce chemin (order-status-update est la
-  // voie unique) : un seul email garanti, même si l'admin clique deux fois
-  // (le 2e appel trouve le statut distant déjà supprimé → 409 avant email).
-  try {
-    await supabaseAdmin.from("notifications").insert({
-      title: `Commande ${orderId} annulée chez Printful`,
-      description: `${order.client_name || "Client"} — commande Printful ${pfId} supprimée (était ${pfStatus}).`,
-      category: "orders",
-      priority: "medium",
-      status: "unread",
-      metadata: { orderId, printfulOrderId: pfId, linkTo: "/admin/orders", source: "Printful" },
-      action_label: "Voir la commande",
-    });
-  } catch {}
+  // Trio admin (remplace l'insert) : cloche + email concis. Le telegram
+  // riche de statut est envoyé séparément (skipTelegram). Le front
+  // n'envoie plus rien sur ce chemin : un seul email garanti, même si
+  // l'admin clique deux fois (le 2e appel trouve le statut distant déjà
+  // supprimé → 409 avant email).
+  await adminTrio(supabaseAdmin, {
+    title: `Commande ${orderId} annulée chez Printful`,
+    description: `${order.client_name || "Client"} — commande Printful ${pfId} supprimée (était ${pfStatus}).`,
+    category: "orders",
+    priority: "medium",
+    linkTo: "/admin/orders",
+    metadata: { orderId, printfulOrderId: pfId, source: "Printful" },
+    actionLabel: "Voir la commande",
+    skipTelegram: true,
+  });
   if (order.client_id) {
     try {
       await supabaseAdmin.from("customer_notifications").insert({
@@ -206,6 +254,8 @@ async function handleCancelPrintfulOrder(
       });
     } catch {}
   }
+  // Annulation possédée par cette edge → telegram (email canonique ci-dessous).
+  await telegramStatus(order.status, order, "cancelled", (order as any)?.updated_at ?? null);
   if (order.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(order.client_email).trim())) {
     try {
       const { data: oItems } = await supabaseAdmin
@@ -558,23 +608,31 @@ export default {
               ),
           })
           .eq("id", orderId);
-        // notif admin
-        try {
-          await supabaseAdmin.from("notifications").insert({
+        // Trio admin (aucun telegram de statut sur ce chemin d'échec :
+        // le trio envoie le court) : cloche + telegram + email concis.
+        await notifyAdmin(
+          {
+            supabaseAdmin,
+            supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+            serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+            resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+            adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+          },
+          {
             title: `Commande ${orderId} en pause — variantes indisponibles`,
             description: reasonSummary.slice(0, 300),
             category: "orders",
             priority: "high",
-            status: "unread",
+            linkTo: "/admin/orders",
             metadata: {
               orderId,
               blockedCount: blockedItems.length,
-              linkTo: "/admin/orders",
               source: "Printful",
             },
-            action_label: "Voir la commande",
-          });
-        } catch {}
+            actionLabel: "Voir la commande",
+          },
+        );
         return new Response(
           JSON.stringify({
             error:
@@ -692,6 +750,20 @@ export default {
             if (!isBlocked) try { await supabaseAdmin.from("order_items").update({ print_status: "failed", block_reason: errText.slice(0, 300) }).eq("id", it.id); } catch {}
           }
           await supabaseAdmin.from("orders").update({ status: "on_hold", notes: (order.notes ? order.notes + "\n" : "") + `[POD P5] Printful 400: ${errText}`.slice(0, 900) }).eq("id", orderId);
+          // Pause possédée par cette edge → telegram de statut + trio
+          // (cloche + email, skipTelegram). L'admin tranche ensuite via
+          // order-status-update.
+          await telegramStatus(order.status, order, "on_hold", (order as any)?.updated_at ?? null);
+          await adminTrio(supabaseAdmin, {
+            title: `Commande ${orderId} en pause — erreur Printful`,
+            description: `[POD] ${errText}`.slice(0, 300),
+            category: "orders",
+            priority: "high",
+            linkTo: "/admin/orders",
+            metadata: { orderId, source: "Printful" },
+            actionLabel: "Voir la commande",
+            skipTelegram: true,
+          });
         }
         // Échec définitif côté Printful (après retries) : commande payée
         // non transmise = CRITICAL (notif admin dédupliquée).
@@ -754,6 +826,29 @@ export default {
           })
           .eq("id", orderId);
       }
+      // Transmission possédée par cette edge → telegram (statut réel écrit
+      // ci-dessus, in_production ou partial). L'email client part plus bas.
+      await telegramStatus(order.status, order, updatedStatus, (order as any)?.updated_at ?? null);
+      // Trio admin : cloche + email concis (skipTelegram — riche parti
+      // ci-dessus). Couvre un trou : la transmission ne notifiait pas la
+      // cloche ni l'email admin.
+      await adminTrio(supabaseAdmin, {
+        title: `Commande ${orderId} → ${updatedStatus === "partial" ? "partielle" : "en production"}`,
+        description: hasBlocked
+          ? `${blockedItems.length} article(s) bloqué(s), ${printfulItems.length} envoyé(s) à Printful.`
+          : `Transmise à Printful (${printfulItems.length} article(s)).`,
+        category: "orders",
+        priority: hasBlocked ? "high" : "low",
+        linkTo: "/admin/orders",
+        metadata: {
+          orderId,
+          blockedCount: blockedItems.length,
+          fulfillableCount: printfulItems.length,
+          source: "Printful",
+        },
+        actionLabel: "Voir la commande",
+        skipTelegram: true,
+      });
 
       // Phase A (gap 8): snapshot des coûts Printful pour affichage ADMIN
       // uniquement. Best-effort : si la colonne printful_costs n'existe pas
@@ -795,29 +890,29 @@ export default {
         }
       }
       if (hasBlocked) {
-        try {
-          await supabaseAdmin.from("notifications").insert({
-            title: `Commande ${orderId} partielle — ${blockedItems.length} article(s) non imprimé(s)`,
-            description: blockedItems
-              .map(
-                (b) =>
-                  `${b.item.product_title || b.item.product_id}: ${b.block_reason}`,
-              )
-              .join("; ")
-              .slice(0, 300),
-            category: "orders",
-            priority: "high",
-            status: "unread",
-            metadata: {
-              orderId,
-              blockedCount: blockedItems.length,
-              fulfillableCount: printfulItems.length,
-              linkTo: "/admin/orders",
-              source: "Printful",
-            },
-            action_label: "Voir la commande",
-          });
-        } catch {}
+        // Trio admin : le telegram riche (partial) est déjà parti plus
+        // haut — skipTelegram. Remplace l'insert historique.
+        await adminTrio(supabaseAdmin, {
+          title: `Commande ${orderId} partielle — ${blockedItems.length} article(s) non imprimé(s)`,
+          description: blockedItems
+            .map(
+              (b) =>
+                `${b.item.product_title || b.item.product_id}: ${b.block_reason}`,
+            )
+            .join("; ")
+            .slice(0, 300),
+          category: "orders",
+          priority: "high",
+          linkTo: "/admin/orders",
+          metadata: {
+            orderId,
+            blockedCount: blockedItems.length,
+            fulfillableCount: printfulItems.length,
+            source: "Printful",
+          },
+          actionLabel: "Voir la commande",
+          skipTelegram: true,
+        });
       }
 
       // 6. Envoyer l'email "in production" si le client a un email

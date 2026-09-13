@@ -312,7 +312,11 @@ test("sans secret serveur → erreur claire (pas d'URL nue)", () => {
 function aggregate(
   checks: Record<string, { ok: boolean; detail?: string; ms: number }>,
 ): { status: "ok" | "degraded" } {
-  const allOk = checks.database.ok && checks.printful.ok && checks.stripe.ok;
+  const allOk =
+    checks.database.ok &&
+    checks.printful.ok &&
+    checks.stripe.ok &&
+    checks.stripe_webhooks.ok;
   return { status: allOk ? "ok" : "degraded" };
 }
 
@@ -322,21 +326,62 @@ test("tout ok → ok", () => {
       database: { ok: true, ms: 10 },
       printful: { ok: true, ms: 200 },
       stripe: { ok: true, ms: 150 },
+      stripe_webhooks: { ok: true, ms: 150 },
     }),
     { status: "ok" },
   );
 });
 
 test("un check en échec → degraded", () => {
-  for (const k of ["database", "printful", "stripe"]) {
+  for (const k of ["database", "printful", "stripe", "stripe_webhooks"]) {
     const checks: any = {
       database: { ok: true, ms: 10 },
       printful: { ok: true, ms: 200 },
       stripe: { ok: true, ms: 150 },
+      stripe_webhooks: { ok: true, ms: 150 },
     };
     checks[k] = { ok: false, detail: "x", ms: 5 };
     assert.deepEqual(aggregate(checks), { status: "degraded" }, k);
   }
+});
+
+// ─── Webhook Stripe : endpoint + events requis (miroir health) ───────────────
+
+const REQUIRED = ["checkout.session.completed", "payment_intent.succeeded"];
+
+function findOurs(endpoints: { url: string }[]): { url: string } | null {
+  return (
+    endpoints.find((e) => String(e?.url || "").includes("/functions/v1/stripe-webhook")) ||
+    null
+  );
+}
+
+function missingEvents(subscribed: string[] | null): string[] {
+  if (!subscribed) return [...REQUIRED];
+  if (subscribed.includes("*")) return [];
+  return REQUIRED.filter((e) => !subscribed.includes(e));
+}
+
+test("endpoint reconnu par bout d'URL (indépendant du project-ref)", () => {
+  assert.ok(
+    findOurs([{ url: "https://xxx.supabase.co/functions/v1/stripe-webhook" }]),
+  );
+  assert.equal(
+    findOurs([{ url: "https://xxx.supabase.co/functions/v1/printful-webhook" }]),
+    null,
+  );
+  assert.equal(findOurs([]), null);
+});
+
+test("1 seul event → manque payment_intent.succeeded (cas réel constaté)", () => {
+  assert.deepEqual(missingEvents(["checkout.session.completed"]), [
+    "payment_intent.succeeded",
+  ]);
+});
+
+test("wildcard * → complet ; 2/2 → complet", () => {
+  assert.deepEqual(missingEvents(["*"]), []);
+  assert.deepEqual(missingEvents([...REQUIRED]), []);
 });
 
 test("stripe not_configured compte comme échec (pastille grise côté UI)", () => {

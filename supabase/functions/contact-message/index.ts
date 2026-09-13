@@ -15,6 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
 import { logSafe } from "./_shared/logSafe.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,10 +112,13 @@ export default {
       // 2. Ticket support (file admin existante)
       const subjectBase =
         message.length > 60 ? message.slice(0, 60) + "…" : message;
-      const { data: inter, error: interError } = await supabaseAdmin
-        .from("interactions")
-        .insert({
-          customer_id: customer?.id || email,
+      // customer_id : UUID si client connu, sinon email (text, comme le
+      // front), avec repli NULL si le schéma refuse la chaîne (FK/uuid —
+      // le display admin n'utilise que name/email, jamais customer_id).
+      // Chaque tentative est loggée avec son code PG pour diagnostic.
+      let inter: any = null;
+      {
+        const base: Record<string, unknown> = {
           customer_name: customer?.name || email,
           customer_email: email,
           type: "question",
@@ -122,13 +126,39 @@ export default {
           subject: `Contact — ${subjectBase}`,
           last_message: message,
           metadata: { source: "contact-page", registered_user: !!customer },
-        })
-        .select()
-        .single();
-      if (interError || !inter) {
-        console.error("contact-message insert:", logSafe(interError));
+        };
+        const first = await supabaseAdmin
+          .from("interactions")
+          .insert({ ...base, customer_id: customer?.id || email })
+          .select()
+          .single();
+        if (!first.error && first.data) {
+          inter = first.data;
+        } else {
+          console.error(
+            "contact-message ticket(email-id):",
+            logSafe({ code: (first.error as any)?.code, message: (first.error as any)?.message }),
+          );
+          if (!customer) {
+            const second = await supabaseAdmin
+              .from("interactions")
+              .insert({ ...base, customer_id: null })
+              .select()
+              .single();
+            if (!second.error && second.data) {
+              inter = second.data;
+            } else {
+              console.error(
+                "contact-message ticket(null-id):",
+                logSafe({ code: (second.error as any)?.code, message: (second.error as any)?.message }),
+              );
+            }
+          }
+        }
+      }
+      if (!inter) {
         return json(
-          { error: "Envoi impossible pour le moment. Réessayez plus tard." },
+          { error: "Envoi impossible pour le moment. Réessayez plus tard.", code: "TICKET_FAILED" },
           500,
         );
       }
@@ -144,106 +174,59 @@ export default {
         console.error("contact-message first message:", logSafe(msgError));
       }
 
-      // 3. Notification admin urgente (compteur onglet + badge sidebar)
-      // Le badge sidebar compte les unread et passe en accent si urgent>0.
-      const { error: notifError } = await supabaseAdmin
-        .from("notifications")
-        .insert({
-          title: "Nouveau message — /contact",
-          description: `"${email}" : ${subjectBase}`,
-          category: "interactions",
-          priority: "urgent",
-          status: "unread",
-          timestamp: new Date().toISOString(),
-          metadata: {
-            interactionId: inter.id,
-            customerEmail: email,
-            registeredUser: !!customer,
-            linkTo: "/admin/interactions",
-            source: "contact-page",
-          },
-          action_label: "Voir le message",
-        });
-      if (notifError) {
-        console.error("contact-message notification:", logSafe(notifError));
-      }
-
-      // 4. Destinataire email admin : env explicite d'abord,
-      // puis super_admin, puis premier admin.
-      let adminEmail: string | null =
-        Deno.env.get("CONTACT_NOTIFY_EMAIL") || null;
-      if (!adminEmail) {
-        const { data: superAdmin } = await supabaseAdmin
-          .from("admin_users")
-          .select("email")
-          .eq("role", "super_admin")
-          .limit(1)
-          .maybeSingle();
-        adminEmail = (superAdmin as any)?.email || null;
-      }
-      if (!adminEmail) {
-        const { data: anyAdmin } = await supabaseAdmin
-          .from("admin_users")
-          .select("email")
-          .limit(1)
-          .maybeSingle();
-        adminEmail = (anyAdmin as any)?.email || null;
-      }
-
-      // 5. Email admin via Resend API direct (même mécanisme que
-      // stripe-webhook qui fonctionne : POST + Bearer, pas de SDK).
+      // 3+4+5. Trio admin (remplace notif + telegram + email direct) :
+      // cloche + telegram court + email RICHE (corps du message + reply_to
+      // pour répondre à l'expéditeur). Destinataire pinné ADMIN_NOTIFY_EMAIL
+      // (l'ancienne chaîne CONTACT_NOTIFY_EMAIL → super_admin → 1er admin
+      // est abandonnée : fallback silencieux = emails fantômes).
       // Ne fait jamais échouer le ticket.
       let mailSent = false;
       let mailErrorMsg: string | null = null;
-      if (adminEmail) {
-        try {
-          const safeEmail = escapeHtml(email);
-          const safeMsg = escapeHtml(message).replace(/\n/g, "<br>");
-          const userLine = customer
-            ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
-            : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
-          const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")!}`,
+      {
+        const safeEmail = escapeHtml(email);
+        const safeMsg = escapeHtml(message).replace(/\n/g, "<br>");
+        const userLine = customer
+          ? `✅ <b>Client inscrit</b> (${escapeHtml(customer.name || customer.email)})`
+          : `⚪ <b>Non inscrit</b> (pas de compte avec cet email)`;
+        const result = await notifyAdmin(
+          {
+            supabaseAdmin,
+            supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+            serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+            resendFrom: Deno.env.get("RESEND_FROM_EMAIL")!,
+            adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+          },
+          {
+            title: "Nouveau message — /contact",
+            description: `"${email}" : ${subjectBase}`,
+            category: "interactions",
+            priority: "urgent",
+            linkTo: "/admin/interactions",
+            metadata: {
+              interactionId: inter.id,
+              customerEmail: email,
+              registeredUser: !!customer,
+              source: "contact-page",
             },
-            body: JSON.stringify({
-              from: Deno.env.get("RESEND_FROM_EMAIL")!,
-              to: [adminEmail],
-              reply_to: email,
-              subject: `[Contact InstaWear] ${email}`,
-              html:
-                `<div style="font-family:sans-serif;max-width:600px">` +
-                `<h2>Nouveau message — /contact</h2>` +
-                `<p><b>De :</b> ${safeEmail}</p>` +
-                `<p><b>Profil :</b> ${userLine}</p>` +
-                `<hr>` +
-                `<p>${safeMsg}</p>` +
-                `<hr>` +
-                `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions. Répondez directement à cet email pour répondre à l'expéditeur.</p>` +
-                `</div>`,
-            }),
-          });
-          const mailData = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            mailErrorMsg = logSafe({ status: res.status, body: mailData });
-            console.error("contact-message resend:", mailErrorMsg);
-          } else {
-            mailSent = true;
-            console.log(
-              "contact-message mail sent:",
-              (mailData as any)?.id || "ok",
-            );
-          }
-        } catch (e) {
-          // Réseau : ticket déjà stocké, on logge seulement.
-          mailErrorMsg = logSafe(String(e));
-          console.error("contact-message resend throw:", mailErrorMsg);
-        }
-      } else {
-        mailErrorMsg = "aucun email admin trouvé";
-        console.error("contact-message: aucun email admin trouvé");
+            actionLabel: "Voir le message",
+            replyTo: email,
+            emailSubject: `[Contact InstaWear] ${email}`,
+            emailHtml:
+              `<div style="font-family:sans-serif;max-width:600px">` +
+              `<h2>Nouveau message — /contact</h2>` +
+              `<p><b>De :</b> ${safeEmail}</p>` +
+              `<p><b>Profil :</b> ${userLine}</p>` +
+              `<hr>` +
+              `<p>${safeMsg}</p>` +
+              `<hr>` +
+              `<p style="color:#888;font-size:12px">Ticket <b>${inter.id}</b> — voir Admin → Interactions. Répondez directement à cet email pour répondre à l'expéditeur.</p>` +
+              `</div>`,
+          },
+        );
+        mailSent = result.email;
+        if (!result.email) mailErrorMsg = "email admin non remis (voir logs edge)";
+        if (!result.inApp) mailErrorMsg = (mailErrorMsg ? mailErrorMsg + " " : "") + "cloche non créée";
       }
 
       return json({ success: true, mailSent, mailError: mailErrorMsg });

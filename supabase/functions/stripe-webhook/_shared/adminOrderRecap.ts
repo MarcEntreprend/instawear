@@ -1,7 +1,8 @@
-// supabase/functions/admin-order-notify/_shared/notify.ts
-// Logique pure (aucune dépendance Deno/Supabase) : testée par
-// tests/admin-order-notify.test.ts. Validation stricte du payload +
-// construction du HTML admin (échappement systématique).
+// supabase/functions/stripe-webhook/_shared/adminOrderRecap.ts
+// Récapitulatif riche admin d'achat (email trio dans handlePaidOrder).
+// Provient de l'edge admin-order-notify (supprimée Phase B : destinataire
+// résolu tout seul = emails fantômes) — logique pure conservée à
+// l'identique, testée par tests/admin-order-recap.test.ts.
 
 export interface NotifyItem {
   title: unknown;

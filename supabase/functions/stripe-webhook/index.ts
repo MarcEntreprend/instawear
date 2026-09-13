@@ -10,6 +10,8 @@ import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { reportError } from "./_shared/opsUtils.ts";
+import { buildAdminOrderHtml } from "./_shared/adminOrderRecap.ts";
+import { notifyAdmin } from "./_shared/notifyAdmin.ts";
 import Stripe from "https://esm.sh/stripe@13";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur (Stripe).
@@ -400,41 +402,55 @@ async function handlePaidOrder(
     console.error(`[stripe-webhook] printful ${logSafe(orderId)}:`, logSafe(err));
   }
 
-  // 4. Email admin (doublon du récap Telegram) : garanti côté serveur
-  // (le fire-and-forget client meurt à la redirection Stripe).
-  // Best-effort : n'échoue jamais le webhook.
-  try {
-    await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/admin-order-notify`,
+  // 4. Email admin RICHE (même récap que le telegram) via le trio :
+  // in-app skippée (trigger SQL filet sur entrée paid), telegram skippé
+  // (riche déjà parti en 1). L'edge admin-order-notify est supprimée :
+  // destinataire pinné ADMIN_NOTIFY_EMAIL, plus de fallback silencieux.
+  {
+    const adminHtml = buildAdminOrderHtml({
+      orderId,
+      name: order.client_name || "",
+      phone: order.shipping_address_phone || "",
+      email: order.client_email || "",
+      reception: "livraison",
+      address: order.shipping_address_address || "",
+      city: order.shipping_address_city || "",
+      zip: order.shipping_address_zip || "",
+      country: order.shipping_address_country || "",
+      items: (items ?? []).map((it: any) => ({
+        title: it.product_title || "Item",
+        size: it.selected_size || "",
+        color: it.selected_color || "",
+        quantity: it.quantity,
+        price: it.unit_price,
+      })),
+      total: Number(order.total_amount) || 0,
+      currency: currencyCode,
+    });
+    await notifyAdmin(
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        },
-        body: JSON.stringify({
-          orderId,
-          name: order.client_name || "",
-          phone: order.shipping_address_phone || "",
-          email: order.client_email || "",
-          reception: "livraison",
-          address: order.shipping_address_address || "",
-          city: order.shipping_address_city || "",
-          zip: order.shipping_address_zip || "",
-          country: order.shipping_address_country || "",
-          items: (items ?? []).map((it: any) => ({
-            title: it.product_title || "Item",
-            size: it.selected_size || "",
-            color: it.selected_color || "",
-            quantity: it.quantity,
-            price: it.unit_price,
-          })),
-          total: Number(order.total_amount) || 0,
-          currency: currencyCode,
-        }),
+        supabaseAdmin,
+        supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+        serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+        resendFrom:
+          Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+        adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+      },
+      {
+        title: `New order ${orderId} — ${Number(order.total_amount || 0).toFixed(2)} ${currencyCode}`,
+        description: `${order.client_name || order.client_email || "Client"}`,
+        category: "orders",
+        priority: "high",
+        linkTo: "/admin/orders",
+        metadata: { orderId, source: "stripe-webhook" },
+        emailSubject: `🛍️ New order ${orderId} — ${Number(order.total_amount || 0).toFixed(2)} ${currencyCode}`,
+        emailHtml: adminHtml,
+        skipInApp: true,
+        skipTelegram: true,
       },
     );
-  } catch {}
+  }
   return "paid";
 }
 

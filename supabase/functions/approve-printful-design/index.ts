@@ -9,6 +9,8 @@ import { isRateLimited, rateLimitKey } from "../_shared/rateLimit.ts";
 import { isValidOrderId } from "../_shared/validators.ts";
 import { fetchWithRetry, reportError } from "../_shared/opsUtils.ts";
 import { buildInProductionEmail } from "../_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "../_shared/telegramNotify.ts";
+import { notifyAdmin } from "../_shared/notifyAdmin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -211,7 +213,7 @@ export default {
       // Verify order exists and has approval_data
       const { data: order, error: orderErr } = await supabaseAdmin
         .from("orders")
-        .select("id, status, approval_data")
+        .select("id, status, approval_data, client_name, client_email, updated_at")
         .eq("id", orderId)
         .maybeSingle();
       if (orderErr || !order) {
@@ -294,20 +296,50 @@ export default {
           console.warn("Order update after approve:", updateErr);
         }
 
-        // Notification admin
+        // Telegram admin ORDER STATUS UPDATE (on_hold → in_production),
+        // possédé par cette edge. Best-effort.
         try {
-          await supabaseAdmin.from("notifications").insert({
+          await sendTelegramStatus(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              orderId,
+              from: "on_hold",
+              to: "in_production",
+              customer:
+                (order as any)?.client_name ||
+                (order as any)?.client_email ||
+                null,
+              updatedAt: new Date(),
+              prevAt: (order as any)?.updated_at ?? null,
+            },
+          );
+        } catch (e) {
+          console.warn("Telegram status (approve):", logSafe(e));
+        }
+
+        // Trio admin : cloche + email concis (le telegram riche de statut
+        // est envoyé juste après — skipTelegram, zéro doublon).
+        await notifyAdmin(
+          {
+            supabaseAdmin,
+            supabaseUrl: Deno.env.get("SUPABASE_URL")!,
+            serviceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            resendApiKey: Deno.env.get("RESEND_API_KEY")!,
+            resendFrom: Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev",
+            adminEmail: Deno.env.get("ADMIN_NOTIFY_EMAIL") || "",
+          },
+          {
             title: `Design approuvé — commande ${orderId}`,
             description: `Approbation confirmée, la production reprend.`,
             category: "orders",
             priority: "low",
-            status: "unread",
-            metadata: { orderId, linkTo: "/admin/orders" },
-            action_label: "Voir la commande",
-          });
-        } catch (e) {
-          console.warn("Notification admin (approve):", e);
-        }
+            linkTo: "/admin/orders",
+            metadata: { orderId, source: "approve" },
+            actionLabel: "Voir la commande",
+            skipTelegram: true,
+          },
+        );
 
         // Customer notification
         try {

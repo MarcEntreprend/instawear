@@ -18,9 +18,9 @@ test("openapi.json liste 18 paths", () => {
   const paths = Object.keys(spec.paths).sort();
   assert.equal(paths.length, 18, `paths=${JSON.stringify(paths)}`);
   const attendu = [
-    "/admin-order-notify", "/approve-printful-design", "/auth-welcome", "/cart-recovery", "/contact-message", "/create-printful-order", "/delete-account",
+    "/approve-printful-design", "/auth-welcome", "/cart-recovery", "/contact-message", "/create-printful-order", "/delete-account",
     "/email-preferences", "/get-shipping-rates", "/health", "/merch-scorer", "/printful-reports", "/printful-webhook", "/send-email", "/stripe-checkout",
-    "/stripe-webhook", "/sync-printful", "/order-status-update",
+    "/stripe-webhook", "/sync-printful", "/order-status-update", "/interaction-notify",
   ].sort();
   assert.deepEqual(paths, attendu, "paths doivent correspondre a l'inventaire");
 });
