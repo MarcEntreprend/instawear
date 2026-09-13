@@ -241,9 +241,37 @@ export default function CatalogSection({
     // la synchro d'URL des filtres n'a de sens que sur l'accueil. Sans ce
     // garde, chaque chargement direct d'une page profonde était rabattu sur "/".
     if (window.location.pathname !== "/") return;
+    // Préserve les params étrangers (?order=, ?track=…) : on ne gère que nos
+    // clés, et on ne touche à l'URL que si quelque chose change vraiment.
+    // Sinon les effets parents (lus APRÈS les effets enfants) verraient des
+    // params effacés (ex: lien email ?order= mort au chargement).
+    const MANAGED = [
+      "q",
+      "event",
+      "cat",
+      "style",
+      "material",
+      "pmin",
+      "pmax",
+      "stock",
+      "size",
+      "color",
+      "sort",
+      "view",
+    ];
+    const current = new URLSearchParams(window.location.search);
+    for (const k of MANAGED) current.delete(k);
     const qs = serializeFiltersToSearch(filters, sort, viewMode);
-    const url = qs ? `/?${qs}` : "/";
-    window.history.replaceState(window.history.state, "", url);
+    if (qs) {
+      const next = new URLSearchParams(qs);
+      next.forEach((v, k) => current.set(k, v));
+    }
+    const str = current.toString();
+    const url = str ? `/?${str}` : "/";
+    const curUrl = window.location.pathname + window.location.search;
+    if (curUrl !== url) {
+      window.history.replaceState(window.history.state, "", url);
+    }
   }, [filters, sort, viewMode]);
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);

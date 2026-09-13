@@ -53,45 +53,7 @@ import {
 } from "./adminTypes";
 import { customerApi, interactionApi } from "../api/supabaseApi";
 import CartIcon from "../components/CartIcon";
-
-// ─── Status badge ─────────────────────────────────────────────────────────
-const ORDER_STATUS_LABEL: Record<
-  string,
-  { label: string; color: string; bg: string }
-> = {
-  pending: { label: "En attente", color: "#92400e", bg: "#fef3c7" },
-  in_production: { label: "En production", color: "#1e40af", bg: "#dbeafe" },
-  shipped: { label: "Expédiée", color: "#065f46", bg: "#d1fae5" },
-  delivered: { label: "Livrée", color: "#166534", bg: "#dcfce7" },
-  cancelled: { label: "Annulée", color: "#991b1b", bg: "#fee2e2" },
-  on_hold: { label: "En pause", color: "#92400e", bg: "#fef3c7" },
-  refunded: { label: "Remboursée", color: "#4c1d95", bg: "#ede9fe" },
-  returned: { label: "Retournée", color: "#9f1239", bg: "#ffe4e6" },
-};
-
-function OrderStatusBadge({ status }: { status: string }) {
-  const s = ORDER_STATUS_LABEL[status] ?? {
-    label: status,
-    color: "#555",
-    bg: "#f3f4f6",
-  };
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
+import { OrderStatusBadge } from "./orderStatusLabels";
 
 // ─── Format date ──────────────────────────────────────────────────────────
 function formatDate(iso?: string) {
@@ -557,6 +519,50 @@ function CustomerDetailPanel({
             />
             {customer.email}
           </p>
+          {/* Préférences email (lecture seule) : expliquent quels emails
+              transactionnels partent ou non (order_confirmation,
+              shipping_update). Modifiables côté compte + page /unsubscribe. */}
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              flexWrap: "wrap",
+              marginTop: 6,
+            }}
+          >
+            {(
+              [
+                { key: "order_confirmation", label: "Confirmations" },
+                { key: "shipping_update", label: "Suivi colis" },
+                { key: "promotions", label: "Promos" },
+              ] as const
+            ).map(({ key, label }) => {
+              const on =
+                customer.emailPreferences?.[key] !== false;
+              return (
+                <span
+                  key={key}
+                  title={
+                    on
+                      ? "Email activé pour ce client"
+                      : "Email coupé par le client (compte / désinscription)"
+                  }
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: on ? "#d1fae5" : "#f3f4f6",
+                    color: on ? "#065f46" : "#9ca3af",
+                    border: "1px solid var(--color-border)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {on ? "✓" : "✕"} {label}
+                </span>
+              );
+            })}
+          </div>
         </div>
         <div
           style={{

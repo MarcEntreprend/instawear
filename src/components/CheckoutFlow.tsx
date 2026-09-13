@@ -1397,11 +1397,14 @@ function StripeCardForm({
           .catch(console.warn);
       }
 
-      // 3. Save order in Supabase
+      // 3. Save order in Supabase (clientId lié si loggé — comme le hosted :
+      // guest et loggé partagent le même flux, seul client_id diffère et
+      // sert aux notifs in-app ; l'email part vers contactEmail dans tous
+      // les cas via le webhook payment_intent.succeeded → handlePaidOrder).
       try {
         await orderApi.create({
           id: orderId,
-          clientId: null,
+          clientId,
           clientName: contactName,
           clientEmail: contactEmail || null,
           createdAt: new Date().toISOString(),
@@ -1483,6 +1486,19 @@ function StripeCardForm({
         } as any);
         shouldSendTelegram().then((should) => {
           if (should) {
+            const recapCart = cart.filter((it: any) => {
+              const p: any = it.product;
+              if (!p?.isActive) return false;
+              const v = p.variants?.find(
+                (vv: any) =>
+                  String(vv.color).toLowerCase() ===
+                  String(it.selectedColor).toLowerCase(),
+              );
+              if (!v) return p.variants?.length ? false : true;
+              const e = v.sizes?.[it.selectedSize];
+              if (!e) return false;
+              return ((e as any).stock_status || "available") === "available";
+            });
             sendTelegramNotification(
               orderId,
               contactName,
@@ -1493,22 +1509,17 @@ function StripeCardForm({
               city,
               zip,
               country,
-              cart.filter((it: any) => {
-                const p: any = it.product;
-                if (!p?.isActive) return false;
-                const v = p.variants?.find(
-                  (vv: any) =>
-                    String(vv.color).toLowerCase() ===
-                    String(it.selectedColor).toLowerCase(),
-                );
-                if (!v) return p.variants?.length ? false : true;
-                const e = v.sizes?.[it.selectedSize];
-                if (!e) return false;
-                return ((e as any).stock_status || "available") === "available";
-              }),
+              recapCart,
               total,
               currencySymbol,
             );
+            // PAS d'appel email client : le serveur envoie tout via le webhook
+            // payment_intent.succeeded → handlePaidOrder (Telegram serveur +
+            // email client + Printful + email admin, Phase 5). Requiert
+            // l'événement payment_intent.succeeded abonné côté dashboard
+            // Stripe (Developers → Webhooks → endpoint → Add events),
+            // sinon les achats carte restent pending sans notifications
+            // (un appel client en plus ferait doublon une fois abonné).
           }
         });
 
@@ -2605,7 +2616,10 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send recap via Telegram — admin only (non-blocking)
+        // Send recap via Telegram — admin only (non-blocking).
+        // PAS de doublon email ici : le fetch mourrait à la redirection
+        // Stripe. L'email admin part côté serveur (webhook
+        // checkout.session.completed → admin-order-notify, garanti + retry).
         shouldSendTelegram().then((should) => {
           if (should) {
             sendTelegramNotification(

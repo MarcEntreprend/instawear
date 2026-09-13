@@ -1053,6 +1053,10 @@ export const orderApi = {
     return order;
   },
   async updateStatus(id: string, status: OrderStatus): Promise<void> {
+    // @deprecated — Voie historique (écriture directe + emails front).
+    // Ne plus appeler depuis l'admin : utiliser updateStatusViaEdge
+    // (state-machine serveur + email canonique + zéro doublon).
+    // Conservée pour compatibilité ; aucun appelant admin restant.
     const { error } = await supabase
       .from("orders")
       .update({ status })
@@ -1118,6 +1122,34 @@ export const orderApi = {
     } catch (e) {
       console.warn("Échec création notification statut", e);
     }
+  },
+  /**
+   * Voie unique des changements manuels admin (Phase 3) : edge
+   * order-status-update — JWT admin, state-machine serveur, in-app +
+   * email canonique côté serveur. Retourne { emailed } pour le feedback UI.
+   * Lève Error avec le message edge (transition refusée, transmission
+   * Printful refusée…).
+   */
+  async updateStatusViaEdge(
+    id: string,
+    status: string,
+    reason?: string,
+  ): Promise<{ emailed: boolean; status: string; transmitted?: boolean }> {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/order-status-update`,
+      {
+        method: "POST",
+        headers: await getPodAuthHeaders(),
+        body: JSON.stringify({ orderId: id, toStatus: status, reason: reason || undefined }),
+      },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    return {
+      emailed: !!data.emailed,
+      status: data.status || status,
+      transmitted: data.transmitted,
+    };
   },
   async exportCsv(): Promise<string> {
     const orders = await this.list();

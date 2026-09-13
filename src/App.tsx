@@ -69,6 +69,12 @@ import {
 } from "./hooks/useProductAvailability";
 import { supabase } from "./lib/supabaseClient";
 import {
+  loadGuestCart,
+  saveGuestCart,
+  clearGuestCart,
+  resolveCartLines,
+} from "./lib/guestCart";
+import {
   productApi,
   heroPromotionsApi,
   customerApi,
@@ -301,6 +307,7 @@ export default function App() {
   useEffect(() => {
     if (orderSuccessId) {
       setCart([]);
+      clearGuestCart();
       setCartLoaded(true);
     }
   }, [orderSuccessId]);
@@ -356,6 +363,10 @@ export default function App() {
   >([]);
   const [cacheReady, setCacheReady] = useState(false);
 
+  // Hydratation invité : une seule fois par session (jamais d'écrasement
+  // des modifications ultérieures).
+  const guestHydrated = useRef(false);
+
   // Charger le panier de l'utilisateur connecté depuis Supabase
   useEffect(() => {
     const loadCart = async () => {
@@ -375,50 +386,39 @@ export default function App() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
+        guestHydrated.current = false;
         const customer = allCustomers.find((c) => c.email === user.email);
         if (customer) {
           const cartItems = await customerApi.getCart(customer.id);
-          setCart(
-            cartItems
-              .map((item) => {
-                const product = products.find((p) => p.id === item.productId);
-                if (!product) return null;
-                let unitPrice =
-                  product.price +
-                  (product.sizeSurcharge?.[item.selectedSize] ?? 0);
-                if (product.variants?.length) {
-                  const variant = product.variants.find(
-                    (v) => v.color === item.selectedColor,
-                  );
-                  if (variant?.sizes?.[item.selectedSize]?.price != null) {
-                    unitPrice = variant.sizes[item.selectedSize].price;
-                  }
-                }
-                return {
-                  product,
-                  selectedColor: item.selectedColor,
-                  selectedSize: item.selectedSize,
-                  quantity: item.quantity,
-                  unitPrice,
-                };
-              })
-              .filter((ci): ci is CartItem => ci !== null),
-          );
+          setCart(resolveCartLines(cartItems, products));
           setCartLoaded(true);
         }
+      } else if (!guestHydrated.current && products.length > 0) {
+        // Invité : restaure le panier localStorage (lignes validées, prix frais).
+        guestHydrated.current = true;
+        const lines = loadGuestCart();
+        if (lines.length > 0) {
+          setCart(resolveCartLines(lines, products));
+        }
+        setCartLoaded(true);
       }
     };
     loadCart();
   }, [isAdmin, isUser, products, stripeConfirmOrderId, orderSuccessId]);
 
-  // Save cart to Supabase
+  // Save cart to Supabase (connecté) ou localStorage (invité, best-effort).
+  // cartLoaded garde-fou : jamais d'écriture avant hydratation (sinon on
+  // écraserait le stockage avec []).
   useEffect(() => {
     if (!cartLoaded) return;
     const syncCart = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user?.email) return;
+      if (!user?.email) {
+        saveGuestCart(cart);
+        return;
+      }
       // Recherche locale pour éviter l'erreur 406
       const customer = allCustomers.find((c) => c.email === user.email);
       if (!customer) return;
@@ -1064,33 +1064,10 @@ export default function App() {
       });
   }, [heroPromotions, products]);
 
-  // LCP : précharge la 1re image hero dès qu'elle est connue (découverte plus
-  // tôt que le rendu <img>, sans attendre le paint). Rien si placeholder.
-  useEffect(() => {
-    const first = heroBanners[0]?.image;
-    if (!first || first === PLACEHOLDER_IMG) return;
-    const KEY = "data-hero-preload";
-    let link = document.head.querySelector<HTMLLinkElement>(`link[${KEY}]`);
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "preload";
-      link.setAttribute("as", "image");
-      link.setAttribute(KEY, "");
-      try {
-        (link as HTMLLinkElement & { fetchPriority?: string }).fetchPriority =
-          "high";
-      } catch {
-        /* navigateurs sans support : preload simple */
-      }
-      // href AVANT append : sinon le navigateur log
-      // "<link rel=preload> has an invalid href value".
-      link.setAttribute("href", first);
-      document.head.appendChild(link);
-    } else if (link.getAttribute("href") !== first) {
-      link.setAttribute("href", first);
-    }
-  }, [heroBanners]);
-
+  // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS
+  // le paint donc le <img> gagne toujours la course (preload inutile + warnings
+  // "preloaded but not used"). Le LCP vient du shell prerender (image visible
+  // avant le JS) + fetchPriority="high" sur le 1er slide. Rien si placeholder.
   const scrollToSection = (
     section:
       | "catalog"
@@ -1160,6 +1137,7 @@ export default function App() {
     // s'affiche et le panier local se vide quoi qu'il arrive ensuite.
     // Force la nouvelle page dédiée /order/success/:id pour garantir l'affichage
     setCart([]);
+    clearGuestCart();
     setCartLoaded(false);
     setStripeConfirmOrderId(orderId);
     setOrderSuccessId(orderId);
@@ -1290,6 +1268,7 @@ export default function App() {
       }
       if (id && id.startsWith("ORD-")) {
         setCart([]);
+        clearGuestCart();
         setCartLoaded(true);
         setOrderSuccessId(id);
         setStripeConfirmOrderId(id);
@@ -1604,6 +1583,7 @@ export default function App() {
           setUserName("");
           setUserEmail("");
           setCart([]);
+          clearGuestCart();
           setFavorites([]);
           setCartLoaded(false);
           setShowFavoritesOnly(false);
@@ -1933,6 +1913,7 @@ export default function App() {
             setUserName("");
             setUserEmail("");
             setCart([]);
+            clearGuestCart();
             setFavorites([]);
             setCartLoaded(false);
             setShowFavoritesOnly(false);
@@ -1981,6 +1962,7 @@ export default function App() {
             onClose={() => setCheckoutOpen(false)}
             onSuccess={() => {
               setCart([]);
+              clearGuestCart();
               showToast(
                 "🎉 Order confirmed! A confirmation email has been sent.",
                 "success",
@@ -2020,6 +2002,7 @@ export default function App() {
           }}
           onClearCart={() => {
             setCart([]);
+            clearGuestCart();
             setCartLoaded(false);
           }}
         />

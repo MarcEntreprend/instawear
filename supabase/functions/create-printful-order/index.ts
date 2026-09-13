@@ -6,6 +6,11 @@ import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
+// Moule unique des emails client (canonique : supabase/functions/_shared/
+// orderStatusEmails.ts — toute modification se fait là-bas puis recopie
+// à l'identique ici + printful-webhook + tests).
+import { buildInProductionEmail } from "./_shared/orderStatusEmails.ts";
+import { buildCancelledEmail } from "./_shared/orderStatusEmails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -174,8 +179,10 @@ async function handleCancelPrintfulOrder(
     })
     .eq("id", orderId);
 
-  // Notif admin + notif client (l'email annulé part côté frontend via le
-  // template existant, comme pour tout passage à cancelled).
+  // Notif admin + notif client + email client canonique (moule Phase 2).
+  // Le front n'envoie plus rien sur ce chemin (order-status-update est la
+  // voie unique) : un seul email garanti, même si l'admin clique deux fois
+  // (le 2e appel trouve le statut distant déjà supprimé → 409 avant email).
   try {
     await supabaseAdmin.from("notifications").insert({
       title: `Commande ${orderId} annulée chez Printful`,
@@ -198,6 +205,44 @@ async function handleCancelPrintfulOrder(
         metadata: { orderId, status: "cancelled" },
       });
     } catch {}
+  }
+  if (order.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(order.client_email).trim())) {
+    try {
+      const { data: oItems } = await supabaseAdmin
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderId);
+      let symbol = "$";
+      try {
+        const { data: ss } = await supabaseAdmin
+          .from("store_settings")
+          .select("currency")
+          .eq("id", true)
+          .maybeSingle();
+        const symbols: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", BRL: "R$", CAD: "CA$", CHF: "CHF", JPY: "¥", MXN: "MX$", AUD: "A$" };
+        symbol = symbols[String((ss as any)?.currency || "USD").toUpperCase()] || "$";
+      } catch {}
+      const built = buildCancelledEmail(
+        order,
+        Array.isArray(oItems) ? oItems : [],
+        symbol,
+        "Annulée chez notre fournisseur d'impression.",
+      );
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        },
+        body: JSON.stringify({
+          to: String(order.client_email).trim(),
+          subject: built.subject,
+          html: built.html,
+        }),
+      });
+    } catch (err) {
+      console.error("Cancelled email (printful cancel) error:", logSafe(err));
+    }
   }
 
   return new Response(
@@ -776,36 +821,77 @@ export default {
       }
 
       // 6. Envoyer l'email "in production" si le client a un email
+      // (moule canonique : stepper + items + totaux + CTA, comme confirmed).
+      // Respecte shipping_update=false (compte /unsubscribe) ; ligne
+      // absente = défaut true (on envoie).
       if (order.client_email) {
-        const partialNote = hasBlocked
-          ? `<p style="margin:12px 0;color:#92400e;background:#fef3c7;padding:10px 12px;border-radius:8px;font-size:13px;border:1px solid #fcd34d;">Note: ${blockedItems.length} article(s) de votre commande est/sont indisponible(s) (supprimé/rupture) et n'a/ont pas été envoyé(s) à l'impression. Les ${printfulItems.length} autre(s) sont en cours. Un remboursement partiel sera traité si nécessaire.</p>`
-          : "";
-        const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#ede9fe;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#7c3aed;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#7c3aed;margin:4px 0 0;font-size:14px;">We're printing your order!</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">In Production 🖨️</h2>
-<p style="margin:0 0 12px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "Customer"}</strong>,<br><br>Your order <strong>${order.id}</strong> is now being printed. We'll notify you as soon as it ships.</p>${partialNote}
-<a href="https://instawear.vercel.app/?order=${encodeURIComponent(order.id)}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0 0 8px;">This email was sent to <strong>${order.client_email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
-<p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
-</div></div></body></html>`;
-
-        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-          },
-          body: JSON.stringify({
-            to: order.client_email,
-            subject: `Your order ${order.id} is now in production!`,
-            html,
-          }),
-        });
+        try {
+          const { data: cust } = await supabaseAdmin
+            .from("customers")
+            .select("email_preferences")
+            .eq("email", String(order.client_email).trim())
+            .maybeSingle();
+          const prefs = (cust as any)?.email_preferences ?? null;
+          if (
+            prefs &&
+            typeof prefs === "object" &&
+            (prefs as Record<string, unknown>).shipping_update === false
+          ) {
+            console.log(`[create-printful-order] in_production ${logSafe(orderId)} ignoré (shipping_update=false)`);
+          } else {
+          let currencySymbol = "$";
+          try {
+            const { data: ss } = await supabaseAdmin
+              .from("store_settings")
+              .select("currency")
+              .eq("id", true)
+              .maybeSingle();
+            const symbols: Record<string, string> = {
+              USD: "$",
+              EUR: "€",
+              GBP: "£",
+              BRL: "R$",
+              CAD: "CA$",
+              CHF: "CHF",
+              JPY: "¥",
+              MXN: "MX$",
+              AUD: "A$",
+            };
+            currencySymbol =
+              symbols[String((ss as any)?.currency || "USD").toUpperCase()] || "$";
+          } catch {}
+          const blockedNote = hasBlocked
+            ? `Note: ${blockedItems.length} article(s) de votre commande est/sont indisponible(s) (supprimé/rupture) et n'a/ont pas été envoyé(s) à l'impression. Les ${printfulItems.length} autre(s) sont en cours. Un remboursement partiel sera traité si nécessaire.`
+            : null;
+          const built = buildInProductionEmail(
+            order,
+            orderItems.map((it: any) => ({
+              product_title: it.product_title,
+              product_image: it.product_image,
+              selected_color: it.selected_color,
+              selected_size: it.selected_size,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            })),
+            currencySymbol,
+            { blockedNote },
+          );
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            },
+            body: JSON.stringify({
+              to: order.client_email,
+              subject: built.subject,
+              html: built.html,
+            }),
+          });
+          } // fin else (shipping_update autorisé)
+        } catch (err) {
+          console.error("In-production email error:", logSafe(err));
+        }
       }
 
       return new Response(

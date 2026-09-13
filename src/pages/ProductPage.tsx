@@ -1,5 +1,5 @@
 ﻿// src/pages/ProductPage.tsx — V2 full + live Supabase
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   ArrowLeft,
   Star,
@@ -87,6 +87,19 @@ export default function ProductPage({
   );
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  // Buy-bar mobile : visible quand le CTA principal sort de l'écran.
+  const ctaSentinelRef = useRef<HTMLDivElement>(null);
+  const [showBuyBar, setShowBuyBar] = useState(false);
+  useEffect(() => {
+    const el = ctaSentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setShowBuyBar(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   const { ids: recentlyIds, addViewed } = useRecentlyViewed();
   const storeCurrency = useCurrencyCode();
 
@@ -791,6 +804,8 @@ export default function ProductPage({
               >
                 Buy now
               </button>
+              {/* Sentinelle buy-bar mobile (observée, invisible) */}
+              <div ref={ctaSentinelRef} aria-hidden="true" />
               <button
                 onClick={() => onToggleFavorite(product.id)}
                 className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold"
@@ -884,28 +899,41 @@ export default function ProductPage({
         onClose={() => setIsSizeGuideOpen(false)}
       />
 
-      <div
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center gap-3 px-4 h-16 safe-bottom"
-        style={{
-          background: "var(--color-surface)",
-          borderTop: "1px solid var(--color-border)",
-          boxShadow: "var(--shadow-lg)",
-        }}
-      >
-        <span
-          className="text-sm font-extrabold"
-          style={{ color: "var(--color-ink)" }}
+      {/* Buy-bar mobile : seulement quand le CTA principal est hors écran
+          (sentinelle), avec miniature + prix. z-40 sous lightbox (z-70). */}
+      {showBuyBar && (
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center gap-3 px-4 h-16 safe-bottom animate-fade-up"
+          style={{
+            background: "var(--color-surface)",
+            borderTop: "1px solid var(--color-border)",
+            boxShadow: "var(--shadow-lg)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
         >
-          {formatAmount(unitPrice, currencySymbol)}
-        </span>
-        <button
-          onClick={handleAdd}
-          disabled={!canAdd}
-          className="btn btn-accent flex-1 disabled:opacity-40"
-        >
-          <ShoppingBag size={15} /> Add
-        </button>
-      </div>
+          <img
+            src={displayImage}
+            alt=""
+            aria-hidden="true"
+            className="w-10 h-10 rounded-lg object-cover shrink-0"
+            loading="lazy"
+            decoding="async"
+          />
+          <span
+            className="text-sm font-extrabold truncate"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {formatAmount(unitPrice, currencySymbol)}
+          </span>
+          <button
+            onClick={handleAdd}
+            disabled={!canAdd}
+            className="btn btn-accent flex-1 disabled:opacity-40"
+          >
+            <ShoppingBag size={15} /> Add
+          </button>
+        </div>
+      )}
     </div>
   );
 }
