@@ -60,9 +60,18 @@ test("anciens types toujours supportés (pas de régression)", () => {
 // ─── mapPrintfulStatusToLocal (miroir edge) ─────────────────────────────────
 
 function mapPrintfulStatusToLocal(pfStatus: unknown): string | null {
-  const s = String(pfStatus || "").toLowerCase();
+  const s = String(pfStatus || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-]+/g, "");
   if (s === "pending" || s === "inprocess") return "in_production";
   if (s === "partial") return "partial";
+  // fulfilled = tout expédié → shipped (delivered reste manuel admin)
+  if (s === "fulfilled") return "shipped";
+  // Filet order_updated si les événements dédiés ont été manqués
+  if (s === "failed" || s === "canceled" || s === "cancelled")
+    return "cancelled";
+  if (s === "onhold") return "on_hold";
   return null;
 }
 
@@ -70,24 +79,30 @@ test("pending/inprocess → in_production", () => {
   assert.equal(mapPrintfulStatusToLocal("pending"), "in_production");
   assert.equal(mapPrintfulStatusToLocal("inprocess"), "in_production");
   assert.equal(mapPrintfulStatusToLocal("Pending"), "in_production");
+  assert.equal(mapPrintfulStatusToLocal("in_process"), "in_production");
 });
 
 test("partial → partial", () => {
   assert.equal(mapPrintfulStatusToLocal("partial"), "partial");
 });
 
-test("draft → null (on garde paid, pas de recul)", () => {
+test("fulfilled → shipped (filet order_updated, delivered reste manuel)", () => {
+  assert.equal(mapPrintfulStatusToLocal("fulfilled"), "shipped");
+  assert.equal(mapPrintfulStatusToLocal("Fulfilled"), "shipped");
+});
+
+test("failed/canceled/onhold → cancelled/on_hold (filet si dédiés manqués)", () => {
+  assert.equal(mapPrintfulStatusToLocal("failed"), "cancelled");
+  assert.equal(mapPrintfulStatusToLocal("canceled"), "cancelled");
+  assert.equal(mapPrintfulStatusToLocal("cancelled"), "cancelled");
+  assert.equal(mapPrintfulStatusToLocal("onhold"), "on_hold");
+  assert.equal(mapPrintfulStatusToLocal("on_hold"), "on_hold");
+  assert.equal(mapPrintfulStatusToLocal("on-hold"), "on_hold");
+});
+
+test("draft/inreview/archived → null (pas de recul)", () => {
   assert.equal(mapPrintfulStatusToLocal("draft"), null);
-});
-
-test("failed/canceled/onhold → null (événements dédiés propriétaires)", () => {
-  assert.equal(mapPrintfulStatusToLocal("failed"), null);
-  assert.equal(mapPrintfulStatusToLocal("canceled"), null);
-  assert.equal(mapPrintfulStatusToLocal("onhold"), null);
-});
-
-test("fulfilled/archived → null (package_shipped propriétaire)", () => {
-  assert.equal(mapPrintfulStatusToLocal("fulfilled"), null);
+  assert.equal(mapPrintfulStatusToLocal("inreview"), null);
   assert.equal(mapPrintfulStatusToLocal("archived"), null);
 });
 
@@ -183,14 +198,152 @@ test("déjà in_production → silencieux (pas de spam)", () => {
   });
 });
 
-test("update sans changement utile (fulfilled) → silencieux", () => {
+test("update fulfilled → shipped (filet, pas silencieux)", () => {
   assert.deepEqual(handleOrderUpdated("in_production", "fulfilled"), {
-    change: null,
+    change: "shipped",
+  });
+});
+
+test("update failed/canceled → cancelled (filet si dédiés manqués)", () => {
+  assert.deepEqual(handleOrderUpdated("in_production", "failed"), {
+    change: "cancelled",
+  });
+  assert.deepEqual(handleOrderUpdated("paid", "canceled"), {
+    change: "cancelled",
   });
 });
 
 test("transition illégale refusée (shipped + pending)", () => {
   assert.deepEqual(handleOrderUpdated("shipped", "pending"), { change: null });
+});
+
+// ─── Multi-colis : 1er shipment → partial, dernier → shipped ───────────────
+// Doc : package_shipped = un event PAR colis ; partial = une partie expédiée.
+// Miroir de la décision edge (quantités Shipment.items vs order_items).
+
+function decideShipmentStatus(
+  orderStatus: string,
+  opts: {
+    isDuplicate: boolean;
+    isReship: boolean;
+    currentQty: number | null;
+    totalQty: number | null;
+    prevQty: number;
+    prevKnown: boolean;
+    existingCount: number;
+  },
+): string | null {
+  if (opts.isDuplicate) return null;
+  if (orderStatus === "shipped" || orderStatus === "delivered") return null;
+  if (opts.isReship) return "shipped";
+  if (
+    opts.currentQty != null &&
+    opts.totalQty != null &&
+    opts.prevKnown
+  ) {
+    return opts.prevQty + opts.currentQty < opts.totalQty
+      ? "partial"
+      : "shipped";
+  }
+  if (
+    opts.totalQty != null &&
+    opts.totalQty > 1 &&
+    opts.existingCount === 0 &&
+    opts.currentQty == null
+  ) {
+    return "partial";
+  }
+  return "shipped";
+}
+
+test("1er colis partiel (1/2 unités) → partial", () => {
+  assert.equal(
+    decideShipmentStatus("in_production", {
+      isDuplicate: false,
+      isReship: false,
+      currentQty: 1,
+      totalQty: 2,
+      prevQty: 0,
+      prevKnown: true,
+      existingCount: 0,
+    }),
+    "partial",
+  );
+});
+
+test("dernier colis (cumul = total) → shipped", () => {
+  assert.equal(
+    decideShipmentStatus("partial", {
+      isDuplicate: false,
+      isReship: false,
+      currentQty: 1,
+      totalQty: 2,
+      prevQty: 1,
+      prevKnown: true,
+      existingCount: 1,
+    }),
+    "shipped",
+  );
+});
+
+test("colis unique complet → shipped", () => {
+  assert.equal(
+    decideShipmentStatus("in_production", {
+      isDuplicate: false,
+      isReship: false,
+      currentQty: 2,
+      totalQty: 2,
+      prevQty: 0,
+      prevKnown: true,
+      existingCount: 0,
+    }),
+    "shipped",
+  );
+});
+
+test("retry doublon (même tracking) → aucun changement", () => {
+  assert.equal(
+    decideShipmentStatus("partial", {
+      isDuplicate: true,
+      isReship: false,
+      currentQty: 1,
+      totalQty: 2,
+      prevQty: 0,
+      prevKnown: true,
+      existingCount: 0,
+    }),
+    null,
+  );
+});
+
+test("jamais de recul shipped → partial", () => {
+  assert.equal(
+    decideShipmentStatus("shipped", {
+      isDuplicate: false,
+      isReship: false,
+      currentQty: 1,
+      totalQty: 3,
+      prevQty: 0,
+      prevKnown: true,
+      existingCount: 1,
+    }),
+    null,
+  );
+});
+
+test("quantités inconnues, 1er colis multi-unités → partial prudent", () => {
+  assert.equal(
+    decideShipmentStatus("in_production", {
+      isDuplicate: false,
+      isReship: false,
+      currentQty: null,
+      totalQty: 3,
+      prevQty: 0,
+      prevKnown: true,
+      existingCount: 0,
+    }),
+    "partial",
+  );
 });
 
 // ─── Produits : décisions par type ──────────────────────────────────────────

@@ -71,19 +71,34 @@ function isWebhookTransitionAllowed(from: string, to: string): boolean {
   return from === to || ALLOWED_WEBHOOK_TRANSITIONS.has(`${from}->${to}`);
 }
 
-// Mappe un statut Printful (Orders API : draft/pending/failed/canceled/
-// inprocess/onhold/partial/fulfilled/archived) vers notre statut interne.
-// Retourne null quand AUCUNE action locale n'est due :
-// - draft : commande à l'état brouillon côté Printful, on garde paid.
-// - failed/canceled/onhold : possédés par order_failed/order_canceled/
-//   order_put_hold (évite les doubles traitements via order_updated).
-// - fulfilled/archived : possédés par package_shipped (tracking requis).
-// Seuls pending/inprocess (-> in_production) et partial (-> partial,
-// migration 20261015 requise) sont réconciliés ici.
+// Mappe un statut Printful (Orders API + openapi.json `Order.status` :
+// draft/inreview/pending/failed/canceled/inprocess/onhold/partial/
+// fulfilled/archived — orthographes sans underscore côté API : `canceled`
+// 1 L, `onhold` collé) vers notre statut interne.
+// Normalisation : casse + séparateurs ignorés (`on-hold`/`on_hold`/`onhold`
+// → identique, `canceled`/`cancelled` → identique).
+// Retourne null quand AUCUNE action locale n'est due via order_updated :
+// - draft/inreview/archived : brouillon/revue/archivé côté Printful, on ne
+//   recule jamais (order_created possède la liaison, pas le statut).
+// Seuls les statuts de progression sont réconciliés ici ; les événements
+// dédiés (order_failed/order_canceled/order_put_hold/...) restent
+// propriétaires de leur transition + email, mais order_updated sert de
+// filet de rattrapage s'ils ont été manqués (retry Printful 1..1024 min).
 function mapPrintfulStatusToLocal(pfStatus: unknown): string | null {
-  const s = String(pfStatus || "").toLowerCase();
+  const s = String(pfStatus || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-]+/g, "");
   if (s === "pending" || s === "inprocess") return "in_production";
   if (s === "partial") return "partial";
+  // fulfilled = tout expédié côté Printful → chez nous `shipped` (le
+  // `delivered` reste manuel admin). Sans ça, un order_updated/fulfilled
+  // sans package_shipped laissait la commande bloquée.
+  if (s === "fulfilled") return "shipped";
+  // Filet order_updated : si les événements dédiés ont été manqués.
+  if (s === "failed" || s === "canceled" || s === "cancelled")
+    return "cancelled";
+  if (s === "onhold") return "on_hold";
   return null;
 }
 
@@ -101,6 +116,7 @@ const EMAIL_STEP_INDEX: Record<string, number> = {
   paid: 0,
   pending: 1,
   in_production: 2,
+  partial: 2,
   shipped: 3,
   delivered: 4,
   on_hold: 2,
@@ -498,6 +514,15 @@ export default {
       const type = payload?.type;
       const store = payload?.store;
       const data = payload?.data;
+      // Doc Webhook API : chaque event porte `retries` (0 = 1er envoi,
+      // Printful retente en 1/4/16/64/256/1024 min tant que pas 2xx).
+      // Loggé systématiquement : indispensable pour distinguer un doublon
+      // de retry d'un vrai 2e colis / vrai changement de statut.
+      try {
+        console.log(
+          `[printful-webhook] type=${logSafe(type)} retries=${logSafe(payload?.retries ?? 0)} store=${logSafe(store)} created=${logSafe(payload?.created ?? null)}`,
+        );
+      } catch {}
       if (typeof type !== "string" || !data || typeof data !== "object") {
         return new Response(
           JSON.stringify({ error: "Structure webhook invalide" }),
@@ -887,11 +912,8 @@ export default {
       let isDuplicate = false;
 
       if (type === "package_shipped") {
-        if (order.status !== "shipped") {
-          newStatus = "shipped";
-        }
-
-        // Normaliser l'existant en tableau
+        // Normaliser l'existant en tableau (avant toute décision de statut :
+        // le multi-colis doc — un event PAR colis — en dépend).
         const existing = order.tracking_info;
         const existingShipments: any[] = Array.isArray(existing)
           ? existing
@@ -900,13 +922,113 @@ export default {
             : [];
 
         // Anti-doublon : Printful peut renvoyer le même webhook en retry
-        // (même tracking_number). Dans ce cas on ne ré-ajoute pas le colis
-        // et on ne renvoie ni email ni notification.
+        // (même tracking_number, retries>0). Dans ce cas on ne ré-ajoute
+        // pas le colis et on ne renvoie ni email ni notification.
         if (trackingNumber) {
           isDuplicate = existingShipments.some(
             (s) => s?.tracking_number === trackingNumber,
           );
         }
+
+        // Compteur du colis courant (hors bloc décision pour stockage ci-dessous).
+        let currentQty: number | null = null;
+        if (!isDuplicate) {
+          // ── Quantités : Shipment.items (doc openapi `Shipment.items[]`) ──
+          // Chaque item porte `quantity`. On stocke item_count par colis
+          // pour cumuler à travers les webhooks successifs.
+          try {
+            const sItems = (shipment as any)?.items;
+            if (Array.isArray(sItems) && sItems.length > 0) {
+              let sum = 0;
+              let known = true;
+              for (const it of sItems) {
+                const q = Number((it as any)?.quantity);
+                if (!Number.isFinite(q) || q <= 0) {
+                  known = false;
+                  break;
+                }
+                sum += q;
+              }
+              if (known && sum > 0) currentQty = sum;
+            }
+          } catch {}
+          const prevQty = existingShipments.reduce((acc: number, s: any) => {
+            const q = Number(s?.item_count);
+            return acc + (Number.isFinite(q) && q > 0 ? q : 0);
+          }, 0);
+          const prevKnown = existingShipments.every((s: any) => {
+            const q = Number(s?.item_count);
+            return Number.isFinite(q) && q > 0;
+          });
+
+          // Total commandé (source locale, best-effort).
+          let totalQty: number | null = null;
+          try {
+            const { data: oItems } = await supabaseAdmin
+              .from("order_items")
+              .select("quantity")
+              .eq("order_id", orderId);
+            if (Array.isArray(oItems) && oItems.length > 0) {
+              let sum = 0;
+              let known = true;
+              for (const r of oItems) {
+                const q = Number((r as any)?.quantity);
+                if (!Number.isFinite(q) || q <= 0) {
+                  known = false;
+                  break;
+                }
+                sum += q;
+              }
+              if (known && sum > 0) totalQty = sum;
+            }
+          } catch {}
+
+          // ── Décision partial vs shipped (doc : partial = une partie ──
+          // expédiée, le reste suit ; fulfilled = tout expédié) ──
+          // - Jamais de recul shipped → partial.
+          // - Reshipment Printful : on reste shipped.
+          // - Quantités connues : cumulé < total → partial, sinon shipped.
+          // - Quantités inconnues : repli prudent — 1er colis d'une
+          //   commande multi-unités → partial (corrigé en shipped au
+          //   webhook suivant), sinon shipped (ancien comportement).
+          //   L'email "shipped" ne part QUE sur newStatus shipped ; le
+          //   template "partial" arrivera en Phase 2.
+          const isReship = (shipment as any)?.reshipment === true;
+          let wanted: string | null = null;
+          if (order.status !== "shipped" && order.status !== "delivered") {
+            if (isReship) {
+              wanted = "shipped";
+            } else if (
+              currentQty != null &&
+              totalQty != null &&
+              prevKnown
+            ) {
+              wanted =
+                prevQty + currentQty < totalQty ? "partial" : "shipped";
+            } else if (totalQty != null && totalQty > 1 && existingShipments.length === 0 && currentQty == null) {
+              wanted = "partial";
+            } else {
+              wanted = "shipped";
+            }
+            // Garde state-machine : si partial refusé depuis l'état
+            // courant mais shipped accepté (ex. paid→partial ok de toute
+            // façon, mais sécurité), on dégrade proprement ; sinon rien.
+            if (
+              wanted &&
+              !isWebhookTransitionAllowed(order.status, wanted)
+            ) {
+              if (
+                wanted === "partial" &&
+                isWebhookTransitionAllowed(order.status, "shipped")
+              ) {
+                wanted = "shipped";
+              } else {
+                wanted = null;
+              }
+            }
+          }
+          newStatus = wanted;
+        } // fin décision (doublons exclus) — la suite s'exécute dans tous les cas non-dupliqués ci-dessous
 
         // Fenêtre d'arrivée estimée pour CE colis (ship_date + délais)
         const { estimatedMinDate, estimatedMaxDate } = computeEstimate(
@@ -915,7 +1037,8 @@ export default {
           maxDays,
         );
 
-        // Nouveau colis à ajouter (reshipment du flag Printful)
+        // Nouveau colis à ajouter (reshipment du flag Printful + compteur
+        // d'unités pour le cumul multi-colis à travers les webhooks).
         const newShipment = {
           carrier: carrier || null,
           service: shipment?.service || null,
@@ -925,6 +1048,7 @@ export default {
           reshipment: shipment?.reshipment === true,
           estimated_min_date: estimatedMinDate,
           estimated_max_date: estimatedMaxDate,
+          item_count: currentQty,
         };
 
         if (!isDuplicate) {
