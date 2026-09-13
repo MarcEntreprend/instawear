@@ -112,10 +112,13 @@ export default {
       // 2. Ticket support (file admin existante)
       const subjectBase =
         message.length > 60 ? message.slice(0, 60) + "…" : message;
-      const { data: inter, error: interError } = await supabaseAdmin
-        .from("interactions")
-        .insert({
-          customer_id: customer?.id || email,
+      // customer_id : UUID si client connu, sinon email (text, comme le
+      // front), avec repli NULL si le schéma refuse la chaîne (FK/uuid —
+      // le display admin n'utilise que name/email, jamais customer_id).
+      // Chaque tentative est loggée avec son code PG pour diagnostic.
+      let inter: any = null;
+      {
+        const base: Record<string, unknown> = {
           customer_name: customer?.name || email,
           customer_email: email,
           type: "question",
@@ -123,13 +126,39 @@ export default {
           subject: `Contact — ${subjectBase}`,
           last_message: message,
           metadata: { source: "contact-page", registered_user: !!customer },
-        })
-        .select()
-        .single();
-      if (interError || !inter) {
-        console.error("contact-message insert:", logSafe(interError));
+        };
+        const first = await supabaseAdmin
+          .from("interactions")
+          .insert({ ...base, customer_id: customer?.id || email })
+          .select()
+          .single();
+        if (!first.error && first.data) {
+          inter = first.data;
+        } else {
+          console.error(
+            "contact-message ticket(email-id):",
+            logSafe({ code: (first.error as any)?.code, message: (first.error as any)?.message }),
+          );
+          if (!customer) {
+            const second = await supabaseAdmin
+              .from("interactions")
+              .insert({ ...base, customer_id: null })
+              .select()
+              .single();
+            if (!second.error && second.data) {
+              inter = second.data;
+            } else {
+              console.error(
+                "contact-message ticket(null-id):",
+                logSafe({ code: (second.error as any)?.code, message: (second.error as any)?.message }),
+              );
+            }
+          }
+        }
+      }
+      if (!inter) {
         return json(
-          { error: "Envoi impossible pour le moment. Réessayez plus tard." },
+          { error: "Envoi impossible pour le moment. Réessayez plus tard.", code: "TICKET_FAILED" },
           500,
         );
       }

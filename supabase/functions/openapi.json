@@ -59,6 +59,9 @@
     },
     "/order-status-update": {
       "post": { "summary": "Admin: manual order status change (state-machine checked, in-app + canonical customer email)", "x-roles": ["admin"], "x-edges": ["order-status-update"] }
+    },
+    "/interaction-notify": {
+      "post": { "summary": "Notify admin of an account-created support ticket (ownership-checked, deduped)", "x-roles": ["public"], "x-edges": ["interaction-notify"] }
     }
   }
 }
