@@ -31,6 +31,7 @@ const KNOWN_FUNCTIONS = [
   "printful-reports",
   "approve-printful-design",
   "get-shipping-rates",
+  "order-status-update",
 ];
 
 function fmtDate(iso: string): string {

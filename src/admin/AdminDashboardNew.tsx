@@ -38,47 +38,10 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
+import { OrderStatusBadge } from "./orderStatusLabels";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
-}
-
-// ─── Status badge ──────────────────────────────────────────────────────────
-const ORDER_STATUS_LABEL: Record<
-  string,
-  { label: string; color: string; bg: string }
-> = {
-  pending: { label: "En attente", color: "#92400e", bg: "#fef3c7" },
-  in_production: { label: "En production", color: "#1e40af", bg: "#dbeafe" },
-  shipped: { label: "Expédiée", color: "#065f46", bg: "#d1fae5" },
-  delivered: { label: "Livrée", color: "#166534", bg: "#dcfce7" },
-  cancelled: { label: "Annulée", color: "#991b1b", bg: "#fee2e2" },
-  on_hold: { label: "En pause", color: "#92400e", bg: "#fef3c7" },
-  refunded: { label: "Remboursée", color: "#4c1d95", bg: "#ede9fe" },
-  returned: { label: "Retournée", color: "#9f1239", bg: "#ffe4e6" },
-};
-
-function OrderStatusBadge({ status }: { status: string }) {
-  const s = ORDER_STATUS_LABEL[status] ?? {
-    label: status,
-    color: "#555",
-    bg: "#f3f4f6",
-  };
-  return (
-    <span
-      style={{
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {s.label}
-    </span>
-  );
 }
 
 // ─── Stat card  ─────────

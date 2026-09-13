@@ -1,9 +1,9 @@
 // src/admin/ShippedDeliveredPage.tsx
 
-// Suivi des expéditions — vue dédiée aux commandes expédiées et livrées.
-// Objectif : donner à l'admin en un coup d'œil tout ce qui concerne les
-// colis en route ou arrivés (tracking, arrivée estimée, transporteur,
-// réexpédition) sans mélanger avec les commandes en cours de production.
+// Suivi des expéditions — vue dédiée aux commandes avec colis en route ou
+// arrivés (tracking, arrivée estimée, transporteur, réexpédition) sans
+// mélanger avec les commandes en cours de production. `partial` inclus :
+// depuis Phase 0, le 1er colis d'un multi-colis pose ce statut.
 
 import React, { useMemo, useState } from "react";
 import {
@@ -20,8 +20,9 @@ import { orderApi } from "../api/supabaseApi";
 import type { Order } from "./adminTypes";
 import CopyID from "../components/CopyID";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
+import { OrderStatusBadge } from "./orderStatusLabels";
 
-const SHIPPED_STATUSES = new Set(["shipped", "delivered"]);
+const SHIPPED_STATUSES = new Set(["shipped", "partial", "delivered"]);
 
 const formatCurrency = (value: number) =>
   value.toFixed(2).replace(".", ",") + " $";
@@ -43,7 +44,7 @@ export default function ShippedDeliveredPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "shipped" | "delivered"
+    "all" | "shipped" | "partial" | "delivered"
   >("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -80,6 +81,9 @@ export default function ShippedDeliveredPage() {
 
   const shippedCount = (orders ?? []).filter(
     (o) => o.status === "shipped",
+  ).length;
+  const partialCount = (orders ?? []).filter(
+    (o) => o.status === "partial",
   ).length;
   const deliveredCount = (orders ?? []).filter(
     (o) => o.status === "delivered",
@@ -183,8 +187,8 @@ export default function ShippedDeliveredPage() {
               marginTop: 4,
             }}
           >
-            {shippedCount} expédiée(s) · {deliveredCount} livrée(s) — colis
-            suivis par le webhook Printful.
+            {shippedCount} expédiée(s) · {partialCount} partielle(s) ·{" "}
+            {deliveredCount} livrée(s) — colis suivis par le webhook Printful.
           </p>
         </div>
 
@@ -193,7 +197,7 @@ export default function ShippedDeliveredPage() {
           <select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | "shipped" | "delivered")
+              setStatusFilter(e.target.value as "all" | "shipped" | "partial" | "delivered")
             }
             style={{
               background: "var(--color-surface2)",
@@ -207,6 +211,7 @@ export default function ShippedDeliveredPage() {
           >
             <option value="all">Tous les statuts</option>
             <option value="shipped">Expédiée</option>
+            <option value="partial">Partielle</option>
             <option value="delivered">Livrée</option>
           </select>
 
@@ -259,7 +264,8 @@ export default function ShippedDeliveredPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map((order) => {
-            const isShipped = order.status === "shipped";
+            const isShipped =
+              order.status === "shipped" || order.status === "partial";
             const shipments = order.trackingInfo ?? [];
             const expanded = expandedId === order.id;
             return (
@@ -328,19 +334,7 @@ export default function ShippedDeliveredPage() {
                         {order.id}
                       </span>
                       <CopyID id={order.id} size={11} />
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: isShipped ? "#065f46" : "#166534",
-                          background: isShipped ? "#d1fae5" : "#dcfce7",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {isShipped ? "Expédiée" : "Livrée"}
-                      </span>
+                      <OrderStatusBadge status={order.status} />
                       <span
                         style={{
                           fontSize: 12,
