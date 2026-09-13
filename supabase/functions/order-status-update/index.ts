@@ -38,6 +38,7 @@ import {
   buildReturnedEmail,
   wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -262,6 +263,8 @@ export default {
           if (actual === "on_hold") {
             // Printful a mis en pause (broderie/coût async) : l'email
             // in_production n'est pas parti, on notifie la pause.
+            // Telegram : possédé par la transmission (chemin on_hold),
+            // jamais ici (zéro doublon).
             const emailed = await sendStatusEmail(
               supabaseUrl,
               serviceRoleKey,
@@ -276,12 +279,14 @@ export default {
         }
         // Déjà transmise (external_order_id posé) : simple mise à jour +
         // in-app, SANS email (la transmission l'a déjà envoyé — zéro doublon).
+        // Telegram : possédé par cet edge (écriture locale, pas de callee).
         await supabaseAdmin.from("orders").update({ status: toStatus }).eq("id", orderId);
         await notifyBoth(supabaseAdmin, order, orderId, fr);
+        await telegramStatus(order.status, order, toStatus, (order as any)?.updated_at ?? null);
         return json({ ok: true, emailed: false, status: toStatus, transmitted: false });
       }
 
-      // ── Cas général : update + in-app + email canonique ──
+      // ── Cas général : update + in-app + email canonique + telegram ──
       const patch: Record<string, any> = { status: toStatus };
       if (reason) {
         const prev = typeof order.notes === "string" ? order.notes : "";
@@ -289,6 +294,7 @@ export default {
       }
       await supabaseAdmin.from("orders").update(patch).eq("id", orderId);
       await notifyBoth(supabaseAdmin, order, orderId, fr);
+      await telegramStatus(order.status, order, toStatus, (order as any)?.updated_at ?? null);
       const emailed = await sendStatusEmail(
         supabaseUrl,
         serviceRoleKey,
@@ -304,6 +310,32 @@ export default {
     }
   },
 };
+
+// ── Telegram admin ORDER STATUS UPDATE (possesseur = cet edge quand il
+// écrit lui-même ; jamais quand la transmission l'a déjà envoyé) ──────────
+async function telegramStatus(
+  from: string,
+  order: any,
+  to: string,
+  prevAt: unknown,
+) {
+  try {
+    await sendTelegramStatus(
+      Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+      Deno.env.get("TELEGRAM_CHAT_ID") || "",
+      {
+        orderId: order.id,
+        from,
+        to,
+        customer: order.client_name || order.client_email || null,
+        updatedAt: new Date(),
+        prevAt,
+      },
+    );
+  } catch (e) {
+    console.warn("[order-status-update] telegram:", logSafe(e));
+  }
+}
 
 // ── In-app client + admin (mêmes tables que le front écrivait en direct) ──
 async function notifyBoth(supabaseAdmin: any, order: any, orderId: string, fr: string) {

@@ -9,6 +9,7 @@ import { isRateLimited, rateLimitKey } from "../_shared/rateLimit.ts";
 import { isValidOrderId } from "../_shared/validators.ts";
 import { fetchWithRetry, reportError } from "../_shared/opsUtils.ts";
 import { buildInProductionEmail } from "../_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "../_shared/telegramNotify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -211,7 +212,7 @@ export default {
       // Verify order exists and has approval_data
       const { data: order, error: orderErr } = await supabaseAdmin
         .from("orders")
-        .select("id, status, approval_data")
+        .select("id, status, approval_data, client_name, client_email, updated_at")
         .eq("id", orderId)
         .maybeSingle();
       if (orderErr || !order) {
@@ -292,6 +293,28 @@ export default {
           .eq("id", orderId);
         if (updateErr) {
           console.warn("Order update after approve:", updateErr);
+        }
+
+        // Telegram admin ORDER STATUS UPDATE (on_hold → in_production),
+        // possédé par cette edge. Best-effort.
+        try {
+          await sendTelegramStatus(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              orderId,
+              from: "on_hold",
+              to: "in_production",
+              customer:
+                (order as any)?.client_name ||
+                (order as any)?.client_email ||
+                null,
+              updatedAt: new Date(),
+              prevAt: (order as any)?.updated_at ?? null,
+            },
+          );
+        } catch (e) {
+          console.warn("Telegram status (approve):", logSafe(e));
         }
 
         // Notification admin

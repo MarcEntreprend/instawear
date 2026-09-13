@@ -11,6 +11,33 @@ import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 // à l'identique ici + printful-webhook + tests).
 import { buildInProductionEmail } from "./_shared/orderStatusEmails.ts";
 import { buildCancelledEmail } from "./_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
+
+// Telegram admin ORDER STATUS UPDATE — possédé par cette edge quand elle
+// écrit elle-même (transmission, pause, annulation). Best-effort.
+async function telegramStatus(
+  from: string,
+  order: any,
+  to: string,
+  prevAt: unknown,
+) {
+  try {
+    await sendTelegramStatus(
+      Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+      Deno.env.get("TELEGRAM_CHAT_ID") || "",
+      {
+        orderId: order.id,
+        from,
+        to,
+        customer: order.client_name || order.client_email || null,
+        updatedAt: new Date(),
+        prevAt,
+      },
+    );
+  } catch (err) {
+    console.error("[create-printful-order] telegram:", logSafe(err));
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -206,6 +233,8 @@ async function handleCancelPrintfulOrder(
       });
     } catch {}
   }
+  // Annulation possédée par cette edge → telegram (email canonique ci-dessous).
+  await telegramStatus(order.status, order, "cancelled", (order as any)?.updated_at ?? null);
   if (order.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(order.client_email).trim())) {
     try {
       const { data: oItems } = await supabaseAdmin
@@ -692,6 +721,9 @@ export default {
             if (!isBlocked) try { await supabaseAdmin.from("order_items").update({ print_status: "failed", block_reason: errText.slice(0, 300) }).eq("id", it.id); } catch {}
           }
           await supabaseAdmin.from("orders").update({ status: "on_hold", notes: (order.notes ? order.notes + "\n" : "") + `[POD P5] Printful 400: ${errText}`.slice(0, 900) }).eq("id", orderId);
+          // Pause possédée par cette edge → telegram (pas d'email : ce
+          // chemin est une erreur, l'admin tranche via order-status-update).
+          await telegramStatus(order.status, order, "on_hold", (order as any)?.updated_at ?? null);
         }
         // Échec définitif côté Printful (après retries) : commande payée
         // non transmise = CRITICAL (notif admin dédupliquée).
@@ -754,6 +786,9 @@ export default {
           })
           .eq("id", orderId);
       }
+      // Transmission possédée par cette edge → telegram (statut réel écrit
+      // ci-dessus, in_production ou partial). L'email client part plus bas.
+      await telegramStatus(order.status, order, updatedStatus, (order as any)?.updated_at ?? null);
 
       // Phase A (gap 8): snapshot des coûts Printful pour affichage ADMIN
       // uniquement. Best-effort : si la colonne printful_costs n'existe pas

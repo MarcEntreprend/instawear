@@ -27,6 +27,7 @@ import {
   buildReturnedEmail,
   wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
+import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -1380,6 +1381,29 @@ export default {
         .from("orders")
         .update(updatePayload)
         .eq("id", orderId);
+
+      // ── Telegram admin ORDER STATUS UPDATE (uniquement sur transition
+      //      réelle : newStatus null sur retry/doublon/illégal → silence).
+      //      Écrit par le possesseur du statut (ce webhook) : zéro doublon
+      //      avec les edges manuel/transmission. Best-effort.
+      if (newStatus) {
+        try {
+          await sendTelegramStatus(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              orderId,
+              from: order.status,
+              to: newStatus,
+              customer: order.client_name || order.client_email || null,
+              updatedAt: new Date(),
+              prevAt: (order as any)?.updated_at ?? null,
+            },
+          );
+        } catch (err) {
+          console.warn("Telegram status error:", logSafe(err));
+        }
+      }
 
       // ── 6. Notifications + email (uniquement si un nouveau colis a
       //      réellement été enregistré, jamais sur un doublon de retry) ──
