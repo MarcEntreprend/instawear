@@ -426,21 +426,40 @@ export default function ReportsPage() {
   }, [allOrders, effectiveStart, effectiveEnd]);
 
   // ─── KPIs ──────────────────────────────────────────────────────────────
+  // CA NET : paniers en attente, annulées, remboursées et retournées exclus
+  // (ni encaissé ni conservé). Les statuts payants restants (paid,
+  // in_production, partial, shipped, delivered, on_hold) comptent plein.
+  // Les volumes (Commandes) restent bruts ; le panier moyen = CA net ÷
+  // commandes nettes (panier des clients qui paient vraiment).
+  const NON_REVENUE_STATUSES = useMemo(
+    () => new Set(["pending", "cancelled", "refunded", "returned"]),
+    [],
+  );
+  const currentNetOrders = useMemo(
+    () => currentOrders.filter((o) => !NON_REVENUE_STATUSES.has(o.status)),
+    [currentOrders, NON_REVENUE_STATUSES],
+  );
+  const previousNetOrders = useMemo(
+    () => previousOrders.filter((o) => !NON_REVENUE_STATUSES.has(o.status)),
+    [previousOrders, NON_REVENUE_STATUSES],
+  );
   const currentRevenue = useMemo(
-    () => currentOrders.reduce((sum, o) => sum + o.totalAmount, 0),
-    [currentOrders],
+    () => currentNetOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    [currentNetOrders],
   );
   const previousRevenue = useMemo(
-    () => previousOrders.reduce((sum, o) => sum + o.totalAmount, 0),
-    [previousOrders],
+    () => previousNetOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    [previousNetOrders],
   );
   const currentOrderCount = currentOrders.length;
   const previousOrderCount = previousOrders.length;
+  const currentNetCount = currentNetOrders.length;
+  const previousNetCount = previousNetOrders.length;
 
   const currentAvgBasket =
-    currentOrderCount > 0 ? currentRevenue / currentOrderCount : 0;
+    currentNetCount > 0 ? currentRevenue / currentNetCount : 0;
   const previousAvgBasket =
-    previousOrderCount > 0 ? previousRevenue / previousOrderCount : 0;
+    previousNetCount > 0 ? previousRevenue / previousNetCount : 0;
 
   const currentNewCustomers = useMemo(() => {
     const start = effectiveStart;
@@ -473,7 +492,7 @@ export default function ReportsPage() {
   // ─── Graphique (revenu par jour) ───────────────────────────────────────
   const chartData = useMemo(() => {
     const revenueMap: Record<string, number> = {};
-    currentOrders.forEach((o) => {
+    currentNetOrders.forEach((o) => {
       const day = o.createdAt.split("T")[0];
       revenueMap[day] = (revenueMap[day] || 0) + o.totalAmount;
     });
@@ -531,7 +550,7 @@ export default function ReportsPage() {
     }
     return aggregated;
   }, [
-    currentOrders,
+    currentNetOrders,
     effectiveStart,
     effectiveEnd,
     period,
@@ -557,11 +576,11 @@ export default function ReportsPage() {
   catLabels["other"] = "Autres";
   catColors["other"] = OTHER_COLOR;
 
-  // ─── Ventes par catégorie ──────────────────────────────────────────────
+  // ─── Ventes par catégorie (CA net uniquement) ────────────────────────────
   const categorySales = useMemo(() => {
     const productMap = new Map(allProducts.map((p) => [p.id, p]));
     const revenueByCat: Record<string, number> = {};
-    currentOrders.forEach((order) => {
+    currentNetOrders.forEach((order) => {
       order.items.forEach((item) => {
         const product = productMap.get(item.productId);
         const cat = product?.category || "other";
@@ -585,9 +604,9 @@ export default function ReportsPage() {
         color: catColors[cat] || OTHER_COLOR,
       }))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [currentOrders, allProducts]);
+  }, [currentNetOrders, allProducts]);
 
-  // ─── Top produits (par CA) ─────────────────────────────────────────────
+  // ─── Top produits (par CA net) ───────────────────────────────────────────
   const topProducts = useMemo(() => {
     const productMap = new Map(allProducts.map((p) => [p.id, p]));
     const agg: Record<
@@ -600,7 +619,7 @@ export default function ReportsPage() {
         image?: string;
       }
     > = {};
-    currentOrders.forEach((order) => {
+    currentNetOrders.forEach((order) => {
       order.items.forEach((item) => {
         const key = item.productId;
         if (!agg[key]) {
@@ -636,16 +655,16 @@ export default function ReportsPage() {
           image: p.image,
         };
       });
-  }, [currentOrders, allProducts, currencySymbol]);
+  }, [currentNetOrders, allProducts, currencySymbol]);
 
   const totalCustomers = stats?.totalCustomers ?? 0;
 
   // ─── Définitions des métriques ─────────────────────────────────────────
   const metricInfos: Record<string, string> = {
-    revenue: `**CA (Chiffre d'Affaires)** = somme des montants totaux de toutes les commandes sur la période « ${periodLabel} ».\n\nLa flèche compare au CA de la période précédente de même durée.`,
-    orders: `**Commandes** = nombre total de commandes enregistrées sur la période « ${periodLabel} ».\n\nLa flèche compare au nombre de commandes de la période précédente de même durée.`,
+    revenue: `**CA net** = somme des montants des commandes payantes sur la période « ${periodLabel} » (hors En attente, Annulées, Remboursées, Retournées).\n\nLa flèche compare au CA net de la période précédente de même durée.`,
+    orders: `**Commandes** = nombre total de commandes enregistrées sur la période « ${periodLabel} » (tous statuts, y compris paniers en attente).\n\nLa flèche compare au nombre de commandes de la période précédente de même durée.`,
     customers: `**Clients (total)** = nombre total de clients dans la base, toutes périodes confondues.\n\nLa flèche compare le nombre de nouveaux clients de la période « ${periodLabel} » à la période précédente.`,
-    basket: `**Panier moyen** = CA total ÷ nombre de commandes sur la période « ${periodLabel} ».\n\nLa flèche compare au panier moyen de la période précédente de même durée.`,
+    basket: `**Panier moyen** = CA net ÷ commandes payantes sur la période « ${periodLabel} ».\n\nLa flèche compare au panier moyen de la période précédente de même durée.`,
     pfprofit: `**Printful (fulfillment)** = données Printful (cache local 12h) : coûts de production+livraison payés à Printful, profit calculé par Printful et commandes payées côté Printful.\n\nAttention : le profit Printful peut être négatif ou approximatif si les prix retail ne sont pas renseignés côté Printful. Période max 6 mois (limite Printful).`,
   };
 
@@ -673,10 +692,10 @@ export default function ReportsPage() {
     rows.push(`Rapport InstaWear – ${periodLabel}`);
     rows.push("");
     rows.push("RÉSUMÉ");
-    rows.push(`CA Total${sep}${currentRevenue.toFixed(2)} ${currencySymbol}`);
-    rows.push(`Commandes${sep}${currentOrderCount}`);
+    rows.push(`CA net (hors En attente/Annulées/Remboursées/Retournées)${sep}${currentRevenue.toFixed(2)} ${currencySymbol}`);
+    rows.push(`Commandes (tous statuts)${sep}${currentOrderCount}`);
     rows.push(
-      `Panier moyen${sep}${currentAvgBasket.toFixed(2)} ${currencySymbol}`,
+      `Panier moyen (commandes payantes)${sep}${currentAvgBasket.toFixed(2)} ${currencySymbol}`,
     );
     rows.push(`Nouveaux clients (période)${sep}${currentNewCustomers}`);
     rows.push(`Clients (total)${sep}${totalCustomers}`);
@@ -1182,7 +1201,7 @@ export default function ReportsPage() {
       >
         <StatCard
           icon={<DollarSign size={20} strokeWidth={2} />}
-          label={`CA (${periodLabel})`}
+          label={`CA net (${periodLabel})`}
           value={`${currentRevenue.toFixed(0)} ${currencySymbol}`}
           delta={revenueDelta}
           onInfo={() => toggleInfo("revenue")}
