@@ -1293,7 +1293,154 @@ function StripeCardForm({
     setProcessing(true);
     setErrorMsg(null);
 
-    // 1. Create PaymentIntent via Edge Function
+    // Ordre strict (comme le hosted) : la commande pending est persistée
+    // AVANT le PaymentIntent, pour que le serveur calcule le montant depuis
+    // la base (produits + port Printful). Sinon le webhook rejetterait le
+    // paiement (montant incohérent → pending muet, sans notifications).
+    // Nettoyage d'une tentative précédente avortée (même orderId, pending).
+    try {
+      await supabase
+        .from("orders")
+        .delete()
+        .eq("id", orderId)
+        .eq("status", "pending");
+    } catch {
+      /* best-effort */
+    }
+
+    // Lier au compte si loggé (guest et loggé partagent le flux, seul
+    // client_id diffère et sert aux notifs in-app ; l'email part vers
+    // contactEmail dans tous les cas via le webhook → handlePaidOrder).
+    let clientId: string | null = null;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: existing } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        clientId = existing?.id || user.id;
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+
+    try {
+      await orderApi.create({
+        id: orderId,
+        clientId,
+        clientName: contactName,
+        clientEmail: contactEmail || null,
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        totalAmount: total,
+        shippingCost,
+        shippingMethodName,
+        shippingDeliveryEstimate,
+        shippingAddress: {
+          fullName: contactName,
+          address: reception === "livraison" ? address : "Pickup",
+          city: reception === "livraison" ? city : "",
+          zip: reception === "livraison" ? zip : "",
+          country: reception === "livraison" ? country : "FR",
+          state_code: reception === "livraison" ? stateCode : "",
+          tax_number: reception === "livraison" ? taxNumber : "",
+          phone: contactPhone,
+        },
+        notes:
+          message +
+          (cart.length !==
+          cart.filter((it: any) => {
+            const p: any = it.product;
+            if (!p?.isActive) return false;
+            const v = p.variants?.find(
+              (vv: any) =>
+                String(vv.color).toLowerCase() ===
+                String(it.selectedColor).toLowerCase(),
+            );
+            if (!v) return p.variants?.length ? false : true;
+            const e = v.sizes?.[it.selectedSize];
+            if (!e) return false;
+            return ((e as any).stock_status || "available") === "available";
+          }).length
+            ? ` [POD: ${
+                cart.length -
+                cart.filter((it: any) => {
+                  const p: any = it.product;
+                  if (!p?.isActive) return false;
+                  const v = p.variants?.find(
+                    (vv: any) =>
+                      String(vv.color).toLowerCase() ===
+                      String(it.selectedColor).toLowerCase(),
+                  );
+                  if (!v) return p.variants?.length ? false : true;
+                  const e = v.sizes?.[it.selectedSize];
+                  if (!e) return false;
+                  return (
+                    ((e as any).stock_status || "available") === "available"
+                  );
+                }).length
+              } unavailable item(s) not charged]`
+            : ""),
+        items: cart
+          .filter((it: any) => {
+            const p: any = it.product;
+            if (!p?.isActive) return false;
+            const v = p.variants?.find(
+              (vv: any) =>
+                String(vv.color).toLowerCase() ===
+                String(it.selectedColor).toLowerCase(),
+            );
+            if (!v) return p.variants?.length ? false : true;
+            const e = v.sizes?.[it.selectedSize];
+            if (!e) return false;
+            return ((e as any).stock_status || "available") === "available";
+          })
+          .map((item, idx) => ({
+            id: `item-${orderId}-${idx}`,
+            orderId,
+            productId: item.product.id,
+            productTitle: item.product.title,
+            productImage: getVariantImage(item.product, item.selectedColor),
+            selectedColor: item.selectedColor || "#000000",
+            selectedSize: item.selectedSize || "M",
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+      } as any);
+    } catch (e: any) {
+      setProcessing(false);
+      setErrorMsg("Could not start payment. Please try again.");
+      onError(e?.message || "");
+      return;
+    }
+
+    // Sauvegarder l'adresse de livraison pour le client
+    if (clientId) {
+      customerApi
+        .saveAddressIfNew(clientId, {
+          full_name: contactName,
+          phone: contactPhone,
+          address,
+          city,
+          zip,
+          country,
+          state_code: stateCode,
+          tax_number: taxNumber,
+        })
+        .then((addressId) => {
+          if (addressId) customerApi.setDefaultAddress(clientId, addressId);
+        })
+        .catch(console.warn);
+    }
+
+    // 1. Create PaymentIntent via Edge Function (le serveur recalcule le
+    // montant depuis la commande persistée ci-dessus et l'y enregistre
+    // comme total autoritatif — le webhook compare ces deux valeurs
+    // serveur, jamais le total du front).
     const piRes = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
       {
@@ -1334,6 +1481,16 @@ function StripeCardForm({
     if (!piRes.ok || !piData.clientSecret) {
       setProcessing(false);
       setErrorMsg(piData.error || "Payment creation failed.");
+      // PI refusé : on retire la commande pending (recréée au retry).
+      try {
+        await supabase
+          .from("orders")
+          .delete()
+          .eq("id", orderId)
+          .eq("status", "pending");
+      } catch {
+        /* best-effort */
+      }
       onError(piData.error);
       return;
     }
@@ -1357,133 +1514,27 @@ function StripeCardForm({
     if (error) {
       setProcessing(false);
       setErrorMsg(error.message || "Payment failed.");
+      // Paiement refusé : on retire la commande pending (évite les
+      // doublons au retry — recréée proprement à la prochaine tentative).
+      try {
+        await supabase
+          .from("orders")
+          .delete()
+          .eq("id", orderId)
+          .eq("status", "pending");
+      } catch {
+        /* best-effort */
+      }
       onError(error.message || "");
       return;
     }
 
     if (paymentIntent && paymentIntent.status === "succeeded") {
-      // Sauvegarder l'adresse de livraison pour le client
-      let clientId: string | null = null;
+      // Commande déjà persistée avant le PI (voir plus haut) : ici,
+      // popup Telegram admin + écran de confirmation. Le webhook
+      // payment_intent.succeeded → handlePaidOrder marque paid (Telegram
+      // serveur + emails + Printful + in-app + admin).
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.id) {
-          const { data: existing } = await supabase
-            .from("customers")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle();
-          clientId = existing?.id || user.id;
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-      if (clientId) {
-        customerApi
-          .saveAddressIfNew(clientId, {
-            full_name: contactName,
-            phone: contactPhone,
-            address,
-            city,
-            zip,
-            country,
-            state_code: stateCode,
-            tax_number: taxNumber,
-          })
-          .then((addressId) => {
-            if (addressId) customerApi.setDefaultAddress(clientId, addressId);
-          })
-          .catch(console.warn);
-      }
-
-      // 3. Save order in Supabase (clientId lié si loggé — comme le hosted :
-      // guest et loggé partagent le même flux, seul client_id diffère et
-      // sert aux notifs in-app ; l'email part vers contactEmail dans tous
-      // les cas via le webhook payment_intent.succeeded → handlePaidOrder).
-      try {
-        await orderApi.create({
-          id: orderId,
-          clientId,
-          clientName: contactName,
-          clientEmail: contactEmail || null,
-          createdAt: new Date().toISOString(),
-          status: "pending",
-          totalAmount: total,
-          shippingCost,
-          shippingMethodName,
-          shippingDeliveryEstimate,
-          shippingAddress: {
-            fullName: contactName,
-            address: reception === "livraison" ? address : "Pickup",
-            city: reception === "livraison" ? city : "",
-            zip: reception === "livraison" ? zip : "",
-            country: reception === "livraison" ? country : "FR",
-            state_code: reception === "livraison" ? stateCode : "",
-            tax_number: reception === "livraison" ? taxNumber : "",
-            phone: contactPhone,
-          },
-          notes:
-            message +
-            (cart.length !==
-            cart.filter((it: any) => {
-              const p: any = it.product;
-              if (!p?.isActive) return false;
-              const v = p.variants?.find(
-                (vv: any) =>
-                  String(vv.color).toLowerCase() ===
-                  String(it.selectedColor).toLowerCase(),
-              );
-              if (!v) return p.variants?.length ? false : true;
-              const e = v.sizes?.[it.selectedSize];
-              if (!e) return false;
-              return ((e as any).stock_status || "available") === "available";
-            }).length
-              ? ` [POD: ${
-                  cart.length -
-                  cart.filter((it: any) => {
-                    const p: any = it.product;
-                    if (!p?.isActive) return false;
-                    const v = p.variants?.find(
-                      (vv: any) =>
-                        String(vv.color).toLowerCase() ===
-                        String(it.selectedColor).toLowerCase(),
-                    );
-                    if (!v) return p.variants?.length ? false : true;
-                    const e = v.sizes?.[it.selectedSize];
-                    if (!e) return false;
-                    return (
-                      ((e as any).stock_status || "available") === "available"
-                    );
-                  }).length
-                } unavailable item(s) not charged]`
-              : ""),
-          items: cart
-            .filter((it: any) => {
-              const p: any = it.product;
-              if (!p?.isActive) return false;
-              const v = p.variants?.find(
-                (vv: any) =>
-                  String(vv.color).toLowerCase() ===
-                  String(it.selectedColor).toLowerCase(),
-              );
-              if (!v) return p.variants?.length ? false : true;
-              const e = v.sizes?.[it.selectedSize];
-              if (!e) return false;
-              return ((e as any).stock_status || "available") === "available";
-            })
-            .map((item, idx) => ({
-              id: `item-${orderId}-${idx}`,
-              orderId,
-              productId: item.product.id,
-              productTitle: item.product.title,
-              productImage: getVariantImage(item.product, item.selectedColor),
-              selectedColor: item.selectedColor || "#000000",
-              selectedSize: item.selectedSize || "M",
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            })),
-        } as any);
         shouldSendTelegram().then((should) => {
           if (should) {
             const recapCart = cart.filter((it: any) => {
@@ -1515,18 +1566,18 @@ function StripeCardForm({
             );
             // PAS d'appel email client : le serveur envoie tout via le webhook
             // payment_intent.succeeded → handlePaidOrder (Telegram serveur +
-            // email client + Printful + email admin, Phase 5). Requiert
-            // l'événement payment_intent.succeeded abonné côté dashboard
-            // Stripe (Developers → Webhooks → endpoint → Add events),
-            // sinon les achats carte restent pending sans notifications
-            // (un appel client en plus ferait doublon une fois abonné).
+            // email client + Printful + email admin). Requiert l'événement
+            // payment_intent.succeeded abonné côté dashboard Stripe
+            // (Developers → Webhooks → endpoint → Add events), sinon les
+            // achats carte restent pending sans notifications (un appel
+            // client en plus ferait doublon une fois abonné).
           }
         });
 
         onSuccess(orderId);
       } catch (e: any) {
         setProcessing(false);
-        setErrorMsg("Payment succeeded but order creation failed.");
+        setErrorMsg("Payment succeeded but confirmation failed.");
         onError(e.message);
       }
     } else {
