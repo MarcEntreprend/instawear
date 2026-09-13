@@ -332,7 +332,8 @@ export default {
 
         // Email client "production reprise" (moule canonique Phase 2) :
         // validation design = retour en production, le client est notifié
-        // comme pour toute entrée en production. Best-effort.
+        // comme pour toute entrée en production. Respecte
+        // shipping_update=false. Best-effort.
         try {
           const { data: o } = await supabaseAdmin
             .from("orders")
@@ -340,6 +341,19 @@ export default {
             .eq("id", orderId)
             .maybeSingle();
           if (o?.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(o.client_email).trim())) {
+            const { data: cust } = await supabaseAdmin
+              .from("customers")
+              .select("email_preferences")
+              .eq("email", String(o.client_email).trim())
+              .maybeSingle();
+            const prefs = (cust as any)?.email_preferences ?? null;
+            const allowed =
+              !prefs ||
+              typeof prefs !== "object" ||
+              (prefs as Record<string, unknown>).shipping_update !== false;
+            if (!allowed) {
+              console.log(`[approve] in_production ${logSafe(orderId)} ignoré (shipping_update=false)`);
+            } else {
             const { data: oItems } = await supabaseAdmin
               .from("order_items")
               .select("*")
@@ -371,6 +385,7 @@ export default {
                 html: built.html,
               }),
             });
+            } // fin else (shipping_update autorisé)
           }
         } catch (e) {
           console.warn("Customer email (approve):", logSafe(e));

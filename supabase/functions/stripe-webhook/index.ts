@@ -188,6 +188,7 @@ async function sendEmailServer(
 </div>
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
 <p style="margin:0 0 8px;">This email was sent to <strong>${email}</strong> for your recent purchase at <a href="https://instawear.vercel.app" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
+<p style="margin:0 0 8px;"><a href="https://instawear.vercel.app/unsubscribe?email=${encodeURIComponent((email || "").trim())}" style="color:#999;text-decoration:underline;">Manage email preferences</a></p>
 <p style="margin:0;">InstaWear · 123 Main Street, Doral, FL 10001<br>© 2026 InstaWear Inc. All rights reserved.</p>
 </div></div></body></html>`;
 
@@ -341,23 +342,45 @@ async function handlePaidOrder(
   }
 
   // 2. Email client vers l'adresse du checkout (guest = loggé).
-  await sendEmailServer(
-    orderId,
-    order.client_name || "Client",
-    order.client_email || "",
-    order.shipping_address_phone || "",
-    order.shipping_address_address || "",
-    order.shipping_address_city || "",
-    order.shipping_address_zip || "",
-    order.shipping_address_country || "US",
-    order.shipping_address_state_code || "",
-    items ?? [],
-    order.total_amount,
-    currencySymbol,
-    order.shipping_cost || 0,
-    order.shipping_method_name,
-    order.shipping_delivery_estimate,
-  );
+  // Respecte order_confirmation=false (compte /unsubscribe). Essentiels
+  // ultérieurs (échec/annulation/…) : toujours envoyés (autres edges).
+  let allowConfirmed = true;
+  try {
+    const { data: customer } = await supabaseAdmin
+      .from("customers")
+      .select("email_preferences")
+      .eq("email", String(order.client_email || "").trim())
+      .maybeSingle();
+    const prefs = (customer as any)?.email_preferences ?? null;
+    if (
+      prefs &&
+      typeof prefs === "object" &&
+      (prefs as Record<string, unknown>).order_confirmation === false
+    ) {
+      allowConfirmed = false;
+    }
+  } catch {
+    // Doute → on envoie (un reçu manqué est pire qu'un email de trop).
+  }
+  if (allowConfirmed) {
+    await sendEmailServer(
+      orderId,
+      order.client_name || "Client",
+      order.client_email || "",
+      order.shipping_address_phone || "",
+      order.shipping_address_address || "",
+      order.shipping_address_city || "",
+      order.shipping_address_zip || "",
+      order.shipping_address_country || "US",
+      order.shipping_address_state_code || "",
+      items ?? [],
+      order.total_amount,
+      currencySymbol,
+      order.shipping_cost || 0,
+      order.shipping_method_name,
+      order.shipping_delivery_estimate,
+    );
+  }
 
   // 3. Printful (transmission production, best-effort : l'admin peut
   // renvoyer depuis OrdersPage si 502).

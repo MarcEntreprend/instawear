@@ -1342,6 +1342,7 @@ function OrdersTab({
           <option value="on_hold">On Hold</option>
           <option value="refunded">Refunded</option>
           <option value="returned">Returned</option>
+          <option value="partial">Partial</option>
         </select>
         <button
           onClick={() =>

@@ -196,9 +196,11 @@ function ctaHtml(orderId: string, bg = "#FF5C35"): string {
 }
 
 function footerHtml(email: string | null | undefined): string {
+  const prefsUrl = `${SITE_URL}/unsubscribe${email ? `?email=${encodeURIComponent(String(email).trim())}` : ""}`;
   return `
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
 <p style="margin:0 0 8px;">This email was sent to <strong>${esc(email || "")}</strong> for your recent purchase at <a href="${SITE_URL}" style="color:#FF5C35;text-decoration:none;">instawear.vercel.app</a></p>
+<p style="margin:0 0 8px;"><a href="${prefsUrl}" style="color:#999;text-decoration:underline;">Manage email preferences</a></p>
 <p style="margin:0;">${SHOP_LINE}</p>
 </div>`;
 }
@@ -281,6 +283,53 @@ function shipmentsHtml(shipments: StatusEmailShipment[]): string {
       </div>`;
     })
     .join("");
+}
+
+// ── Préférences email (customers.email_preferences, edge email-preferences,
+// toggles dans le compte) ─────────────────────────────────────────────────
+// Règle : order_confirmation=false → pas de "confirmed" ; shipping_update=
+// false → pas de in_production/partial/shipped/delivered. Les statuts
+// ESSENTIELS (échec, annulation, pause, remboursement, retour = argent et
+// sort de la commande) partent TOUJOURS. Ligne inconnue/absente = défaut
+// true (opt-out explicite uniquement). Les notifs in-app ne sont pas des
+// emails : jamais filtrées ici.
+export type StatusEmailPrefs = {
+  order_confirmation?: boolean | null;
+  shipping_update?: boolean | null;
+} | null | undefined;
+
+export function prefKeyFor(
+  kind:
+    | "confirmed"
+    | "in_production"
+    | "partial"
+    | "shipped"
+    | "delivered"
+    | "failed"
+    | "cancelled"
+    | "on_hold"
+    | "refunded"
+    | "returned",
+): "order_confirmation" | "shipping_update" | null {
+  if (kind === "confirmed") return "order_confirmation";
+  if (
+    kind === "in_production" ||
+    kind === "partial" ||
+    kind === "shipped" ||
+    kind === "delivered"
+  )
+    return "shipping_update";
+  return null;
+}
+
+export function wantsStatusEmail(
+  prefs: StatusEmailPrefs,
+  kind: Parameters<typeof prefKeyFor>[0],
+): boolean {
+  const key = prefKeyFor(kind);
+  if (!key) return true;
+  if (!prefs || typeof prefs !== "object") return true;
+  return (prefs as Record<string, unknown>)[key] !== false;
 }
 
 // ── Builders par statut ────────────────────────────────────────────────────

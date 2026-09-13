@@ -822,8 +822,23 @@ export default {
 
       // 6. Envoyer l'email "in production" si le client a un email
       // (moule canonique : stepper + items + totaux + CTA, comme confirmed).
+      // Respecte shipping_update=false (compte /unsubscribe) ; ligne
+      // absente = défaut true (on envoie).
       if (order.client_email) {
         try {
+          const { data: cust } = await supabaseAdmin
+            .from("customers")
+            .select("email_preferences")
+            .eq("email", String(order.client_email).trim())
+            .maybeSingle();
+          const prefs = (cust as any)?.email_preferences ?? null;
+          if (
+            prefs &&
+            typeof prefs === "object" &&
+            (prefs as Record<string, unknown>).shipping_update === false
+          ) {
+            console.log(`[create-printful-order] in_production ${logSafe(orderId)} ignoré (shipping_update=false)`);
+          } else {
           let currencySymbol = "$";
           try {
             const { data: ss } = await supabaseAdmin
@@ -873,6 +888,7 @@ export default {
               html: built.html,
             }),
           });
+          } // fin else (shipping_update autorisé)
         } catch (err) {
           console.error("In-production email error:", logSafe(err));
         }

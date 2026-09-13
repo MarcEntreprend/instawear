@@ -25,6 +25,7 @@ import {
   buildApprovalEmail,
   buildRefundedEmail,
   buildReturnedEmail,
+  wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
@@ -257,6 +258,38 @@ async function getEmailContext(supabaseAdmin: any, orderId: string) {
   return { items, currencySymbol };
 }
 
+// ── Respect des préférences email (customers.email_preferences) ───────────
+// order_confirmation=false → pas de "confirmed" ; shipping_update=false →
+// pas de production/expédition. Essentiels (échec/annulation/pause/
+// remboursement/retour) : toujours envoyés. Ligne absente → défaut true.
+// Best-effort : en cas de doute on ENVOIE (un reçu manqué est pire qu'un
+// email de trop pour du transactionnel).
+async function prefAllows(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  email: unknown,
+  kind: "confirmed" | "in_production" | "partial" | "shipped" | "delivered",
+): Promise<boolean> {
+  const dest = typeof email === "string" ? email.trim() : "";
+  if (!dest) return false;
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: customer } = await supabaseAdmin
+      .from("customers")
+      .select("email_preferences")
+      .eq("email", dest)
+      .maybeSingle();
+    return wantsStatusEmail(
+      (customer as any)?.email_preferences ?? null,
+      kind,
+    );
+  } catch {
+    return true;
+  }
+}
+
 // ── Envoi client via send-email (clé service_role, best-effort) ───────────
 // Destinataire = adresse du checkout (guest = loggé). Adresse absente ou
 // invalide → skip silencieux. N'échoue jamais l'appelant.
@@ -292,6 +325,9 @@ async function sendShippedEmail(
   order: any,
   allShipments: any[],
 ) {
+  // shipping_update=false → skip (préférence compte /unsubscribe).
+  if (!(await prefAllows(supabaseUrl, serviceRoleKey, order?.client_email, "shipped")))
+    return;
   const currentStep = EMAIL_STEP_INDEX[order.status] ?? 3;
   const stepperHtml = buildStatusStepperHtml(currentStep);
 
@@ -547,6 +583,8 @@ async function sendBackInProductionEmail(
   serviceRoleKey: string,
   order: any,
 ) {
+  if (!(await prefAllows(supabaseUrl, serviceRoleKey, order?.client_email, "in_production")))
+    return;
   try {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -577,6 +615,8 @@ async function sendPartialEmail(
   order: any,
   allShipments: any[],
 ) {
+  if (!(await prefAllows(supabaseUrl, serviceRoleKey, order?.client_email, "partial")))
+    return;
   try {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },

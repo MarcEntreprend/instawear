@@ -36,6 +36,7 @@ import {
   buildOnHoldEmail,
   buildRefundedEmail,
   buildReturnedEmail,
+  wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
 
 const corsHeaders = {
@@ -353,6 +354,42 @@ async function sendStatusEmail(
   toStatus: string,
   reason: string,
 ): Promise<boolean> {
+  // Respect des préférences compte : shipping_update=false coupe les
+  // emails de suivi (shipped/partial/delivered/in_production). Essentiels
+  // (cancelled/on_hold/refunded/returned) : toujours envoyés. Ligne
+  // absente = défaut true (on envoie).
+  const needsPref =
+    toStatus === "shipped" ||
+    toStatus === "partial" ||
+    toStatus === "delivered" ||
+    toStatus === "in_production";
+  if (needsPref) {
+    try {
+      const { data: customer } = await supabaseAdmin
+        .from("customers")
+        .select("email_preferences")
+        .eq("email", String(order.client_email || "").trim())
+        .maybeSingle();
+      const kind =
+        toStatus === "in_production"
+          ? ("in_production" as const)
+          : toStatus === "partial"
+            ? ("partial" as const)
+            : toStatus === "shipped"
+              ? ("shipped" as const)
+              : ("delivered" as const);
+      if (
+        !wantsStatusEmail((customer as any)?.email_preferences ?? null, kind)
+      ) {
+        console.log(
+          `[order-status-update] ${logSafe(toStatus)} ${logSafe(order.id)} ignoré (shipping_update=false)`,
+        );
+        return false;
+      }
+    } catch {
+      // Doute → on envoie.
+    }
+  }
   const { items, currencySymbol } = await emailContext(supabaseAdmin, order.id);
   const shipments = Array.isArray(order.tracking_info)
     ? order.tracking_info
