@@ -143,3 +143,80 @@ export async function sendTelegramStatus(
     return false;
   }
 }
+
+// ── Notices admin courtes par catégorie ─────────────────────────────────────
+// Pour TOUTES les notifs admin hors commandes : products, customers,
+// interactions, bonus, api, security, finance, approval ("orders" a déjà
+// ses telegrams riches : new-order + status updates — jamais de doublon).
+// Format volontairement court (l'admin ouvre la cloche pour le détail) :
+//   🔔 *INTERACTIONS* · ❗urgente
+//   Nouveau message — /contact
+//   "abc@gmail.com" : question taille
+// Priorités haute/urgente/critique = flag ❗ ; basse/moyenne = rien.
+export const CATEGORY_EMOJI: Record<string, string> = {
+  orders: "🛒",
+  products: "📦",
+  customers: "👤",
+  interactions: "💬",
+  bonus: "🎁",
+  api: "⚙️",
+  security: "🛡️",
+  finance: "💰",
+  approval: "✍️",
+};
+
+export const CATEGORY_LABEL: Record<string, string> = {
+  orders: "COMMANDES",
+  products: "PRODUITS",
+  customers: "CLIENTS",
+  interactions: "INTERACTIONS",
+  bonus: "BONUS",
+  api: "API",
+  security: "SÉCURITÉ",
+  finance: "FINANCES",
+  approval: "APPROBATIONS",
+};
+
+export interface AdminNoticeInput {
+  category: string;
+  title: string;
+  description?: string | null;
+  priority?: string | null;
+}
+
+export function buildAdminNoticeText(input: AdminNoticeInput): string {
+  const emoji = CATEGORY_EMOJI[input.category] || "🔔";
+  const label = CATEGORY_LABEL[input.category] || String(input.category).toUpperCase();
+  const hot =
+    input.priority === "high" ||
+    input.priority === "urgent" ||
+    input.priority === "critical"
+      ? " · ❗"
+      : "";
+  const desc = String(input.description || "").trim().slice(0, 200);
+  const lines = [`${emoji} *${label}*${hot}`, `*${input.title}*`];
+  if (desc) lines.push(desc);
+  return lines.join("\n");
+}
+
+export async function sendTelegramNotice(
+  token: string,
+  chatId: string,
+  input: AdminNoticeInput,
+): Promise<boolean> {
+  if (!token || !chatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: buildAdminNoticeText(input),
+        parse_mode: "Markdown",
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

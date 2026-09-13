@@ -7,8 +7,15 @@
 //   erreurs réseau uniquement (ex: approve, mockup create-task).
 // - reportError : monitoring autonome (gap 13). Insère dans edge_errors
 //   (table lue par la page admin Monitoring) + notif admin dédupliquée
-//   pour les critical. Ne lance JAMAIS d'exception (le monitoring ne doit
+//   pour les critical (+ telegram court, même déduplication — jamais de
+//   spam). Ne lance JAMAIS d'exception (le monitoring ne doit
 //   pas casser les flux). Métadonnées assainies (pas de secrets).
+
+import { sendTelegramNotice } from "./telegramNotify.ts";
+
+// Runtime Deno (edges) : déclaration minimale pour tsc (ce fichier est
+// partagé tel quel, sans @ts-nocheck comme ses copies).
+declare const Deno: any;
 
 export interface RetryOpts {
   attempts?: number;
@@ -173,6 +180,23 @@ export async function reportError(
       },
       action_label: "Voir le monitoring",
     });
+
+    // Telegram court : même déduplication que la notif (jamais de spam),
+    // best-effort (Deno.env absent en tests → skip silencieux).
+    try {
+      const token =
+        typeof Deno !== "undefined" ? Deno.env.get("TELEGRAM_BOT_TOKEN") || "" : "";
+      const chatId =
+        typeof Deno !== "undefined" ? Deno.env.get("TELEGRAM_CHAT_ID") || "" : "";
+      await sendTelegramNotice(token, chatId, {
+        category: input.notifyCategory || "api",
+        title: `[Critical] ${input.fn} — ${input.action}`,
+        description: message.slice(0, 200),
+        priority: "high",
+      });
+    } catch {
+      // Best-effort uniquement.
+    }
   } catch {
     // Le monitoring ne doit jamais casser le flux appelant.
   }

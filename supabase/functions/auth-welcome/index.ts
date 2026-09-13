@@ -13,6 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
 import { logSafe } from "./_shared/logSafe.ts";
+import { sendTelegramNotice } from "./_shared/telegramNotify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,6 +128,23 @@ export default {
         });
       if (notifError) {
         console.error("auth-welcome notification:", logSafe(notifError));
+      } else {
+        // Telegram court CLIENTS (inscription = événement externe).
+        // Best-effort, après insert réussi uniquement (zéro doublon).
+        try {
+          await sendTelegramNotice(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              category: "customers",
+              title: "New customer registered",
+              description: `"${displayName}" signed up on the store`.slice(0, 200),
+              priority: "low",
+            },
+          );
+        } catch (err) {
+          console.warn("auth-welcome telegram:", logSafe(err));
+        }
       }
 
       const safeName = escapeHtml(displayName);

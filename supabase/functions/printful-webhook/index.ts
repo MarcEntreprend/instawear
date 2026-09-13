@@ -27,7 +27,7 @@ import {
   buildReturnedEmail,
   wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
-import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
+import { sendTelegramStatus, sendTelegramNotice } from "./_shared/telegramNotify.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -911,6 +911,22 @@ export default {
             action_label: "Voir le produit",
           });
         } catch {}
+        // Telegram court products (ruptures/suppressions = action admin
+        // probable). Best-effort, jamais de 500 pour ça.
+        try {
+          await sendTelegramNotice(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              category: "products",
+              title: `Stock Printful — produit ${productId}`,
+              description: summary,
+              priority: discIds.size > 0 ? "high" : "medium",
+            },
+          );
+        } catch (err) {
+          console.warn("Telegram products error:", logSafe(err));
+        }
         return new Response(JSON.stringify({ received: true, handled: true, type: "stock_updated" }), {
           headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
@@ -1003,6 +1019,27 @@ export default {
             action_label: "Voir les produits",
           });
         } catch (err) { console.warn("Échec notification admin (produit):", err); }
+
+        // Telegram court products — suppressions seulement (high) : les
+        // sync/modif de routine resteraient du bruit à chaque import.
+        if (isDelete) {
+          try {
+            await sendTelegramNotice(
+              Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+              Deno.env.get("TELEGRAM_CHAT_ID") || "",
+              {
+                category: "products",
+                title: `Produit supprimé côté Printful — ${displayName}`,
+                description: localProduct
+                  ? `Produit local : ${localProduct.title}.`
+                  : `Sync product ${pfProductId ?? "?"}.`,
+                priority: "high",
+              },
+            );
+          } catch (err) {
+            console.warn("Telegram products error:", logSafe(err));
+          }
+        }
 
         return new Response(JSON.stringify({ received: true, handled: true, type }), {
           headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
@@ -1561,7 +1598,29 @@ export default {
             action_label: "Voir la commande",
           });
         } catch (err) {
-          console.warn("Échec notification admin (created):", err);
+          console.warn("Échec notification admin:", err);
+        }
+
+        // Telegram court APPROBATIONS (design à valider — action admin
+        // attendue, high). Les autres events du bloc ont déjà leur telegram
+        // de statut (zéro doublon).
+        if (type === "order_put_hold_approval") {
+          try {
+            await sendTelegramNotice(
+              Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+              Deno.env.get("TELEGRAM_CHAT_ID") || "",
+              {
+                category: "approval",
+                title: `Approbation requise — commande ${orderId}`,
+                description: notes.length
+                  ? `${order.client_name || "Client"} — ${notes.join(" ")}`.slice(0, 200)
+                  : order.client_name || "Client",
+                priority: "high",
+              },
+            );
+          } catch (err) {
+            console.warn("Telegram approval error:", logSafe(err));
+          }
         }
       }
 

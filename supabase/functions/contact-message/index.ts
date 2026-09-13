@@ -15,6 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { isValidEmail, isPayloadTooLarge } from "./_shared/validators.ts";
 import { logSafe } from "./_shared/logSafe.ts";
+import { sendTelegramNotice } from "./_shared/telegramNotify.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -166,6 +167,23 @@ export default {
         });
       if (notifError) {
         console.error("contact-message notification:", logSafe(notifError));
+      } else {
+        // Telegram court INTERACTIONS (urgent : message client en attente).
+        // Best-effort, après insert réussi uniquement (zéro doublon).
+        try {
+          await sendTelegramNotice(
+            Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
+            Deno.env.get("TELEGRAM_CHAT_ID") || "",
+            {
+              category: "interactions",
+              title: "Nouveau message — /contact",
+              description: `"${email}" : ${subjectBase}`.slice(0, 200),
+              priority: "urgent",
+            },
+          );
+        } catch (err) {
+          console.warn("contact-message telegram:", logSafe(err));
+        }
       }
 
       // 4. Destinataire email admin : env explicite d'abord,
