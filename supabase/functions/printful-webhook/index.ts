@@ -13,6 +13,19 @@ import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
+// Moule unique des emails client (canonique : supabase/functions/_shared/
+// orderStatusEmails.ts — toute modification se fait là-bas puis recopie
+// à l'identique ici + create-printful-order + tests).
+import {
+  buildInProductionEmail,
+  buildPartialEmail,
+  buildFailedEmail,
+  buildCancelledEmail,
+  buildOnHoldEmail,
+  buildApprovalEmail,
+  buildRefundedEmail,
+  buildReturnedEmail,
+} from "./_shared/orderStatusEmails.ts";
 
 // CORS restreint : ce webhook est un endpoint serveur→serveur. Seules les
 // origines de l'application (frontend Vercel + localhost de dev) peuvent
@@ -208,6 +221,70 @@ function buildStatusStepperHtml(currentStep: number): string {
   return `<table role="presentation" width="100%" style="border-collapse:collapse;"><tr>${circles}</tr></table>`;
 }
 
+// ── Contexte email (items + devise boutique, best-effort) ─────────────────
+// Les webhooks dédiés (failed/canceled/hold/...) n'ont que `order` en main :
+// on recharge les items et la devise ici, une seule fois par envoi.
+const EMAIL_CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  BRL: "R$",
+  CAD: "CA$",
+  CHF: "CHF",
+  JPY: "¥",
+  MXN: "MX$",
+  AUD: "A$",
+};
+async function getEmailContext(supabaseAdmin: any, orderId: string) {
+  let items: any[] = [];
+  let currencySymbol = "$";
+  try {
+    const { data } = await supabaseAdmin
+      .from("order_items")
+      .select("*")
+      .eq("order_id", orderId);
+    if (Array.isArray(data)) items = data;
+  } catch {}
+  try {
+    const { data: ss } = await supabaseAdmin
+      .from("store_settings")
+      .select("currency")
+      .eq("id", true)
+      .maybeSingle();
+    const code = String((ss as any)?.currency || "USD").toUpperCase();
+    currencySymbol = EMAIL_CURRENCY_SYMBOLS[code] || "$";
+  } catch {}
+  return { items, currencySymbol };
+}
+
+// ── Envoi client via send-email (clé service_role, best-effort) ───────────
+// Destinataire = adresse du checkout (guest = loggé). Adresse absente ou
+// invalide → skip silencieux. N'échoue jamais l'appelant.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function postCustomerEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  orderId: string,
+  to: unknown,
+  subject: string,
+  html: string,
+) {
+  const dest = typeof to === "string" ? to.trim() : "";
+  if (!EMAIL_RE.test(dest)) return;
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceRoleKey,
+      },
+      body: JSON.stringify({ to: dest, subject, html }),
+    });
+  } catch (err) {
+    console.error(`Customer email ${logSafe(orderId)} error:`, logSafe(err));
+  }
+}
+
 // ── Email d'expédition automatique (via send-email, clé service_role) ───
 async function sendShippedEmail(
   supabaseUrl: string,
@@ -299,85 +376,68 @@ ${shipmentsHtml}
   }
 }
 
-// ── Email d'échec de commande (via send-email, clé service_role) ────────
+// ── Email d'échec de commande (moule canonique : items + totaux + CTA) ───
+// Échec TECHNIQUE côté fournisseur (fichiers, paiement, adresse) : l'équipe
+// travaille dessus, remboursement auto si débité. Distinct de cancelled
+// (annulation volontaire) — wording différent, même moule.
 async function sendFailedEmail(
   supabaseUrl: string,
   serviceRoleKey: string,
   order: any,
   reason?: string,
 ) {
-  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#ffe6e6;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#cc0000;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#cc0000;margin:4px 0 0;font-size:14px;">We couldn't process your order</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">Order failed ❌</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,<br><br>Unfortunately, your order <strong>${order.id}</strong> could not be processed.${reason ? ` Reason: ${reason}.` : ""} If you've already been charged, a refund will be issued automatically.</p>
-<a href="https://instawear.vercel.app/?order=${encodeURIComponent(order.id)}" style="display:inline-block;padding:12px 24px;background:#cc0000;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a><br><br>
-<a href="https://instawear.vercel.app/contact" style="display:inline-block;padding:12px 24px;background:#999;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Contact support →</a>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
-</div></div></body></html>`;
-
   try {
-    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceRoleKey,
-      },
-      body: JSON.stringify({
-        to: order.client_email,
-        subject: `Your order ${order.id} could not be processed`,
-        html,
-      }),
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildFailedEmail(order, items, currencySymbol, reason);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
   } catch (err) {
-    console.error("Failed email error:", err);
+    console.error("Failed email error:", logSafe(err));
   }
 }
 
-// ── Email d'annulation de commande (via send-email, clé service_role) ───
+// ── Email d'annulation de commande (moule canonique) ─────────────────────
 async function sendCancelledEmail(
   supabaseUrl: string,
   serviceRoleKey: string,
   order: any,
   reason?: string,
 ) {
-  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#ffe6e6;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#cc0000;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#cc0000;margin:4px 0 0;font-size:14px;">Your order has been cancelled</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 8px;font-size:18px;">Order cancelled</h2>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,<br><br>Your order <strong>${order.id}</strong> has been cancelled.${reason ? ` Reason: ${reason}.` : ""} If you have any questions, please contact our support team.</p>
-<a href="https://instawear.vercel.app/?order=${encodeURIComponent(order.id)}" style="display:inline-block;padding:12px 24px;background:#cc0000;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">View order details →</a><br><br>
-<a href="https://instawear.vercel.app/contact" style="display:inline-block;padding:12px 24px;background:#999;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">Contact support →</a>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0;">This email was sent to <strong>${order.client_email || ""}</strong> for your recent purchase at instawear.vercel.app</p>
-</div></div></body></html>`;
-
   try {
-    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceRoleKey,
-      },
-      body: JSON.stringify({
-        to: order.client_email,
-        subject: `Your order ${order.id} has been cancelled`,
-        html,
-      }),
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildCancelledEmail(order, items, currencySymbol, reason);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
   } catch (err) {
-    console.error("Cancelled email error:", err);
+    console.error("Cancelled email error:", logSafe(err));
   }
 }
 
-// ── Email d'attente pour approbation design (via send-email) ──────────
+// ── Email d'attente pour approbation design (moule canonique + stepper) ─
 async function sendApprovalEmail(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -385,42 +445,157 @@ async function sendApprovalEmail(
   reason?: string,
 ) {
   if (!order.client_email) return;
-
-  const currentStep = EMAIL_STEP_INDEX[order.status] ?? 2;
-  const stepperHtml = buildStatusStepperHtml(currentStep);
-
-  const html = `<!DOCTYPE html><html><body style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1a1a1a;">
-<div style="background:#fef3c7;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-<h1 style="color:#92400e;margin:0;font-size:22px;">InstaWear</h1>
-<p style="color:#92400e;margin:4px 0 0;font-size:14px;">Your order is being reviewed</p>
-</div>
-<div style="background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
-<h2 style="margin:0 0 16px;font-size:18px;">Design review in progress ✨</h2>
-${stepperHtml}
-<p style="margin:16px 0;color:#555;font-size:14px;">Hi <strong>${order.client_name || "there"}</strong>,</p>
-<p style="margin:0 0 12px;color:#555;font-size:14px;">Your order <strong>${order.id}</strong> is being carefully reviewed by our production team to ensure your design looks perfect on the product.</p>
-${reason ? `<p style="margin:0 0 12px;color:#555;font-size:14px;"><strong>What's happening:</strong> ${reason}</p>` : ""}
-<p style="margin:0 0 12px;color:#555;font-size:14px;">This typically takes <strong>24-48 hours</strong>. You'll receive an email once production resumes.</p>
-<p style="margin:0 0 20px;color:#555;font-size:14px;">No action is needed from you.</p>
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;line-height:1.6;">
-<p style="margin:0;">This email was sent to <strong>${order.client_email}</strong> for your recent purchase at instawear.vercel.app</p>
-</div></div></body></html>`;
-
   try {
-    await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceRoleKey,
-      },
-      body: JSON.stringify({
-        to: order.client_email,
-        subject: `Your order ${order.id} is being reviewed`,
-        html,
-      }),
-    });
+    const built = buildApprovalEmail(order, "$", reason);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
   } catch (err) {
-    console.error("Approval email error:", err);
+    console.error("Approval email error:", logSafe(err));
+  }
+}
+
+// ── Nouveaux emails Phase 2 (même pattern : canonique + best-effort) ───────
+async function sendRefundedEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  amount?: string | number | null,
+) {
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildRefundedEmail(order, items, currencySymbol, amount);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
+  } catch (err) {
+    console.error("Refunded email error:", logSafe(err));
+  }
+}
+
+async function sendReturnedEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  reason?: string,
+) {
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildReturnedEmail(order, items, currencySymbol, reason);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
+  } catch (err) {
+    console.error("Returned email error:", logSafe(err));
+  }
+}
+
+// Pause hors approval (ex. coût broderie calculé en async côté Printful,
+// doc Orders API) : même moule, raison explicite, pas de fichiers.
+async function sendOnHoldEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  reason?: string,
+) {
+  if (!order.client_email) return;
+  try {
+    const built = buildOnHoldEmail(order, "$", reason);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
+  } catch (err) {
+    console.error("On-hold email error:", logSafe(err));
+  }
+}
+
+// Production reprise après pause (order_remove_hold) : moule in_production.
+async function sendBackInProductionEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+) {
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildInProductionEmail(order, items, currencySymbol);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
+  } catch (err) {
+    console.error("Back-in-production email error:", logSafe(err));
+  }
+}
+
+// Premier colis d'une commande multi-colis (newStatus partial) : le client
+// voit le colis parti + le récapitulatif, pas un faux "shipped".
+async function sendPartialEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  order: any,
+  allShipments: any[],
+) {
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { items, currencySymbol } = await getEmailContext(
+      supabaseAdmin,
+      order.id,
+    );
+    const built = buildPartialEmail(order, items, currencySymbol, allShipments);
+    await postCustomerEmail(
+      supabaseUrl,
+      serviceRoleKey,
+      order.id,
+      order.client_email,
+      built.subject,
+      built.html,
+    );
+  } catch (err) {
+    console.error("Partial email error:", logSafe(err));
   }
 }
 
@@ -1185,15 +1360,23 @@ export default {
         // Notification client (table customer_notifications, RLS *_own).
         // On n'insère que si la commande est liée à un compte client
         // (client_id renseigné — pas de compte = commande invité).
+        // Libellé selon la transition réelle (Phase 0 : partial vs shipped).
         if (order.client_id) {
           try {
+            const isPartial = newStatus === "partial";
             await supabaseAdmin.from("customer_notifications").insert({
               customer_id: order.client_id,
               title: order.client_name
-                ? `Votre commande ${orderId} est expédiée !`
-                : `Commande ${orderId} expédiée`,
+                ? isPartial
+                  ? `Votre commande ${orderId} est partiellement expédiée !`
+                  : `Votre commande ${orderId} est expédiée !`
+                : isPartial
+                  ? `Commande ${orderId} partiellement expédiée`
+                  : `Commande ${orderId} expédiée`,
               message: [
-                `Votre commande ${orderId} a été expédiée${carrier ? ` par ${carrier}` : ""}.`,
+                isPartial
+                  ? `Le premier colis de votre commande ${orderId} a été expédié${carrier ? ` par ${carrier}` : ""}. Le reste suit.`
+                  : `Votre commande ${orderId} a été expédiée${carrier ? ` par ${carrier}` : ""}.`,
                 estLabel ? `Arrivée estimée : ${estLabel}.` : null,
                 trackingUrl
                   ? `Suivez votre colis : ${trackingUrl}`
@@ -1223,7 +1406,10 @@ export default {
         // dans NotificationsPage (supervision), avec l'estimation.
         try {
           await supabaseAdmin.from("notifications").insert({
-            title: `Commande ${orderId} expédiée`,
+            title:
+              newStatus === "partial"
+                ? `Commande ${orderId} partiellement expédiée`
+                : `Commande ${orderId} expédiée`,
             description: [
               `${order.client_name || "Client"} — ${carrier ? `${carrier} — ` : ""}${trackingNumber || "numéro de suivi inconnu"}.`,
               estLabel ? `Arrivée estimée : ${estLabel}.` : null,
@@ -1251,8 +1437,17 @@ export default {
 
         // Email d'expédition automatique (uniquement sur une nouvelle
         // transition vers "shipped", pas sur les ré-expéditions répétées).
+        // Email "partial" sur 1er colis d'un multi-colis (Phase 2) : le
+        // client voit le colis parti, pas un faux "shipped".
         if (newStatus === "shipped") {
           await sendShippedEmail(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            order,
+            allShipments,
+          );
+        } else if (newStatus === "partial") {
+          await sendPartialEmail(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
             order,
@@ -1400,13 +1595,71 @@ export default {
           console.warn("Échec notification admin:", err);
         }
 
-        // Emails dédiés : échec vs annulation (chaque événement a le sien).
+        // Emails client Phase 2 (moule canonique) + notif in-app, UNIQUEMENT
+        // sur transition réelle (newStatus) : les retries Printful ne
+        // renotifient jamais. Email = adresse du checkout (guest = loggé) ;
+        // in-app = client_id requis (commande liée à un compte).
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        if (type === "order_failed") {
+        const notifyCustomer = async (title: string, message: string, status: string) => {
+          if (!order.client_id) return;
+          try {
+            await supabaseAdmin.from("customer_notifications").insert({
+              customer_id: order.client_id,
+              title,
+              message,
+              type: "order_status",
+              is_read: false,
+              metadata: { orderId, status },
+            });
+          } catch (err) {
+            console.warn("Échec notification client:", logSafe(err));
+          }
+        };
+        if (type === "order_failed" && newStatus === "cancelled") {
           await sendFailedEmail(supabaseUrl, serviceRoleKey, order, reason);
-        } else if (type === "order_canceled") {
+          await notifyCustomer(
+            `Votre commande ${orderId} n'a pas pu être traitée`,
+            `Votre commande ${orderId} a rencontré un problème technique. Notre équipe travaille dessus — remboursement automatique si vous avez été débité.`,
+            "cancelled",
+          );
+        } else if (type === "order_canceled" && newStatus === "cancelled") {
           await sendCancelledEmail(supabaseUrl, serviceRoleKey, order, reason);
+          await notifyCustomer(
+            `Votre commande ${orderId} est annulée`,
+            `Votre commande ${orderId} a été annulée. Contactez notre support pour toute question.`,
+            "cancelled",
+          );
+        } else if (type === "order_put_hold" && newStatus === "on_hold") {
+          // Pause hors approval (ex. coût broderie async, doc Orders API).
+          await sendOnHoldEmail(supabaseUrl, serviceRoleKey, order, reason);
+          await notifyCustomer(
+            `Votre commande ${orderId} est en pause`,
+            `Votre commande ${orderId} est temporairement en pause le temps de résoudre un détail de production. Aucune action requise.`,
+            "on_hold",
+          );
+        } else if (type === "order_remove_hold" && newStatus === "in_production") {
+          await sendBackInProductionEmail(supabaseUrl, serviceRoleKey, order);
+          await notifyCustomer(
+            `Votre commande ${orderId} est en production`,
+            `Bonne nouvelle : votre commande ${orderId} est en cours de production. Vous serez notifié à l'expédition.`,
+            "in_production",
+          );
+        } else if (type === "order_refunded" && newStatus === "refunded") {
+          const amount = (data as any)?.amount ?? null;
+          await sendRefundedEmail(supabaseUrl, serviceRoleKey, order, amount);
+          await notifyCustomer(
+            `Votre commande ${orderId} est remboursée`,
+            `Votre commande ${orderId} a été remboursée. Le montant apparaîtra sur votre moyen de paiement sous quelques jours.`,
+            "refunded",
+          );
+        } else if (type === "package_returned" && newStatus === "returned") {
+          await sendReturnedEmail(supabaseUrl, serviceRoleKey, order, reason);
+          await notifyCustomer(
+            `Votre commande ${orderId} est retournée`,
+            `Votre colis ${orderId} nous a été retourné. Notre support vous contactera pour une réexpédition ou un remboursement.`,
+            "returned",
+          );
         }
       }
 
