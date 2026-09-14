@@ -25,13 +25,16 @@ import ToastContainer, {
   type Toast,
   MAX_TOASTS,
 } from "./components/ToastContainer";
-import LegalPage from "./pages/LegalPage";
-import FaqPage from "./pages/FaqPage";
-import ContactPage from "./pages/ContactPage";
-import PromotionsPage from "./pages/PromotionsPage";
-import SearchResultsPage from "./pages/SearchResultsPage";
-import OrderTrackingPage from "./pages/OrderTrackingPage";
-import OrderSuccessPage from "./pages/OrderSuccessPage";
+// P6 perf : les pages routes sont sorties de l'entry (téléchargées à la
+// navigation, pas au boot homepage). NotFound/ProductUnavailable restent
+// statiques (chemins d'erreur, doivent rendre même sans réseau).
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const FaqPage = lazy(() => import("./pages/FaqPage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const PromotionsPage = lazy(() => import("./pages/PromotionsPage"));
+const SearchResultsPage = lazy(() => import("./pages/SearchResultsPage"));
+const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage"));
+const OrderSuccessPage = lazy(() => import("./pages/OrderSuccessPage"));
 import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
 import MobileTabBar from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
@@ -80,7 +83,7 @@ import {
   customerApi,
   orderApi,
 } from "./api/supabaseApi";
-import ProductPage from "./pages/ProductPage";
+const ProductPage = lazy(() => import("./pages/ProductPage"));
 import HeroCarousel, { HERO_BG_FALLBACK } from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
@@ -1739,6 +1742,7 @@ export default function App() {
 
       {/* Product Page (V2) — replaces modal, with URL pushState */}
       {selectedProduct && (
+        <Suspense fallback={<LazyFallback />}>
         <ProductPage
           product={selectedProduct}
           products={products}
@@ -1769,10 +1773,12 @@ export default function App() {
           onSelectProduct={(p: Product) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
         />
+        </Suspense>
       )}
 
       {/* Pages (V2) */}
       {legalSlug && (
+        <Suspense fallback={<LazyFallback />}>
         <LegalPage
           slug={legalSlug}
           onBack={() => {
@@ -1780,24 +1786,30 @@ export default function App() {
             history.pushState({}, "", "/");
           }}
         />
+        </Suspense>
       )}
       {showFaqPage && (
+        <Suspense fallback={<LazyFallback />}>
         <FaqPage
           onBack={() => {
             setShowFaqPage(false);
             history.pushState({}, "", "/");
           }}
         />
+        </Suspense>
       )}
       {showContactPage && (
+        <Suspense fallback={<LazyFallback />}>
         <ContactPage
           onBack={() => {
             setShowContactPage(false);
             history.pushState({}, "", "/");
           }}
         />
+        </Suspense>
       )}
       {showPromotionsPage && (
+        <Suspense fallback={<LazyFallback />}>
         <PromotionsPage
           products={products}
           favorites={favorites}
@@ -1813,8 +1825,10 @@ export default function App() {
             history.pushState({}, "", "/");
           }}
         />
+        </Suspense>
       )}
       {searchPageQuery !== null && (
+        <Suspense fallback={<LazyFallback />}>
         <SearchResultsPage
           query={searchPageQuery}
           products={products}
@@ -1832,8 +1846,10 @@ export default function App() {
           onQuickAdd={(p) => addToCart(p, p.colors?.[0] || "#000000", "M")}
           networkError={networkError}
         />
+        </Suspense>
       )}
       {trackingPageCode !== null && (
+        <Suspense fallback={<LazyFallback />}>
         <OrderTrackingPage
           initialCode={trackingPageCode || ""}
           onBack={() => {
@@ -1841,6 +1857,7 @@ export default function App() {
             history.pushState({}, "", "/");
           }}
         />
+        </Suspense>
       )}
 
       {/* Slide-over Shopping Cart drawer */}
@@ -1998,6 +2015,7 @@ export default function App() {
       )}
 
       {orderSuccessId && (
+        <Suspense fallback={<LazyFallback />}>
         <OrderSuccessPage
           orderId={orderSuccessId}
           onClose={() => {
@@ -2011,6 +2029,7 @@ export default function App() {
             setCartLoaded(false);
           }}
         />
+        </Suspense>
       )}
 
       {/* Order Tracking Modal */}
