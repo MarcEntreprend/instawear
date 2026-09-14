@@ -450,7 +450,14 @@ export const productApi = {
 
 export const customerApi = {
   async list(): Promise<Customer[]> {
-    const { data, error } = await supabase.from("customers").select("*");
+    // D1 (audit) : colonnes explicites, jamais select=* — date_of_birth,
+    // terms_accepted_at et prefs ne transitent pas (la fiche détail les
+    // charge via get(), seules les colonnes affichées partent).
+    // Pas de limite de lignes : la page admin pagine/filtre côté client
+    // (pagination serveur = futur chantier UX dédié, pas sécu).
+    const { data, error } = await supabase
+      .from("customers")
+      .select("id, email, name, registration_date, last_login_date");
     if (error) throw error;
     return (data ?? []).map((c: any) => ({
       id: c.id,
@@ -1984,7 +1991,12 @@ export const dashboardApi = {
 export const adminUserApi = {
   async list(): Promise<AdminUser[]> {
     try {
-      const { data, error } = await supabase.from("admin_users").select("*");
+      // H3 (audit) : password_hash ne doit JAMAIS transiter, même vers un
+      // admin — colonnes explicites (le mapping l'excluait déjà, mais le
+      // select=* l'envoyait quand même sur le réseau).
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("id, email, role, created_at, last_login_date");
       if (error) return [];
       return (data ?? []).map((u: any) => ({
         id: u.id,

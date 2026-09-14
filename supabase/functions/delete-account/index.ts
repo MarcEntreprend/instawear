@@ -3,6 +3,7 @@
 
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,15 @@ export default {
     }
 
     try {
+      // G1 (audit) : rate-limit branché (quota 3/min déjà défini) —
+      // destructif même si self-only, coût nul pour l'usage légitime (1 appel).
+      if (await isRateLimited(req, rateLimitKey(req, "delete-account"))) {
+        return new Response(JSON.stringify({ error: "Trop de requêtes." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const authHeader = req.headers.get("Authorization") || "";
       const token = authHeader.replace("Bearer ", "");
       if (!token) {

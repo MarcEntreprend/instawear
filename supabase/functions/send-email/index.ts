@@ -12,6 +12,7 @@
 
 import { Resend } from "npm:resend@3";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logSafe } from "./_shared/logSafe.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -114,8 +115,10 @@ export default {
     });
 
     if (error) {
-      console.error("Resend error:", error);
-      return new Response(JSON.stringify({ error }), {
+      // L1 (audit) : l'objet Resend fait écho au destinataire — log expurgé
+      // côté serveur, réponse générique (le destinataire reste interne).
+      console.error("Resend error:", logSafe(error));
+      return new Response(JSON.stringify({ error: "Resend refused the email" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

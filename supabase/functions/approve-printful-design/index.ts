@@ -3,7 +3,7 @@
 
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { safeFetch } from "../_shared/safeUrl.ts";
+import { assertSafeUrl } from "../_shared/safeUrl.ts";
 import { logSafe } from "../_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey } from "../_shared/rateLimit.ts";
 import { isValidOrderId } from "../_shared/validators.ts";
@@ -460,9 +460,11 @@ export default {
         if (Array.isArray(files)) {
           for (const f of files) {
             if (!f.url || typeof f.url !== "string") continue;
-            // SSRF: assertSafeUrl will throw if not a safe https URL
+            // S1 (audit) : validation SYNCHRONE pure (aucun appel réseau) —
+            // avant, un fetch partait en tâche de fond sans await (rejet non
+            // capturé + effet de bord réseau).
             try {
-              safeFetch(f.url);
+              assertSafeUrl(f.url);
             } catch (e) {
               return new Response(
                 JSON.stringify({
