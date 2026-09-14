@@ -2488,6 +2488,11 @@ export default function CheckoutFlow({
       }
 
       const { url } = await stripeRes.json();
+      // Audit : l'URL vient de notre edge (qui la tient de Stripe), mais on
+      // ne navigue jamais vers une destination arbitraire — préfixe exigé.
+      if (typeof url !== "string" || !url.startsWith("https://checkout.stripe.com/")) {
+        throw new Error("Stripe error");
+      }
       window.location.href = url;
     } catch (err: any) {
       console.error(err);
