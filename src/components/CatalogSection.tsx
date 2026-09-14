@@ -523,6 +523,7 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
+                    aria-label="Minimum price"
                     value={filters.priceMin}
                     onChange={(e) =>
                       setFilters((f) => ({
@@ -548,6 +549,7 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
+                    aria-label="Maximum price"
                     value={filters.priceMax}
                     onChange={(e) =>
                       setFilters((f) => ({
@@ -710,6 +712,7 @@ export default function CatalogSection({
                   <button
                     onClick={() => setViewMode("grid")}
                     aria-pressed={viewMode === "grid"}
+                    aria-label="Grid view"
                     className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{
                       background:
@@ -728,6 +731,7 @@ export default function CatalogSection({
                   <button
                     onClick={() => setViewMode("list")}
                     aria-pressed={viewMode === "list"}
+                    aria-label="List view"
                     className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{
                       background:
@@ -1173,6 +1177,7 @@ export default function CatalogSection({
                       <input
                         type="number"
                         min={0}
+                        aria-label="Minimum price"
                         value={filters.priceMin}
                         onChange={(e) =>
                           setFilters((f) => ({
@@ -1198,6 +1203,7 @@ export default function CatalogSection({
                       <input
                         type="number"
                         min={0}
+                        aria-label="Maximum price"
                         value={filters.priceMax}
                         onChange={(e) =>
                           setFilters((f) => ({
@@ -1453,7 +1459,7 @@ function ColorPicker({
               onSelect(selectedColor === c.hex ? null : c.hex);
               setIsOpen(false);
             }}
-            className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+            className="w-6 h-6 rounded-full transition-transform hover:scale-110"
             style={{
               background: c.hex,
               border:
@@ -1470,6 +1476,7 @@ function ColorPicker({
             <button
               onClick={toggleOpen}
               className="color-wheel transition-transform hover:scale-110"
+              style={{ width: 24, height: 24 }}
               title={`+${extraCount} colors`}
             />
             <span
@@ -1522,12 +1529,12 @@ function FilterGroup({
 }) {
   return (
     <div>
-      <h4
+      <h3
         className="text-xs font-bold uppercase tracking-wider mb-3"
         style={{ color: "var(--color-ink3)" }}
       >
         {title}
-      </h4>
+      </h3>
       {children}
     </div>
   );
