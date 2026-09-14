@@ -1230,6 +1230,16 @@ html:not([data-theme="dark"]) {
   display: inline-block;
 }
 
+/* P7 perf : rendu différé des sections sous-fold (styleLayout mobile ~1s).
+   content-visibility:auto saute mise en page/peinture hors écran ;
+   contain-intrinsic-size:auto réserve la dernière taille rendue pour ne pas
+   faire sauter la scrollbar. Sûr : scrollIntoView/ancres et recherche forcent
+   le rendu à la demande ; jamais sur hero/header/nav/footer. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

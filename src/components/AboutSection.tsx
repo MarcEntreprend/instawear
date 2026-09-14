@@ -9,7 +9,7 @@ export default function AboutSection() {
       {/* À propos */}
       <section
         id="about"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24 cv-auto"
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div className="bezel-outer order-2 lg:order-1">
@@ -100,7 +100,7 @@ function TestimonialsCarousel() {
   };
 
   return (
-    <section id="testimonials" style={{ background: "var(--color-surface2)" }}>
+      <section id="testimonials" className="cv-auto" style={{ background: "var(--color-surface2)" }}>
       <div className="max-w-350 mx-auto px-4 sm:px-6 py-16 sm:py-24">
         <div className="flex items-end justify-between mb-10">
           <div>

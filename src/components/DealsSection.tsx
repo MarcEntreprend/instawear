@@ -86,7 +86,7 @@ export default function DealsSection({
       {/* Magasinez par événement */}
       <section
         id="section-occasion"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 cv-auto"
       >
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -128,7 +128,7 @@ export default function DealsSection({
 
       <section
         data-track-section="deals-new"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto"
       >
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -169,7 +169,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 cv-auto">
         <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5">
           <div
             className="relative overflow-hidden rounded-4xl p-8 sm:p-10 min-h-70 flex flex-col justify-between"
@@ -218,7 +218,7 @@ export default function DealsSection({
 
       <section
         data-track-section="deals-featured"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 cv-auto"
       >
         <div className="flex items-end justify-between mb-8">
           <h2
@@ -293,7 +293,7 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
+      <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto">
         <div className="flex items-end justify-between mb-8">
           <span className="eyebrow">By product type</span>
         </div>
