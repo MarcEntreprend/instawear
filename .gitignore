@@ -14,5 +14,9 @@ blocNote.md
 fixes-and-improvements.md
 devtools-security-check.md
 devtools-frontend-check.md
+devtools-security-check-logged-as-admin.md
+database-context-100926.md
+Fonctionalités-majeures-manquantes-(frontstore).md
+audit-security-130826.md
 
 .vercel
