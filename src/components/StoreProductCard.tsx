@@ -93,16 +93,15 @@ export default function StoreProductCard({
     <article
       className={`ticket-card animate-fade-up group ${unavailable ? "opacity-90" : ""}`}
     >
-      <a
-        href={`/produit/${product.id}`}
-        onClick={(e) => {
-          e.preventDefault();
-          onSelectProduct(product);
-        }}
-        className="block w-full text-left cursor-pointer"
-        aria-label={`View ${product.title}`}
-      >
-        <div className="relative p-3 pb-0">
+      <div className="relative p-3 pb-0">
+        <a
+          href={`/produit/${product.id}`}
+          onClick={(e) => {
+            e.preventDefault();
+            onSelectProduct(product);
+          }}
+          className="block cursor-pointer"
+        >
           <div className="bezel-outer overflow-hidden rounded-xl">
             <div className="bezel-inner aspect-square overflow-hidden">
               <img
@@ -121,206 +120,216 @@ export default function StoreProductCard({
               />
             </div>
           </div>
-          <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
-            {dealLive && (
-              <span className="badge badge-accent animate-pulse">Deal</span>
-            )}
-            {!dealLive && product.isBestSeller && (
-              <span className="badge badge-ink">Best-seller</span>
-            )}
-            {!dealLive && product.isLimitedTime && (
-              <span
-                className={`badge badge-gold ${dealFadingOut ? "deal-fade-out" : ""}`}
-              >
-                Limited
-              </span>
-            )}
-            {product.eventType === "discount" && (
-              <span
-                className="badge"
-                style={{
-                  background: "var(--color-surface)",
-                  color: "var(--color-ink)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                Deals{" "}
-                <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping ml-1" />
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (!unavailable) onToggleFavorite(product.id);
-            }}
-            aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
-            aria-pressed={isFavorite}
-            disabled={unavailable}
-            className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: isFavorite
-                ? "var(--color-accent)"
-                : "var(--color-surface)",
-              boxShadow: "var(--shadow-md)",
-              border: `1px solid ${isFavorite ? "var(--color-accent)" : "var(--color-border)"}`,
-            }}
-          >
-            <Heart
-              size={16}
-              fill={isFavorite ? "#fff" : "none"}
-              style={{ color: isFavorite ? "#fff" : "var(--color-ink3)" }}
-            />
-          </button>
+        </a>
+        <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
+          {dealLive && (
+            <span className="badge badge-accent animate-pulse">Deal</span>
+          )}
+          {!dealLive && product.isBestSeller && (
+            <span className="badge badge-ink">Best-seller</span>
+          )}
+          {!dealLive && product.isLimitedTime && (
+            <span
+              className={`badge badge-gold ${dealFadingOut ? "deal-fade-out" : ""}`}
+            >
+              Limited
+            </span>
+          )}
+          {product.eventType === "discount" && (
+            <span
+              className="badge"
+              style={{
+                background: "var(--color-surface)",
+                color: "var(--color-ink)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              Deals{" "}
+              <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-ping ml-1" />
+            </span>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            // Hors du lien produit : plus de preventDefault nécessaire,
+            // stopPropagation conservé (garde contre un futur handler carte).
+            e.stopPropagation();
+            if (!unavailable) onToggleFavorite(product.id);
+          }}
+          aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
+          aria-pressed={isFavorite}
+          disabled={unavailable}
+          className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            background: isFavorite
+              ? "var(--color-accent)"
+              : "var(--color-surface)",
+            boxShadow: "var(--shadow-md)",
+            border: `1px solid ${isFavorite ? "var(--color-accent)" : "var(--color-border)"}`,
+          }}
+        >
+          <Heart
+            size={16}
+            fill={isFavorite ? "#fff" : "none"}
+            style={{ color: isFavorite ? "#fff" : "var(--color-ink3)" }}
+          />
+        </button>
+      </div>
 
-        <div className="ticket-perforation mx-3 mt-3" />
+      <div className="ticket-perforation mx-3 mt-3" />
 
-        <div className="p-5 pt-4">
-          <p
-            className="text-[11px] font-bold uppercase tracking-wider mb-1"
-            style={{ color: "var(--color-ink3)" }}
-          >
-            {product.brand}
-          </p>
-          <h3
-            className="text-sm font-bold leading-snug mb-1.5 line-clamp-2 group-hover:text-(--color-accent) transition-colors"
-            style={{ color: "var(--color-ink)" }}
-            title={product.title}
+      <div className="p-5 pt-4">
+        <p
+          className="text-[11px] font-bold uppercase tracking-wider mb-1"
+          style={{ color: "var(--color-ink3)" }}
+        >
+          {product.brand}
+        </p>
+        <h3
+          className="text-sm font-bold leading-snug mb-1.5 line-clamp-2 transition-colors"
+          style={{ color: "var(--color-ink)" }}
+          title={product.title}
+        >
+          <a
+            href={`/produit/${product.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              onSelectProduct(product);
+            }}
+            className="group-hover:text-(--color-accent)"
           >
             {product.title}
-          </h3>
+          </a>
+        </h3>
 
-          {((product.showRatings !== false && product.ratings?.count > 0) ||
-            product.showBought) && (
-            <div className="flex items-center gap-1.5 mb-2.5 text-xs">
-              {product.showRatings !== false && product.ratings?.count > 0 && (
-                <>
-                  <span className="flex items-center gap-1 text-amber-400">
-                    <Star
-                      size={13}
-                      fill="var(--color-gold)"
-                      style={{ color: "var(--color-gold)" }}
-                    />
-                    <span
-                      className="font-bold"
-                      style={{ color: "var(--color-ink2)" }}
-                    >
-                      {product.ratings.score.toFixed(1)}
-                    </span>
-                  </span>
+        {((product.showRatings !== false && product.ratings?.count > 0) ||
+          product.showBought) && (
+          <div className="flex items-center gap-1.5 mb-2.5 text-xs">
+            {product.showRatings !== false && product.ratings?.count > 0 && (
+              <>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <Star
+                    size={13}
+                    fill="var(--color-gold)"
+                    style={{ color: "var(--color-gold)" }}
+                  />
                   <span
-                    className="text-[11px]"
-                    style={{ color: "var(--color-ink4)" }}
+                    className="font-bold"
+                    style={{ color: "var(--color-ink2)" }}
                   >
-                    ({product.ratings.count})
+                    {product.ratings.score.toFixed(1)}
                   </span>
-                </>
-              )}
-              {product.showBought && (
-                <span
-                  className="text-[11px] font-medium ml-1"
-                  style={{ color: "var(--color-accent)" }}
-                >
-                  {product.boughtLastMonth}+ bought
                 </span>
-              )}
-            </div>
-          )}
-
-          {visibleSwatches.length > 0 && (
-            <div className="flex items-center gap-1.5 mb-3">
-              {visibleSwatches.map((s, i) => (
                 <span
-                  key={i}
-                  title={s.name}
-                  className="w-4 h-4 rounded-full"
-                  style={{
-                    background: s.hex,
-                    border: "1px solid var(--color-border2)",
-                  }}
-                />
-              ))}
-              {extraSwatches > 0 && (
-                <span
-                  className="color-wheel"
-                  title={`+${extraSwatches} colors`}
-                />
-              )}
-              {extraSwatches > 0 && (
-                <span
-                  className="text-[11px] font-semibold"
+                  className="text-[11px]"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  +{extraSwatches}
+                  ({product.ratings.count})
                 </span>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-end justify-between">
-            <div className="flex items-baseline gap-2">
+              </>
+            )}
+            {product.showBought && (
               <span
-                className="text-base font-extrabold"
-                style={{
-                  color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
-                }}
-              >
-                {formatAmount(displayPrice, currencySymbol)}
-              </span>
-              {strikePrice != null && (
-                <span
-                  className="text-xs line-through"
-                  style={{ color: "var(--color-ink4)" }}
-                >
-                  {formatAmount(strikePrice, currencySymbol)}
-                </span>
-              )}
-            </div>
-            {unavailable ? (
-              <span
-                className="text-xs font-semibold"
-                style={{ color: "var(--color-negative)" }}
-              >
-                {availability === "out_of_stock"
-                  ? "Out of stock"
-                  : "Unavailable"}
-              </span>
-            ) : product.inStock === false ? (
-              <span
-                className="text-xs font-semibold"
-                style={{ color: "var(--color-negative)" }}
-              >
-                Sold out
-              </span>
-            ) : (product as any).stock_quantity !== undefined &&
-              (product as any).stock_quantity !== null &&
-              (product as any).stock_quantity <= 10 ? (
-              <span
-                className="text-xs font-semibold flex items-center gap-1"
+                className="text-[11px] font-medium ml-1"
                 style={{ color: "var(--color-accent)" }}
               >
-                <Flame size={12} /> Only {(product as any).stock_quantity} left
-              </span>
-            ) : (
-              <span
-                className="text-xs font-semibold flex items-center gap-1"
-                style={{ color: "var(--color-success)" }}
-              >
-                <Check size={12} /> In stock
+                {product.boughtLastMonth}+ bought
               </span>
             )}
           </div>
+        )}
 
-          {dealLive && product.dealEndsAt && (
-            <div className={`mt-3 ${dealFadingOut ? "deal-fade-out" : ""}`}>
-              <DealCountdown endsAt={product.dealEndsAt} compact />
-            </div>
+        {visibleSwatches.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3">
+            {visibleSwatches.map((s, i) => (
+              <span
+                key={i}
+                title={s.name}
+                className="w-4 h-4 rounded-full"
+                style={{
+                  background: s.hex,
+                  border: "1px solid var(--color-border2)",
+                }}
+              />
+            ))}
+            {extraSwatches > 0 && (
+              <span
+                className="color-wheel"
+                title={`+${extraSwatches} colors`}
+              />
+            )}
+            {extraSwatches > 0 && (
+              <span
+                className="text-[11px] font-semibold"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                +{extraSwatches}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-end justify-between">
+          <div className="flex items-baseline gap-2">
+            <span
+              className="text-base font-extrabold"
+              style={{
+                color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
+              }}
+            >
+              {formatAmount(displayPrice, currencySymbol)}
+            </span>
+            {strikePrice != null && (
+              <span
+                className="text-xs line-through"
+                style={{ color: "var(--color-ink4)" }}
+              >
+                {formatAmount(strikePrice, currencySymbol)}
+              </span>
+            )}
+          </div>
+          {unavailable ? (
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "var(--color-negative)" }}
+            >
+              {availability === "out_of_stock"
+                ? "Out of stock"
+                : "Unavailable"}
+            </span>
+          ) : product.inStock === false ? (
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "var(--color-negative)" }}
+            >
+              Sold out
+            </span>
+          ) : (product as any).stock_quantity !== undefined &&
+            (product as any).stock_quantity !== null &&
+            (product as any).stock_quantity <= 10 ? (
+            <span
+              className="text-xs font-semibold flex items-center gap-1"
+              style={{ color: "var(--color-accent)" }}
+            >
+              <Flame size={12} /> Only {(product as any).stock_quantity} left
+            </span>
+          ) : (
+            <span
+              className="text-xs font-semibold flex items-center gap-1"
+              style={{ color: "var(--color-success)" }}
+            >
+              <Check size={12} /> In stock
+            </span>
           )}
         </div>
-      </a>
+
+        {dealLive && product.dealEndsAt && (
+          <div className={`mt-3 ${dealFadingOut ? "deal-fade-out" : ""}`}>
+            <DealCountdown endsAt={product.dealEndsAt} compact />
+          </div>
+        )}
+      </div>
 
       <div className="px-5 pb-5">
         {!purchasable ? (
