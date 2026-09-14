@@ -10,6 +10,7 @@ import {
 } from "../hooks/useProductAvailability";
 import { formatAmount } from "../data/currency";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
+import { imageKitUrl, imageKitSrcSet } from "../lib/imagekit";
 
 interface StoreProductCardProps {
   product: Product;
@@ -63,6 +64,22 @@ export default function StoreProductCard({
     };
   }, [product.id, activeColor]);
   const shownSrc = variantSrc || fallbackSrc;
+  // Images responsives (P3 perf) : srcSet ImageKit quand la source y est
+  // éligible (sinon src unique, jamais de srcSet factice). Tailles réelles :
+  // 72vw en carrousel mobile, ~300px en grille.
+  const cardSrcSet = (() => {
+    const probe = imageKitUrl(shownSrc, {
+      width: 320,
+      quality: 80,
+      format: "webp",
+    });
+    if (probe === shownSrc) return undefined;
+    return imageKitSrcSet(
+      shownSrc,
+      { quality: 80, format: "webp" },
+      [320, 480, 768],
+    );
+  })();
   const availability = useProductAvailability(product);
   const unavailable = availability !== "available";
   // Première variante réellement achetable (couleur × taille dispo).
@@ -106,6 +123,8 @@ export default function StoreProductCard({
             <div className="bezel-inner aspect-square overflow-hidden">
               <img
                 src={shownSrc}
+                srcSet={cardSrcSet}
+                sizes="(max-width: 640px) 72vw, 300px"
                 alt={product.title}
                 loading="lazy"
                 decoding="async"

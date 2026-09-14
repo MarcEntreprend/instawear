@@ -127,7 +127,7 @@ export default function FrequentlyBoughtTogether({
               className="flex items-center gap-3 sm:gap-4 shrink-0"
             >
               <span
-                className="text-xl font-light shrink-0"
+                className="text-xl font-normal shrink-0"
                 style={{ color: "var(--color-ink4)" }}
               >
                 +

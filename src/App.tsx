@@ -81,7 +81,7 @@ import {
   orderApi,
 } from "./api/supabaseApi";
 import ProductPage from "./pages/ProductPage";
-import HeroCarousel from "./components/HeroCarousel";
+import HeroCarousel, { HERO_BG_FALLBACK } from "./components/HeroCarousel";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -342,6 +342,11 @@ export default function App() {
       "data-theme",
       darkMode ? "dark" : "light",
     );
+    // P4 : synchronise le fond pré-paint posé dans index.html (sinon il reste
+    // figé sur le thème du premier chargement quand on bascule ensuite).
+    document.documentElement.style.background = darkMode
+      ? "#121110"
+      : "#fafaf8";
     localStorage.setItem("theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
@@ -1054,7 +1059,7 @@ export default function App() {
           headline: promo.headline || product?.title || "",
           sub: promo.sub || product?.description || "",
           cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || "from-white via-indigo-50 to-white",
+          bgGradient: promo.bgGradient || HERO_BG_FALLBACK,
           image: promo.image || product?.image || PLACEHOLDER_IMG,
           tag: promo.tag || "⚡ PROMOTION",
           productId: promo.productId,

@@ -152,15 +152,38 @@ function setRoot(html: string, snapshot: string): string {
 // (SEO/LLM préservés, même contenu que l'app = pas de cloaking).
 // leadHero (accueil uniquement) : image LCP VISIBLE peinte avant même le JS
 // (mêmes dimensions que le carrousel : swap quasi invisible au boot).
-function shell(inner: string, leadHero?: { src: string; alt: string }): string {
+function shell(
+  inner: string,
+  leadHero?: { src: string; alt: string },
+  leadData?: Record<string, unknown>,
+): string {
+  // Espaceurs haut (accueil seul, quand leadHero) : la barre promo + le header
+  // React s'insèrent AU-DESSUS au boot — sans réserve, le hero saute vers le
+  // bas (~100px). Hauteurs approchées (34px promo, 64px header mobile), fonds
+  // via variables (résolues dès le CSS arrivé, transparentes avant : pas de
+  // flash, pas de saut).
+  const topSpacers = leadHero
+    ? `<div style="height:34px;background:var(--color-accent-strong);"></div>` +
+      `<div style="height:64px;background:var(--color-bg);"></div>`
+    : "";
   const heroFigure = leadHero
-    ? `<div style="height:78vh;min-height:420px;max-height:760px;overflow:hidden;background:#eceae6;">` +
+    ? `<div data-lead-hero style="height:78vh;min-height:420px;max-height:760px;overflow:hidden;background:#eceae6;">` +
       `<img src="${leadHero.src}" alt="${leadHero.alt}" fetchpriority="high" decoding="async" ` +
       `style="width:100%;height:100%;object-fit:cover;display:block;" ` +
       `onerror="this.closest('div').style.display='none'" /></div>`
     : "";
+  // Données du slide d'amorçage (P4b) : mêmes règles que App.tsx (voir plus
+  // bas). JSON public catalogue (lisible en anonyme), `<` neutralisés contre
+  // toute sortie de balise. HeroCarousel les rend pendant le chargement puis
+  // bascule sur les vraies bannières (pixels identiques → swap invisible).
+  const leadJson =
+    leadHero && leadData
+      ? `<script id="lead-hero-data" type="application/json">${JSON.stringify(leadData).replace(/</g, "\\u003c")}</script>`
+      : "";
   return (
+    topSpacers +
     heroFigure +
+    leadJson +
     `<noscript><main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
     `<p><a href="${SITE}/" style="font-weight:800;font-size:20px;color:#ff5c35;text-decoration:none;">InstaWear</a></p>` +
     inner +
@@ -237,40 +260,51 @@ if (url && anon) {
 const sym = SYMBOLS[currencyCode] || "$";
 const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
 
-// 1b) 1re image hero (même règle que App.tsx : 1re promo active avec produit
-// actif, sinon rien). Peinte en visible avant le JS (LCP instantané).
+// 1b) 1re bannière hero (P4b — mêmes règles que App.tsx : 1re promo active
+// avec produit actif, sinon rien). Image peinte en visible avant le JS (LCP
+// instantané) + JSON embarqué pour le slide d'amorçage React (swap invisible).
 let leadHero: { src: string; alt: string } | undefined;
+let leadData: Record<string, unknown> | undefined;
 if (url && anon && products.length > 0) {
   try {
     const supabase = createClient(url, anon);
     const { data: promos } = await supabase
       .from("hero_promotions")
-      .select("image, product_id, title, headline")
+      .select(
+        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order",
+      )
       .order("order", { ascending: true });
     const first = (promos ?? []).find((pr: any) => {
       if (pr == null) return false;
-      if ((pr as any).isActive === false || (pr as any).is_active === false)
-        return false;
+      if ((pr as any).is_active === false) return false;
       const prod = products.find(
-        (p) => p.id === String((pr as any).productId || (pr as any).product_id),
+        (p) => p.id === String((pr as any).product_id),
       );
       return !!prod;
     });
     if (first) {
       const prod = products.find(
-        (p) =>
-          p.id ===
-          String((first as any).productId || (first as any).product_id),
+        (p) => p.id === String((first as any).product_id),
       )!;
       const src = String((first as any).image || prod.image || "");
       if (src && !src.includes("missing-item")) {
-        leadHero = {
-          src: esc(src),
-          alt: esc(
-            String(
-              (first as any).title || (first as any).headline || prod.title,
-            ),
-          ),
+        // Miroir exact des résolutions App.tsx (useMemo heroBanners).
+        const title = String(
+          (first as any).title || prod.title || (first as any).headline || "Promotion",
+        );
+        const headline = String((first as any).headline || prod.title || "");
+        leadHero = { src: esc(src), alt: esc(title) };
+        leadData = {
+          title,
+          headline,
+          sub: String((first as any).sub || prod.description || ""),
+          cta: String((first as any).cta || "Discover"),
+          bgGradient: String((first as any).bg_gradient || ""),
+          image: src,
+          tag: String((first as any).tag || "⚡ PROMOTION"),
+          productId: prod.id,
+          showTag: (first as any).show_tag !== false,
+          showTitle: (first as any).show_title !== false,
         };
       }
     }
@@ -300,6 +334,7 @@ if (url && anon && products.length > 0) {
             .join("")}</ul>`
         : ""),
     leadHero,
+    leadData,
   );
   write("index.html", setRoot(template, snap));
 }

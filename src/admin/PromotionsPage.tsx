@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import { HERO_BG_FALLBACK } from "../components/HeroCarousel";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 export default function PromotionsPage() {
@@ -34,7 +35,7 @@ export default function PromotionsPage() {
     headline: "",
     sub: "",
     cta: "Shop Now",
-    bgGradient: "from-white via-indigo-50 to-white",
+    bgGradient: HERO_BG_FALLBACK,
     tag: "⚡ PROMOTION",
     order: 0,
     isActive: true,
@@ -195,7 +196,7 @@ export default function PromotionsPage() {
       headline: "",
       sub: "",
       cta: "Shop Now",
-      bgGradient: "from-white via-indigo-50 to-white",
+      bgGradient: HERO_BG_FALLBACK,
       tag: "⚡ PROMOTION",
       order: promotions.length,
       isActive: true,
@@ -313,7 +314,7 @@ export default function PromotionsPage() {
               headline: "",
               sub: "",
               cta: "Shop Now",
-              bgGradient: "from-white via-indigo-50 to-white",
+              bgGradient: HERO_BG_FALLBACK,
               tag: "⚡ PROMOTION",
               order: promotions.length,
               showTag: true,
