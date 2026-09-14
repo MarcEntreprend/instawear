@@ -36,9 +36,7 @@ import {
   buildDeliveredEmail,
   buildCancelledEmail,
   buildOnHoldEmail,
-  buildRefundedEmail,
   buildReturnedEmail,
-  wantsStatusEmail,
 } from "./_shared/orderStatusEmails.ts";
 import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
 import { notifyAdmin } from "./_shared/notifyAdmin.ts";
@@ -428,8 +426,9 @@ async function sendStatusEmail(
 ): Promise<boolean> {
   // Respect des préférences compte : shipping_update=false coupe les
   // emails de suivi (shipped/partial/delivered/in_production). Essentiels
-  // (cancelled/on_hold/refunded/returned) : toujours envoyés. Ligne
-  // absente = défaut true (on envoie).
+  // (cancelled/on_hold/returned) : toujours envoyés. refunded n'arrive
+  // jamais ici (voie Finances exclusive, 409 plus haut). Ligne absente =
+  // défaut true (on envoie).
   const needsPref =
     toStatus === "shipped" ||
     toStatus === "partial" ||
@@ -477,8 +476,6 @@ async function sendStatusEmail(
     built = buildCancelledEmail(order, items, currencySymbol, reason || null);
   else if (toStatus === "on_hold")
     built = buildOnHoldEmail(order, currencySymbol, reason || null);
-  else if (toStatus === "refunded")
-    built = buildRefundedEmail(order, items, currencySymbol, null);
   else if (toStatus === "returned")
     built = buildReturnedEmail(order, items, currencySymbol, reason || null);
   else if (toStatus === "partial")
