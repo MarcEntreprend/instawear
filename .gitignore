@@ -14,3 +14,9 @@ blocNote.md
 fixes-and-improvements.md
 
 .vercel
+
+# Docs personnelles (audits, notes dev)
+audit-security-130826.md
+devtools-frontend-check.md
+devtools-security-check-logged-as-admin.md
+devtools-security-check.md
