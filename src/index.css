@@ -48,6 +48,12 @@
   /* V2 semantic */
   --color-negative: #e0393a;
   --color-negative-bg: #fceaea;
+
+  /* Corrigé — audit accessibilité (vague 1) : nuance foncée dédiée au texte
+     blanc en aplat (boutons/badges pleins). --color-accent reste inchangé
+     partout ailleurs (icônes, bordures, glows) pour préserver le corail. */
+  --color-accent-strong: #c2452a;
+  --color-on-gold: #1a1916;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -67,8 +73,10 @@
 
   --color-ink: #e8e6e1;
   --color-ink2: #b8b5ae;
-  --color-ink3: #807d76;
-  --color-ink4: #5a5753;
+  /* Corrigé — audit accessibilité (vague 1) : relevés pour tenir 4.5:1 sur
+     les quatre fonds sombres réels du site (bg, surface, surface2, footer). */
+  --color-ink3: #96938d;
+  --color-ink4: #8e8b85;
 
   /* ── Accent : le corail devient lumineux, pas juste plus clair ── */
   --color-accent: #ff6b45;
@@ -77,6 +85,7 @@
   --color-accent-hover: #ff8159;
   --color-accent-soft: rgba(255, 107, 69, 0.16);
   --color-accent-soft2: rgba(255, 107, 69, 0.08);
+  --color-accent-strong: #c2452a;
 
   --color-gold: #f0b13d;
   --color-gold-bg: rgba(240, 177, 61, 0.1);
@@ -888,8 +897,14 @@ p {
 Ces variables et classes ne sont pas encore utilisées dans les composants fusionnés, 
 mais elles complètent proprement le système de design et peuvent servir plus tard. Aucune ne modifie un style existant. */
 
-:root {
-  /* Couleurs supplémentaires (gardent la palette V2) */
+[data-theme="light"],
+html:not([data-theme="dark"]) {
+  /* Couleurs supplémentaires (gardent la palette V2) — mode clair uniquement.
+     Anciennement dans un `:root` nu : cela écrasait silencieusement les valeurs
+     dark-mode déclarées plus haut (--color-success, --color-gold-bg…) car :root
+     et [data-theme="dark"] ont la même spécificité et cette règle arrivait après
+     dans le fichier (badge "In stock" illisible en sombre : 3.23:1 au lieu de
+     4.5:1 avec la vraie valeur dark #4ade80). */
   --color-accent-hover: #e64a2e; /* version foncée de l’accent */
   --color-accent-soft: rgba(255, 92, 53, 0.1);
   --color-accent-soft2: rgba(255, 92, 53, 0.06);
@@ -1237,7 +1252,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
   transform: translateY(-1px);
 }
 .btn-accent {
-  background: var(--color-accent);
+  background: var(--color-accent-strong);
   color: #fff;
   box-shadow: var(--shadow-accent);
 }
@@ -1311,7 +1326,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 }
 
 .badge-accent {
-  background: var(--color-accent);
+  background: var(--color-accent-strong);
   color: #fff;
 }
 .badge-ink {
@@ -1324,7 +1339,7 @@ mais elles complètent proprement le système de design et peuvent servir plus t
 }
 .badge-gold {
   background: var(--color-gold);
-  color: var(--color-ink);
+  color: var(--color-on-gold);
 }
 .icon-count {
   position: absolute;

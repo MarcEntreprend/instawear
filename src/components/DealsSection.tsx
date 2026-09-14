@@ -255,7 +255,7 @@ export default function DealsSection({
               <button
                 onClick={() => handleSelectCategory(null, null)}
                 className="btn"
-                style={{ background: "#fff", color: "var(--color-accent)" }}
+                style={{ background: "#fff", color: "var(--color-accent-strong)" }}
               >
                 Shop now
               </button>

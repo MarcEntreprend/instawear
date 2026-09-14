@@ -182,6 +182,7 @@ export default function Footer({
               <span
                 key={i}
                 title="Coming soon"
+                role="img"
                 aria-label="Social network (coming soon)"
                 className="btn-icon opacity-60 cursor-default"
               >

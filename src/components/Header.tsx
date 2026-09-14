@@ -514,7 +514,7 @@ export default function Header({
       {/* Promo bar — marquee scrolling */}
       <div
         className="w-full py-2 overflow-hidden"
-        style={{ background: "var(--color-accent)" }}
+        style={{ background: "var(--color-accent-strong)" }}
       >
         <div className="flex animate-marquee whitespace-nowrap">
           {Array.from({ length: 3 }).map((_, i) => (

@@ -745,6 +745,7 @@ export default function CatalogSection({
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortValue)}
+                    aria-label="Sort products"
                     className="appearance-none rounded-full pl-4 pr-9 h-9 text-xs font-semibold outline-none"
                     style={{
                       background: "var(--color-surface)",
