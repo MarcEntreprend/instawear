@@ -1,4 +1,4 @@
-// supabase/functions/admin-order-notify/_shared/logSafe.ts
+// supabase/functions/_shared/logSafe.ts
 // Copie locale (le bundler n'inclut que le dossier de la fonction).
 // Miroir de supabase/functions/_shared/logSafe.ts
 

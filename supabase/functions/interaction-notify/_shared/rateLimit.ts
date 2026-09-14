@@ -1,6 +1,6 @@
-// supabase/functions/admin-order-notify/_shared/rateLimit.ts
-// Copie locale (le bundler n'inclut que le dossier de la fonction).
-// Miroir de supabase/functions/_shared/rateLimit.ts + quota admin-order-notify.
+// supabase/functions/_shared/rateLimit.ts
+// P-F Rate Limiting distribue: en memoire par instance (dev),
+// upgradable vers Upstash Redis/KV en prod. Quotas par path.
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
@@ -8,7 +8,21 @@ export interface Quota { max: number; windowMs: number; }
 
 export function quotaFor(path: string): Quota {
   switch (path) {
-    case "admin-order-notify": return { max: 10, windowMs: 60_000 };
+    case "sync-printful": return { max: 10, windowMs: 60_000 };
+    case "create-printful-order": return { max: 5, windowMs: 60_000 };
+    case "stripe-checkout": return { max: 5, windowMs: 60_000 };
+    case "stripe-webhook": return { max: 60, windowMs: 60_000 };
+    case "printful-webhook": return { max: 60, windowMs: 60_000 };
+    case "health": return { max: 30, windowMs: 60_000 };
+    case "delete-account": return { max: 3, windowMs: 60_000 };
+    case "send-email": return { max: 30, windowMs: 60_000 };
+    case "contact-message": return { max: 5, windowMs: 60_000 };
+    case "auth-welcome": return { max: 3, windowMs: 60_000 };
+    case "merch-scorer": return { max: 5, windowMs: 60_000 };
+    case "cart-recovery": return { max: 3, windowMs: 60_000 };
+    case "approve-printful-design": return { max: 10, windowMs: 60_000 };
+    case "get-shipping-rates": return { max: 30, windowMs: 60_000 };
+    case "printful-reports": return { max: 10, windowMs: 60_000 };
     default: return { max: 20, windowMs: 60_000 };
   }
 }

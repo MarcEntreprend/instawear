@@ -1,4 +1,4 @@
-// supabase/functions/admin-order-notify/_shared/validators.ts
+// supabase/functions/_shared/validators.ts
 // Copie locale (le bundler n'inclut que le dossier de la fonction).
 // Miroir de supabase/functions/_shared/validators.ts
 
