@@ -12,8 +12,9 @@
 //   POST { orderId, toStatus, reason? }
 //   - Auth : service_role (appels internes) OU JWT admin (admin_users).
 //   - Cibles manuelles : in_production, shipped, delivered, cancelled,
-//     on_hold, refunded, returned, partial. `paid` = propriété du webhook
-//     Stripe, `pending` = état initial : refusés en 409.
+//     on_hold, returned, partial. `paid` = propriété du webhook Stripe,
+//     `pending` = état initial, `refunded` = argent réel via Finances
+//     (stripe-refund) : refusés en 409 avec redirection.
 //   - Transition validée contre order_status_transitions (même table que
 //     les webhooks) ; même statut = no-op { ok, emailed: false }.
 //   - in_production : transmission Printful d'abord (self-call
@@ -68,15 +69,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Cibles autorisées en manuel. `paid` (webhook Stripe) et `pending`
-// (état initial, aucune transition entrante) sont exclus.
+// Cibles autorisées en manuel. `paid` (webhook Stripe), `pending` (état
+// initial) et `refunded` (argent réel via Finances/stripe-refund — un label
+// sans mouvement d'argent est interdit) sont exclus.
 const MANUAL_TARGETS = new Set([
   "in_production",
   "shipped",
   "delivered",
   "cancelled",
   "on_hold",
-  "refunded",
   "returned",
   "partial",
 ]);
@@ -216,7 +217,9 @@ export default {
             ? "paid est posé par le webhook Stripe uniquement"
             : toStatus === "pending"
               ? "pending est l'état initial, jamais une cible"
-              : `cibles manuelles : ${[...MANUAL_TARGETS].join(", ")}`;
+              : toStatus === "refunded"
+                ? "refunded exige un vrai remboursement : passez par Finances (l'argent doit bouger)"
+                : `cibles manuelles : ${[...MANUAL_TARGETS].join(", ")}`;
         return json({ error: `Statut cible invalide (${hint})` }, 409);
       }
 

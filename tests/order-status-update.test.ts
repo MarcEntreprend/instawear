@@ -7,7 +7,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// ─── Cibles manuelles (miroir MANUAL_TARGETS) ───────────────────────────────
+// ─── Cibles manuelles (miroir MANUAL_TARGETS — refunded EXCLU : argent
+// réel via Finances/stripe-refund, jamais un label) ──────────────────────────
 
 const MANUAL_TARGETS = new Set([
   "in_production",
@@ -15,22 +16,23 @@ const MANUAL_TARGETS = new Set([
   "delivered",
   "cancelled",
   "on_hold",
-  "refunded",
   "returned",
   "partial",
 ]);
 
-test("8 cibles manuelles, ni paid ni pending", () => {
-  assert.equal(MANUAL_TARGETS.size, 8);
+test("7 cibles manuelles, ni paid ni pending ni refunded", () => {
+  assert.equal(MANUAL_TARGETS.size, 7);
   assert.ok(!MANUAL_TARGETS.has("paid"));
   assert.ok(!MANUAL_TARGETS.has("pending"));
+  assert.ok(!MANUAL_TARGETS.has("refunded"));
 });
 
-test("paid refusé (propriété webhook Stripe), pending refusé (état initial)", () => {
+test("paid/pending/refunded refusés (webhook, initial, Finances)", () => {
   const check = (toStatus: string) =>
     MANUAL_TARGETS.has(toStatus) ? null : `Statut cible invalide`;
   assert.ok(check("paid"));
   assert.ok(check("pending"));
+  assert.ok(check("refunded"));
   assert.equal(check("shipped"), null);
 });
 
@@ -61,9 +63,16 @@ test("transitions légales manuelles → ok", () => {
   assert.equal(decide("paid", "in_production"), "ok");
   assert.equal(decide("in_production", "shipped"), "ok");
   assert.equal(decide("shipped", "delivered"), "ok");
-  assert.equal(decide("partial", "refunded"), "ok");
   assert.equal(decide("on_hold", "in_production"), "ok");
   assert.equal(decide("delivered", "returned"), "ok");
+});
+
+test("refunded via edge manuelle → refused (Finances exigées)", () => {
+  // Même si la transition existe en table, la voie manuelle est fermée :
+  // l'argent doit bouger (stripe-refund), pas seulement le label.
+  assert.equal(decide("paid", "refunded"), "refused");
+  assert.equal(decide("shipped", "refunded"), "refused");
+  assert.equal(decide("delivered", "refunded"), "refused");
 });
 
 test("transitions illégales → refused (409)", () => {
@@ -81,10 +90,10 @@ const UI_TARGETS: Record<string, string[]> = {
   pending: ["cancelled"],
   paid: ["in_production", "partial", "on_hold", "cancelled"],
   in_production: ["shipped", "partial", "on_hold", "cancelled"],
-  partial: ["shipped", "on_hold", "cancelled", "refunded"],
-  on_hold: ["in_production", "partial", "cancelled", "refunded"],
-  shipped: ["delivered", "returned", "refunded"],
-  delivered: ["returned", "refunded"],
+  partial: ["shipped", "on_hold", "cancelled"],
+  on_hold: ["in_production", "partial", "cancelled"],
+  shipped: ["delivered", "returned"],
+  delivered: ["returned"],
   cancelled: [],
   refunded: [],
   returned: [],

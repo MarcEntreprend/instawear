@@ -21,6 +21,7 @@ import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
 import NotificationsPage from "./NotificationsPage";
 import OrdersPage from "./OrdersPage";
+import FinancesPage from "./FinancesPage";
 import ShippedDeliveredPage from "./ShippedDeliveredPage";
 import PromotionsPage from "./PromotionsPage";
 import MerchandisingPage from "./MerchandisingPage";
@@ -1017,6 +1018,7 @@ export default function AdminDashboard({
   const [navStack, setNavStack] = useState<AdminSection[]>(["dashboard"]);
   const section = navStack[navStack.length - 1];
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [financesOrderId, setFinancesOrderId] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
@@ -1037,6 +1039,7 @@ export default function AdminDashboard({
   const SECTION_TITLES: Record<AdminSection, string> = {
     dashboard: "Tableau de bord",
     orders: "Commandes",
+    finances: "Finances",
     products: "Produits",
     notifications: "Notifications",
     shipped: "Expédiées & Livrées",
@@ -1066,6 +1069,9 @@ export default function AdminDashboard({
             }),
           );
         }, 400); // laisse le temps à ProductsPage de se monter
+      }
+      if (params?.highlightOrder) {
+        setFinancesOrderId(params.highlightOrder);
       }
     };
     window.addEventListener("instawear:navigate-admin", handler);
@@ -1299,6 +1305,12 @@ export default function AdminDashboard({
             />
           )}
           {section === "orders" && <OrdersPage />}
+          {section === "finances" && (
+            <FinancesPage
+              initialOrderId={financesOrderId}
+              onConsumeInitialOrder={() => setFinancesOrderId(null)}
+            />
+          )}
           {section === "promotions" && <PromotionsPage />}
           {section === "merchandising" && <MerchandisingPage />}
           {section === "reports" && <ReportsPage />}
