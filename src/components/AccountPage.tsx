@@ -1677,6 +1677,185 @@ function OrdersTab({
   );
 }
 
+// ─── RefundRequestBlock : demande + historique vus par le client ──────────
+// Éligibilité indicative ici (paid/in_production/on_hold/delivered) —
+// l'edge refund-request tranche serveur (fenêtre 14j, doublons).
+// Invités : pas de compte → passer par /contact (indiqué si non loggué,
+// mais ce composant ne s'affiche que dans le compte).
+function RefundRequestBlock({ order }: { order: Order }) {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [rq, rf] = await Promise.all([
+          supabase
+            .from("refund_requests")
+            .select("id, status, created_at")
+            .eq("order_id", order.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("order_refunds")
+            .select("amount_cents, currency, created_at, status")
+            .eq("order_id", order.id)
+            .order("created_at", { ascending: false }),
+        ]);
+        if (!alive) return;
+        if (!rq.error) setRequests(rq.data ?? []);
+        if (!rf.error) setRefunds(rf.data ?? []);
+      } catch {
+        /* silencieux : bloc informatif */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [order.id]);
+
+  const pending = requests.find((r: any) => r.status === "pending");
+  const eligible = ["paid", "in_production", "on_hold", "delivered"].includes(
+    order.status,
+  );
+
+  const submit = async () => {
+    setSending(true);
+    setFeedback("");
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setFeedback("Connectez-vous pour faire une demande.");
+        return;
+      }
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refund-request`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ orderId: order.id, message: message || undefined }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Envoi impossible.");
+      setShowForm(false);
+      setMessage("");
+      setFeedback("Demande envoyée — nous revenons vers vous très vite.");
+      const rq = await supabase
+        .from("refund_requests")
+        .select("id, status, created_at")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: false });
+      if (!rq.error) setRequests(rq.data ?? []);
+    } catch (e: any) {
+      setFeedback(e?.message || "Envoi impossible pour le moment.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!eligible && refunds.length === 0 && !pending) return null;
+
+  return (
+    <div
+      className="rounded-2xl p-4"
+      style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <p
+        className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2"
+        style={{ color: "var(--color-ink4)" }}
+      >
+        Remboursement
+      </p>
+      {refunds.length > 0 && (
+        <div className="flex flex-col gap-1 mb-2">
+          {refunds.map((r: any, i: number) => (
+            <p key={i} className="text-[13px]" style={{ color: "#065f46" }}>
+              <CheckCircle2 size={13} className="inline mr-1" />
+              {(r.amount_cents / 100).toFixed(2)} {r.currency} remboursés le{" "}
+              {new Date(r.created_at).toLocaleDateString("fr-FR")}
+              {r.status === "pending" ? " (en cours)" : ""}
+            </p>
+          ))}
+        </div>
+      )}
+      {pending ? (
+        <p className="text-[13px]" style={{ color: "#92400e" }}>
+          Demande en cours d'examen — nous revenons vers vous très vite.
+        </p>
+      ) : eligible ? (
+        showForm ? (
+          <div className="flex flex-col gap-2">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Motif (optionnel) — ex. taille non conforme…"
+              className="w-full rounded-xl border px-3 py-2 text-[13px] outline-none resize-none"
+              style={{
+                background: "var(--color-surface2)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-ink)",
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={submit}
+                disabled={sending}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-60"
+                style={{ background: "var(--color-accent)" }}
+              >
+                {sending ? "Envoi…" : "Envoyer la demande"}
+              </button>
+              <button
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-semibold"
+                style={{
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-ink2)",
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-4 py-2 rounded-xl text-[12.5px] font-bold"
+            style={{
+              border: "1px solid var(--color-border2)",
+              color: "var(--color-ink)",
+              background: "var(--color-surface2)",
+            }}
+          >
+            Demander un remboursement
+          </button>
+        )
+      ) : null}
+      {feedback && (
+        <p className="text-[12.5px] mt-2" style={{ color: "var(--color-ink2)" }}>
+          {feedback}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── OrderDetail ──────────────────────────────────────────────────────
 function OrderDetail({
   order,
@@ -1705,6 +1884,9 @@ function OrderDetail({
 
       {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
+
+      {/* Remboursement : demande client + historique (edge refund-request). */}
+      <RefundRequestBlock order={order} />
 
       {/* Suivi des colis — visible dès le 1er colis (partial/shipped),
           conservé sur delivered (historique de livraison). */}
@@ -3659,7 +3841,7 @@ function ProfileTab({
   const handleDeleteAccount = async () => {
     if (!customerId) return;
     const confirmed = window.confirm(
-      "This will permanently delete your account, orders history access, saved addresses, favourites and cart. This action cannot be undone. Continue?",
+      "This will permanently delete your account, saved addresses, favourites and cart. Your name and email will be removed from support messages and reviews; past orders are kept anonymously for accounting, as required by law. This action cannot be undone. Continue?",
     );
     if (!confirmed) return;
     setDeletingAccount(true);

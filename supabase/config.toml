@@ -86,3 +86,11 @@ verify_jwt = false
 [functions.stripe-webhook]
 enabled = true
 verify_jwt = false
+
+[functions.stripe-refund]
+enabled = true
+verify_jwt = false
+
+[functions.refund-request]
+enabled = true
+verify_jwt = false

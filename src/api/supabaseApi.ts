@@ -1872,6 +1872,154 @@ export const podApi = {
   },
 };
 
+export interface RefundRequest {
+  id: string;
+  orderId: string;
+  customerId: string | null;
+  customerEmail: string | null;
+  amountCents: number | null;
+  reason: string | null;
+  status: "pending" | "approved" | "rejected";
+  decidedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface OrderRefund {
+  id: string;
+  orderId: string;
+  stripeRefundId: string | null;
+  amountCents: number;
+  currency: string;
+  reason: string | null;
+  status: string;
+  requestedBy: string | null;
+  createdAt: string;
+}
+
+function uuid(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof (crypto as any).randomUUID === "function"
+  ) {
+    return (crypto as any).randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+export const refundApi = {
+  /** File des demandes (défaut : pending). Admin (RLS). */
+  async listRequests(status?: string): Promise<RefundRequest[]> {
+    let q = supabase
+      .from("refund_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      orderId: r.order_id,
+      customerId: r.customer_id,
+      customerEmail: r.customer_email,
+      amountCents: r.amount_cents,
+      reason: r.reason,
+      status: r.status,
+      decidedBy: r.decided_by,
+      decidedAt: r.decided_at,
+      createdAt: r.created_at,
+    }));
+  },
+  /** Historique des remboursements exécutés (optionnel : par commande). */
+  async listRefunds(orderId?: string): Promise<OrderRefund[]> {
+    let q = supabase
+      .from("order_refunds")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (orderId) q = q.eq("order_id", orderId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      orderId: r.order_id,
+      stripeRefundId: r.stripe_refund_id,
+      amountCents: r.amount_cents,
+      currency: r.currency,
+      reason: r.reason,
+      status: r.status,
+      requestedBy: r.requested_by,
+      createdAt: r.created_at,
+    }));
+  },
+  /**
+   * Exécute un vrai remboursement Stripe (edge stripe-refund, JWT admin).
+   * Clé d'idempotence générée PAR CLIC (jamais réutilisée).
+   */
+  async refund(
+    orderId: string,
+    opts: { amountCents?: number | null; reason?: string; requestId?: string } = {},
+  ): Promise<{
+    refundId: string;
+    amountCents: number;
+    currency: string;
+    remainingAfter: number;
+    status: string | null;
+  }> {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-refund`,
+      {
+        method: "POST",
+        headers: await getPodAuthHeaders(),
+        body: JSON.stringify({
+          orderId,
+          amountCents: opts.amountCents ?? null,
+          reason: opts.reason || "requested_by_customer",
+          key: uuid(),
+          requestId: opts.requestId,
+        }),
+      },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    return data;
+  },
+  /** Rejette une demande (sans mouvement d'argent) + notifie le client. */
+  async rejectRequest(requestId: string, orderId: string): Promise<void> {
+    const { error } = await supabase
+      .from("refund_requests")
+      .update({
+        status: "rejected",
+        decided_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+    if (error) throw error;
+    try {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("client_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (order?.client_id) {
+        await supabase.from("customer_notifications").insert({
+          customer_id: order.client_id,
+          title: `Refund request declined — ${orderId}`,
+          message: `Your refund request for order ${orderId} was declined. Contact support if you disagree.`,
+          type: "order_status",
+          is_read: false,
+          metadata: { orderId, requestId },
+        });
+      }
+    } catch (e) {
+      console.warn("Échec notification refus", e);
+    }
+  },
+};
+
 export const storeSettingsApi = {
   async get(): Promise<StoreSettings> {
     const { data, error } = await supabase
@@ -2010,16 +2158,16 @@ export const adminUserApi = {
     }
   },
   async create(
-    admin: Omit<AdminUser, "id" | "createdAt"> & { passwordHash?: string },
+    admin: Omit<AdminUser, "id" | "createdAt">,
   ): Promise<AdminUser> {
-    // Créer d'abord un utilisateur auth via Supabase (si nécessaire)
-    // Pour simplifier, nous faisons l'insertion directe dans admin_users (le mot de passe doit être géré via Auth).
+    // Auth = Supabase Auth natif. On n'écrit JAMAIS de mot de passe ici
+    // (colonne password_hash supprimée — voir migration) : seul le rôle
+    // vit dans admin_users, l'authentification vit dans auth.users.
     const { data, error } = await supabase
       .from("admin_users")
       .insert({
         email: admin.email,
         role: admin.role,
-        password_hash: admin.passwordHash ?? null,
       })
       .select()
       .maybeSingle();

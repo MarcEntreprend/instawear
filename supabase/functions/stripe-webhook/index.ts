@@ -253,7 +253,11 @@ async function handlePaidOrder(
   supabaseAdmin: any,
   orderId: string,
   externalId: string,
-  opts: { expectedAmountCents?: number | null } = {},
+  opts: {
+    expectedAmountCents?: number | null;
+    /** PI résolu par l'appelant (carte : pi.id ; hosted : session expand). */
+    paymentIntentId?: string | null;
+  } = {},
 ): Promise<"paid" | "duplicate"> {
   const { data: existing } = await supabaseAdmin
     .from("orders")
@@ -286,7 +290,15 @@ async function handlePaidOrder(
 
   await supabaseAdmin
     .from("orders")
-    .update({ status: "paid", external_order_id: externalId })
+    .update({
+      status: "paid",
+      external_order_id: externalId,
+      // PI persisté pour les remboursements futurs (résolution sans
+      // réinterroger Stripe ; best-effort, jamais bloquant).
+      ...(opts.paymentIntentId
+        ? { stripe_payment_intent_id: opts.paymentIntentId }
+        : {}),
+    })
     .eq("id", orderId);
 
   const { data: order } = await supabaseAdmin
@@ -529,10 +541,25 @@ export default {
         // l'adresse du checkout + Printful + email admin). Montant
         // incohérent → 400 (on ne marque jamais paid à tort) ; commande
         // absente → 404. Les retries Stripe reçoivent 200 en cas de
-        // doublon (géré dans le helper).
+        // doublon (géré dans le helper). Le PI est persisté pour les
+        // remboursements futurs (best-effort).
         try {
+          let hostedPiId: string | null = null;
+          try {
+            const full = await stripe.checkout.sessions.retrieve(session.id, {
+              expand: ["payment_intent"],
+            });
+            const pi = (full as any)?.payment_intent;
+            hostedPiId =
+              typeof pi === "string"
+                ? pi
+                : typeof pi?.id === "string"
+                  ? pi.id
+                  : null;
+          } catch {}
           await handlePaidOrder(supabaseAdmin, orderId, session.id, {
             expectedAmountCents: session.amount_total ?? null,
+            paymentIntentId: hostedPiId,
           });
         } catch (err: any) {
           const msg = String(err?.message || err);
@@ -569,6 +596,7 @@ export default {
           await handlePaidOrder(supabaseAdmin, orderId, pi.id, {
             expectedAmountCents:
               typeof pi.amount_received === "number" ? pi.amount_received : null,
+            paymentIntentId: typeof pi.id === "string" ? pi.id : null,
           });
         } catch (err: any) {
           const msg = String(err?.message || err);
@@ -584,6 +612,57 @@ export default {
               "Content-Type": "application/json",
             },
           });
+        }
+      }
+
+      // ── Remboursement depuis le dashboard Stripe (filet) ─────────────
+      // L'argent a déjà bougé côté Stripe : AUCUN mouvement ici, on
+      // réconcilie via stripe-refund en mode constat (vérifie que le re_…
+      // appartient bien à la commande, enregistre, notifie). Best-effort :
+      // en cas d'échec, l'admin tranche via Finances (le re_… reste
+      // retrouvable côté Stripe).
+      if (event.type === "charge.refunded") {
+        try {
+          const charge = event.data.object as any;
+          const piId =
+            typeof charge?.payment_intent === "string" ? charge.payment_intent : null;
+          if (piId) {
+            const found = await supabaseAdmin
+              .from("orders")
+              .select("id")
+              .or(
+                `stripe_payment_intent_id.eq.${piId},and(external_order_id.eq.${piId})`,
+              )
+              .limit(1)
+              .maybeSingle();
+            const refunds = Array.isArray((charge as any)?.refunds?.data)
+              ? (charge as any).refunds.data
+              : [];
+            const latest = refunds.find((r: any) => r?.status === "succeeded") || refunds[0];
+            if (found && latest?.id) {
+              await fetch(
+                `${Deno.env.get("SUPABASE_URL")}/functions/v1/stripe-refund`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+                  },
+                  body: JSON.stringify({
+                    orderId: (found as any).id,
+                    recordOnly: true,
+                    stripeRefundId: latest.id,
+                  }),
+                },
+              ).catch(() => {});
+            } else {
+              console.warn(
+                `[stripe-webhook] charge.refunded sans commande liée (pi ${logSafe(piId)})`,
+              );
+            }
+          }
+        } catch (err) {
+          console.warn("[stripe-webhook] charge.refunded:", logSafe(err));
         }
       }
 

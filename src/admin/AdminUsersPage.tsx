@@ -137,7 +137,7 @@ export default function AdminUsersPage() {
       await createUser({
         email: formEmail.trim(),
         role: formRole,
-        // passwordHash serait généré côté serveur
+        // Auth = Supabase Auth natif : aucun mot de passe ne transite ici.
       });
     }
     setShowModal(false);

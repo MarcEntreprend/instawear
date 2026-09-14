@@ -59,7 +59,8 @@ export default function DealsSection({
     };
   }, []);
   const eligibleNew = products.filter((p) => p.isActive && isMerchEligible(p));
-  const newPool = eligibleNew.length >= 4 ? eligibleNew : products.filter((p) => p.isActive);
+  const newPool =
+    eligibleNew.length >= 4 ? eligibleNew : products.filter((p) => p.isActive);
   // A/B : variante A = ordre legacy (mesure l'apport réel des scores).
   const useScores = !!newScores && !(newAb && getVariant() === "A");
   const newArrivals = [...newPool]
@@ -125,7 +126,10 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section data-track-section="deals-new" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible">
+      <section
+        data-track-section="deals-new"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible"
+      >
         <div className="flex items-end justify-between mb-8">
           <div>
             <span className="eyebrow mb-2 block">Freshly printed</span>
@@ -147,7 +151,7 @@ export default function DealsSection({
           {newArrivals.map((product) => (
             <div
               key={product.id}
-              className="w-[72vw] max-w-[300px] sm:w-auto shrink-0 sm:shrink snap-start min-w-0"
+              className="w-[72vw] max-w-75 sm:w-auto shrink-0 sm:shrink snap-start min-w-0"
             >
               <StoreProductCard
                 product={product}
@@ -212,7 +216,10 @@ export default function DealsSection({
         </div>
       </section>
 
-      <section data-track-section="deals-featured" className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section
+        data-track-section="deals-featured"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10"
+      >
         <div className="flex items-end justify-between mb-8">
           <h2
             className="text-2xl sm:text-3xl font-extrabold"

@@ -59,6 +59,12 @@
     },
     "/interaction-notify": {
       "post": { "summary": "Notify admin of an account-created support ticket (ownership-checked, deduped)", "x-roles": ["public"], "x-edges": ["interaction-notify"] }
+    },
+    "/stripe-refund": {
+      "post": { "summary": "Execute a real Stripe refund (admin JWT, idempotent, ledger + status + notifs)", "x-roles": ["admin"], "x-edges": ["stripe-refund"] }
+    },
+    "/refund-request": {
+      "post": { "summary": "Customer refund request (owner JWT, server-side eligibility, deduped)", "x-roles": ["public"], "x-edges": ["refund-request"] }
     }
   }
 }

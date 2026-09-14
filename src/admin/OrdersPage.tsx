@@ -39,10 +39,10 @@ const ALLOWED_MANUAL_TARGETS: Record<string, string[]> = {
   pending: ["cancelled"],
   paid: ["in_production", "partial", "on_hold", "cancelled"],
   in_production: ["shipped", "partial", "on_hold", "cancelled"],
-  partial: ["shipped", "on_hold", "cancelled", "refunded"],
-  on_hold: ["in_production", "partial", "cancelled", "refunded"],
-  shipped: ["delivered", "returned", "refunded"],
-  delivered: ["returned", "refunded"],
+  partial: ["shipped", "on_hold", "cancelled"],
+  on_hold: ["in_production", "partial", "cancelled"],
+  shipped: ["delivered", "returned"],
+  delivered: ["returned"],
   cancelled: [],
   refunded: [],
   returned: [],
@@ -1152,22 +1152,18 @@ export default function OrdersPage() {
                           ↻ Réessayer les bloqués
                         </button>
                         <button
-                          onClick={async () => {
-                            if (!window.confirm("Marquer la commande comme remboursée partiellement ?")) return;
-                            try {
-                              // Voie unique Phase 3 : state-machine + in-app +
-                              // email canonique côté serveur.
-                              const result = await updateStatus(selectedOrder.id, "refunded" as any);
-                              flashStatus(
-                                result.emailed
-                                  ? "Commande marquée remboursée · email client envoyé."
-                                  : "Commande marquée remboursée (sans email).",
-                              );
-                              await refetch();
-                              setSelectedOrder(null);
-                            } catch (e: any) {
-                              alert("Erreur : " + (e.message || ""));
-                            }
+                          onClick={() => {
+                            // Remboursement = argent réel via Finances (plus
+                            // de label sans mouvement) : on y navigue avec
+                            // la commande présélectionnée.
+                            window.dispatchEvent(
+                              new CustomEvent("instawear:navigate-admin", {
+                                detail: {
+                                  section: "finances",
+                                  params: { highlightOrder: selectedOrder.id },
+                                },
+                              }),
+                            );
                           }}
                           style={{
                             padding: "6px 12px",

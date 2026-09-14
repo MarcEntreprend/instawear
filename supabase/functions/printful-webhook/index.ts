@@ -9,6 +9,7 @@
 // correspondance de l'ordre via external_id / external_order_id.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@13";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
@@ -29,6 +30,68 @@ import {
 } from "./_shared/orderStatusEmails.ts";
 import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
 import { notifyAdmin } from "./_shared/notifyAdmin.ts";
+import {
+  resolvePaymentIntent,
+  remainingOnPI,
+  executeRefund,
+} from "./_shared/stripeRefunds.ts";
+
+// Remboursement client RÉEL suite à un order_refunded fournisseur.
+// Le fournisseur nous rembourse NOUS ; le client, lui, reste débité tant
+// qu'on n'agit pas. Donc : on tente le refund Stripe intégral ici même.
+// Succès → true (l'appelant pose refunded + emails honnêtes).
+// Échec/pas de PI → demande pending + alerte finance, statut INCHANGÉ
+// (jamais de label "remboursé" mensonger), l'admin tranche via Finances.
+async function autoRefundCustomer(
+  supabaseAdmin: any,
+  stripe: any,
+  order: any,
+  orderId: string,
+): Promise<{ done: boolean; refundId?: string; amount?: number }> {
+  try {
+    const resolved: any = await resolvePaymentIntent(stripe, supabaseAdmin, order);
+    if ((resolved as any)?.error) return { done: false };
+    const piId = (resolved as any).piId as string;
+    let remaining = 0;
+    try {
+      const bal = await remainingOnPI(stripe, piId);
+      remaining = bal.received - bal.refunded;
+    } catch {
+      return { done: false };
+    }
+    if (remaining <= 0) return { done: false };
+    let refund: any;
+    try {
+      refund = await executeRefund(stripe, piId, null, {
+        reason: "requested_by_customer",
+        idempotencyKey: `pf-refund-${orderId}`,
+        orderId,
+      });
+    } catch {
+      return { done: false };
+    }
+    const refundId = String((refund as any)?.id || "");
+    const rstatus = String((refund as any)?.status || "");
+    const mapped = rstatus === "succeeded" ? "succeeded" : rstatus === "pending" ? "pending" : "failed";
+    if (mapped === "failed" || !refundId) return { done: false };
+    const amount = Number((refund as any)?.amount ?? remaining);
+    const currency = String((refund as any)?.currency || "usd").toUpperCase();
+    try {
+      await supabaseAdmin.from("order_refunds").insert({
+        order_id: orderId,
+        stripe_refund_id: refundId,
+        amount_cents: amount,
+        currency,
+        reason: "requested_by_customer",
+        status: mapped,
+        requested_by: "printful-webhook",
+      });
+    } catch {}
+    return { done: true, refundId, amount };
+  } catch {
+    return { done: false };
+  }
+}
 
 // Trio admin avec dépendances câblées (service_role + secrets serveur) :
 // UN appel = cloche + telegram court + email. skipTelegram=true sur les
@@ -1367,12 +1430,37 @@ export default {
           `Pause levée, le traitement reprend${reason ? ` : ${reason}` : ""}`,
         );
       } else if (type === "order_refunded") {
-        if (order.status !== "refunded") {
-          newStatus = "refunded";
-        }
-        notes.push(
-          `Commande remboursée par le fournisseur${reason ? ` : ${reason}` : ""}`,
+        // Le fournisseur NOUS rembourse ; le client reste débité → on
+        // exécute son remboursement réel ici. Sans PI ou en échec :
+        // demande pending + alerte, statut INCHANGÉ (pas de mensonge).
+        const stripe = new Stripe(
+          Deno.env.get("STRIPE_SECRET_KEY_TEST") ||
+            Deno.env.get("STRIPE_SECRET_KEY")!,
+          { apiVersion: "2023-10-16" },
         );
+        const auto = await autoRefundCustomer(supabaseAdmin, stripe, order, orderId);
+        if (auto.done) {
+          if (order.status !== "refunded") {
+            newStatus = "refunded";
+          }
+          notes.push(
+            `Commande remboursée (client + fournisseur)${auto.refundId ? ` — ${auto.refundId}` : ""}${reason ? ` : ${reason}` : ""}`,
+          );
+        } else {
+          try {
+            await supabaseAdmin.from("refund_requests").insert({
+              order_id: orderId,
+              customer_id: order.client_id,
+              customer_email: order.client_email,
+              amount_cents: null,
+              reason: `Remboursement fournisseur reçu ; remboursement client à exécuter manuellement.${reason ? ` Motif fournisseur : ${reason}` : ""}`.slice(0, 500),
+              status: "pending",
+            });
+          } catch {}
+          notes.push(
+            `Remboursement fournisseur reçu — remboursement CLIENT en attente (voir Finances)${reason ? ` : ${reason}` : ""}`,
+          );
+        }
       } else if (type === "package_returned") {
         if (order.status !== "returned") {
           newStatus = "returned";
@@ -1673,7 +1761,22 @@ export default {
       };
 
       const adminMeta = ADMIN_EVENT_META[type];
-      if (adminMeta && type !== "package_shipped") {
+      // order_refunded SANS transition (auto-refund impossible) : pas le
+      // trio "remboursée" mensonger — alerte finance dédiée ci-dessous.
+      const refundPending =
+        type === "order_refunded" && newStatus !== "refunded";
+      if (refundPending) {
+        await adminTrio(supabaseAdmin, {
+          title: `Remboursement client à exécuter — commande ${orderId}`,
+          description: `${order.client_name || "Client"} — fournisseur remboursé, client en attente (voir Finances).`,
+          category: "finance",
+          priority: "high",
+          linkTo: "/admin/finances",
+          metadata: { orderId, source: "Printful" },
+          actionLabel: "Voir les finances",
+        });
+      }
+      if (adminMeta && type !== "package_shipped" && !refundPending) {
         // Trio admin : cloche + email concis (le telegram riche de statut
         // est déjà parti plus haut — skipTelegram, zéro doublon).
         await adminTrio(supabaseAdmin, {

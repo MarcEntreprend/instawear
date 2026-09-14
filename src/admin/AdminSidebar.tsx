@@ -20,6 +20,7 @@ import {
   Truck,
   Sparkles,
   Activity,
+  Wallet,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
 import {
@@ -45,6 +46,7 @@ export type AdminSection =
   | "settings"
   | "admin-users"
   | "merchandising"
+  | "finances"
   | "help";
 
 interface NavItem {
@@ -56,6 +58,7 @@ interface NavItem {
 const NAV_ITEMS: (NavItem | "separator")[] = [
   { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { id: "orders", label: "Commandes", icon: CartIcon },
+  { id: "finances", label: "Finances", icon: Wallet },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "shipped", label: "Expédiées & Livrées", icon: Truck },
   { id: "products", label: "Produits", icon: Package },

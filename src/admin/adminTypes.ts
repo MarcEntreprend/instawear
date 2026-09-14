@@ -267,11 +267,11 @@ export interface AdminUser {
   lastLoginDate?: string;
 }
 
-// Payload for creating an admin user. passwordHash is required during creation
-// but is never stored in the AdminUser type returned by the API.
+// Payload for creating an admin user. Auth is Supabase Auth native —
+// no password material ever transits here (see audit: password_hash
+// column dropped, never write credentials to application tables).
 export interface CreateAdminUserPayload {
   email: string;
-  passwordHash?: string;
   role: AdminRole;
 }
 
