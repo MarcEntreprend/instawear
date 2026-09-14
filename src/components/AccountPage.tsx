@@ -3841,7 +3841,7 @@ function ProfileTab({
   const handleDeleteAccount = async () => {
     if (!customerId) return;
     const confirmed = window.confirm(
-      "This will permanently delete your account, orders history access, saved addresses, favourites and cart. This action cannot be undone. Continue?",
+      "This will permanently delete your account, saved addresses, favourites and cart. Your name and email will be removed from support messages and reviews; past orders are kept anonymously for accounting, as required by law. This action cannot be undone. Continue?",
     );
     if (!confirmed) return;
     setDeletingAccount(true);
