@@ -146,51 +146,10 @@ function isExpiryValid(expiry: string): boolean {
   return true;
 }
 
-function sendTelegramNotification(
-  orderId: string,
-  name: string,
-  phone: string,
-  email: string,
-  reception: string,
-  address: string,
-  city: string,
-  zip: string,
-  country: string,
-  cart: CartItem[],
-  total: number,
-  currencySymbol: string,
-) {
-  const telegramMsg =
-    `\u{1F6D2} *INSTAWEAR ORDER*\n\n` +
-    `\u{1F511} *Order #:* ${orderId}\n\n` +
-    `*Customer:* ${name}\n` +
-    `*Phone:* ${phone}\n` +
-    `*Email:* ${email}\n` +
-    `*Reception:* ${reception === "retrait" ? "Pickup" : "Delivery"}\n` +
-    (reception === "livraison"
-      ? `*Address:* ${address}, ${city} ${zip}, ${country}\n`
-      : "") +
-    `\n\u{1F4E6} *Items:*\n` +
-    cart
-      .map(
-        (item) =>
-          `- ${item.product.title} (${item.selectedSize}, ${item.selectedColor}) \u00D7${item.quantity} = ${(item.unitPrice * item.quantity).toFixed(2)} ${currencySymbol}`,
-      )
-      .join("\n") +
-    `\n\n\u{1F4B0} *Total:* ${total.toFixed(2)} ${currencySymbol}`;
-
-  const telegramUrl = `https://t.me/marcrubenmacean?text=${encodeURIComponent(telegramMsg)}`;
-  window.open(telegramUrl, "_blank");
-}
-
-async function shouldSendTelegram(): Promise<boolean> {
-  try {
-    const { data } = await supabase.rpc("is_admin");
-    return !!data;
-  } catch {
-    return false;
-  }
-}
+// F1 (audit sécurité) : l'envoi Telegram manuel par lien profond (PII client
+// dans l'URL : nom, tél, email, adresse, panier) est SUPPRIMÉ. Le récap admin
+// part exclusivement côté serveur (webhook Stripe → handlePaidOrder → Bot API),
+// garanti + retry + destinataire pinné, pour les 2 canaux de paiement.
 
 // Resolves the best image for a specific product color
 function getVariantImage(
@@ -1531,49 +1490,14 @@ function StripeCardForm({
 
     if (paymentIntent && paymentIntent.status === "succeeded") {
       // Commande déjà persistée avant le PI (voir plus haut) : ici,
-      // popup Telegram admin + écran de confirmation. Le webhook
+      // écran de confirmation uniquement. Le webhook
       // payment_intent.succeeded → handlePaidOrder marque paid (Telegram
-      // serveur + emails + Printful + in-app + admin).
+      // serveur + emails + Printful + in-app + admin). F1 (audit) : le popup
+      // Telegram manuel (PII client dans l'URL, redondant) est supprimé.
+      // PAS d'appel email client (doublon une fois l'event abonné).
+      // Requiert payment_intent.succeeded abonné côté dashboard Stripe
+      // (Developers → Webhooks → endpoint → Add events).
       try {
-        shouldSendTelegram().then((should) => {
-          if (should) {
-            const recapCart = cart.filter((it: any) => {
-              const p: any = it.product;
-              if (!p?.isActive) return false;
-              const v = p.variants?.find(
-                (vv: any) =>
-                  String(vv.color).toLowerCase() ===
-                  String(it.selectedColor).toLowerCase(),
-              );
-              if (!v) return p.variants?.length ? false : true;
-              const e = v.sizes?.[it.selectedSize];
-              if (!e) return false;
-              return ((e as any).stock_status || "available") === "available";
-            });
-            sendTelegramNotification(
-              orderId,
-              contactName,
-              contactPhone,
-              contactEmail,
-              reception,
-              address,
-              city,
-              zip,
-              country,
-              recapCart,
-              total,
-              currencySymbol,
-            );
-            // PAS d'appel email client : le serveur envoie tout via le webhook
-            // payment_intent.succeeded → handlePaidOrder (Telegram serveur +
-            // email client + Printful + email admin). Requiert l'événement
-            // payment_intent.succeeded abonné côté dashboard Stripe
-            // (Developers → Webhooks → endpoint → Add events), sinon les
-            // achats carte restent pending sans notifications (un appel
-            // client en plus ferait doublon une fois abonné).
-          }
-        });
-
         onSuccess(orderId);
       } catch (e: any) {
         setProcessing(false);
@@ -2667,29 +2591,12 @@ export default function CheckoutFlow({
             .catch(console.warn);
         }
 
-        // Send recap via Telegram — admin only (non-blocking).
+        // F1 (audit) : popup Telegram manuel supprimé (PII dans l'URL +
+        // redondant : le webhook envoie le récap serveur, garanti + retry).
         // PAS de doublon email ici : le fetch mourrait à la redirection
         // Stripe. Tout part côté serveur (webhook checkout.session.completed
         // → handlePaidOrder → trio : telegram riche + email admin riche,
         // destinataire pinné, garanti + retry).
-        shouldSendTelegram().then((should) => {
-          if (should) {
-            sendTelegramNotification(
-              newOrderId,
-              name,
-              phone,
-              email,
-              reception,
-              address,
-              city,
-              zip,
-              country,
-              fulfillableCart,
-              total,
-              currencySymbol,
-            );
-          }
-        });
       })();
 
       // Délai minimum pour un retour visuel crédible, pendant que le

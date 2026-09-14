@@ -87,10 +87,12 @@ async function sendTelegramServer(
       body: tgBody,
     });
     if (!tgRes.ok) {
-      console.error("Telegram send error:", tgRes.status, await tgRes.text());
+      // L2 (audit) : la réponse Telegram recopie le message (PII commande)
+      // → statut seul en log, jamais le corps.
+      console.error("Telegram send error:", tgRes.status);
     }
   } catch (err) {
-    console.error("Telegram fetch error:", err);
+    console.error("Telegram fetch error:", logSafe(err));
   }
 }
 

@@ -263,7 +263,7 @@ export default function AuthModal({
               } as any,
               { onConflict: "id" },
             );
-          if (insertError)
+          if (insertError && import.meta.env.DEV)
             console.warn("Customer creation error:", insertError);
           // Note: la notification admin "New customer registered" est créée
           // côté edge auth-welcome (service_role) — l'insert direct ici
@@ -317,7 +317,8 @@ export default function AuthModal({
           .update({ last_login_date: new Date().toISOString() })
           .eq("id", data.user.id)
           .then(({ error }) => {
-            if (error) console.warn("Error updating last_login_date:", error);
+            if (error && import.meta.env.DEV)
+              console.warn("Error updating last_login_date:", error);
           });
 
         onLoginSuccess(isAdmin, displayName);

@@ -9,3 +9,80 @@ entrypoint = "./functions/sync-printful/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/sync-printful/*.html" ]
+
+# Gel audit sécurité (Bloc 2) : flags verify_jwt figés tels que déployés le
+# 13/09/2026 (vérifiés via `functions list`). Règle : false partout SAUF
+# interaction-notify (JWT propriétaire exigé de toute façon). Ces flags
+# vivent côté dashboard et sont invisibles au repo : toute dérive se voit
+# ici en diff. Changer un flag = décision consciente (ex. passer
+# stripe-webhook à true tuerait les paiements en silence).
+# Chaque edge applique SA propre auth (signatures, secrets, JWT admin) —
+# verify_jwt=false n'est donc pas une ouverture, c'est le pré-requis des
+# webhooks Stripe/Printful et des flux invités.
+[functions.approve-printful-design]
+enabled = true
+verify_jwt = false
+
+[functions.auth-welcome]
+enabled = true
+verify_jwt = false
+
+[functions.cart-recovery]
+enabled = true
+verify_jwt = false
+
+[functions.contact-message]
+enabled = true
+verify_jwt = false
+
+[functions.create-printful-order]
+enabled = true
+verify_jwt = false
+
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+
+[functions.email-preferences]
+enabled = true
+verify_jwt = false
+
+[functions.get-shipping-rates]
+enabled = true
+verify_jwt = false
+
+[functions.health]
+enabled = true
+verify_jwt = false
+
+[functions.interaction-notify]
+enabled = true
+verify_jwt = true
+
+[functions.merch-scorer]
+enabled = true
+verify_jwt = false
+
+[functions.order-status-update]
+enabled = true
+verify_jwt = false
+
+[functions.printful-reports]
+enabled = true
+verify_jwt = false
+
+[functions.printful-webhook]
+enabled = true
+verify_jwt = false
+
+[functions.send-email]
+enabled = true
+verify_jwt = false
+
+[functions.stripe-checkout]
+enabled = true
+verify_jwt = false
+
+[functions.stripe-webhook]
+enabled = true
+verify_jwt = false

@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
+import { isPayloadTooLarge } from "./_shared/validators.ts";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import {
   buildInProductionEmail,
@@ -193,9 +194,12 @@ export default {
       }
 
       // ── Validation stricte du body (whitelist, tailles bornées) ──
+      // G2 (audit) : cap taille explicite (100KB, comme les autres edges).
       let body: any = {};
       try {
-        body = await req.json();
+        const raw = await req.text();
+        if (isPayloadTooLarge(raw)) return json({ error: "Payload trop volumineux" }, 413);
+        body = raw ? JSON.parse(raw) : {};
       } catch {
         return json({ error: "Invalid JSON payload" }, 400);
       }
