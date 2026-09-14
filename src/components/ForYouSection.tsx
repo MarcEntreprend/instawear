@@ -64,7 +64,7 @@ export default function ForYouSection({
   if (picks.length < 4) return null;
 
   return (
-    <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10">
+    <section className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 cv-auto">
       <div className="flex items-end justify-between mb-8">
         <div>
           <span className="eyebrow mb-2 block">Picked for you</span>

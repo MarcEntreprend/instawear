@@ -590,7 +590,7 @@ export default function ProductPage({
               <span
                 className="text-2xl font-extrabold"
                 style={{
-                  color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
+                  color: dealLive ? "var(--color-accent-ink)" : "var(--color-ink)",
                 }}
               >
                 {formatAmount(unitPrice, currencySymbol)}
@@ -687,7 +687,7 @@ export default function ProductPage({
                 <button
                   onClick={() => setIsSizeGuideOpen(true)}
                   className="text-xs font-semibold flex items-center gap-1"
-                  style={{ color: "var(--color-accent)" }}
+                  style={{ color: "var(--color-accent-ink)" }}
                 >
                   <Info size={12} /> Size guide
                 </button>

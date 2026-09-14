@@ -407,7 +407,7 @@ export default function CatalogSection({
     <section
       id="section-catalog"
       data-track-section="catalog"
-      className="w-full max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 scroll-mt-24"
+      className="w-full max-w-350 mx-auto px-4 sm:px-6 py-14 sm:py-20 scroll-mt-24 cv-auto"
     >
       <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
         <div>
@@ -439,7 +439,7 @@ export default function CatalogSection({
                 <button
                   onClick={handleResetAll}
                   className="text-xs font-semibold flex items-center gap-1"
-                  style={{ color: "var(--color-accent)" }}
+                  style={{ color: "var(--color-accent-ink)" }}
                 >
                   <RotateCcw size={12} /> Reset
                 </button>
@@ -523,6 +523,7 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
+                    aria-label="Minimum price"
                     value={filters.priceMin}
                     onChange={(e) =>
                       setFilters((f) => ({
@@ -548,6 +549,7 @@ export default function CatalogSection({
                   <input
                     type="number"
                     min={0}
+                    aria-label="Maximum price"
                     value={filters.priceMax}
                     onChange={(e) =>
                       setFilters((f) => ({
@@ -710,6 +712,7 @@ export default function CatalogSection({
                   <button
                     onClick={() => setViewMode("grid")}
                     aria-pressed={viewMode === "grid"}
+                    aria-label="Grid view"
                     className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{
                       background:
@@ -728,6 +731,7 @@ export default function CatalogSection({
                   <button
                     onClick={() => setViewMode("list")}
                     aria-pressed={viewMode === "list"}
+                    aria-label="List view"
                     className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{
                       background:
@@ -745,6 +749,7 @@ export default function CatalogSection({
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortValue)}
+                    aria-label="Sort products"
                     className="appearance-none rounded-full pl-4 pr-9 h-9 text-xs font-semibold outline-none"
                     style={{
                       background: "var(--color-surface)",
@@ -898,7 +903,7 @@ export default function CatalogSection({
               <button
                 onClick={handleResetAll}
                 className="text-xs font-bold hover:underline"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-accent-ink)" }}
               >
                 Clear all
               </button>
@@ -1079,7 +1084,7 @@ export default function CatalogSection({
                     <button
                       onClick={handleResetAll}
                       className="text-xs font-semibold flex items-center gap-1"
-                      style={{ color: "var(--color-accent)" }}
+                      style={{ color: "var(--color-accent-ink)" }}
                     >
                       <RotateCcw size={12} /> Reset
                     </button>
@@ -1172,6 +1177,7 @@ export default function CatalogSection({
                       <input
                         type="number"
                         min={0}
+                        aria-label="Minimum price"
                         value={filters.priceMin}
                         onChange={(e) =>
                           setFilters((f) => ({
@@ -1197,6 +1203,7 @@ export default function CatalogSection({
                       <input
                         type="number"
                         min={0}
+                        aria-label="Maximum price"
                         value={filters.priceMax}
                         onChange={(e) =>
                           setFilters((f) => ({
@@ -1452,7 +1459,7 @@ function ColorPicker({
               onSelect(selectedColor === c.hex ? null : c.hex);
               setIsOpen(false);
             }}
-            className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+            className="w-6 h-6 rounded-full transition-transform hover:scale-110"
             style={{
               background: c.hex,
               border:
@@ -1469,6 +1476,7 @@ function ColorPicker({
             <button
               onClick={toggleOpen}
               className="color-wheel transition-transform hover:scale-110"
+              style={{ width: 24, height: 24 }}
               title={`+${extraCount} colors`}
             />
             <span
@@ -1521,12 +1529,12 @@ function FilterGroup({
 }) {
   return (
     <div>
-      <h4
+      <h3
         className="text-xs font-bold uppercase tracking-wider mb-3"
         style={{ color: "var(--color-ink3)" }}
       >
         {title}
-      </h4>
+      </h3>
       {children}
     </div>
   );

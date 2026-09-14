@@ -58,9 +58,20 @@ import ConfirmationUpsell from "./ConfirmationUpsell";
 
 // ─── Props ──────────────────────────────────────────────────────────────
 
-const stripePromise = loadStripe(
-  import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-);
+// Stripe.js paresseux : loadStripe() injecte le script js.stripe.com dès son
+// appel. Au top-level, il partait au boot de la homepage via le chunk partagé
+// (180KB inutilisés + TBT). Créé ici à la première montée du formulaire carte
+// uniquement ; le flux hosted (redirect) ne le charge jamais. Promesse unique
+// partagée ensuite (même objet à chaque render, comme avant).
+let cachedStripePromise: ReturnType<typeof loadStripe> | null = null;
+function getStripePromise() {
+  if (!cachedStripePromise) {
+    cachedStripePromise = loadStripe(
+      import.meta.env.VITE_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    );
+  }
+  return cachedStripePromise;
+}
 interface CheckoutFlowProps {
   cart: CartItem[];
   detectedCountry?: string | null;
@@ -1875,7 +1886,7 @@ function PaymentStep({
 
   // Step 2: Stripe card form
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={getStripePromise()}>
       <StripeCardForm
         orderId={localOrderId}
         total={total}

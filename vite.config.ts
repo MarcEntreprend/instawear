@@ -24,8 +24,10 @@ export default defineConfig(() => {
           manualChunks: {
             vendor: ["react", "react-dom"],
             supabase: ["@supabase/supabase-js"],
-            stripe: ["@stripe/react-stripe-js", "@stripe/stripe-js"],
-            motion: ["motion", "lottie-react"],
+            // PAS de chunk "stripe" ni "motion" volontairement : @stripe/* reste
+            // dans le chunk lazy de CheckoutFlow (P1), et motion/lottie-react
+            // sont désinstallés (P2, 0 usage dans src — le chunk faisait 0KB
+            // tout en étant préchargé pour rien).
           },
         },
       },

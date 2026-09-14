@@ -16,6 +16,58 @@ interface HeroBanner {
   showTitle: boolean;
 }
 
+/** Fond hero par défaut (P4) : l'ancien fallback "from-white via-…" était des
+ *  classes Tailwind, invalide en CSS inline → transparent. Ce dégradé réel
+ *  reprend l'esthétique de l'overlay. */
+export const HERO_BG_FALLBACK =
+  "linear-gradient(135deg, #1a1712 0%, #242019 60%, #1a1712 100%)";
+
+/** Garde-fou : les lignes existantes en base peuvent contenir l'ancien
+ *  libellé Tailwind ("from-white …", truthy mais invalide en CSS). On ne
+ *  retient que ce qui ressemble à du CSS réel, sinon fallback (aucune
+ *  écriture DB, rendu seul). */
+export function heroBackground(g?: string): string {
+  if (
+    g &&
+    (g.includes("(") || g.startsWith("#") || g.startsWith("var(--"))
+  ) {
+    return g;
+  }
+  return HERO_BG_FALLBACK;
+}
+
+/** Lit le slide d'amorçage embarqué par le prerender
+ *  (`<script id="lead-hero-data" type="application/json">`). Données
+ *  catalogue publiques, validation minimale, jamais d'exception. */
+function readLeadHero(): HeroBanner | null {
+  try {
+    if (typeof document === "undefined") return null;
+    const node = document.getElementById("lead-hero-data");
+    if (!node || !node.textContent) return null;
+    const raw = JSON.parse(node.textContent) as Partial<HeroBanner>;
+    if (typeof raw.image !== "string" || !raw.image) return null;
+    if (typeof raw.headline !== "string" || !raw.headline) return null;
+    return {
+      title:
+        typeof raw.title === "string" && raw.title
+          ? raw.title
+          : raw.headline,
+      headline: raw.headline,
+      sub: typeof raw.sub === "string" ? raw.sub : "",
+      cta: typeof raw.cta === "string" && raw.cta ? raw.cta : "Discover",
+      bgGradient:
+        typeof raw.bgGradient === "string" ? raw.bgGradient : "",
+      image: raw.image,
+      tag: typeof raw.tag === "string" ? raw.tag : "⚡ PROMOTION",
+      productId: typeof raw.productId === "string" ? raw.productId : undefined,
+      showTag: raw.showTag !== false,
+      showTitle: raw.showTitle !== false,
+    };
+  } catch {
+    return null;
+  }
+}
+
 interface HeroCarouselProps {
   banners: HeroBanner[];
   loading: boolean;
@@ -30,21 +82,31 @@ export default function HeroCarousel({
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isSingleBanner = banners.length <= 1;
+
+  // P4b — slide d'amorçage : le prerender embarque la 1re bannière en JSON
+  // (mêmes données que App.tsx). Pendant le chargement, on rend CE slide au
+  // lieu du skeleton : l'image est déjà en cache (même URL que le snapshot
+  // statique) et le swap vers les vraies bannières est invisible. Lecture
+  // paresseuse unique, try/catch → null (données publiques catalogue).
+  const [lead] = useState<HeroBanner | null>(() => readLeadHero());
+  const [leadFailed, setLeadFailed] = useState(false);
+  const showLead = loading && lead !== null && !leadFailed;
+  const slides = showLead && lead !== null ? [lead] : banners;
+  const isSingleBanner = slides.length <= 1;
 
   const goTo = useCallback(
-    (i: number) => setIndex((i + banners.length) % banners.length),
-    [banners.length],
+    (i: number) => setIndex((i + slides.length) % slides.length),
+    [slides.length],
   );
 
   useEffect(() => {
-    if (isPaused || banners.length === 0) return;
+    if (isPaused || slides.length === 0) return;
     const timer = setInterval(
-      () => setIndex((i) => (i + 1) % banners.length),
+      () => setIndex((i) => (i + 1) % slides.length),
       6000,
     );
     return () => clearInterval(timer);
-  }, [isPaused, banners.length]);
+  }, [isPaused, slides.length]);
 
   const pauseAutoPlay = (duration = 8000) => {
     setIsPaused(true);
@@ -52,12 +114,17 @@ export default function HeroCarousel({
     autoPlayTimeoutRef.current = setTimeout(() => setIsPaused(false), duration);
   };
 
-  if (loading || banners.length === 0) {
+  if ((loading && !showLead) || (!loading && slides.length === 0)) {
     return (
       <section className="relative overflow-hidden rounded-b-4xl sm:rounded-b-[2.5rem]">
         <div
           className="relative h-[78vh] min-h-105 max-h-190 w-full animate-pulse"
-          style={{ background: "var(--color-surface2)" }}
+          // P4 : même gabarit que le hero final, fond sombre assorti (le
+          // surface2 clair produisait un flash avant l'arrivée de l'image).
+          style={{
+            background:
+              "linear-gradient(135deg, #171511 0%, #232019 55%, #171511 100%)",
+          }}
         >
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -68,7 +135,7 @@ export default function HeroCarousel({
       </section>
     );
   }
-  const banner = banners[index % banners.length];
+  const banner = slides[index % slides.length];
 
   return (
     <section
@@ -77,13 +144,13 @@ export default function HeroCarousel({
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="relative h-[78vh] min-h-105 max-h-190 w-full">
-        {banners.map((b, i) => (
+        {slides.map((b, i) => (
           <div
             key={i}
             className="absolute inset-0 transition-opacity duration-700"
             style={{
               opacity: i === index ? 1 : 0,
-              background: b.bgGradient,
+              background: heroBackground(b.bgGradient),
               pointerEvents: i === index ? "auto" : "none",
             }}
           >
@@ -92,9 +159,14 @@ export default function HeroCarousel({
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
               style={{ opacity: 0.55 }}
-              onError={(e) =>
-                ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG)
-              }
+              onError={(e) => {
+                // Slide d'amorçage HS → skeleton (état antérieur), sinon
+                // placeholder comme avant.
+                if (showLead) setLeadFailed(true);
+                else
+                  ((e.currentTarget as HTMLImageElement).src =
+                    PLACEHOLDER_IMG);
+              }}
               loading={i === 0 ? "eager" : "lazy"}
               fetchPriority={i === 0 ? "high" : "auto"}
               decoding="async"

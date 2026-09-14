@@ -56,7 +56,7 @@ export default function MobileTabBar({
                   strokeWidth={isActive ? 2.4 : 2}
                   style={{
                     color: isActive
-                      ? "var(--color-accent)"
+                      ? "var(--color-accent-ink)"
                       : "var(--color-ink3)",
                   }}
                 />
@@ -64,7 +64,9 @@ export default function MobileTabBar({
               <span
                 className="text-[10px] font-semibold"
                 style={{
-                  color: isActive ? "var(--color-accent)" : "var(--color-ink3)",
+                  color: isActive
+                    ? "var(--color-accent-ink)"
+                    : "var(--color-ink3)",
                 }}
               >
                 {label}

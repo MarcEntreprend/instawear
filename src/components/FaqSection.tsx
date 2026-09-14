@@ -10,7 +10,7 @@ export default function FaqSection() {
   return (
     <section
       id="section-faq"
-      className="section-container w-full px-4 scroll-mt-28"
+      className="section-container w-full px-4 scroll-mt-28 cv-auto"
     >
       <div className="max-w-2xl mx-auto">
         <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-6 flex items-center gap-2">

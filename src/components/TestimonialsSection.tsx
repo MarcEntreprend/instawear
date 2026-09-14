@@ -24,7 +24,7 @@ export default function TestimonialsSection() {
   return (
     <section
       id="section-testimonials"
-      className="section-container w-full px-4 py-14 sm:py-20 scroll-mt-28"
+      className="section-container w-full px-4 py-14 sm:py-20 scroll-mt-28 cv-auto"
     >
       <div className="text-center mb-10">
         <span className="eyebrow justify-center">What people say</span>

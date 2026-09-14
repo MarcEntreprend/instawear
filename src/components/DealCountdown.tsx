@@ -19,7 +19,7 @@ export default function DealCountdown({ endsAt, compact }: { endsAt: string; com
   const s = Math.floor((remaining % 60000) / 1000);
   const label = d > 0 ? `${d}d ${h}h` : h > 0 ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return (
-    <span className={`inline-flex items-center gap-1 font-bold ${compact ? "text-[10px]" : "text-xs"}`} style={{ color: "var(--color-accent)" }}>
+    <span className={`inline-flex items-center gap-1 font-bold ${compact ? "text-[10px]" : "text-xs"}`} style={{ color: "var(--color-accent-ink)" }}>
       <Clock size={compact ? 10 : 12} /> {label}
     </span>
   );

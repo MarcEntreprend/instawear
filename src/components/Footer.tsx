@@ -168,7 +168,7 @@ export default function Footer({
               className="text-lg font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+              Insta<span style={{ color: "var(--color-accent-ink)" }}>Wear</span>
             </span>
           </button>
           <p
@@ -182,6 +182,7 @@ export default function Footer({
               <span
                 key={i}
                 title="Coming soon"
+                role="img"
                 aria-label="Social network (coming soon)"
                 className="btn-icon opacity-60 cursor-default"
               >
