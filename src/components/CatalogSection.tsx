@@ -439,7 +439,7 @@ export default function CatalogSection({
                 <button
                   onClick={handleResetAll}
                   className="text-xs font-semibold flex items-center gap-1"
-                  style={{ color: "var(--color-accent)" }}
+                  style={{ color: "var(--color-accent-ink)" }}
                 >
                   <RotateCcw size={12} /> Reset
                 </button>
@@ -903,7 +903,7 @@ export default function CatalogSection({
               <button
                 onClick={handleResetAll}
                 className="text-xs font-bold hover:underline"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-accent-ink)" }}
               >
                 Clear all
               </button>
@@ -1084,7 +1084,7 @@ export default function CatalogSection({
                     <button
                       onClick={handleResetAll}
                       className="text-xs font-semibold flex items-center gap-1"
-                      style={{ color: "var(--color-accent)" }}
+                      style={{ color: "var(--color-accent-ink)" }}
                     >
                       <RotateCcw size={12} /> Reset
                     </button>

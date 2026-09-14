@@ -344,7 +344,7 @@ function PromoTile({
         </p>
         <span
           className="inline-flex items-center gap-1 text-xs font-bold mt-3"
-          style={{ color: "var(--color-accent)" }}
+          style={{ color: "var(--color-accent-ink)" }}
         >
           See more <ArrowRight size={12} />
         </span>

@@ -232,7 +232,7 @@ export default function StoreProductCard({
             {product.showBought && (
               <span
                 className="text-[11px] font-medium ml-1"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-accent-ink)" }}
               >
                 {product.boughtLastMonth}+ bought
               </span>
@@ -275,7 +275,7 @@ export default function StoreProductCard({
             <span
               className="text-base font-extrabold"
               style={{
-                color: dealLive ? "var(--color-accent)" : "var(--color-ink)",
+                color: dealLive ? "var(--color-accent-ink)" : "var(--color-ink)",
               }}
             >
               {formatAmount(displayPrice, currencySymbol)}
@@ -310,9 +310,9 @@ export default function StoreProductCard({
             (product as any).stock_quantity <= 10 ? (
             <span
               className="text-xs font-semibold flex items-center gap-1"
-              style={{ color: "var(--color-accent)" }}
-            >
-              <Flame size={12} /> Only {(product as any).stock_quantity} left
+                style={{ color: "var(--color-accent-ink)" }}
+              >
+                <Flame size={12} /> Only {(product as any).stock_quantity} left
             </span>
           ) : (
             <span

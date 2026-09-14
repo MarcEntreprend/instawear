@@ -71,7 +71,7 @@ function Stat({ value, label }: { value: string; label: string }) {
     <div>
       <p
         className="text-2xl font-extrabold"
-        style={{ color: "var(--color-accent)" }}
+        style={{ color: "var(--color-accent-ink)" }}
       >
         {value}
       </p>

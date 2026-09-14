@@ -18,12 +18,18 @@
 
   --color-ink: #1a1916;
   --color-ink2: #3d3b38;
-  --color-ink3: #7a7872;
-  --color-ink4: #b5b3af;
+  /* Corrigé — audit accessibilité (vague 1-ter, thème clair) : relevés pour
+     tenir 4.5:1 sur les fonds clairs réels (#fff, #fafaf8, #f9fafb, #f4f3f0,
+     #fff2ef). Miroir du fix dark de la vague 1. */
+  --color-ink3: #6a6660;
+  --color-ink4: #6e6963;
 
   --color-accent: #ff5c35;
   --color-accent2: #ff8b6b;
   --color-accent-bg: #fff2ef;
+  /* Texte accentué lisible : foncé en clair (4.53–5.03:1), corail vif en
+     sombre (6.10:1). Les aplats/bordures/ombres gardent --color-accent. */
+  --color-accent-ink: #c2452a;
 
   --color-gold: #e8a020;
   --color-emerald: #1a8c5c;
@@ -86,6 +92,9 @@
   --color-accent-soft: rgba(255, 107, 69, 0.16);
   --color-accent-soft2: rgba(255, 107, 69, 0.08);
   --color-accent-strong: #c2452a;
+  /* Même valeur que --color-accent en sombre : aucun changement visuel dark,
+     mais les usages texte partagés restent corrects dans les 2 thèmes. */
+  --color-accent-ink: #ff6b45;
 
   --color-gold: #f0b13d;
   --color-gold-bg: rgba(240, 177, 61, 0.1);
@@ -1209,7 +1218,9 @@ html:not([data-theme="dark"]) {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-accent);
+  /* Texte via --color-accent-ink (lisible en clair comme en sombre) ;
+     la pastille ::before reste en --color-accent (décorative). */
+  color: var(--color-accent-ink);
 }
 .eyebrow::before {
   content: "";

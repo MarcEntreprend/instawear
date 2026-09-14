@@ -587,7 +587,7 @@ export default function Header({
                 className="hidden sm:block text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-ink)" }}
               >
-                Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+                Insta<span style={{ color: "var(--color-accent-ink)" }}>Wear</span>
               </span>
             </button>
           </div>
@@ -901,7 +901,7 @@ export default function Header({
                 className="text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-ink)" }}
               >
-                Insta<span style={{ color: "var(--color-accent)" }}>Wear</span>
+                Insta<span style={{ color: "var(--color-accent-ink)" }}>Wear</span>
               </span>
               <button
                 aria-label="Close menu"
