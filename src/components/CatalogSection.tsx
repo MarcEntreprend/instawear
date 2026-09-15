@@ -1,5 +1,6 @@
 // src/components/CatalogSection.tsx
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useIsMobile } from "../hooks/useIsMobile";
 import {
   X,
@@ -1032,8 +1033,10 @@ export default function CatalogSection({
         </div>
       </div>
 
-      {isFilterDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
+      {isFilterDrawerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
           <div
             className="absolute inset-0 animate-fade-in"
             style={{ background: "rgba(15,13,10,.5)" }}
@@ -1361,8 +1364,14 @@ export default function CatalogSection({
               </button>
             </div>
           </div>
-        </div>
-      )}
+          {/* NOTE portal : la section porte .cv-auto (content-visibility) qui
+              fait d'elle le containing block des fixed descendants — sans
+              portail, inset-0 couvrait la section (haute) et le panneau,
+              plaqué à son bas, restait hors viewport (fond visible seul).
+              Règle générale : aucun overlay fixed dans un sous-arbre cv-auto. */}
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
