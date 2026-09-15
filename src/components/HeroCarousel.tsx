@@ -72,12 +72,19 @@ interface HeroCarouselProps {
   banners: HeroBanner[];
   loading: boolean;
   onBannerAction: (banner: HeroBanner) => void;
+  /** Suspendu (cold deep-route /produit/:id) : squelette au même gabarit,
+   *  AUCUNE <img> — ni bannières, ni slide d'amorçage lead. Sans ça, le hero
+   *  1536px part derrière l'overlay produit et vole le LCP (LCP ignore
+   *  l'occlusion), avec ~1,4 s de retard de découverte. Le squelette garde
+   *  h-[78vh]/min/max identiques → aucun layout shift à la levée. */
+  suspended?: boolean;
 }
 
 export default function HeroCarousel({
   banners,
   loading,
   onBannerAction,
+  suspended = false,
 }: HeroCarouselProps) {
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -90,7 +97,7 @@ export default function HeroCarousel({
   // paresseuse unique, try/catch → null (données publiques catalogue).
   const [lead] = useState<HeroBanner | null>(() => readLeadHero());
   const [leadFailed, setLeadFailed] = useState(false);
-  const showLead = loading && lead !== null && !leadFailed;
+  const showLead = !suspended && loading && lead !== null && !leadFailed;
   const slides = showLead && lead !== null ? [lead] : banners;
   const isSingleBanner = slides.length <= 1;
 
@@ -100,13 +107,13 @@ export default function HeroCarousel({
   );
 
   useEffect(() => {
-    if (isPaused || slides.length === 0) return;
+    if (suspended || isPaused || slides.length === 0) return;
     const timer = setInterval(
       () => setIndex((i) => (i + 1) % slides.length),
       6000,
     );
     return () => clearInterval(timer);
-  }, [isPaused, slides.length]);
+  }, [suspended, isPaused, slides.length]);
 
   const pauseAutoPlay = (duration = 8000) => {
     setIsPaused(true);
@@ -114,7 +121,7 @@ export default function HeroCarousel({
     autoPlayTimeoutRef.current = setTimeout(() => setIsPaused(false), duration);
   };
 
-  if ((loading && !showLead) || (!loading && slides.length === 0)) {
+  if (suspended || (loading && !showLead) || (!loading && slides.length === 0)) {
     return (
       <section className="relative overflow-hidden rounded-b-4xl sm:rounded-b-[2.5rem]">
         <div
