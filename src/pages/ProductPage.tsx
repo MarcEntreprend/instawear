@@ -21,6 +21,7 @@ import {
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { formatAmount } from "../data/currency";
+import { materialLabel } from "../data/materials";
 import { useCurrencyCode } from "../hooks/useCurrencySymbol";
 import ZoomImage from "../components/product/ZoomImage";
 import ThumbStrip from "../components/product/ThumbStrip";
@@ -587,6 +588,22 @@ export default function ProductPage({
                 ({product.ratings.count})
               </span>
             </div>
+            {/* Matière (slug DB -> libellé EN, cf. data/materials.ts).
+                Affiché seulement si renseigné (sync auto ou admin). */}
+            {product.material && (
+              <p
+                className="text-xs mt-2"
+                style={{ color: "var(--color-ink3)" }}
+              >
+                Material ·{" "}
+                <span
+                  className="font-semibold"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  {materialLabel(product.material)}
+                </span>
+              </p>
+            )}
 
             <div className="flex items-baseline gap-2.5 mt-4">
               <span
