@@ -39,6 +39,18 @@ export default function ImageLightbox({
     if (images.length <= 1) return;
     goTo((index + dir + images.length) % images.length);
   };
+  // Clavier : ArrowLeft/ArrowRight changent d'image (les boutons restent en
+  // place). Sans tableau de deps : ré-abonnement à chaque render → closure
+  // toujours sur l'index courant, jamais d'index périmé.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      goStep(e.key === "ArrowLeft" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   return (
     <div
       className="fixed inset-0 z-70 flex flex-col"
