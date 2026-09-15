@@ -19,6 +19,13 @@ import {
 } from "./_shared/variantPricing.ts";
 import { aggregateProductMaterials } from "./_shared/materials.ts";
 import { extractCatalogVariants } from "./_shared/catalog.ts";
+import {
+  oldImagesByColor,
+  substituteVariantImages,
+  substituteAlignedImages,
+  mergeGalleries,
+  preferStoredMain,
+} from "./_shared/productImages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1392,7 +1399,18 @@ export default {
               (v: any) => v.sizes && Object.keys(v.sizes).length > 0,
             );
             if (withSizes.length > 0) {
-              patch.variants = freshVariants;
+              // Durabilité mockups (cf. list-sync) : ne jamais écraser un
+              // visuel storage existant par une valeur matrice.
+              let patchedVariants: unknown[] = freshVariants;
+              try {
+                patchedVariants = substituteVariantImages(
+                  freshVariants,
+                  oldImagesByColor((row as any)?.variants),
+                );
+              } catch {
+                /* préservation ignorée */
+              }
+              patch.variants = patchedVariants;
               patch.sizes = freshSizes;
               patch.colors = Array.isArray(fresh.colors) ? fresh.colors : undefined;
               patch.color_names = Array.isArray(fresh.color_names) ? fresh.color_names : undefined;
@@ -1410,16 +1428,40 @@ export default {
           if (wanted.includes("images")) {
             const imgs: Record<string, unknown> = {};
             if (typeof fresh.thumbnail_url === "string" && fresh.thumbnail_url) {
-              imgs.image = fresh.thumbnail_url;
+              try {
+                imgs.image =
+                  preferStoredMain(
+                    fresh.thumbnail_url,
+                    (row as any)?.image,
+                  ) ?? fresh.thumbnail_url;
+              } catch {
+                imgs.image = fresh.thumbnail_url;
+              }
             }
             if (Array.isArray(fresh.color_images) && fresh.color_images.length > 0) {
+              let cis: string[] = [...fresh.color_images];
+              try {
+                const oldByColor = oldImagesByColor((row as any)?.variants);
+                const freshColors = Array.isArray((fresh as any).colors)
+                  ? (fresh as any).colors
+                  : [];
+                cis = substituteAlignedImages(fresh.color_images, freshColors, oldByColor);
+                if (cis.length === 0) cis = [...fresh.color_images];
+              } catch {
+                /* préservation ignorée */
+              }
               const gallery = [
-                ...(Array.isArray(fresh.color_images) ? fresh.color_images : []),
+                ...cis,
                 ...((fresh.mockupImages || []) as string[]),
               ].filter(Boolean);
               if (gallery.length > 0) {
-                imgs.gallery = [...new Set(gallery)].slice(0, 12);
-                imgs.color_images = fresh.color_images;
+                try {
+                  const merged = mergeGalleries(gallery, (row as any)?.gallery, 12);
+                  imgs.gallery = merged ?? gallery.slice(0, 12);
+                } catch {
+                  imgs.gallery = [...new Set(gallery)].slice(0, 12);
+                }
+                imgs.color_images = cis;
               }
             }
             if (Object.keys(imgs).length > 0) {
@@ -2762,12 +2804,54 @@ export default {
             // column may not exist yet
           }
 
+          // Durabilité mockups générés : un resync n'écrase JAMAIS un visuel
+          // storage (design-sur-vêtement, travail Mockup Studio) par une
+          // valeur matrice (blanc ou brut). Bloc best-effort : en cas de
+          // doute, le frais gagne (jamais bloquant pour le sync).
+          try {
+            const oldByColor = oldImagesByColor(
+              (existing as any)?.variants,
+            );
+            if (
+              Array.isArray(productPayload.variants) &&
+              productPayload.variants.length > 0
+            ) {
+              productPayload.variants = substituteVariantImages(
+                productPayload.variants,
+                oldByColor,
+              );
+            }
+            if (
+              Array.isArray(productPayload.color_images) &&
+              productPayload.color_images.length > 0
+            ) {
+              productPayload.color_images = substituteAlignedImages(
+                productPayload.color_images,
+                (productPayload as any).colors,
+                oldByColor,
+              );
+            }
+            const mergedGallery = mergeGalleries(
+              (productPayload as any).gallery,
+              (existing as any)?.gallery,
+              20,
+            );
+            if (mergedGallery) (productPayload as any).gallery = mergedGallery;
+            const mainKept = preferStoredMain(
+              (productPayload as any).image,
+              (existing as any)?.image,
+            );
+            if (mainKept) (productPayload as any).image = mainKept;
+          } catch {
+            /* préservation ignorée, le frais passe tel quel */
+          }
+
           // Signature serveur (URLs stockées utilisables avec restriction active).
           const signedPayload = await signImagekitDeep(productPayload);
 
           const { data: existing } = await supabaseAdmin
             .from("products")
-            .select("id, material")
+            .select("id, material, image, gallery, color_images, variants")
             .eq("external_product_id", pfProduct.id.toString())
             .maybeSingle();
 
