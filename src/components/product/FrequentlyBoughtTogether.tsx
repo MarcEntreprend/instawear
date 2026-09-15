@@ -1,5 +1,5 @@
 // src/components/product/FrequentlyBoughtTogether.tsx — V2 port live (orders-based)
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "../../types";
 import { imageKitUrl } from "../../lib/imagekit";
@@ -49,8 +49,24 @@ export default function FrequentlyBoughtTogether({
   const [justAdded, setJustAdded] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addedCount, setAddedCount] = useState(0);
+  // L'état Added appartient à (produit, sélection) : reset à chaque produit
+  // (le composant est réutilisé sans remount entre produits). Sans ça, le
+  // "Added (N)" persisté d'un produit précédent s'afficherait à tort.
+  const mainId = mainProduct.id;
+  useEffect(() => {
+    setCheckedIds(new Set(addOns.map((p) => p.id)));
+    setJustAdded(false);
+    setAddedIds(new Set());
+    setAddedCount(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainId]);
   if (addOns.length === 0) return null;
   const toggle = (id: string) => {
+    // Nouvelle interaction sur la sélection → l'état Added précédent est
+    // caduc : retour à "Add selection" (réarme l'ajout).
+    setJustAdded(false);
+    setAddedIds(new Set());
+    setAddedCount(0);
     setCheckedIds((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
@@ -78,10 +94,9 @@ export default function FrequentlyBoughtTogether({
       setAddedCount((mainCanAdd ? 1 : 0) + checked.length);
     }
     setJustAdded(true);
-    setTimeout(() => {
-      setJustAdded(false);
-      setAddedIds(new Set());
-    }, 2500);
+    // Persistant : ne revient à "Add selection" que sur nouvelle interaction
+    // (toggle ci-dessus) ou changement de produit (effet ci-dessus). Plus de
+    // timeout de 2,5 s.
   };
   const badgeStyle = (id: string) =>
     justAdded && addedIds.has(id)
