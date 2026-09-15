@@ -34,16 +34,24 @@ export default function ImageLightbox({
     if (!el) return;
     el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
-  // Flèches prev/next : navigue en boucle (comme les carrousels du site).
+  // Flèches prev/next : bornées (pas de boucle) ; aux extrémités le
+  // bouton est désactivé + estompé (dim), jamais masqué (pas de saut layout).
   const goStep = (dir: 1 | -1) => {
     if (images.length <= 1) return;
-    goTo((index + dir + images.length) % images.length);
+    const next = Math.min(images.length - 1, Math.max(0, index + dir));
+    if (next !== index) goTo(next);
   };
-  // Clavier : ArrowLeft/ArrowRight changent d'image (les boutons restent en
-  // place). Sans tableau de deps : ré-abonnement à chaque render → closure
-  // toujours sur l'index courant, jamais d'index périmé.
+  const atStart = index <= 0;
+  const atEnd = index >= images.length - 1;
+  // Clavier : ArrowLeft/ArrowRight naviguent, Escape ferme (bouton X).
+  // Sans tableau de deps : ré-abonnement à chaque render → closures
+  // toujours fraîches (index, onClose), jamais périmées.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
       goStep(e.key === "ArrowLeft" ? -1 : 1);
@@ -99,17 +107,25 @@ export default function ImageLightbox({
           <>
             <button
               onClick={() => goStep(-1)}
+              disabled={atStart}
               aria-label="Image précédente"
-              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,.1)" }}
+              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center disabled:cursor-default"
+              style={{
+                background: "rgba(255,255,255,.1)",
+                opacity: atStart ? 0.3 : 1,
+              }}
             >
               <ChevronLeft size={18} color="#fff" />
             </button>
             <button
               onClick={() => goStep(1)}
+              disabled={atEnd}
               aria-label="Image suivante"
-              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,.1)" }}
+              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center disabled:cursor-default"
+              style={{
+                background: "rgba(255,255,255,.1)",
+                opacity: atEnd ? 0.3 : 1,
+              }}
             >
               <ChevronRight size={18} color="#fff" />
             </button>
