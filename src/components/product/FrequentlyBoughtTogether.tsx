@@ -17,6 +17,68 @@ export interface BundleResult {
   blockedCount: number;
 }
 
+// Persistance locale de l'état Added, par produit (la page produit se
+// démonte à la fermeture → l'état React seul ne survit pas à
+// home → retour produit). Cache opaque : ids + compteur + horodatage,
+// TTL 7 jours, ids revalidés contre le catalogue courant (produits qui
+// vont et viennent). Réarmé par toggle / changement de produit.
+// Limite connue : si le panier est vidé ailleurs, l'affichage reste
+// "Added" jusqu'au prochain toggle (le toggle réarme toujours).
+const FBT_CACHE_PREFIX = "instawear:fbt:";
+const FBT_CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+function readFbtCache(
+  mainId: string,
+  addonIds: Set<string>,
+): { checked: string[]; added: string[]; count: number } | null {
+  try {
+    const raw = localStorage.getItem(FBT_CACHE_PREFIX + mainId);
+    if (!raw) return null;
+    const c = JSON.parse(raw) as {
+      checked?: string[];
+      added?: string[];
+      count?: number;
+      ts?: number;
+    };
+    if (!c || typeof c.ts !== "number") return null;
+    if (Date.now() - c.ts > FBT_CACHE_TTL_MS) return null;
+    const added = (Array.isArray(c.added) ? c.added : []).filter(
+      (id) => id === mainId || addonIds.has(id),
+    );
+    if (added.length === 0) return null;
+    return {
+      checked: (Array.isArray(c.checked) ? c.checked : []).filter((id) =>
+        addonIds.has(id),
+      ),
+      added,
+      count: typeof c.count === "number" ? c.count : added.length,
+    };
+  } catch {
+    return null;
+  }
+}
+function writeFbtCache(
+  mainId: string,
+  checked: string[],
+  added: string[],
+  count: number,
+) {
+  try {
+    localStorage.setItem(
+      FBT_CACHE_PREFIX + mainId,
+      JSON.stringify({ checked, added, count, ts: Date.now() }),
+    );
+  } catch {
+    /* stockage indisponible (navigation privée) : pas de persistance, pas d'erreur */
+  }
+}
+function clearFbtCache(mainId: string) {
+  try {
+    localStorage.removeItem(FBT_CACHE_PREFIX + mainId);
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function FrequentlyBoughtTogether({
   mainProduct,
   mainImage,
@@ -49,24 +111,35 @@ export default function FrequentlyBoughtTogether({
   const [justAdded, setJustAdded] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addedCount, setAddedCount] = useState(0);
-  // L'état Added appartient à (produit, sélection) : reset à chaque produit
-  // (le composant est réutilisé sans remount entre produits). Sans ça, le
-  // "Added (N)" persisté d'un produit précédent s'afficherait à tort.
+  // L'état Added appartient à (produit, sélection) : restauration du cache
+  // à chaque produit (le composant est réutilisé sans remount entre produits
+  // ET remonté à neuf après home → retour : l'effet couvre les deux cas).
+  // Sans cache : reset neutre (jamais de "Added" hérité d'un autre produit).
   const mainId = mainProduct.id;
   useEffect(() => {
-    setCheckedIds(new Set(addOns.map((p) => p.id)));
-    setJustAdded(false);
-    setAddedIds(new Set());
-    setAddedCount(0);
+    const addonIds = new Set(addOns.map((p) => p.id));
+    const cached = readFbtCache(mainId, addonIds);
+    if (cached) {
+      setCheckedIds(new Set(cached.checked));
+      setAddedIds(new Set(cached.added));
+      setAddedCount(cached.count);
+      setJustAdded(true);
+    } else {
+      setCheckedIds(new Set(addOns.map((p) => p.id)));
+      setJustAdded(false);
+      setAddedIds(new Set());
+      setAddedCount(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainId]);
   if (addOns.length === 0) return null;
   const toggle = (id: string) => {
     // Nouvelle interaction sur la sélection → l'état Added précédent est
-    // caduc : retour à "Add selection" (réarme l'ajout).
+    // caduc : retour à "Add selection" (réarme l'ajout), cache effacé.
     setJustAdded(false);
     setAddedIds(new Set());
     setAddedCount(0);
+    clearFbtCache(mainId);
     setCheckedIds((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
@@ -77,6 +150,8 @@ export default function FrequentlyBoughtTogether({
   const checked = addOns.filter((p) => checkedIds.has(p.id));
   const total = mainUnitPrice + checked.reduce((s, p) => s + p.price, 0);
   const handleAdd = () => {
+    let added: string[];
+    let count: number;
     if (onAddBundle) {
       const bundle: BundleItem[] = [
         ...(mainCanAdd
@@ -85,15 +160,19 @@ export default function FrequentlyBoughtTogether({
         ...checked.map((p) => ({ product: p })),
       ];
       const res = onAddBundle(bundle);
-      setAddedIds(new Set(res.addedIds));
-      setAddedCount(res.addedIds.length);
+      added = res.addedIds;
+      count = res.addedIds.length;
     } else {
       if (mainCanAdd) onAddMain();
       checked.forEach((p) => onQuickAddProduct(p));
-      setAddedIds(new Set([mainProduct.id, ...checked.map((p) => p.id)]));
-      setAddedCount((mainCanAdd ? 1 : 0) + checked.length);
+      added = [mainProduct.id, ...checked.map((p) => p.id)];
+      count = (mainCanAdd ? 1 : 0) + checked.length;
     }
+    const checkedNow = checked.map((p) => p.id);
+    setAddedIds(new Set(added));
+    setAddedCount(count);
     setJustAdded(true);
+    writeFbtCache(mainProduct.id, checkedNow, added, count);
     // Persistant : ne revient à "Add selection" que sur nouvelle interaction
     // (toggle ci-dessus) ou changement de produit (effet ci-dessus). Plus de
     // timeout de 2,5 s.
