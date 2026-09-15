@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "../../types";
+import { imageKitUrl } from "../../lib/imagekit";
 const fmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "EUR",
@@ -106,8 +107,15 @@ export default function FrequentlyBoughtTogether({
             <div className="bezel-outer overflow-hidden rounded-xl">
               <div className="bezel-inner w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
                 <img
-                  src={mainImage}
+                  src={
+                    imageKitUrl(mainImage, {
+                      width: 192,
+                      quality: 80,
+                      format: "webp",
+                    }) || mainImage
+                  }
                   alt={mainProduct.title}
+                  sizes="96px"
                   loading="lazy"
                   decoding="async"
                   className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
@@ -143,8 +151,15 @@ export default function FrequentlyBoughtTogether({
                   >
                     <div className="bezel-inner w-20 h-20 sm:w-24 sm:h-24 overflow-hidden rounded-xl">
                       <img
-                        src={a.image}
+                        src={
+                          imageKitUrl(a.image, {
+                            width: 192,
+                            quality: 80,
+                            format: "webp",
+                          }) || a.image
+                        }
                         alt={a.title}
+                        sizes="96px"
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"

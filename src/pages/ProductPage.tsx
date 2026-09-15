@@ -661,6 +661,7 @@ export default function ProductPage({
                         <img
                           src={thumb}
                           alt={label}
+                          sizes="44px"
                           className="w-full h-full object-cover"
                           loading="lazy"
                           decoding="async"
@@ -769,6 +770,7 @@ export default function ProductPage({
                 >
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    aria-label="Decrease quantity"
                     className="w-10 h-11 flex items-center justify-center"
                   >
                     <Minus size={14} />
@@ -778,6 +780,7 @@ export default function ProductPage({
                   </span>
                   <button
                     onClick={() => setQuantity((q) => q + 1)}
+                    aria-label="Increase quantity"
                     className="w-10 h-11 flex items-center justify-center"
                   >
                     <Plus size={14} />
@@ -915,6 +918,7 @@ export default function ProductPage({
             src={displayImage}
             alt=""
             aria-hidden="true"
+            sizes="40px"
             className="w-10 h-10 rounded-lg object-cover shrink-0"
             loading="lazy"
             decoding="async"

@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { imageKitUrl } from "../../lib/imagekit";
 
 interface ThumbStripProps {
   images: string[];
@@ -165,6 +166,8 @@ export default function ThumbStrip({
             key={img + i}
             type="button"
             onClick={() => onSelect(i)}
+            aria-label={`View image ${i + 1} of ${images.length}`}
+            aria-pressed={activeIndex === i}
             className={`${thumbClassName} overflow-hidden shrink-0 aspect-square`}
             style={{
               border:
@@ -174,8 +177,15 @@ export default function ThumbStrip({
             }}
           >
             <img
-              src={img}
+              src={
+                imageKitUrl(img, {
+                  width: 128,
+                  quality: 80,
+                  format: "webp",
+                }) || img
+              }
               alt=""
+              sizes="64px"
               className="w-full h-full object-cover"
               loading="lazy"
               decoding="async"

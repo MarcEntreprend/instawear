@@ -1,6 +1,7 @@
 // src/components/product/RelatedProductCard.tsx — V2 port live
 import { Plus, Star } from "lucide-react";
 import type { Product } from "../../types";
+import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
 const fmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "EUR",
@@ -22,7 +23,23 @@ export default function RelatedProductCard({
       >
         <div className="relative aspect-square overflow-hidden">
           <img
-            src={product.image}
+            src={
+              imageKitUrl(product.image, {
+                width: 320,
+                quality: 80,
+                format: "webp",
+              }) || product.image
+            }
+            srcSet={
+              imageKitUrl(product.image, { width: 320 }) !== product.image
+                ? imageKitSrcSet(
+                    product.image,
+                    { quality: 80, format: "webp" },
+                    [320, 480],
+                  )
+                : undefined
+            }
+            sizes="(max-width: 640px) 144px, 160px"
             alt={product.title}
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             loading="lazy"

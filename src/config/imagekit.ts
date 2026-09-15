@@ -6,8 +6,16 @@
 /** Lecture d'env compatible Vite (navigateur/build) + node (tests/scripts). */
 export function envVar(name: string): string {
   try {
-    const viteEnv = (import.meta as any)?.env;
-    if (viteEnv && typeof viteEnv[name] === "string") return viteEnv[name];
+    // IMPORTANT build : accès direct `import.meta.env` (objet entier remplacé
+    // statiquement par Vite). La forme `(import.meta as any)?.env` échappait
+    // au remplacement → env vide dans dist/ → transforms désactivés en prod
+    // uniquement (dev/tests OK via fallback process.env). Ne pas réintroduire
+    // de chaîne optionnelle ou de cast sur ce chemin (cf. rapport Lighthouse
+    // page produit : 711 KiB d'images non transformées servies en prod).
+    const viteEnv = import.meta.env as Record<string, unknown> | undefined;
+    const v = viteEnv?.[name];
+    if (typeof v === "string") return v;
+    if (typeof v === "boolean" || typeof v === "number") return String(v);
   } catch {
     /* import.meta indisponible hors Vite */
   }

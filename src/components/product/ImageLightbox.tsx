@@ -1,6 +1,7 @@
 // src/components/product/ImageLightbox.tsx — V2 port
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { imageKitUrl } from "../../lib/imagekit";
 export default function ImageLightbox({
   images,
   initialIndex = 0,
@@ -75,6 +76,8 @@ export default function ImageLightbox({
             <button
               key={img + i}
               onClick={() => goTo(i)}
+              aria-label={`View image ${i + 1} of ${images.length}`}
+              aria-pressed={i === index}
               className="w-12 h-12 rounded-xl overflow-hidden shrink-0"
               style={{
                 border:
@@ -84,8 +87,15 @@ export default function ImageLightbox({
               }}
             >
               <img
-                src={img}
+                src={
+                  imageKitUrl(img, {
+                    width: 96,
+                    quality: 80,
+                    format: "webp",
+                  }) || img
+                }
                 alt=""
+                sizes="48px"
                 className="w-full h-full object-cover"
                 decoding="async"
               />

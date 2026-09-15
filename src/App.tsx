@@ -1528,6 +1528,16 @@ export default function App() {
     bootProduct.isActive === false &&
     !selectedProduct &&
     !loadingProducts;
+  // Perf (Lighthouse page produit) : en charge directe /produit/:id, l'accueil
+  // se rendait derrière le spinner boot puis derrière l'overlay (hero 1536px
+  // devenu LCP avec 1,4 s de retard, double travail main-thread sur mobile).
+  // On le supprime tant que la deep-route n'est pas résolue : visuellement
+  // identique (spinner / ProductUnavailable / overlay couvrent l'écran), zéro
+  // requête image de l'accueil, LCP = visuel produit. L'ouverture depuis
+  // l'accueil (clic) garde l'ancien comportement (accueil monté derrière,
+  // retour instantané) : seul le cold deep-link change.
+  const suppressStorefrontForBootProduct =
+    !!bootProductId && !selectedProduct;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
@@ -1612,8 +1622,11 @@ export default function App() {
       {/* Toast system */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* Client Customer Main Storefront View */}
-      {activeTab === "store" && !stripeConfirmOrderId && !orderSuccessId && (
+      {/* Client Customer Main Storefront View (sauf boot deep-route produit : voir suppressStorefrontForBootProduct) */}
+      {activeTab === "store" &&
+        !stripeConfirmOrderId &&
+        !orderSuccessId &&
+        !suppressStorefrontForBootProduct && (
         <main
           className="flex-1 flex flex-col gap-8 pb-16"
           id="view-customer-storefront"

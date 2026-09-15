@@ -1,6 +1,7 @@
 // src/components/product/ZoomImage.tsx — V2 port
 import { useRef, useState, type MouseEvent } from "react";
 import { Expand } from "lucide-react";
+import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
 
 const LENS_SIZE = 160;
 const ZOOM_FACTOR = 2.4;
@@ -47,7 +48,23 @@ export default function ZoomImage({
       >
         <div className="bezel-inner aspect-square relative cursor-zoom-in">
           <img
-            src={src}
+            src={
+              imageKitUrl(src, {
+                width: 1024,
+                quality: 80,
+                format: "webp",
+              }) || src
+            }
+            srcSet={
+              imageKitUrl(src, { width: 1024 }) !== src
+                ? imageKitSrcSet(
+                    src,
+                    { quality: 80, format: "webp" },
+                    [768, 1024, 1600],
+                  )
+                : undefined
+            }
+            sizes="(max-width: 640px) 100vw, 600px"
             alt={alt}
             className="w-full h-full object-cover"
             draggable={false}

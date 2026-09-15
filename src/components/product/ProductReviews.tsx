@@ -82,7 +82,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
         <p className="text-sm font-bold mb-3" style={{ color: "var(--color-ink)" }}>Leave a review</p>
         <div className="flex items-center gap-1 mb-3">
           {[1, 2, 3, 4, 5].map((s) => (
-            <button key={s} type="button" onClick={() => setRating(s)}><Star size={20} fill={s <= rating ? "var(--color-gold)" : "none"} style={{ color: "var(--color-gold)" }} /></button>
+            <button key={s} type="button" onClick={() => setRating(s)} aria-label={`Rate ${s} out of 5 stars`} aria-pressed={s === rating}><Star size={20} fill={s <= rating ? "var(--color-gold)" : "none"} style={{ color: "var(--color-gold)" }} /></button>
           ))}
         </div>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" className="w-full px-3 py-2 rounded-xl text-sm mb-2" style={{ border: "1px solid var(--color-border)", background: "var(--color-surface2)", color: "var(--color-ink)" }} />
