@@ -110,7 +110,7 @@ export default function ZoomImage({
       </div>
       {isHovering && (
         <div
-          className="hidden xl:block absolute top-0 left-full ml-5 rounded-2xl overflow-hidden z-30"
+          className="hidden lg:block absolute top-0 left-full ml-5 rounded-2xl overflow-hidden z-30"
           style={{
             width: 420,
             height: 420,

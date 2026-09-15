@@ -3,16 +3,16 @@ import { Plus, Star } from "lucide-react";
 import type { Product } from "../../types";
 import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
 import { PLACEHOLDER_IMG } from "../../constants/assets";
-const fmt = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "EUR",
-});
+import { formatAmount } from "../../data/currency";
 export default function RelatedProductCard({
   product,
+  currencySymbol,
   onSelect,
   onQuickAdd,
 }: {
   product: Product;
+  /** Symbole issu des settings boutique (via ProductPage) : jamais de devise en dur. */
+  currencySymbol: string;
   onSelect: (p: Product) => void;
   onQuickAdd: (p: Product) => void;
 }) {
@@ -77,7 +77,7 @@ export default function RelatedProductCard({
               className="text-xs font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              {fmt.format(product.price)}
+              {formatAmount(product.price, currencySymbol)}
             </span>
             {product.ratings.count > 0 && (
               <span

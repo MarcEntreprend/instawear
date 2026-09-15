@@ -508,8 +508,9 @@ export default function ProductPage({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
-          {/* Gallery */}
-          <div className="flex gap-3 overflow-hidden">
+          {/* Gallery — NOTE zoom : pas de overflow-hidden ici, le panneau
+              loupe ZoomImage (absolute, left-full) serait rogné/invisible. */}
+          <div className="flex gap-3">
             <div className="hidden sm:flex flex-col w-16 shrink-0 pt-1">
               <ThumbStrip
                 images={gallery}
@@ -864,10 +865,12 @@ export default function ProductPage({
             onAddMain={handleAdd}
             onAddBundle={handleBundleAdd}
             onQuickAddProduct={quickAdd}
+            currencySymbol={currencySymbol}
           />
         </div>
         <RecentlyViewedSection
           products={recentlyProducts}
+          currencySymbol={currencySymbol}
           onSelect={(p: Product) => {
             onClose();
             setTimeout(() => onSelectProduct?.(p), 100);
@@ -883,6 +886,7 @@ export default function ProductPage({
               <RelatedProductCard
                 key={p.id}
                 product={p}
+                currencySymbol={currencySymbol}
                 onSelect={(prod) => {
                   onClose();
                   setTimeout(() => onSelectProduct?.(prod), 100);

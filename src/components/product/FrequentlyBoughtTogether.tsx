@@ -4,10 +4,7 @@ import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "../../types";
 import { imageKitUrl } from "../../lib/imagekit";
 import { PLACEHOLDER_IMG } from "../../constants/assets";
-const fmt = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "EUR",
-});
+import { formatAmount } from "../../data/currency";
 
 export interface BundleItem {
   product: Product;
@@ -31,11 +28,14 @@ export default function FrequentlyBoughtTogether({
   onAddMain,
   onAddBundle,
   onQuickAddProduct,
+  currencySymbol,
 }: {
   mainProduct: Product;
   mainImage: string;
   mainUnitPrice: number;
   mainCanAdd: boolean;
+  /** Symbole issu des settings boutique (via ProductPage) : jamais de devise en dur. */
+  currencySymbol: string;
   mainColor?: string;
   mainSize?: string;
   addOns: Product[];
@@ -199,7 +199,7 @@ export default function FrequentlyBoughtTogether({
                   className="text-[11px] font-bold"
                   style={{ color: "var(--color-ink)" }}
                 >
-                  {fmt.format(a.price)}
+                  {formatAmount(a.price, currencySymbol)}
                 </span>
               </button>
             </div>
@@ -215,7 +215,7 @@ export default function FrequentlyBoughtTogether({
               className="text-base font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              {fmt.format(total)}
+              {formatAmount(total, currencySymbol)}
             </span>
           </p>
           <button
