@@ -148,10 +148,15 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     {
       name: string;
       sizes: Map<string, { price: number; stock_status: string }>;
-      /** Meilleur visuel : aperçu avec design si dispo, sinon mockup vierge. */
+      /** Visuel par couleur : mockup (même sans design) d'abord — un aperçu
+       *  de fichier brut (design seul, souvent fond transparent) n'est
+       *  jamais un visuel produit. Voir boucle rawPreview + Garantie. */
       image: string;
       /** Mockup vierge catalogue (sans design), pour la galerie. */
       mockup_image: string;
+      /** Aperçu fichier brut (design seul) : repli DERNIER recours uniquement,
+       *  jamais persisté tel quel (non exposé dans les variants finaux). */
+      rawPreview: string;
       id: number | null;
     }
   >();
@@ -199,7 +204,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
-      byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", id: null });
+      byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", rawPreview: "", id: null });
     const entry = byColor.get(hex)!;
     if (!entry.id && v.id) entry.id = v.id;
     const unitPrice = v.size ? resolveUnitPrice(v) : null;
@@ -261,15 +266,22 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       }
     }
     const entry = byColor.get(hex);
-    // Aperçu avec design prioritaire (fichiers d'impression du merchant).
-    if (entry && !entry.image) {
-      entry.image = v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+    // Fichier brut (design seul) mis DE CÔTÉ, jamais en `image` directement :
+    // un artwork brut n'est pas un visuel produit (fond transparent, pas de
+    // vêtement). `image` reçoit le mockup (Garantie ci-dessous) ; le brut ne
+    // sert qu'en dernier recours, quand aucun mockup n'existe.
+    if (entry && !entry.rawPreview) {
+      entry.rawPreview =
+        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
     }
   }
 
-  // Garantie : image toujours renseignée si une source existe.
+  // Garantie : image = mockup (bonne couleur) d'abord, design brut en repli
+  // uniquement. Les mockups générés (avec design) écrasent `image` plus tard
+  // dans le flux mockups (finalize) — la priorité design-sur-vêtement est
+  // préservée là où elle existe vraiment, jamais via l'artwork brut.
   for (const entry of byColor.values()) {
-    if (!entry.image) entry.image = entry.mockup_image;
+    if (!entry.image) entry.image = entry.mockup_image || entry.rawPreview || "";
   }
 
   const variants = [...byColor.entries()]
