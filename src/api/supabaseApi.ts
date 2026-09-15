@@ -1377,11 +1377,17 @@ export const podApi = {
       materialWarnings.length > 0
         ? ` ${materialWarnings.length} matière(s) non reconnue(s).`
         : "";
+    const filledCount =
+      typeof (result as any)?.materialsFilled === "number"
+        ? (result as any).materialsFilled
+        : 0;
+    const filledSuffix =
+      filledCount > 0 ? ` ${filledCount} matière(s) remplie(s).` : "";
     const log: SyncLog = {
       id: `log-${Date.now()}`,
       syncDate: new Date().toISOString(),
       status: "success",
-      message: `${result.syncedCount} produits synchronisés avec Printful.${matSuffix}`,
+      message: `${result.syncedCount} produits synchronisés avec Printful.${filledSuffix}${matSuffix}`,
       duration: Date.now() - start,
     };
     await supabase.from("sync_logs").insert({
@@ -1396,7 +1402,7 @@ export const podApi = {
     try {
       await notificationApi.create({
         title: "Synchronisation Printful terminée",
-        description: `${result.syncedCount} produit(s) synchronisé(s)${matSuffix}`,
+        description: `${result.syncedCount} produit(s) synchronisé(s)${filledSuffix}${matSuffix}`,
         category: "api",
         priority: "low",
         metadata: { source: "Printful", linkTo: "/admin/reports" },

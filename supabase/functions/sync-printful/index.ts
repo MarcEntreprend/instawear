@@ -350,7 +350,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
   }
   const materialInfo = aggregateProductMaterials(materialEntries);
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued, materialTop: materialInfo.top, materialUnmapped: materialInfo.unmapped };
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued, materialTop: materialInfo.top, materialUnmapped: materialInfo.unmapped, materialEntryCount: materialEntries.length };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -2514,6 +2514,9 @@ export default {
       const errors: string[] = [];
       // Traçabilité matières (contrôle admin) : fibres non reconnues.
       const materialWarnings: string[] = [];
+      // Compteur de remplissages auto effectifs (observabilité : le succès
+      // silencieux est un bug de pilotage — voir incident sync sans effet).
+      let materialsFilled = 0;
 
       for (const pfProduct of printfulProducts) {
         try {
@@ -2580,7 +2583,7 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys, materialTop, materialUnmapped } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys, materialTop, materialUnmapped, materialEntryCount } =
             buildVariantMatrix(syncVariants, catalogVariants);
           const skippedDiscontinued: Set<string> =
             discontinuedKeys instanceof Set ? discontinuedKeys : new Set();
@@ -2704,9 +2707,15 @@ export default {
 
           // Matière auto (slug canonique) : fill-if-empty UNIQUEMENT — un edit
           // admin existant gagne toujours (pas d'écrasement au resync).
-          // Traçabilité : fibres non reconnues -> warnings réponse + logs.
+          // Traçabilité : fibres non reconnues -> warnings réponse + logs ;
+          // catalogue SANS données -> warning explicite (cas réel : beanie,
+          // casquette et certains blanks ne renvoient aucun material).
           if (materialTop) {
             productPayload.material = materialTop;
+          } else if (!materialEntryCount) {
+            materialWarnings.push(
+              `Produit ${pfProduct.id} : Printful ne renvoie aucune matière (saisie admin requise)`,
+            );
           }
           if (Array.isArray(materialUnmapped) && materialUnmapped.length > 0) {
             materialWarnings.push(
@@ -2746,6 +2755,8 @@ export default {
             // écrasé par le resync (override admin gagnant par construction).
             if ((existing as any).material) {
               delete updatePayload.material;
+            } else if (updatePayload.material) {
+              materialsFilled += 1;
             }
             const { error: updErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
             if (updErr) {
@@ -2761,6 +2772,7 @@ export default {
           } else {
             const productId = `prod-printful-${pfProduct.id}`;
             const insertPayload: any = { ...signedPayload };
+            if (insertPayload.material) materialsFilled += 1;
             const { error: insErr } = await supabaseAdmin.from("products").insert({
               id: productId,
               is_active: true,
@@ -2828,7 +2840,7 @@ export default {
         id: `log-${Date.now()}`,
         sync_date: now,
         status: syncStatus,
-        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
+        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialsFilled > 0 ? ` ${materialsFilled} matière(s) remplie(s).` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
         duration: 0,
       });
 
@@ -2837,6 +2849,7 @@ export default {
           success: true,
           syncedCount,
           errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+          materialsFilled: materialsFilled > 0 ? materialsFilled : undefined,
           materialWarnings:
             materialWarnings.length > 0 ? materialWarnings.slice(0, 10) : undefined,
         }),
