@@ -18,6 +18,7 @@ import {
   resolveUnitPrice as resolveUnitPriceShared,
 } from "./_shared/variantPricing.ts";
 import { aggregateProductMaterials } from "./_shared/materials.ts";
+import { extractCatalogVariants } from "./_shared/catalog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -508,8 +509,9 @@ async function prepareMockupTask(
     );
     if (catalogRes && catalogRes.ok) {
       const catalogData = await catalogRes.json();
-      const catalogResult = catalogData?.result?.product || catalogData?.result;
-      catalogVariants = catalogResult?.variants || [];
+      // Garde de forme (_shared/catalog.ts) : result.product ne contient
+      // jamais variants — lire result.variants.
+      catalogVariants = extractCatalogVariants(catalogData);
     }
   } catch {
     // fallback — will use sync variants only
@@ -1201,30 +1203,31 @@ export default {
             );
             if (catalogRes.ok) {
               const catalogData = await catalogRes.json();
-              const catalogResult =
-                catalogData?.result?.product || catalogData?.result;
-              if (catalogResult) {
-                catalogProductName = catalogResult.name || "";
-                catalogProductImage = catalogResult.image || "";
-                catalogVariants = (catalogResult.variants || []).map(
-                  (v: any) => ({
-                    id: v.id,
-                    product_id: v.product_id,
-                    name: v.name,
-                    color: v.color || "",
-                    color_code: v.color_code || "",
-                    color_code2: v.color_code2 || "",
-                    size: v.size || "",
-                    price: v.price,
-                    currency: v.currency,
-                    image: v.image ? displayImageUrl(v.image) : "",
-                    availability_status: v.availability_status,
-                    // Matières brutes catalogue (classification dans
-                    // buildVariantMatrix via _shared/materials.ts).
-                    material: Array.isArray(v.material) ? v.material : [],
-                  }),
-                );
+              // Garde de forme (_shared/catalog.ts) : result.product ne
+              // contient jamais variants — lire result.variants.
+              const productInfo = catalogData?.result?.product;
+              if (productInfo && typeof productInfo === "object") {
+                catalogProductName = (productInfo as any).name || "";
+                catalogProductImage = (productInfo as any).image || "";
               }
+              catalogVariants = extractCatalogVariants(catalogData).map(
+                (v: any) => ({
+                  id: v.id,
+                  product_id: v.product_id,
+                  name: v.name,
+                  color: v.color || "",
+                  color_code: v.color_code || "",
+                  color_code2: v.color_code2 || "",
+                  size: v.size || "",
+                  price: v.price,
+                  currency: v.currency,
+                  image: v.image ? displayImageUrl(v.image) : "",
+                  availability_status: v.availability_status,
+                  // Matières brutes catalogue (classification dans
+                  // buildVariantMatrix via _shared/materials.ts).
+                  material: Array.isArray(v.material) ? v.material : [],
+                }),
+              );
             }
           } catch {
             // fallback to sync variants only
@@ -1506,9 +1509,10 @@ export default {
           if (!res.ok)
             throw new Error(`Printful catalogue error ${res.status}`);
           const data = await res.json();
-          const catalogResult = data?.result?.product || data?.result;
-          const variants = catalogResult?.variants;
-          if (!Array.isArray(variants))
+          // Garde de forme (_shared/catalog.ts) : result.product ne contient
+          // jamais variants (sinon "Variants introuvables" systématique).
+          const variants = extractCatalogVariants(data);
+          if (!Array.isArray(variants) || variants.length === 0)
             throw new Error("Variants introuvables");
           const target = variants.find((v: any) => v.id == variantId);
           if (!target) throw new Error("Variant non trouvé");
@@ -2514,6 +2518,10 @@ export default {
       const errors: string[] = [];
       // Traçabilité matières (contrôle admin) : fibres non reconnues.
       const materialWarnings: string[] = [];
+      // Produits dont le catalogue ne renvoie AUCUNE matière (cas réel :
+      // beanie, casquette et certains blanks) : saisie admin requise.
+      // Distingué des "non reconnues" pour un diagnostic lisible.
+      const materialNoData: string[] = [];
       // Compteur de remplissages auto effectifs (observabilité : le succès
       // silencieux est un bug de pilotage — voir incident sync sans effet).
       let materialsFilled = 0;
@@ -2556,9 +2564,9 @@ export default {
               );
               if (catalogRes && catalogRes.ok) {
                 const catalogData = await catalogRes.json();
-                const catalogResult =
-                  catalogData?.result?.product || catalogData?.result;
-                catalogVariants = catalogResult?.variants || [];
+                // Garde de forme (_shared/catalog.ts) : result.product ne
+                // contient jamais variants — lire result.variants.
+                catalogVariants = extractCatalogVariants(catalogData);
               }
             } catch {
               // fallback
@@ -2713,8 +2721,10 @@ export default {
           if (materialTop) {
             productPayload.material = materialTop;
           } else if (!materialEntryCount) {
-            materialWarnings.push(
-              `Produit ${pfProduct.id} : Printful ne renvoie aucune matière (saisie admin requise)`,
+            materialNoData.push(
+              String(
+                syncProduct?.name || pfProduct.name || `produit ${pfProduct.id}`,
+              ).slice(0, 80),
             );
           }
           if (Array.isArray(materialUnmapped) && materialUnmapped.length > 0) {
@@ -2840,7 +2850,7 @@ export default {
         id: `log-${Date.now()}`,
         sync_date: now,
         status: syncStatus,
-        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialsFilled > 0 ? ` ${materialsFilled} matière(s) remplie(s).` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
+        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialsFilled > 0 ? ` ${materialsFilled} matière(s) remplie(s).` : ""}${materialNoData.length > 0 ? ` ${materialNoData.length} sans données matière.` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
         duration: 0,
       });
 
@@ -2850,6 +2860,8 @@ export default {
           syncedCount,
           errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
           materialsFilled: materialsFilled > 0 ? materialsFilled : undefined,
+          materialNoData:
+            materialNoData.length > 0 ? materialNoData.slice(0, 10) : undefined,
           materialWarnings:
             materialWarnings.length > 0 ? materialWarnings.slice(0, 10) : undefined,
         }),
