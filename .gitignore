@@ -11,34 +11,11 @@ Models/
 instawear-security-check.zip
 # Docs personnelles (bloc-notes + backlog) : jamais commitées
 blocNote.md
-fixes-and-improvements.md
-devtools-security-check.md
-devtools-frontend-check.md
-devtools-security-check-logged-as-admin.md
 database-context-100926.md
 Fonctionalités-majeures-manquantes-(frontstore).md
-audit-security-130826.md
 
 .vercel
 
-.vercel
 
 # Docs personnelles (audits, notes dev)
-audit-security-130826.md
-devtools-frontend-check.md
-devtools-security-check-logged-as-admin.md
-devtools-security-check.md
-PROTOCOL-DE-SECURITE-BACKEND.md
-dev-frontend-claude-feedback.md
-
-
-desktop-repport-localhost_3000-20260914T132207.json
-desktop-repport-localhost_3000-20260914T134412.json
-mobile-repport-localhost_3000-20260914T132852.json
-mobile-repport-localhost_3000-20260914T134127.json
-mobile-localhost_3000-20260914T145123.json
-desktop-localhost_3000-20260914T145245.json
-
-last-desktop-localhost_3000-20260914T150603.json
-last-mobile-localhost_3000-20260914T150243.json
-mobile-90-localhost_3000-20260914T151624.json
+docs-front-back/
