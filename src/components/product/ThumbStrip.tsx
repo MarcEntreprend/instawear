@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { imageKitUrl } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 
 interface ThumbStripProps {
   images: string[];
@@ -189,6 +190,12 @@ export default function ThumbStrip({
               className="w-full h-full object-cover"
               loading="lazy"
               decoding="async"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fbk) return;
+                el.dataset.fbk = "1";
+                el.src = PLACEHOLDER_IMG;
+              }}
             />
           </button>
         ))}

@@ -148,6 +148,24 @@ export function normalizeImagekitUrl(
   url: string,
   options: ImageTransformOptions = {},
 ): string {
+  // INVARIANT (incident prod 401) : une URL déjà ImageKit ET signée serveur
+  // (?ik-s=) est renvoyée TELLE QUELLE, jamais réenveloppée — indépendamment
+  // de tout produit (règle par forme d'URL, pas par catalogue : les produits
+  // vont et viennent, le contrat reste). Motif : les URLs stockées sont
+  // signées (HMAC ik-s, restriction "unsigned" active côté ImageKit).
+  // Réécrire le chemin (nouveau tr: + source ré-encodée avec l'ancien
+  // ?ik-t/&ik-s) invalide la signature → 401 sur chaque visuel transformé
+  // (galerie, cartes via srcSet, FBT — constaté en frontstore + page
+  // produit). Le frontend ne détient pas la clé privée (par design) donc ne
+  // peut pas re-signer (même convention que le signeur serveur : ne jamais
+  // re-signer, cf. sync-printful/_shared/imagekit.ts). Les URLs ImageKit NON
+  // signées gardent le comportement historique (normalisation de l'ancien
+  // encodé, couverte par tests/imagekit.test.ts) ; les transforms restent
+  // réservés aux URLs sources BRUTES (non-ImageKit éligibles) via
+  // imageKitUrl(). Côté serveur, sync-printful signe déjà en tr:q-80,f-webp :
+  // toute variante dimensionnée durable doit y être construite AVANT
+  // signature, jamais côté client.
+  if (isImageKitUrl(url) && /[?&]ik-s=/.test(url)) return url;
   const original = imagekitOriginal(url);
   if (original === url) return url;
   if (!imageKitConfig.enabled) return original;

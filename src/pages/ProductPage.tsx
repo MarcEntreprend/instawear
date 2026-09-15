@@ -665,6 +665,12 @@ export default function ProductPage({
                           className="w-full h-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            if (el.dataset.fbk) return;
+                            el.dataset.fbk = "1";
+                            el.src = PLACEHOLDER_IMG;
+                          }}
                         />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
@@ -922,6 +928,12 @@ export default function ProductPage({
             className="w-10 h-10 rounded-lg object-cover shrink-0"
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <span
             className="text-sm font-extrabold truncate"

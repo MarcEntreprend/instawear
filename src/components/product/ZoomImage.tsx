@@ -2,6 +2,7 @@
 import { useRef, useState, type MouseEvent } from "react";
 import { Expand } from "lucide-react";
 import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 
 const LENS_SIZE = 160;
 const ZOOM_FACTOR = 2.4;
@@ -70,6 +71,14 @@ export default function ZoomImage({
             draggable={false}
             fetchPriority="high"
             decoding="async"
+            onError={(e) => {
+              // Visuel KO (401/404, produit retiré…) → placeholder local.
+              // Garde anti-boucle : un seul basculement (jamais de produit en dur).
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <button
             type="button"

@@ -2,6 +2,7 @@
 import { Plus, Star } from "lucide-react";
 import type { Product } from "../../types";
 import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 const fmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "EUR",
@@ -44,6 +45,12 @@ export default function RelatedProductCard({
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <button
             type="button"

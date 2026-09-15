@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Check, ShoppingBag } from "lucide-react";
 import type { Product } from "../../types";
 import { imageKitUrl } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 const fmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "EUR",
@@ -119,6 +120,12 @@ export default function FrequentlyBoughtTogether({
                   loading="lazy"
                   decoding="async"
                   className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    if (el.dataset.fbk) return;
+                    el.dataset.fbk = "1";
+                    el.src = PLACEHOLDER_IMG;
+                  }}
                 />
               </div>
             </div>
@@ -163,6 +170,12 @@ export default function FrequentlyBoughtTogether({
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.dataset.fbk) return;
+                          el.dataset.fbk = "1";
+                          el.src = PLACEHOLDER_IMG;
+                        }}
                       />
                     </div>
                   </div>

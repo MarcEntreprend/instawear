@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { imageKitUrl } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 export default function ImageLightbox({
   images,
   initialIndex = 0,
@@ -66,6 +67,12 @@ export default function ImageLightbox({
               alt={`${alt} ${i + 1}`}
               className="max-w-full max-h-full object-contain"
               decoding="async"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fbk) return;
+                el.dataset.fbk = "1";
+                el.src = PLACEHOLDER_IMG;
+              }}
             />
           </div>
         ))}
@@ -98,6 +105,12 @@ export default function ImageLightbox({
                 sizes="48px"
                 className="w-full h-full object-cover"
                 decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.dataset.fbk) return;
+                  el.dataset.fbk = "1";
+                  el.src = PLACEHOLDER_IMG;
+                }}
               />
             </button>
           ))}
