@@ -24,6 +24,9 @@ interface ThumbStripProps {
   thumbClassName?: string;
   /** Espace entre miniatures en px (doit matcher le gap CSS). */
   gapPx?: number;
+  /** Survol => sélectionne (galerie desktop) : l'image s'affiche sans clic.
+   *  Inoffensif au tactile (tap => mouseenter + click, même index). */
+  selectOnHover?: boolean;
   /** Hauteur max de la colonne verticale avant scroll. */
   maxPx?: number;
   className?: string;
@@ -54,6 +57,7 @@ export default function ThumbStrip({
   orientation,
   thumbClassName = "w-16 h-16 rounded-xl",
   gapPx = 10,
+  selectOnHover = false,
   maxPx = 420,
   className = "",
 }: ThumbStripProps) {
@@ -167,6 +171,9 @@ export default function ThumbStrip({
             key={img + i}
             type="button"
             onClick={() => onSelect(i)}
+            onMouseEnter={() => {
+              if (selectOnHover) onSelect(i);
+            }}
             aria-label={`View image ${i + 1} of ${images.length}`}
             aria-pressed={activeIndex === i}
             className={`${thumbClassName} overflow-hidden shrink-0 aspect-square`}

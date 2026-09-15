@@ -523,6 +523,7 @@ export default function ProductPage({
                 thumbClassName="w-16 h-16 rounded-xl"
                 className="w-16"
                 maxPx={435}
+                selectOnHover
               />
             </div>
             <div className="flex-1 min-w-0">
