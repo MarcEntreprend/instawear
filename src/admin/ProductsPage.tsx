@@ -212,6 +212,16 @@ export default function ProductsPage() {
     return counts;
   }, [allProducts]);
 
+  const countsByMaterial = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allProducts?.forEach((p) => {
+      const key = p.material || "";
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [allProducts]);
+
   // ── Filter & sort ──────────────────────────────────────────────────────
   const products = useMemo(() => {
     if (!allProducts) return [];
@@ -932,6 +942,26 @@ export default function ProductsPage() {
               <option key={o.value} value={o.value}>
                 {o.label}
                 {countsByStyle[o.value] ? ` (${countsByStyle[o.value]})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Matériau */}
+          <select
+            value={filters.material ?? ""}
+            onChange={(e) =>
+              setFilters({ ...filters, material: e.target.value || null })
+            }
+            style={selectStyle}
+            aria-label="Filtrer par matériau"
+          >
+            <option value="">Matériau</option>
+            {getByType("material").map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+                {countsByMaterial[o.value]
+                  ? ` (${countsByMaterial[o.value]})`
+                  : ""}
               </option>
             ))}
           </select>

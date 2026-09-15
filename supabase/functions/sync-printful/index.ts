@@ -17,6 +17,7 @@ import {
   buildCatalogPriceIndex,
   resolveUnitPrice as resolveUnitPriceShared,
 } from "./_shared/variantPricing.ts";
+import { aggregateProductMaterials } from "./_shared/materials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -336,9 +337,20 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     ),
   ];
   const sizesSet = new Set<string>();
-  deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
+  deduped.forEach((v) => Object.keys(v.sizes || {}).forEach((s) => sizesSet.add(s)));
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued };
+  // Matières catalogue (tous variants, brutes) -> slug dominant + traçabilité.
+  // Même pattern que les autres index catalogue ci-dessus ; un seul point
+  // d'agrégation pour les deux flux sync (import + refresh).
+  const materialEntries: unknown[] = [];
+  for (const cv of catalogVariants || []) {
+    if (Array.isArray((cv as any)?.material)) {
+      for (const m of (cv as any).material) materialEntries.push(m);
+    }
+  }
+  const materialInfo = aggregateProductMaterials(materialEntries);
+
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued, materialTop: materialInfo.top, materialUnmapped: materialInfo.unmapped };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -1207,6 +1219,9 @@ export default {
                     currency: v.currency,
                     image: v.image ? displayImageUrl(v.image) : "",
                     availability_status: v.availability_status,
+                    // Matières brutes catalogue (classification dans
+                    // buildVariantMatrix via _shared/materials.ts).
+                    material: Array.isArray(v.material) ? v.material : [],
                   }),
                 );
               }
@@ -1216,8 +1231,18 @@ export default {
           }
         }
 
-        const { colors, colorNames, colorImages, sizes, variants } =
-          buildVariantMatrix(syncVariants, catalogVariants);
+  const { colors, colorNames, colorImages, sizes, variants } =
+    buildVariantMatrix(syncVariants, catalogVariants);
+
+        // Matière auto pour le form d'import (même classifieur que le sync :
+        // aucune duplication côté client). Le form pré-remplit, l'admin valide.
+        const enrichMaterialEntries: unknown[] = [];
+        for (const cv of catalogVariants || []) {
+          if (Array.isArray((cv as any)?.material)) {
+            for (const m of (cv as any).material) enrichMaterialEntries.push(m);
+          }
+        }
+        const enrichMaterialInfo = aggregateProductMaterials(enrichMaterialEntries);
 
         const productData = {
           id: syncProduct?.id || detail.id,
@@ -1233,6 +1258,9 @@ export default {
           // Traçabilité admin : conversion + signature actives ?
           imagekit_enabled: imagekitEndpoint().length > 0,
           imagekit_signed: hasImagekitPrivateKey(),
+          // Matière détectée (slug) pour pré-remplissage du form d'import.
+          material_top: enrichMaterialInfo.top,
+          material_unmapped: enrichMaterialInfo.unmapped,
           colors,
           color_names: colorNames,
           color_images: colorImages,
@@ -2484,6 +2512,8 @@ export default {
       const printfulProducts = listData.result ?? [];
       let syncedCount = 0;
       const errors: string[] = [];
+      // Traçabilité matières (contrôle admin) : fibres non reconnues.
+      const materialWarnings: string[] = [];
 
       for (const pfProduct of printfulProducts) {
         try {
@@ -2550,7 +2580,7 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys, materialTop, materialUnmapped } =
             buildVariantMatrix(syncVariants, catalogVariants);
           const skippedDiscontinued: Set<string> =
             discontinuedKeys instanceof Set ? discontinuedKeys : new Set();
@@ -2672,6 +2702,18 @@ export default {
             external_variant_id: mainVariant?.id?.toString() || null,
           };
 
+          // Matière auto (slug canonique) : fill-if-empty UNIQUEMENT — un edit
+          // admin existant gagne toujours (pas d'écrasement au resync).
+          // Traçabilité : fibres non reconnues -> warnings réponse + logs.
+          if (materialTop) {
+            productPayload.material = materialTop;
+          }
+          if (Array.isArray(materialUnmapped) && materialUnmapped.length > 0) {
+            materialWarnings.push(
+              `Produit ${pfProduct.id} : matières non reconnues (${materialUnmapped.slice(0, 5).join(", ")})`,
+            );
+          }
+
           // audit léger debug admin
           try {
             const availabilityAudit: Record<string, string> = {};
@@ -2694,12 +2736,17 @@ export default {
 
           const { data: existing } = await supabaseAdmin
             .from("products")
-            .select("id")
+            .select("id, material")
             .eq("external_product_id", pfProduct.id.toString())
             .maybeSingle();
 
           if (existing) {
             const updatePayload: any = { ...signedPayload };
+            // Fill-if-empty : un material posé par l'admin n'est JAMAIS
+            // écrasé par le resync (override admin gagnant par construction).
+            if ((existing as any).material) {
+              delete updatePayload.material;
+            }
             const { error: updErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
             if (updErr) {
               // fallback si colonnes P1 pas encore migrées
@@ -2781,7 +2828,7 @@ export default {
         id: `log-${Date.now()}`,
         sync_date: now,
         status: syncStatus,
-        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}`,
+        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
         duration: 0,
       });
 
@@ -2790,6 +2837,8 @@ export default {
           success: true,
           syncedCount,
           errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+          materialWarnings:
+            materialWarnings.length > 0 ? materialWarnings.slice(0, 10) : undefined,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );

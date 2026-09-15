@@ -305,7 +305,7 @@ export default function ProductFormPanel({
         category: product.category,
         eventType: product.eventType,
         style: product.style,
-        material: product.material || "coton-bio",
+        material: product.material || "",
         tags: product.tags,
         isBestSeller: product.isBestSeller || false,
         isLimitedTime: product.isLimitedTime || false,
@@ -683,12 +683,18 @@ export default function ProductFormPanel({
           </div>
           <div>
             <label style={labelStyle}>Matériau</label>
-            <input
-              type="text"
+            <select
               value={form.material || ""}
               onChange={(e) => update("material", e.target.value)}
               style={inputStyle}
-            />
+            >
+              <option value="">— Non renseigné (auto au prochain sync) —</option>
+              {getByType("material").map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label style={labelStyle}>Visibilité</label>

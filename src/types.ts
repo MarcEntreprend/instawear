@@ -54,11 +54,15 @@ export interface Product {
   showBought?: boolean;
   isBestSeller?: boolean;
   isLimitedTime?: boolean;
+  /** Slug matière canonique (ex. "cotton-organic", cf. _shared/materials.ts
+   *  + reference_lists type=material). Rempli auto au sync (fill-if-empty),
+   *  surchargeable admin. Anciens libellés FR normalisés à la lecture. */
   material?: string;
   inStock?: boolean;
   tags: string[];
   eventType: string;
   category: string;
+  /** Slug style issu de reference_lists type=style (saisie admin/import). */
   style: string;
   /** Source of truth for variants. Replaces parallel colors/colorNames/colorImages/sizes/sizeSurcharge. */
   variants?: ProductVariant[];

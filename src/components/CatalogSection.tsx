@@ -19,11 +19,15 @@ import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
 import {
   EVENT_TYPES,
   PRODUCT_CATEGORIES,
-  STYLE_OPTIONS,
-  MATERIAL_OPTIONS,
   SORT_OPTIONS,
   type SortValue,
 } from "../data/categories";
+import {
+  buildMaterialFacets,
+  materialLabel,
+  normalizeMaterialKey,
+  type MaterialFacet,
+} from "../data/materials";
 import { SIZE_OPTIONS_US } from "../utils/sizeOrder";
 
 interface CatalogSectionProps {
@@ -92,7 +96,8 @@ function parseFiltersFromSearch(
     eventType: params.get("event") ?? fallbackEventType,
     category: params.get("cat") ?? fallbackCategory,
     style: params.get("style") ?? null,
-    material: params.get("material") ?? null,
+    // Compat liens anciens : libellé FR legacy -> slug (ex. "Coton bio").
+    material: normalizeMaterialKey(params.get("material")) ?? params.get("material") ?? null,
     priceMin: params.has("pmin") ? Number(params.get("pmin")) : 0,
     priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
     inStockOnly: params.get("stock") === "1",
@@ -164,6 +169,42 @@ export function buildColorFacets(
         map.set(hex, { hex, name, count: 1 });
       }
     });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count);
+}
+
+export interface StyleFacet {
+  value: string;
+  label: string;
+  count: number;
+}
+
+/** Libellé d'affichage d'un slug style ("street" -> "Street"). Les slugs
+ *  viennent de `reference_lists` type=style (contrôlés admin). */
+export function styleLabel(value: string): string {
+  const clean = value.replace(/[_-]+/g, " ").trim();
+  if (!clean) return "Other";
+  return clean
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Styles RÉELS du catalogue : valeurs distinctes présentes (triées par
+ * popularité). Remplace la liste générique en dur, dont aucune valeur ne
+ * matchait les slugs stockés (ex. "streetwear" vs "street").
+ */
+export function buildStyleFacets(
+  products: { style?: string | null }[],
+): StyleFacet[] {
+  const map = new Map<string, StyleFacet>();
+  for (const p of products) {
+    const v = typeof p.style === "string" ? p.style.trim() : "";
+    if (!v) continue;
+    const cur = map.get(v);
+    if (cur) cur.count += 1;
+    else map.set(v, { value: v, label: styleLabel(v), count: 1 });
   }
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
@@ -317,6 +358,19 @@ export default function CatalogSection({
     [filteredProducts],
   );
 
+  // Facettes style/matière RÉELLES : valeurs présentes au catalogue
+  // (slugs stables), jamais de listes en dur. Calculées AVANT leur propre
+  // filtre, comme les couleurs (pas de disparition d'options).
+  // Note perf : aucun fetch — produits déjà chargés (PROTOCOL-QUALITE).
+  const availableStyles = useMemo(
+    () => buildStyleFacets(filteredProducts),
+    [filteredProducts],
+  );
+  const availableMaterials = useMemo(
+    () => buildMaterialFacets(filteredProducts),
+    [filteredProducts],
+  );
+
   // Pastille "Color: <nom>" (nom d'abord, hex/RGB en fallback + tooltip).
   const activeColorFacet = useMemo(() => {
     if (!filters.color) return null;
@@ -346,7 +400,12 @@ export default function CatalogSection({
         return false;
       if (filters.inStockOnly && p.inStock === false) return false;
       if (filters.style && p.style !== filters.style) return false;
-      if (filters.material && p.material !== filters.material) return false;
+      // Matière : comparaison sur slug normalisé (legacy FR insensible).
+      if (
+        filters.material &&
+        normalizeMaterialKey(p.material) !== filters.material
+      )
+        return false;
       return true;
     });
     switch (sort) {
@@ -576,59 +635,68 @@ export default function CatalogSection({
                 </div>
               </div>
             </FilterGroup>
-            <FilterGroup title="Style">
-              <div className="flex flex-wrap gap-1.5">
-                {STYLE_OPTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        style: f.style === s ? null : s,
-                      }))
-                    }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                    style={{
-                      background:
-                        filters.style === s
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color: filters.style === s ? "#fff" : "var(--color-ink3)",
-                      border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </FilterGroup>
-            <FilterGroup title="Material">
-              <div className="flex flex-wrap gap-1.5">
-                {MATERIAL_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        material: f.material === m ? null : m,
-                      }))
-                    }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                    style={{
-                      background:
-                        filters.material === m
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color:
-                        filters.material === m ? "#fff" : "var(--color-ink3)",
-                      border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
-                    }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </FilterGroup>
+            {availableStyles.length > 0 && (
+              <FilterGroup title="Style">
+                <div className="flex flex-wrap gap-1.5">
+                  {availableStyles.map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          style: f.style === s.value ? null : s.value,
+                        }))
+                      }
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      style={{
+                        background:
+                          filters.style === s.value
+                            ? "var(--color-accent)"
+                            : "var(--color-surface2)",
+                        color:
+                          filters.style === s.value
+                            ? "#fff"
+                            : "var(--color-ink3)",
+                        border: `1px solid ${filters.style === s.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
+            {availableMaterials.length > 0 && (
+              <FilterGroup title="Material">
+                <div className="flex flex-wrap gap-1.5">
+                  {availableMaterials.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          material: f.material === m.value ? null : m.value,
+                        }))
+                      }
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      style={{
+                        background:
+                          filters.material === m.value
+                            ? "var(--color-accent)"
+                            : "var(--color-surface2)",
+                        color:
+                          filters.material === m.value
+                            ? "#fff"
+                            : "var(--color-ink3)",
+                        border: `1px solid ${filters.material === m.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
             <FilterGroup title="Size">
               <div className="flex flex-wrap gap-1.5">
                 {SIZE_OPTIONS.map((size) => (
@@ -885,7 +953,7 @@ export default function CatalogSection({
                     onClick={() => setFilters((f) => ({ ...f, style: null }))}
                     style={{ cursor: "pointer" }}
                   >
-                    {filters.style} <X size={12} />
+                    {styleLabel(filters.style)} <X size={12} />
                   </span>
                 )}
                 {filters.material && (
@@ -897,7 +965,7 @@ export default function CatalogSection({
                     }
                     style={{ cursor: "pointer" }}
                   >
-                    {filters.material} <X size={12} />
+                    {materialLabel(filters.material)} <X size={12} />
                   </span>
                 )}
                 {filters.inStockOnly && (
@@ -1235,65 +1303,70 @@ export default function CatalogSection({
                     </div>
                   </FilterGroup>
 
-                  <FilterGroup title="Style">
-                    <div className="flex flex-wrap gap-1.5">
-                      {STYLE_OPTIONS.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() =>
-                            setFilters((f) => ({
-                              ...f,
-                              style: f.style === s ? null : s,
-                            }))
-                          }
-                          className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                          style={{
-                            background:
-                              filters.style === s
-                                ? "var(--color-accent)"
-                                : "var(--color-surface2)",
-                            color:
-                              filters.style === s
-                                ? "#fff"
-                                : "var(--color-ink3)",
-                            border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
-                          }}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </FilterGroup>
+                  {availableStyles.length > 0 && (
+                    <FilterGroup title="Style">
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableStyles.map((s) => (
+                          <button
+                            key={s.value}
+                            onClick={() =>
+                              setFilters((f) => ({
+                                ...f,
+                                style: f.style === s.value ? null : s.value,
+                              }))
+                            }
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            style={{
+                              background:
+                                filters.style === s.value
+                                  ? "var(--color-accent)"
+                                  : "var(--color-surface2)",
+                              color:
+                                filters.style === s.value
+                                  ? "#fff"
+                                  : "var(--color-ink3)",
+                              border: `1px solid ${filters.style === s.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                            }}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </FilterGroup>
+                  )}
 
-                  <FilterGroup title="Material">
-                    <div className="flex flex-wrap gap-1.5">
-                      {MATERIAL_OPTIONS.map((m) => (
-                        <button
-                          key={m}
-                          onClick={() =>
-                            setFilters((f) => ({
-                              ...f,
-                              material: f.material === m ? null : m,
-                            }))
-                          }
-                          className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                          style={{
-                            background:
-                              filters.material === m
-                                ? "var(--color-accent)"
-                                : "var(--color-surface2)",
-                            color:
-                              filters.material === m
-                                ? "#fff"
-                                : "var(--color-ink3)",
-                            border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
-                          }}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  </FilterGroup>
+                  {availableMaterials.length > 0 && (
+                    <FilterGroup title="Material">
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableMaterials.map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() =>
+                              setFilters((f) => ({
+                                ...f,
+                                material:
+                                  f.material === m.value ? null : m.value,
+                              }))
+                            }
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            style={{
+                              background:
+                                filters.material === m.value
+                                  ? "var(--color-accent)"
+                                  : "var(--color-surface2)",
+                              color:
+                                filters.material === m.value
+                                  ? "#fff"
+                                  : "var(--color-ink3)",
+                              border: `1px solid ${filters.material === m.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                            }}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </FilterGroup>
+                  )}
 
                   <FilterGroup title="Size">
                     <div className="flex flex-wrap gap-1.5">
