@@ -296,6 +296,20 @@ export default function CatalogSection({
     }
   }, [isFilterDrawerOpen]);
 
+  // Tiroir mobile uniquement (même breakpoint que lg:hidden / useIsMobile) :
+  // bascule en desktop sans fermeture → le refermer. Sinon l'état reste
+  // monté mais invisible (display:none) avec le verrou body persistant, et
+  // la page semble bloquée au scroll sans cause visible. Les filtres choisis
+  // sont conservés (état partagé avec la sidebar desktop).
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setIsFilterDrawerOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   // Facettes couleur réelles (tous les produits du contexte, AVANT le filtre
   // couleur lui-même : sélectionner ne fait jamais disparaître d'options).
   const availableColors = useMemo(
