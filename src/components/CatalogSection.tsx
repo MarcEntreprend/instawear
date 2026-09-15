@@ -1515,10 +1515,16 @@ function ColorPicker({
         )}
       </div>
 
-      {isOpen && (
-        <div
-          ref={dropdownRef}
-          style={{
+      {/* Portail : comme le tiroir, le popup fixed doit échapper à la
+          section .cv-auto (content-visibility = containing block des fixed
+          → coordonnées viewport appliquées à la section : popup trop haut
+          en sidebar desktop). Mesure et click-outside inchangés. */}
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
             position: "fixed",
             top: dropPos ? dropPos.top : 0,
             left: dropPos ? dropPos.left : 8,
@@ -1552,10 +1558,11 @@ function ColorPicker({
                     : "1px solid var(--color-border2)",
               }}
               title={c.name}
-            />
-          ))}
-        </div>
-      )}
+              />
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
