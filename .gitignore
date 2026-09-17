@@ -19,3 +19,11 @@ Fonctionalités-majeures-manquantes-(frontstore).md
 
 # Docs personnelles (audits, notes dev)
 docs-front-back/
+
+# Générés à chaque build (prebuild sitemap + scripts prerender) : turnover
+# catalogue permanent (ajouts/retraits produits) — commiter ne produirait que
+# du bruit. Régénérés via `npm run build` en local comme sur Vercel
+# (buildCommand par défaut -> prebuild). Note : sitemap.xml plafonne à
+# 50 000 URLs (suffisant pour des dizaines de milliers ; au-delà : index).
+public/sitemap.xml
+public/llms.txt
