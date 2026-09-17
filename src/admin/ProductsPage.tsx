@@ -20,7 +20,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useProducts, useReferenceLists } from "./adminHooks";
-import MockupStudio from "./MockupStudio";
+// import MockupStudio from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -104,7 +104,7 @@ export default function ProductsPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingPrintful, setIsCreatingPrintful] = useState(false);
-  const [showMockupStudio, setShowMockupStudio] = useState(false);
+  // const [showMockupStudio, setShowMockupStudio] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [repairing, setRepairing] = useState(false);
@@ -476,18 +476,19 @@ export default function ProductsPage() {
   };
 
   // -- Vue Mockup Studio (file bulk, remplace la liste) -------------------
-  if (showMockupStudio) {
-    return (
-      <MockupStudio
-        products={allProducts || []}
-        onBack={() => setShowMockupStudio(false)}
-        onChanged={() => refetch()}
-      />
-    );
-  }
+  // if (showMockupStudio) {
+  //   return (
+  //     <MockupStudio
+  //       products={allProducts || []}
+  //       onBack={() => setShowMockupStudio(false)}
+  //       onChanged={() => refetch()}
+  //     />
+  //   );
+  // }
 
   // -- Bloc conditionnel pour le formulaire Printful -----------------------
-  if (isCreatingPrintful) {    return (
+  if (isCreatingPrintful) {
+    return (
       <PrintfulProductForm
         onBack={handleBackToList}
         onSave={async (data) => {
@@ -590,14 +591,21 @@ export default function ProductsPage() {
             {orderedProducts.length} produit
             {orderedProducts.length !== 1 ? "s" : ""}
             {brokenProducts.length > 0 && (
-              <span style={{ color: "var(--color-warning, #d97706)", fontWeight: 600 }}>
+              <span
+                style={{
+                  color: "var(--color-warning, #d97706)",
+                  fontWeight: 600,
+                }}
+              >
                 {" "}
                 · {brokenProducts.length} sans tailles
               </span>
             )}
           </p>
           {repairResult && (
-            <p style={{ fontSize: 12, color: "var(--color-ink2)", marginTop: 4 }}>
+            <p
+              style={{ fontSize: 12, color: "var(--color-ink2)", marginTop: 4 }}
+            >
               {repairResult}
             </p>
           )}
@@ -646,7 +654,7 @@ export default function ProductsPage() {
             Nouveau produit Printful
           </button>
 
-          <button
+          {/* <button
             onClick={() => setShowMockupStudio(true)}
             title="File de génération des mockups Printful (bulk)"
             style={{
@@ -666,7 +674,7 @@ export default function ProductsPage() {
           >
             <Images size={15} strokeWidth={2} />
             Mockup Studio
-          </button>
+          </button> */}
 
           {brokenProducts.length > 0 && (
             <button
