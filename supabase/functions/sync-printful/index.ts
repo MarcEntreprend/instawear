@@ -968,23 +968,37 @@ async function finalizeMockupTask(
     updatePayload.image = displayImageUrl(firstMockupUrl);
   }
 
-  try {
-    // Signature serveur des URLs d'affichage (gracieux sans clé privée).
-    const signedUpdate: Record<string, any> = await signImagekitDeep(updatePayload);
-    await supabaseAdmin
-      .from("products")
-      .update(signedUpdate)
-      .eq("id", productId);
-  } catch (updateErr: any) {
-    console.error(logSafe(`Failed to update product: ${updateErr.message}`));
-  }
-
+  // Ledger d'abord : même si l'écriture produit échoue, la preuve de
+  // génération reste (forensique). Puis produit.
   if (mockupInserts.length > 0) {
     try {
       await supabaseAdmin.from("product_mockups").insert(mockupInserts);
     } catch (insertErr: any) {
       console.error(`Failed to insert mockup records: ${insertErr.message}`);
     }
+  }
+
+  try {
+    // Signature serveur des URLs d'affichage (gracieux sans clé privée).
+    const signedUpdate: Record<string, unknown> = await signImagekitDeep(updatePayload);
+    await supabaseAdmin
+      .from("products")
+      .update(signedUpdate)
+      .eq("id", productId);
+  } catch (updateErr: any) {
+    console.error(logSafe(`Failed to update product: ${updateErr.message}`));
+    // Vérité du résultat : les mockups existent (ledger+storage) mais le
+    // produit ne les affichera pas. Retourner ok:true mentirait à l'UI
+    // ("N mockups générés" alors que rien n'est visible) — échec explicite.
+    return {
+      ok: false,
+      error: `Mockups générés mais écriture produit impossible : ${updateErr.message}`,
+      status: 502,
+      taskKey,
+      mockupsGenerated: Object.keys(storageUrls).length,
+      colors: Object.keys(storageUrls),
+      storageUrls,
+    };
   }
 
   return {
