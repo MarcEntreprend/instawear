@@ -10,6 +10,7 @@ import {
   substituteAlignedImages,
   mergeGalleries,
   preferStoredMain,
+  applyStorageToVariants,
 } from "../supabase/functions/sync-printful/_shared/productImages.ts";
 
 const ST = (hex: string) =>
@@ -87,4 +88,71 @@ test("preferStoredMain: storage gagne, sinon null", () => {
   assert.equal(preferStoredMain(PREV, BLANK), null);
   assert.equal(preferStoredMain("", ST("a")), null);
   assert.equal(preferStoredMain(null, null), null);
+});
+
+test("applyStorageToVariants: appariement par IDs stables (1 vs '1')", () => {
+  const existing = [
+    {
+      color: "#1a1a1a",
+      color_name: "Washed Black",
+      image: BLANK,
+      sizes: { S: { catalog_variant_id: 49804 }, M: { catalog_variant_id: 49807 } },
+    },
+    {
+      color: "#7b8fa1",
+      image: BLANK,
+      sizes: { S: { catalog_variant_id: 49802 } },
+    },
+  ];
+  const out = applyStorageToVariants(
+    existing,
+    [
+      { variant_ids: [49804, 49807], mockup_url: ST("w") },
+      { variant_ids: ["49802"], mockup_url: ST("d") },
+      { variant_ids: [99999], mockup_url: ST("x") },
+    ],
+    () => null,
+    {},
+  );
+  assert.equal(out.variants[0].image, ST("w"));
+  assert.equal(out.variants[1].image, ST("d"));
+  assert.equal(out.applied.length, 2);
+  assert.deepEqual(out.unmatchedVids, ["99999"]);
+  assert.deepEqual(out.unmatchedHexes, []);
+  // Entrée non mutée.
+  assert.equal((existing[0] as any).image, BLANK);
+});
+
+test("applyStorageToVariants: repli hex exact quand aucun ID ne matche", () => {
+  const existing = [{ color: "#aaaaaa", image: BLANK, sizes: {} }];
+  const out = applyStorageToVariants(
+    existing,
+    [{ variant_ids: [123], mockup_url: ST("v") }],
+    () => null,
+    { "#aaaaaa": ST("h") },
+  );
+  assert.equal(out.variants[0].image, ST("h"));
+  assert.equal(out.applied.length, 1);
+  assert.deepEqual(out.unmatchedVids, ["123"]);
+  assert.deepEqual(out.unmatchedHexes, []);
+});
+
+test("applyStorageToVariants: hexes génération sans variante = orphelins visibles", () => {
+  const out = applyStorageToVariants(
+    [{ color: "#aaaaaa", image: BLANK, sizes: {} }],
+    [],
+    () => null,
+    { "#bbbbbb": ST("o") },
+  );
+  assert.equal(out.variants[0].image, BLANK);
+  assert.equal(out.applied.length, 0);
+  assert.deepEqual(out.unmatchedHexes, ["#bbbbbb"]);
+});
+
+test("applyStorageToVariants: entrées hostiles", () => {
+  const out = applyStorageToVariants(null, null, () => null, {});
+  assert.deepEqual(out.variants, []);
+  assert.equal(out.applied.length, 0);
+  const out2 = applyStorageToVariants("x", "y", () => null, null as any);
+  assert.deepEqual(out2.variants, []);
 });

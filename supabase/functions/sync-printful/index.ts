@@ -25,6 +25,7 @@ import {
   substituteAlignedImages,
   mergeGalleries,
   preferStoredMain,
+  applyStorageToVariants,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -785,6 +786,10 @@ interface MockupFinalized {
   mockupsGenerated?: number;
   colors?: string[];
   storageUrls?: Record<string, string>;
+  /** Variants affichant réellement le visuel (vs fichiers générés). */
+  applied?: number;
+  unmatchedVids?: string[];
+  unmatchedHexes?: string[];
 }
 
 // Étapes 9-13 IDENTIQUES au flux legacy : download, upload Storage,
@@ -930,11 +935,30 @@ async function finalizeMockupTask(
   // Les URLs stockées en affichage passent en WebP côté serveur quand
   // l'endpoint est configuré (displayImageUrl = passthrough sinon).
   // storageUrls/product_mockups gardent les originaux (source de vérité).
-  const updatedVariants = existingVariants.map((v: any) => {
-    const hex = v.color;
-    const storageUrl = storageUrls[hex];
-    if (storageUrl) {
-      const displayUrl = displayImageUrl(storageUrl);
+  // Appariement par IDs STABLES d'abord (les hexes dérivées dérivent entre
+  // époques : "#1a1a1a" stocké vs "313438" généré pour la même couleur),
+  // repli hex exact ensuite. Voir _shared/productImages.ts.
+  const appliedRes = applyStorageToVariants(
+    existingVariants,
+    taskResult?.mockups ?? [],
+    (vid: string) => {
+      const asNum = Number(vid);
+      const byNum = Number.isFinite(asNum)
+        ? variantIdToColor.get(asNum)
+        : undefined;
+      if (byNum) return byNum;
+      const byStr = (variantIdToColor as Map<unknown, string>).get(vid);
+      return byStr ?? null;
+    },
+    storageUrls,
+  );
+  const appliedByColor = new Map<string, string>(
+    appliedRes.applied.map((a) => [a.color, a.url]),
+  );
+  const updatedVariants = appliedRes.variants.map((v: any) => {
+    const raw = appliedByColor.get(String(v.color ?? ""));
+    if (raw) {
+      const displayUrl = displayImageUrl(raw);
       newColorImages.push(displayUrl);
       newGallery.push(displayUrl);
       return { ...v, image: displayUrl };
@@ -1006,6 +1030,12 @@ async function finalizeMockupTask(
     mockupsGenerated: Object.keys(storageUrls).length,
     colors: Object.keys(storageUrls),
     storageUrls,
+    // Vérité d'application (vs génération) : combien de variants affichent
+    // réellement le visuel, et quoi est resté orphelin. L'alerte UI doit
+    // LIRE CES CHAMPS, pas mockupsGenerated.
+    applied: appliedRes.applied.length,
+    unmatchedVids: appliedRes.unmatchedVids,
+    unmatchedHexes: appliedRes.unmatchedHexes,
   };
 }
 
@@ -2398,13 +2428,16 @@ export default {
                       mockupsGenerated: fin.mockupsGenerated,
                       colors: fin.colors,
                       storageUrls: fin.storageUrls || {},
+                      applied: fin.applied ?? null,
+                      unmatchedVids: fin.unmatchedVids ?? [],
+                      unmatchedHexes: fin.unmatchedHexes ?? [],
                       placements: opts.placements || ["front"],
                       format: opts.format || "jpg",
                     },
                     updated_at: new Date().toISOString(),
                   }).eq("id", job.id);
                   done++;
-                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated });
+                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null });
                 } else {
                   await supabaseAdmin.from("mockup_jobs").update({
                     status: "failed",
@@ -2528,6 +2561,9 @@ export default {
             mockupsGenerated: fin.mockupsGenerated,
             colors: fin.colors,
             storageUrls: fin.storageUrls,
+            applied: fin.applied ?? null,
+            unmatchedVids: fin.unmatchedVids ?? [],
+            unmatchedHexes: fin.unmatchedHexes ?? [],
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );

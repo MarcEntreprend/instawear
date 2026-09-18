@@ -460,8 +460,26 @@ export default function ProductsPage() {
     setGeneratingMockups((prev) => new Set(prev).add(productId));
     try {
       const result = await podApi.generateMockups(productId);
+      // Alerte véridique : `applied` = variants affichant réellement le
+      // visuel (vs fichiers générés). Ancienne edge sans ces champs : repli
+      // sur l'ancien message.
+      const unmatched: string[] = [
+        ...((result as any).unmatchedVids ?? []),
+        ...((result as any).unmatchedHexes ?? []),
+      ].map(String);
+      const hasApplied =
+        typeof (result as any).applied === "number";
+      const applied = hasApplied
+        ? (result as any).applied
+        : result.mockupsGenerated;
+      const totalColors = result.colors?.length ?? applied;
       alert(
-        `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
+        hasApplied
+          ? `${applied} mockup(s) appliqué(s) sur ${totalColors} couleur(s).` +
+              (unmatched.length > 0
+                ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
+                : "")
+          : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
       );
       await refetch();
     } catch (err: any) {

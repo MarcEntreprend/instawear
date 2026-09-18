@@ -121,3 +121,129 @@ export function preferStoredMain(
   }
   return null;
 }
+
+export interface MockupResultItem {
+  variant_ids?: unknown;
+  mockup_url?: unknown;
+}
+
+export interface StorageApplication {
+  /** Copies des variants : `image` = URL storage BRUTE là où apparié. */
+  variants: any[];
+  /** Couleurs appariées (ordre variants) : { color, url }. */
+  applied: Array<{ color: string; url: string }>;
+  /** Ids résultat sans variante DB (forensique, capés). */
+  unmatchedVids: string[];
+  /** Hexes génération sans variante DB (forensique, capés). */
+  unmatchedHexes: string[];
+}
+
+/**
+ * Applique les mockups générés aux variants EXISTANTS par IDs STABLES
+ * (catalog_variant_id par taille, repli external_variant_id = sync id),
+ * avec repli exact sur les hexes génération (comportement historique).
+ *
+ * Pourquoi pas les hexes seuls : ce sont des valeurs DÉRIVÉES
+ * (resolveHexColor sur des codes qui dérivent entre imports/époques :
+ * "#1a1a1a" stocké vs "313438" généré pour la même couleur) — l'appariement
+ * exact rate alors 100% des cas en silence. Les IDs catalogue/sync sont
+ * stables. Normalisation String() des deux côtés (1 vs "1" en Map).
+ */
+export function applyStorageToVariants(
+  existingVariants: unknown,
+  mockups: unknown,
+  hexOfVid: (vid: string) => string | null,
+  hexToStorage: Record<string, string>,
+): StorageApplication {
+  const out: StorageApplication = {
+    variants: [],
+    applied: [],
+    unmatchedVids: [],
+    unmatchedHexes: [],
+  };
+  const list: any[] = Array.isArray(existingVariants) ? existingVariants : [];
+  const items: MockupResultItem[] = Array.isArray(mockups)
+    ? (mockups as MockupResultItem[])
+    : [];
+
+  // Index : id stable (string normalisé) -> index variante existante.
+  const byVid = new Map<string, number>();
+  list.forEach((v, i) => {
+    if (v == null || typeof v !== "object") return;
+    const rec = v as Record<string, unknown>;
+    const ids: unknown[] = [rec.external_variant_id];
+    const sizes = rec.sizes;
+    if (sizes != null && typeof sizes === "object") {
+      for (const sd of Object.values(sizes as Record<string, unknown>)) {
+        if (sd != null && typeof sd === "object") {
+          const r = sd as Record<string, unknown>;
+          ids.push(r.catalog_variant_id, r.sync_variant_id);
+        }
+      }
+    }
+    for (const id of ids) {
+      if (id == null || id === "") continue;
+      const k = String(id);
+      if (!byVid.has(k)) byVid.set(k, i);
+    }
+  });
+
+  // URL storage par vid résultat (premier gagne).
+  const vidToStorage = new Map<string, string>();
+  for (const m of items) {
+    if (m == null || typeof m !== "object") continue;
+    const url = (m as Record<string, unknown>).mockup_url;
+    if (typeof url !== "string" || url.length === 0) continue;
+    const vids = (m as Record<string, unknown>).variant_ids;
+    if (!Array.isArray(vids)) continue;
+    for (const rawVid of vids) {
+      if (rawVid == null || rawVid === "") continue;
+      const k = String(rawVid);
+      if (!vidToStorage.has(k)) vidToStorage.set(k, url);
+    }
+  }
+
+  const assigned = new Set<number>();
+  const consumedVids = new Set<string>();
+  const variants = list.map((v) => {
+    if (v == null || typeof v !== "object") return v;
+    return { ...(v as Record<string, unknown>) };
+  });
+
+  // Passe 1 : IDs stables.
+  for (const [vid, url] of vidToStorage) {
+    const idx = byVid.get(vid);
+    if (idx == null) {
+      if (out.unmatchedVids.length < 20) out.unmatchedVids.push(vid);
+      continue;
+    }
+    consumedVids.add(vid);
+    if (assigned.has(idx)) continue;
+    assigned.add(idx);
+    const rec = variants[idx] as Record<string, unknown>;
+    rec.image = url;
+    out.applied.push({ color: String(rec.color ?? ""), url });
+  }
+
+  // Passe 2 : repli hex exact (historique) pour les non-appariées.
+  const consumedHexes = new Set<string>();
+  variants.forEach((v, i) => {
+    if (assigned.has(i)) return;
+    if (v == null || typeof v !== "object") return;
+    const rec = v as Record<string, unknown>;
+    if (isStorageMockupUrl(rec.image)) return;
+    const url = hexToStorage[String(rec.color ?? "")];
+    if (!url) return;
+    assigned.add(i);
+    consumedHexes.add(String(rec.color ?? ""));
+    rec.image = url;
+    out.applied.push({ color: String(rec.color ?? ""), url });
+  });
+  for (const h of Object.keys(hexToStorage || {})) {
+    if (!consumedHexes.has(h) && out.unmatchedHexes.length < 20) {
+      out.unmatchedHexes.push(h);
+    }
+  }
+  out.variants = variants;
+  return out;
+}
