@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { imageKitUrl } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 
 interface ThumbStripProps {
   images: string[];
@@ -22,6 +24,9 @@ interface ThumbStripProps {
   thumbClassName?: string;
   /** Espace entre miniatures en px (doit matcher le gap CSS). */
   gapPx?: number;
+  /** Survol => sélectionne (galerie desktop) : l'image s'affiche sans clic.
+   *  Inoffensif au tactile (tap => mouseenter + click, même index). */
+  selectOnHover?: boolean;
   /** Hauteur max de la colonne verticale avant scroll. */
   maxPx?: number;
   className?: string;
@@ -52,6 +57,7 @@ export default function ThumbStrip({
   orientation,
   thumbClassName = "w-16 h-16 rounded-xl",
   gapPx = 10,
+  selectOnHover = false,
   maxPx = 420,
   className = "",
 }: ThumbStripProps) {
@@ -165,6 +171,11 @@ export default function ThumbStrip({
             key={img + i}
             type="button"
             onClick={() => onSelect(i)}
+            onMouseEnter={() => {
+              if (selectOnHover) onSelect(i);
+            }}
+            aria-label={`View image ${i + 1} of ${images.length}`}
+            aria-pressed={activeIndex === i}
             className={`${thumbClassName} overflow-hidden shrink-0 aspect-square`}
             style={{
               border:
@@ -174,11 +185,24 @@ export default function ThumbStrip({
             }}
           >
             <img
-              src={img}
+              src={
+                imageKitUrl(img, {
+                  width: 128,
+                  quality: 80,
+                  format: "webp",
+                }) || img
+              }
               alt=""
+              sizes="64px"
               className="w-full h-full object-cover"
               loading="lazy"
               decoding="async"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fbk) return;
+                el.dataset.fbk = "1";
+                el.src = PLACEHOLDER_IMG;
+              }}
             />
           </button>
         ))}

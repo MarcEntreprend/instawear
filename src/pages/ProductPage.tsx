@@ -21,6 +21,7 @@ import {
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { formatAmount } from "../data/currency";
+import { materialLabel } from "../data/materials";
 import { useCurrencyCode } from "../hooks/useCurrencySymbol";
 import ZoomImage from "../components/product/ZoomImage";
 import ThumbStrip from "../components/product/ThumbStrip";
@@ -508,8 +509,9 @@ export default function ProductPage({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)_320px] gap-8 xl:gap-10">
-          {/* Gallery */}
-          <div className="flex gap-3 overflow-hidden">
+          {/* Gallery — NOTE zoom : pas de overflow-hidden ici, le panneau
+              loupe ZoomImage (absolute, left-full) serait rogné/invisible. */}
+          <div className="flex gap-3">
             <div className="hidden sm:flex flex-col w-16 shrink-0 pt-1">
               <ThumbStrip
                 images={gallery}
@@ -522,6 +524,7 @@ export default function ProductPage({
                 thumbClassName="w-16 h-16 rounded-xl"
                 className="w-16"
                 maxPx={435}
+                selectOnHover
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -585,6 +588,22 @@ export default function ProductPage({
                 ({product.ratings.count})
               </span>
             </div>
+            {/* Matière (slug DB -> libellé EN, cf. data/materials.ts).
+                Affiché seulement si renseigné (sync auto ou admin). */}
+            {product.material && (
+              <p
+                className="text-xs mt-2"
+                style={{ color: "var(--color-ink3)" }}
+              >
+                Material ·{" "}
+                <span
+                  className="font-semibold"
+                  style={{ color: "var(--color-ink2)" }}
+                >
+                  {materialLabel(product.material)}
+                </span>
+              </p>
+            )}
 
             <div className="flex items-baseline gap-2.5 mt-4">
               <span
@@ -661,9 +680,16 @@ export default function ProductPage({
                         <img
                           src={thumb}
                           alt={label}
+                          sizes="44px"
                           className="w-full h-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            if (el.dataset.fbk) return;
+                            el.dataset.fbk = "1";
+                            el.src = PLACEHOLDER_IMG;
+                          }}
                         />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500">
@@ -769,6 +795,7 @@ export default function ProductPage({
                 >
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    aria-label="Decrease quantity"
                     className="w-10 h-11 flex items-center justify-center"
                   >
                     <Minus size={14} />
@@ -778,6 +805,7 @@ export default function ProductPage({
                   </span>
                   <button
                     onClick={() => setQuantity((q) => q + 1)}
+                    aria-label="Increase quantity"
                     className="w-10 h-11 flex items-center justify-center"
                   >
                     <Plus size={14} />
@@ -855,10 +883,12 @@ export default function ProductPage({
             onAddMain={handleAdd}
             onAddBundle={handleBundleAdd}
             onQuickAddProduct={quickAdd}
+            currencySymbol={currencySymbol}
           />
         </div>
         <RecentlyViewedSection
           products={recentlyProducts}
+          currencySymbol={currencySymbol}
           onSelect={(p: Product) => {
             onClose();
             setTimeout(() => onSelectProduct?.(p), 100);
@@ -874,6 +904,7 @@ export default function ProductPage({
               <RelatedProductCard
                 key={p.id}
                 product={p}
+                currencySymbol={currencySymbol}
                 onSelect={(prod) => {
                   onClose();
                   setTimeout(() => onSelectProduct?.(prod), 100);
@@ -915,9 +946,16 @@ export default function ProductPage({
             src={displayImage}
             alt=""
             aria-hidden="true"
+            sizes="40px"
             className="w-10 h-10 rounded-lg object-cover shrink-0"
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <span
             className="text-sm font-extrabold truncate"

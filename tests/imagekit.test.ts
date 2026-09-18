@@ -44,26 +44,30 @@ test("imageKitUrl: sans endpoint → originale (jamais d'image cassée)", () => 
   );
 });
 
-test("imageKitUrl: format fetch brut (doc officielle), encodé si ?/#", () => {
+test("imageKitUrl: POLITIQUE PROD — passthrough, aucune URL construite (401 sinon)", () => {
   process.env.VITE_IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
   delete process.env.VITE_IMAGEKIT_ENABLED;
-  const out = imageKitUrl(PF, { quality: 80, format: "webp", width: 800 });
-  assert.equal(out, `https://ik.imagekit.io/testid/tr:w-800,q-80,f-webp/${PF}`);
-  const withQuery = PF + "?v=1&x=2";
+  // Source brute : renvoyée telle quelle (le client ne peut pas signer ;
+  // toute URL construite répond 401 avec la restriction "unsigned" active).
   assert.equal(
-    imageKitUrl(withQuery, { quality: 80 }),
-    "https://ik.imagekit.io/testid/tr:q-80/" + encodeURIComponent(withQuery),
+    imageKitUrl(PF, { quality: 80, format: "webp", width: 800 }),
+    PF,
   );
+  const withQuery = PF + "?v=1&x=2";
+  assert.equal(imageKitUrl(withQuery, { quality: 80 }), withQuery);
+  // Déjà ImageKit (signée ou non) : inchangée à l'octet.
+  const signed = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}?ik-t=1&ik-s=abc`;
+  assert.equal(imageKitUrl(signed, { width: 320 }), signed);
 });
 
-test("imageKitUrl: idempotent + normalize l'ancien encodé", () => {
+test("imageKitUrl: idempotent + normalize = passthrough", () => {
   process.env.VITE_IMAGEKIT_URL_ENDPOINT = "https://ik.imagekit.io/testid";
   delete process.env.VITE_IMAGEKIT_ENABLED;
-  const once = imageKitUrl(PF, { quality: 80, format: "webp" });
+  const once = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${PF}`;
   assert.ok(isImageKitUrl(once));
   assert.equal(imageKitUrl(once, { quality: 80, format: "webp" }), once);
   const legacy = `https://ik.imagekit.io/testid/tr:q-80,f-webp/${encodeURIComponent(PF)}`;
-  assert.equal(normalizeImagekitUrl(legacy, { quality: 80, format: "webp" }), once);
+  assert.equal(normalizeImagekitUrl(legacy, { quality: 80, format: "webp" }), legacy);
 });
 
 test("imagekitOriginal: décode l'originale (brut + encodé)", () => {

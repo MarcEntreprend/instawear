@@ -941,14 +941,16 @@ export default function SettingsPage() {
               gap: 24,
             }}
           >
-            {(["category", "event_type", "style"] as const).map((type) => {
+            {(["category", "event_type", "style", "material"] as const).map((type) => {
               const items = referenceItems.filter((r) => r.type === type);
               const typeLabel =
                 type === "category"
                   ? "Catégories"
                   : type === "event_type"
                     ? "Types d'événement"
-                    : "Styles";
+                    : type === "style"
+                      ? "Styles"
+                      : "Matériaux";
               return (
                 <div key={type}>
                   <div

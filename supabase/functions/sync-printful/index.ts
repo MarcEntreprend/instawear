@@ -17,6 +17,16 @@ import {
   buildCatalogPriceIndex,
   resolveUnitPrice as resolveUnitPriceShared,
 } from "./_shared/variantPricing.ts";
+import { aggregateProductMaterials } from "./_shared/materials.ts";
+import { extractCatalogVariants } from "./_shared/catalog.ts";
+import {
+  oldImagesByColor,
+  substituteVariantImages,
+  substituteAlignedImages,
+  mergeGalleries,
+  preferStoredMain,
+  applyStorageToVariants,
+} from "./_shared/productImages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,10 +156,15 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     {
       name: string;
       sizes: Map<string, { price: number; stock_status: string }>;
-      /** Meilleur visuel : aperçu avec design si dispo, sinon mockup vierge. */
+      /** Visuel par couleur : mockup (même sans design) d'abord — un aperçu
+       *  de fichier brut (design seul, souvent fond transparent) n'est
+       *  jamais un visuel produit. Voir boucle rawPreview + Garantie. */
       image: string;
       /** Mockup vierge catalogue (sans design), pour la galerie. */
       mockup_image: string;
+      /** Aperçu fichier brut (design seul) : repli DERNIER recours uniquement,
+       *  jamais persisté tel quel (non exposé dans les variants finaux). */
+      rawPreview: string;
       id: number | null;
     }
   >();
@@ -197,7 +212,7 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     }
     const name = (v.color || hex || "").trim();
     if (!byColor.has(hex))
-      byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", id: null });
+      byColor.set(hex, { name, sizes: new Map(), image: "", mockup_image: "", rawPreview: "", id: null });
     const entry = byColor.get(hex)!;
     if (!entry.id && v.id) entry.id = v.id;
     const unitPrice = v.size ? resolveUnitPrice(v) : null;
@@ -259,15 +274,22 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
       }
     }
     const entry = byColor.get(hex);
-    // Aperçu avec design prioritaire (fichiers d'impression du merchant).
-    if (entry && !entry.image) {
-      entry.image = v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
+    // Fichier brut (design seul) mis DE CÔTÉ, jamais en `image` directement :
+    // un artwork brut n'est pas un visuel produit (fond transparent, pas de
+    // vêtement). `image` reçoit le mockup (Garantie ci-dessous) ; le brut ne
+    // sert qu'en dernier recours, quand aucun mockup n'existe.
+    if (entry && !entry.rawPreview) {
+      entry.rawPreview =
+        v.files?.[0]?.preview_url || v.files?.[0]?.thumbnail_url || "";
     }
   }
 
-  // Garantie : image toujours renseignée si une source existe.
+  // Garantie : image = mockup (bonne couleur) d'abord, design brut en repli
+  // uniquement. Les mockups générés (avec design) écrasent `image` plus tard
+  // dans le flux mockups (finalize) — la priorité design-sur-vêtement est
+  // préservée là où elle existe vraiment, jamais via l'artwork brut.
   for (const entry of byColor.values()) {
-    if (!entry.image) entry.image = entry.mockup_image;
+    if (!entry.image) entry.image = entry.mockup_image || entry.rawPreview || "";
   }
 
   const variants = [...byColor.entries()]
@@ -336,9 +358,20 @@ function buildVariantMatrix(syncVariants: any[], catalogVariants: any[]) {
     ),
   ];
   const sizesSet = new Set<string>();
-  deduped.forEach((v) => Object.keys(v.sizes).forEach((s) => sizesSet.add(s)));
+  deduped.forEach((v) => Object.keys(v.sizes || {}).forEach((s) => sizesSet.add(s)));
 
-  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued };
+  // Matières catalogue (tous variants, brutes) -> slug dominant + traçabilité.
+  // Même pattern que les autres index catalogue ci-dessus ; un seul point
+  // d'agrégation pour les deux flux sync (import + refresh).
+  const materialEntries: unknown[] = [];
+  for (const cv of catalogVariants || []) {
+    if (Array.isArray((cv as any)?.material)) {
+      for (const m of (cv as any).material) materialEntries.push(m);
+    }
+  }
+  const materialInfo = aggregateProductMaterials(materialEntries);
+
+  return { colors, colorNames, colorImages, mockupImages, sizes: [...sizesSet], variants: deduped, discontinuedKeys: explicitlyDiscontinued, materialTop: materialInfo.top, materialUnmapped: materialInfo.unmapped, materialEntryCount: materialEntries.length };
 }
 
 // ─── Maps catalog_variant_id → hex_color for mockup result matching ──────
@@ -496,8 +529,9 @@ async function prepareMockupTask(
     );
     if (catalogRes && catalogRes.ok) {
       const catalogData = await catalogRes.json();
-      const catalogResult = catalogData?.result?.product || catalogData?.result;
-      catalogVariants = catalogResult?.variants || [];
+      // Garde de forme (_shared/catalog.ts) : result.product ne contient
+      // jamais variants — lire result.variants.
+      catalogVariants = extractCatalogVariants(catalogData);
     }
   } catch {
     // fallback — will use sync variants only
@@ -752,6 +786,10 @@ interface MockupFinalized {
   mockupsGenerated?: number;
   colors?: string[];
   storageUrls?: Record<string, string>;
+  /** Variants affichant réellement le visuel (vs fichiers générés). */
+  applied?: number;
+  unmatchedVids?: string[];
+  unmatchedHexes?: string[];
 }
 
 // Étapes 9-13 IDENTIQUES au flux legacy : download, upload Storage,
@@ -897,11 +935,30 @@ async function finalizeMockupTask(
   // Les URLs stockées en affichage passent en WebP côté serveur quand
   // l'endpoint est configuré (displayImageUrl = passthrough sinon).
   // storageUrls/product_mockups gardent les originaux (source de vérité).
-  const updatedVariants = existingVariants.map((v: any) => {
-    const hex = v.color;
-    const storageUrl = storageUrls[hex];
-    if (storageUrl) {
-      const displayUrl = displayImageUrl(storageUrl);
+  // Appariement par IDs STABLES d'abord (les hexes dérivées dérivent entre
+  // époques : "#1a1a1a" stocké vs "313438" généré pour la même couleur),
+  // repli hex exact ensuite. Voir _shared/productImages.ts.
+  const appliedRes = applyStorageToVariants(
+    existingVariants,
+    taskResult?.mockups ?? [],
+    (vid: string) => {
+      const asNum = Number(vid);
+      const byNum = Number.isFinite(asNum)
+        ? variantIdToColor.get(asNum)
+        : undefined;
+      if (byNum) return byNum;
+      const byStr = (variantIdToColor as Map<unknown, string>).get(vid);
+      return byStr ?? null;
+    },
+    storageUrls,
+  );
+  const appliedByColor = new Map<string, string>(
+    appliedRes.applied.map((a) => [a.color, a.url]),
+  );
+  const updatedVariants = appliedRes.variants.map((v: any) => {
+    const raw = appliedByColor.get(String(v.color ?? ""));
+    if (raw) {
+      const displayUrl = displayImageUrl(raw);
       newColorImages.push(displayUrl);
       newGallery.push(displayUrl);
       return { ...v, image: displayUrl };
@@ -935,17 +992,8 @@ async function finalizeMockupTask(
     updatePayload.image = displayImageUrl(firstMockupUrl);
   }
 
-  try {
-    // Signature serveur des URLs d'affichage (gracieux sans clé privée).
-    const signedUpdate: Record<string, any> = await signImagekitDeep(updatePayload);
-    await supabaseAdmin
-      .from("products")
-      .update(signedUpdate)
-      .eq("id", productId);
-  } catch (updateErr: any) {
-    console.error(logSafe(`Failed to update product: ${updateErr.message}`));
-  }
-
+  // Ledger d'abord : même si l'écriture produit échoue, la preuve de
+  // génération reste (forensique). Puis produit.
   if (mockupInserts.length > 0) {
     try {
       await supabaseAdmin.from("product_mockups").insert(mockupInserts);
@@ -954,11 +1002,40 @@ async function finalizeMockupTask(
     }
   }
 
+  try {
+    // Signature serveur des URLs d'affichage (gracieux sans clé privée).
+    const signedUpdate: Record<string, unknown> = await signImagekitDeep(updatePayload);
+    await supabaseAdmin
+      .from("products")
+      .update(signedUpdate)
+      .eq("id", productId);
+  } catch (updateErr: any) {
+    console.error(logSafe(`Failed to update product: ${updateErr.message}`));
+    // Vérité du résultat : les mockups existent (ledger+storage) mais le
+    // produit ne les affichera pas. Retourner ok:true mentirait à l'UI
+    // ("N mockups générés" alors que rien n'est visible) — échec explicite.
+    return {
+      ok: false,
+      error: `Mockups générés mais écriture produit impossible : ${updateErr.message}`,
+      status: 502,
+      taskKey,
+      mockupsGenerated: Object.keys(storageUrls).length,
+      colors: Object.keys(storageUrls),
+      storageUrls,
+    };
+  }
+
   return {
     ok: true,
     mockupsGenerated: Object.keys(storageUrls).length,
     colors: Object.keys(storageUrls),
     storageUrls,
+    // Vérité d'application (vs génération) : combien de variants affichent
+    // réellement le visuel, et quoi est resté orphelin. L'alerte UI doit
+    // LIRE CES CHAMPS, pas mockupsGenerated.
+    applied: appliedRes.applied.length,
+    unmatchedVids: appliedRes.unmatchedVids,
+    unmatchedHexes: appliedRes.unmatchedHexes,
   };
 }
 
@@ -1189,35 +1266,49 @@ export default {
             );
             if (catalogRes.ok) {
               const catalogData = await catalogRes.json();
-              const catalogResult =
-                catalogData?.result?.product || catalogData?.result;
-              if (catalogResult) {
-                catalogProductName = catalogResult.name || "";
-                catalogProductImage = catalogResult.image || "";
-                catalogVariants = (catalogResult.variants || []).map(
-                  (v: any) => ({
-                    id: v.id,
-                    product_id: v.product_id,
-                    name: v.name,
-                    color: v.color || "",
-                    color_code: v.color_code || "",
-                    color_code2: v.color_code2 || "",
-                    size: v.size || "",
-                    price: v.price,
-                    currency: v.currency,
-                    image: v.image ? displayImageUrl(v.image) : "",
-                    availability_status: v.availability_status,
-                  }),
-                );
+              // Garde de forme (_shared/catalog.ts) : result.product ne
+              // contient jamais variants — lire result.variants.
+              const productInfo = catalogData?.result?.product;
+              if (productInfo && typeof productInfo === "object") {
+                catalogProductName = (productInfo as any).name || "";
+                catalogProductImage = (productInfo as any).image || "";
               }
+              catalogVariants = extractCatalogVariants(catalogData).map(
+                (v: any) => ({
+                  id: v.id,
+                  product_id: v.product_id,
+                  name: v.name,
+                  color: v.color || "",
+                  color_code: v.color_code || "",
+                  color_code2: v.color_code2 || "",
+                  size: v.size || "",
+                  price: v.price,
+                  currency: v.currency,
+                  image: v.image ? displayImageUrl(v.image) : "",
+                  availability_status: v.availability_status,
+                  // Matières brutes catalogue (classification dans
+                  // buildVariantMatrix via _shared/materials.ts).
+                  material: Array.isArray(v.material) ? v.material : [],
+                }),
+              );
             }
           } catch {
             // fallback to sync variants only
           }
         }
 
-        const { colors, colorNames, colorImages, sizes, variants } =
-          buildVariantMatrix(syncVariants, catalogVariants);
+  const { colors, colorNames, colorImages, sizes, variants } =
+    buildVariantMatrix(syncVariants, catalogVariants);
+
+        // Matière auto pour le form d'import (même classifieur que le sync :
+        // aucune duplication côté client). Le form pré-remplit, l'admin valide.
+        const enrichMaterialEntries: unknown[] = [];
+        for (const cv of catalogVariants || []) {
+          if (Array.isArray((cv as any)?.material)) {
+            for (const m of (cv as any).material) enrichMaterialEntries.push(m);
+          }
+        }
+        const enrichMaterialInfo = aggregateProductMaterials(enrichMaterialEntries);
 
         const productData = {
           id: syncProduct?.id || detail.id,
@@ -1233,6 +1324,9 @@ export default {
           // Traçabilité admin : conversion + signature actives ?
           imagekit_enabled: imagekitEndpoint().length > 0,
           imagekit_signed: hasImagekitPrivateKey(),
+          // Matière détectée (slug) pour pré-remplissage du form d'import.
+          material_top: enrichMaterialInfo.top,
+          material_unmapped: enrichMaterialInfo.unmapped,
           colors,
           color_names: colorNames,
           color_images: colorImages,
@@ -1349,7 +1443,18 @@ export default {
               (v: any) => v.sizes && Object.keys(v.sizes).length > 0,
             );
             if (withSizes.length > 0) {
-              patch.variants = freshVariants;
+              // Durabilité mockups (cf. list-sync) : ne jamais écraser un
+              // visuel storage existant par une valeur matrice.
+              let patchedVariants: unknown[] = freshVariants;
+              try {
+                patchedVariants = substituteVariantImages(
+                  freshVariants,
+                  oldImagesByColor((row as any)?.variants),
+                );
+              } catch {
+                /* préservation ignorée */
+              }
+              patch.variants = patchedVariants;
               patch.sizes = freshSizes;
               patch.colors = Array.isArray(fresh.colors) ? fresh.colors : undefined;
               patch.color_names = Array.isArray(fresh.color_names) ? fresh.color_names : undefined;
@@ -1367,16 +1472,40 @@ export default {
           if (wanted.includes("images")) {
             const imgs: Record<string, unknown> = {};
             if (typeof fresh.thumbnail_url === "string" && fresh.thumbnail_url) {
-              imgs.image = fresh.thumbnail_url;
+              try {
+                imgs.image =
+                  preferStoredMain(
+                    fresh.thumbnail_url,
+                    (row as any)?.image,
+                  ) ?? fresh.thumbnail_url;
+              } catch {
+                imgs.image = fresh.thumbnail_url;
+              }
             }
             if (Array.isArray(fresh.color_images) && fresh.color_images.length > 0) {
+              let cis: string[] = [...fresh.color_images];
+              try {
+                const oldByColor = oldImagesByColor((row as any)?.variants);
+                const freshColors = Array.isArray((fresh as any).colors)
+                  ? (fresh as any).colors
+                  : [];
+                cis = substituteAlignedImages(fresh.color_images, freshColors, oldByColor);
+                if (cis.length === 0) cis = [...fresh.color_images];
+              } catch {
+                /* préservation ignorée */
+              }
               const gallery = [
-                ...(Array.isArray(fresh.color_images) ? fresh.color_images : []),
+                ...cis,
                 ...((fresh.mockupImages || []) as string[]),
               ].filter(Boolean);
               if (gallery.length > 0) {
-                imgs.gallery = [...new Set(gallery)].slice(0, 12);
-                imgs.color_images = fresh.color_images;
+                try {
+                  const merged = mergeGalleries(gallery, (row as any)?.gallery, 12);
+                  imgs.gallery = merged ?? gallery.slice(0, 12);
+                } catch {
+                  imgs.gallery = [...new Set(gallery)].slice(0, 12);
+                }
+                imgs.color_images = cis;
               }
             }
             if (Object.keys(imgs).length > 0) {
@@ -1478,9 +1607,10 @@ export default {
           if (!res.ok)
             throw new Error(`Printful catalogue error ${res.status}`);
           const data = await res.json();
-          const catalogResult = data?.result?.product || data?.result;
-          const variants = catalogResult?.variants;
-          if (!Array.isArray(variants))
+          // Garde de forme (_shared/catalog.ts) : result.product ne contient
+          // jamais variants (sinon "Variants introuvables" systématique).
+          const variants = extractCatalogVariants(data);
+          if (!Array.isArray(variants) || variants.length === 0)
             throw new Error("Variants introuvables");
           const target = variants.find((v: any) => v.id == variantId);
           if (!target) throw new Error("Variant non trouvé");
@@ -2298,13 +2428,16 @@ export default {
                       mockupsGenerated: fin.mockupsGenerated,
                       colors: fin.colors,
                       storageUrls: fin.storageUrls || {},
+                      applied: fin.applied ?? null,
+                      unmatchedVids: fin.unmatchedVids ?? [],
+                      unmatchedHexes: fin.unmatchedHexes ?? [],
                       placements: opts.placements || ["front"],
                       format: opts.format || "jpg",
                     },
                     updated_at: new Date().toISOString(),
                   }).eq("id", job.id);
                   done++;
-                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated });
+                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null });
                 } else {
                   await supabaseAdmin.from("mockup_jobs").update({
                     status: "failed",
@@ -2428,6 +2561,9 @@ export default {
             mockupsGenerated: fin.mockupsGenerated,
             colors: fin.colors,
             storageUrls: fin.storageUrls,
+            applied: fin.applied ?? null,
+            unmatchedVids: fin.unmatchedVids ?? [],
+            unmatchedHexes: fin.unmatchedHexes ?? [],
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
@@ -2484,6 +2620,15 @@ export default {
       const printfulProducts = listData.result ?? [];
       let syncedCount = 0;
       const errors: string[] = [];
+      // Traçabilité matières (contrôle admin) : fibres non reconnues.
+      const materialWarnings: string[] = [];
+      // Produits dont le catalogue ne renvoie AUCUNE matière (cas réel :
+      // beanie, casquette et certains blanks) : saisie admin requise.
+      // Distingué des "non reconnues" pour un diagnostic lisible.
+      const materialNoData: string[] = [];
+      // Compteur de remplissages auto effectifs (observabilité : le succès
+      // silencieux est un bug de pilotage — voir incident sync sans effet).
+      let materialsFilled = 0;
 
       for (const pfProduct of printfulProducts) {
         try {
@@ -2523,9 +2668,9 @@ export default {
               );
               if (catalogRes && catalogRes.ok) {
                 const catalogData = await catalogRes.json();
-                const catalogResult =
-                  catalogData?.result?.product || catalogData?.result;
-                catalogVariants = catalogResult?.variants || [];
+                // Garde de forme (_shared/catalog.ts) : result.product ne
+                // contient jamais variants — lire result.variants.
+                catalogVariants = extractCatalogVariants(catalogData);
               }
             } catch {
               // fallback
@@ -2550,7 +2695,7 @@ export default {
             }
           }
 
-          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys } =
+          let { colors, colorNames, colorImages, mockupImages, sizes, variants, discontinuedKeys, materialTop, materialUnmapped, materialEntryCount } =
             buildVariantMatrix(syncVariants, catalogVariants);
           const skippedDiscontinued: Set<string> =
             discontinuedKeys instanceof Set ? discontinuedKeys : new Set();
@@ -2672,6 +2817,26 @@ export default {
             external_variant_id: mainVariant?.id?.toString() || null,
           };
 
+          // Matière auto (slug canonique) : fill-if-empty UNIQUEMENT — un edit
+          // admin existant gagne toujours (pas d'écrasement au resync).
+          // Traçabilité : fibres non reconnues -> warnings réponse + logs ;
+          // catalogue SANS données -> warning explicite (cas réel : beanie,
+          // casquette et certains blanks ne renvoient aucun material).
+          if (materialTop) {
+            productPayload.material = materialTop;
+          } else if (!materialEntryCount) {
+            materialNoData.push(
+              String(
+                syncProduct?.name || pfProduct.name || `produit ${pfProduct.id}`,
+              ).slice(0, 80),
+            );
+          }
+          if (Array.isArray(materialUnmapped) && materialUnmapped.length > 0) {
+            materialWarnings.push(
+              `Produit ${pfProduct.id} : matières non reconnues (${materialUnmapped.slice(0, 5).join(", ")})`,
+            );
+          }
+
           // audit léger debug admin
           try {
             const availabilityAudit: Record<string, string> = {};
@@ -2689,17 +2854,66 @@ export default {
             // column may not exist yet
           }
 
+          // Durabilité mockups générés : un resync n'écrase JAMAIS un visuel
+          // storage (design-sur-vêtement, travail Mockup Studio) par une
+          // valeur matrice (blanc ou brut). Bloc best-effort : en cas de
+          // doute, le frais gagne (jamais bloquant pour le sync).
+          try {
+            const oldByColor = oldImagesByColor(
+              (existing as any)?.variants,
+            );
+            if (
+              Array.isArray(productPayload.variants) &&
+              productPayload.variants.length > 0
+            ) {
+              productPayload.variants = substituteVariantImages(
+                productPayload.variants,
+                oldByColor,
+              );
+            }
+            if (
+              Array.isArray(productPayload.color_images) &&
+              productPayload.color_images.length > 0
+            ) {
+              productPayload.color_images = substituteAlignedImages(
+                productPayload.color_images,
+                (productPayload as any).colors,
+                oldByColor,
+              );
+            }
+            const mergedGallery = mergeGalleries(
+              (productPayload as any).gallery,
+              (existing as any)?.gallery,
+              20,
+            );
+            if (mergedGallery) (productPayload as any).gallery = mergedGallery;
+            const mainKept = preferStoredMain(
+              (productPayload as any).image,
+              (existing as any)?.image,
+            );
+            if (mainKept) (productPayload as any).image = mainKept;
+          } catch {
+            /* préservation ignorée, le frais passe tel quel */
+          }
+
           // Signature serveur (URLs stockées utilisables avec restriction active).
           const signedPayload = await signImagekitDeep(productPayload);
 
           const { data: existing } = await supabaseAdmin
             .from("products")
-            .select("id")
+            .select("id, material, image, gallery, color_images, variants")
             .eq("external_product_id", pfProduct.id.toString())
             .maybeSingle();
 
           if (existing) {
             const updatePayload: any = { ...signedPayload };
+            // Fill-if-empty : un material posé par l'admin n'est JAMAIS
+            // écrasé par le resync (override admin gagnant par construction).
+            if ((existing as any).material) {
+              delete updatePayload.material;
+            } else if (updatePayload.material) {
+              materialsFilled += 1;
+            }
             const { error: updErr } = await supabaseAdmin.from("products").update(updatePayload).eq("id", existing.id);
             if (updErr) {
               // fallback si colonnes P1 pas encore migrées
@@ -2714,6 +2928,7 @@ export default {
           } else {
             const productId = `prod-printful-${pfProduct.id}`;
             const insertPayload: any = { ...signedPayload };
+            if (insertPayload.material) materialsFilled += 1;
             const { error: insErr } = await supabaseAdmin.from("products").insert({
               id: productId,
               is_active: true,
@@ -2781,7 +2996,7 @@ export default {
         id: `log-${Date.now()}`,
         sync_date: now,
         status: syncStatus,
-        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}`,
+        message: `${syncedCount} produits synchronisés.${errors.length > 0 ? ` ${errors.length} erreur(s).` : ""}${materialsFilled > 0 ? ` ${materialsFilled} matière(s) remplie(s).` : ""}${materialNoData.length > 0 ? ` ${materialNoData.length} sans données matière.` : ""}${materialWarnings.length > 0 ? ` ${materialWarnings.length} matière(s) non reconnue(s).` : ""}`,
         duration: 0,
       });
 
@@ -2790,6 +3005,11 @@ export default {
           success: true,
           syncedCount,
           errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+          materialsFilled: materialsFilled > 0 ? materialsFilled : undefined,
+          materialNoData:
+            materialNoData.length > 0 ? materialNoData.slice(0, 10) : undefined,
+          materialWarnings:
+            materialWarnings.length > 0 ? materialWarnings.slice(0, 10) : undefined,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );

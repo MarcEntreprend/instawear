@@ -1364,13 +1364,35 @@ export const podApi = {
     }
 
     const result = await res.json();
+    // Remonte les avertissements matières (réponse edge) dans le journal
+    // et la notification : contrôle admin sans nouvel écran.
+    const materialWarnings: string[] = Array.isArray(
+      (result as any)?.materialWarnings,
+    )
+      ? (result as any).materialWarnings
+      : [];
 
     const settings = await this.getSettings();
+    const matSuffix =
+      materialWarnings.length > 0
+        ? ` ${materialWarnings.length} matière(s) non reconnue(s).`
+        : "";
+    const noDataCount = Array.isArray((result as any)?.materialNoData)
+      ? (result as any).materialNoData.length
+      : 0;
+    const noDataSuffix =
+      noDataCount > 0 ? ` ${noDataCount} sans données matière.` : "";
+    const filledCount =
+      typeof (result as any)?.materialsFilled === "number"
+        ? (result as any).materialsFilled
+        : 0;
+    const filledSuffix =
+      filledCount > 0 ? ` ${filledCount} matière(s) remplie(s).` : "";
     const log: SyncLog = {
       id: `log-${Date.now()}`,
       syncDate: new Date().toISOString(),
       status: "success",
-      message: `${result.syncedCount} produits synchronisés avec Printful.`,
+      message: `${result.syncedCount} produits synchronisés avec Printful.${filledSuffix}${noDataSuffix}${matSuffix}`,
       duration: Date.now() - start,
     };
     await supabase.from("sync_logs").insert({
@@ -1385,7 +1407,7 @@ export const podApi = {
     try {
       await notificationApi.create({
         title: "Synchronisation Printful terminée",
-        description: `${result.syncedCount} produit(s) synchronisé(s)`,
+        description: `${result.syncedCount} produit(s) synchronisé(s)${filledSuffix}${noDataSuffix}${matSuffix}`,
         category: "api",
         priority: "low",
         metadata: { source: "Printful", linkTo: "/admin/reports" },

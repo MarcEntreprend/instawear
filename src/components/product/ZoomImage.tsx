@@ -1,6 +1,8 @@
 // src/components/product/ZoomImage.tsx — V2 port
 import { useRef, useState, type MouseEvent } from "react";
 import { Expand } from "lucide-react";
+import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
 
 const LENS_SIZE = 160;
 const ZOOM_FACTOR = 2.4;
@@ -47,12 +49,36 @@ export default function ZoomImage({
       >
         <div className="bezel-inner aspect-square relative cursor-zoom-in">
           <img
-            src={src}
+            src={
+              imageKitUrl(src, {
+                width: 1024,
+                quality: 80,
+                format: "webp",
+              }) || src
+            }
+            srcSet={
+              imageKitUrl(src, { width: 1024 }) !== src
+                ? imageKitSrcSet(
+                    src,
+                    { quality: 80, format: "webp" },
+                    [768, 1024, 1600],
+                  )
+                : undefined
+            }
+            sizes="(max-width: 640px) 100vw, 600px"
             alt={alt}
             className="w-full h-full object-cover"
             draggable={false}
             fetchPriority="high"
             decoding="async"
+            onError={(e) => {
+              // Visuel KO (401/404, produit retiré…) → placeholder local.
+              // Garde anti-boucle : un seul basculement (jamais de produit en dur).
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <button
             type="button"
@@ -84,7 +110,7 @@ export default function ZoomImage({
       </div>
       {isHovering && (
         <div
-          className="hidden xl:block absolute top-0 left-full ml-5 rounded-2xl overflow-hidden z-30"
+          className="hidden lg:block absolute top-0 left-full ml-5 rounded-2xl overflow-hidden z-30"
           style={{
             width: 420,
             height: 420,

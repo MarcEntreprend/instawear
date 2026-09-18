@@ -15,8 +15,6 @@ export const EVENT_TYPES: EventTypeOption[] = [
   { value: "saisonnier", label: "Seasonal", icon: Snowflake },
   { value: "anniversaire", label: "Birthday", icon: Gift },
 ];
-export const STYLE_OPTIONS = ["streetwear", "graphique", "typographique", "minimaliste", "rétro", "rave", "festif"] as const;
-export const MATERIAL_OPTIONS = ["Coton bio", "Coton peigné", "Polyester recyclé", "Molleton bio", "Céramique"] as const;
 export const SORT_OPTIONS = [
   { value: "popular", label: "Popularity" },
   { value: "new", label: "Newest" },

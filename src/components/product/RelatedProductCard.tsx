@@ -1,16 +1,18 @@
 // src/components/product/RelatedProductCard.tsx — V2 port live
 import { Plus, Star } from "lucide-react";
 import type { Product } from "../../types";
-const fmt = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "EUR",
-});
+import { imageKitUrl, imageKitSrcSet } from "../../lib/imagekit";
+import { PLACEHOLDER_IMG } from "../../constants/assets";
+import { formatAmount } from "../../data/currency";
 export default function RelatedProductCard({
   product,
+  currencySymbol,
   onSelect,
   onQuickAdd,
 }: {
   product: Product;
+  /** Symbole issu des settings boutique (via ProductPage) : jamais de devise en dur. */
+  currencySymbol: string;
   onSelect: (p: Product) => void;
   onQuickAdd: (p: Product) => void;
 }) {
@@ -22,11 +24,33 @@ export default function RelatedProductCard({
       >
         <div className="relative aspect-square overflow-hidden">
           <img
-            src={product.image}
+            src={
+              imageKitUrl(product.image, {
+                width: 320,
+                quality: 80,
+                format: "webp",
+              }) || product.image
+            }
+            srcSet={
+              imageKitUrl(product.image, { width: 320 }) !== product.image
+                ? imageKitSrcSet(
+                    product.image,
+                    { quality: 80, format: "webp" },
+                    [320, 480],
+                  )
+                : undefined
+            }
+            sizes="(max-width: 640px) 144px, 160px"
             alt={product.title}
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
             loading="lazy"
             decoding="async"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (el.dataset.fbk) return;
+              el.dataset.fbk = "1";
+              el.src = PLACEHOLDER_IMG;
+            }}
           />
           <button
             type="button"
@@ -53,7 +77,7 @@ export default function RelatedProductCard({
               className="text-xs font-extrabold"
               style={{ color: "var(--color-ink)" }}
             >
-              {fmt.format(product.price)}
+              {formatAmount(product.price, currencySymbol)}
             </span>
             {product.ratings.count > 0 && (
               <span

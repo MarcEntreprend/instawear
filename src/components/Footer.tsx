@@ -84,12 +84,12 @@ export default function Footer({
       <div style={{ background: "var(--color-accent-bg)" }}>
         <div className="max-w-350 mx-auto px-6 py-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div>
-            <h3
+            <h2
               className="text-base font-bold mb-1"
               style={{ color: "var(--color-ink)" }}
             >
               We're always here to help
-            </h3>
+            </h2>
             <p className="text-sm" style={{ color: "var(--color-ink2)" }}>
               Choose the fastest channel for you.
             </p>
@@ -193,12 +193,12 @@ export default function Footer({
         </div>
 
         <div>
-          <h4
+          <h3
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
             Shop
-          </h4>
+          </h3>
           <ul
             className="flex flex-col gap-2.5 text-sm"
             style={{ color: "var(--color-ink2)" }}
@@ -295,12 +295,12 @@ export default function Footer({
         </div>
 
         <div>
-          <h4
+          <h3
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
             Help
-          </h4>
+          </h3>
           <ul
             className="flex flex-col gap-2.5 text-sm"
             style={{ color: "var(--color-ink2)" }}
@@ -351,12 +351,12 @@ export default function Footer({
         </div>
 
         <div className="col-span-2 md:col-span-1">
-          <h4
+          <h3
             className="text-xs font-bold uppercase tracking-wider mb-4"
             style={{ color: "var(--color-ink3)" }}
           >
             Stay informed
-          </h4>
+          </h3>
           {subscribed ? (
             <p
               className="flex items-center gap-2 text-sm font-semibold"

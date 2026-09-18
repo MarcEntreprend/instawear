@@ -275,10 +275,10 @@ export interface CreateAdminUserPayload {
   role: AdminRole;
 }
 
-// ─── Reference List (dynamic categories, event types, styles) ────────────
+// ─── Reference List (dynamic categories, event types, styles, materials) ─
 export interface ReferenceItem {
   id: string;
-  type: "category" | "event_type" | "style";
+  type: "category" | "event_type" | "style" | "material";
   value: string;
   label: string;
   keywords: string[];

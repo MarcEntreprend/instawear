@@ -1,5 +1,6 @@
 // src/components/CatalogSection.tsx
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useIsMobile } from "../hooks/useIsMobile";
 import {
   X,
@@ -18,11 +19,15 @@ import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
 import {
   EVENT_TYPES,
   PRODUCT_CATEGORIES,
-  STYLE_OPTIONS,
-  MATERIAL_OPTIONS,
   SORT_OPTIONS,
   type SortValue,
 } from "../data/categories";
+import {
+  buildMaterialFacets,
+  materialLabel,
+  normalizeMaterialKey,
+  type MaterialFacet,
+} from "../data/materials";
 import { SIZE_OPTIONS_US } from "../utils/sizeOrder";
 
 interface CatalogSectionProps {
@@ -91,7 +96,8 @@ function parseFiltersFromSearch(
     eventType: params.get("event") ?? fallbackEventType,
     category: params.get("cat") ?? fallbackCategory,
     style: params.get("style") ?? null,
-    material: params.get("material") ?? null,
+    // Compat liens anciens : libellé FR legacy -> slug (ex. "Coton bio").
+    material: normalizeMaterialKey(params.get("material")) ?? params.get("material") ?? null,
     priceMin: params.has("pmin") ? Number(params.get("pmin")) : 0,
     priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
     inStockOnly: params.get("stock") === "1",
@@ -154,9 +160,7 @@ export function buildColorFacets(
       const hex = normHex(raw);
       if (!hex) return;
       const name =
-        typeof names[i] === "string" && names[i].trim()
-          ? names[i].trim()
-          : hex;
+        typeof names[i] === "string" && names[i].trim() ? names[i].trim() : hex;
       const cur = map.get(hex);
       if (cur) {
         cur.count += 1;
@@ -165,6 +169,42 @@ export function buildColorFacets(
         map.set(hex, { hex, name, count: 1 });
       }
     });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count);
+}
+
+export interface StyleFacet {
+  value: string;
+  label: string;
+  count: number;
+}
+
+/** Libellé d'affichage d'un slug style ("street" -> "Street"). Les slugs
+ *  viennent de `reference_lists` type=style (contrôlés admin). */
+export function styleLabel(value: string): string {
+  const clean = value.replace(/[_-]+/g, " ").trim();
+  if (!clean) return "Other";
+  return clean
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Styles RÉELS du catalogue : valeurs distinctes présentes (triées par
+ * popularité). Remplace la liste générique en dur, dont aucune valeur ne
+ * matchait les slugs stockés (ex. "streetwear" vs "street").
+ */
+export function buildStyleFacets(
+  products: { style?: string | null }[],
+): StyleFacet[] {
+  const map = new Map<string, StyleFacet>();
+  for (const p of products) {
+    const v = typeof p.style === "string" ? p.style.trim() : "";
+    if (!v) continue;
+    const cur = map.get(v);
+    if (cur) cur.count += 1;
+    else map.set(v, { value: v, label: styleLabel(v), count: 1 });
   }
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
@@ -297,10 +337,37 @@ export default function CatalogSection({
     }
   }, [isFilterDrawerOpen]);
 
+  // Tiroir mobile uniquement (même breakpoint que lg:hidden / useIsMobile) :
+  // bascule en desktop sans fermeture → le refermer. Sinon l'état reste
+  // monté mais invisible (display:none) avec le verrou body persistant, et
+  // la page semble bloquée au scroll sans cause visible. Les filtres choisis
+  // sont conservés (état partagé avec la sidebar desktop).
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setIsFilterDrawerOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   // Facettes couleur réelles (tous les produits du contexte, AVANT le filtre
   // couleur lui-même : sélectionner ne fait jamais disparaître d'options).
   const availableColors = useMemo(
     () => buildColorFacets(filteredProducts),
+    [filteredProducts],
+  );
+
+  // Facettes style/matière RÉELLES : valeurs présentes au catalogue
+  // (slugs stables), jamais de listes en dur. Calculées AVANT leur propre
+  // filtre, comme les couleurs (pas de disparition d'options).
+  // Note perf : aucun fetch — produits déjà chargés (PROTOCOL-QUALITE).
+  const availableStyles = useMemo(
+    () => buildStyleFacets(filteredProducts),
+    [filteredProducts],
+  );
+  const availableMaterials = useMemo(
+    () => buildMaterialFacets(filteredProducts),
     [filteredProducts],
   );
 
@@ -333,7 +400,12 @@ export default function CatalogSection({
         return false;
       if (filters.inStockOnly && p.inStock === false) return false;
       if (filters.style && p.style !== filters.style) return false;
-      if (filters.material && p.material !== filters.material) return false;
+      // Matière : comparaison sur slug normalisé (legacy FR insensible).
+      if (
+        filters.material &&
+        normalizeMaterialKey(p.material) !== filters.material
+      )
+        return false;
       return true;
     });
     switch (sort) {
@@ -563,59 +635,68 @@ export default function CatalogSection({
                 </div>
               </div>
             </FilterGroup>
-            <FilterGroup title="Style">
-              <div className="flex flex-wrap gap-1.5">
-                {STYLE_OPTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        style: f.style === s ? null : s,
-                      }))
-                    }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                    style={{
-                      background:
-                        filters.style === s
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color: filters.style === s ? "#fff" : "var(--color-ink3)",
-                      border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </FilterGroup>
-            <FilterGroup title="Material">
-              <div className="flex flex-wrap gap-1.5">
-                {MATERIAL_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        material: f.material === m ? null : m,
-                      }))
-                    }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                    style={{
-                      background:
-                        filters.material === m
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color:
-                        filters.material === m ? "#fff" : "var(--color-ink3)",
-                      border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
-                    }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </FilterGroup>
+            {availableStyles.length > 0 && (
+              <FilterGroup title="Style">
+                <div className="flex flex-wrap gap-1.5">
+                  {availableStyles.map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          style: f.style === s.value ? null : s.value,
+                        }))
+                      }
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      style={{
+                        background:
+                          filters.style === s.value
+                            ? "var(--color-accent)"
+                            : "var(--color-surface2)",
+                        color:
+                          filters.style === s.value
+                            ? "#fff"
+                            : "var(--color-ink3)",
+                        border: `1px solid ${filters.style === s.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
+            {availableMaterials.length > 0 && (
+              <FilterGroup title="Material">
+                <div className="flex flex-wrap gap-1.5">
+                  {availableMaterials.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          material: f.material === m.value ? null : m.value,
+                        }))
+                      }
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      style={{
+                        background:
+                          filters.material === m.value
+                            ? "var(--color-accent)"
+                            : "var(--color-surface2)",
+                        color:
+                          filters.material === m.value
+                            ? "#fff"
+                            : "var(--color-ink3)",
+                        border: `1px solid ${filters.material === m.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
             <FilterGroup title="Size">
               <div className="flex flex-wrap gap-1.5">
                 {SIZE_OPTIONS.map((size) => (
@@ -872,7 +953,7 @@ export default function CatalogSection({
                     onClick={() => setFilters((f) => ({ ...f, style: null }))}
                     style={{ cursor: "pointer" }}
                   >
-                    {filters.style} <X size={12} />
+                    {styleLabel(filters.style)} <X size={12} />
                   </span>
                 )}
                 {filters.material && (
@@ -884,7 +965,7 @@ export default function CatalogSection({
                     }
                     style={{ cursor: "pointer" }}
                   >
-                    {filters.material} <X size={12} />
+                    {materialLabel(filters.material)} <X size={12} />
                   </span>
                 )}
                 {filters.inStockOnly && (
@@ -939,8 +1020,8 @@ export default function CatalogSection({
                   className="text-sm mb-6"
                   style={{ color: "var(--color-ink3)" }}
                 >
-                  Please try again later or, if you prefer, return to the
-                  home page.
+                  Please try again later or, if you prefer, return to the home
+                  page.
                 </p>
                 <div className="flex items-center justify-center gap-3 flex-wrap">
                   <button
@@ -1032,337 +1113,360 @@ export default function CatalogSection({
         </div>
       </div>
 
-      {isFilterDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
-          <div
-            className="absolute inset-0 animate-fade-in"
-            style={{ background: "rgba(15,13,10,.5)" }}
-            onClick={() => setIsFilterDrawerOpen(false)}
-          />
-          <div
-            className="relative flex flex-col max-h-[85vh] rounded-t-4xl animate-fade-up"
-            style={{
-              background: "var(--color-bg)",
-              boxShadow: "var(--shadow-xl)",
-              zIndex: 1,
-            }}
-          >
-            {/* Header sticky */}
+      {isFilterDrawerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
             <div
-              className="sticky top-0 flex items-center justify-between px-5 h-16 shrink-0"
+              className="absolute inset-0 animate-fade-in"
+              style={{ background: "rgba(15,13,10,.5)" }}
+              onClick={() => setIsFilterDrawerOpen(false)}
+            />
+            <div
+              className="relative flex flex-col max-h-[85vh] rounded-t-4xl animate-fade-up"
               style={{
                 background: "var(--color-bg)",
-                borderBottom: "1px solid var(--color-border)",
-                zIndex: 2,
+                boxShadow: "var(--shadow-xl)",
+                zIndex: 1,
               }}
             >
-              <span
-                className="text-base font-bold"
-                style={{ color: "var(--color-ink)" }}
+              {/* Header sticky */}
+              <div
+                className="sticky top-0 flex items-center justify-between px-5 h-16 shrink-0"
+                style={{
+                  background: "var(--color-bg)",
+                  borderBottom: "1px solid var(--color-border)",
+                  zIndex: 2,
+                }}
               >
-                Filters
-              </span>
-              <button
-                aria-label="Close"
-                onClick={() => setIsFilterDrawerOpen(false)}
-              >
-                <X size={20} style={{ color: "var(--color-ink2)" }} />
-              </button>
-            </div>
-
-            {/* Contenu scrollable */}
-            <div className="flex-1 overflow-y-auto px-5 pt-2 pb-4 overscroll-contain touch-pan-y">
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h3
-                    className="text-sm font-bold"
-                    style={{ color: "var(--color-ink)" }}
-                  >
-                    Filters
-                  </h3>
-                  {activeFilterCount > 0 && (
-                    <button
-                      onClick={handleResetAll}
-                      className="text-xs font-semibold flex items-center gap-1"
-                      style={{ color: "var(--color-accent-ink)" }}
-                    >
-                      <RotateCcw size={12} /> Reset
-                    </button>
-                  )}
-                </div>
-
-                <FilterGroup title="Event">
-                  <div className="flex flex-col gap-0.5">
-                    {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
-                      <label
-                        key={value}
-                        className="flex items-center gap-2.5 py-1.5 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedEventType === value}
-                          onChange={() =>
-                            setSelectedEventType(
-                              selectedEventType === value ? null : value,
-                            )
-                          }
-                          className="w-4 h-4 accent-(--color-accent)"
-                        />
-                        <Icon
-                          size={14}
-                          style={{ color: "var(--color-ink3)" }}
-                        />
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--color-ink2)" }}
-                        >
-                          {label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </FilterGroup>
-
-                <FilterGroup title="Category">
-                  <div className="flex flex-col gap-0.5">
-                    {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
-                      <label
-                        key={value}
-                        className="flex items-center gap-2.5 py-1.5 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedCategory === value ||
-                            selectedCategory ===
-                              value
-                                .replace("t-shirts", "tshirt")
-                                .replace("hoodies", "hoodie")
-                                .replace("accessories", "accessory")
-                          }
-                          onChange={() =>
-                            setSelectedCategory(
-                              selectedCategory === value ? null : value,
-                            )
-                          }
-                          className="w-4 h-4 accent-(--color-accent)"
-                        />
-                        <Icon
-                          size={14}
-                          style={{ color: "var(--color-ink3)" }}
-                        />
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--color-ink2)" }}
-                        >
-                          {label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </FilterGroup>
-
-                <FilterGroup title="Price">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex items-center rounded-xl px-3 h-10 flex-1"
-                      style={{ border: "1px solid var(--color-border)" }}
-                    >
-                      <span
-                        className="text-xs mr-1"
-                        style={{ color: "var(--color-ink4)" }}
-                      >
-                        {currencySymbol}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        aria-label="Minimum price"
-                        value={filters.priceMin}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            priceMin: Number(e.target.value) || 0,
-                          }))
-                        }
-                        className="w-full bg-transparent outline-none text-sm"
-                        style={{ color: "var(--color-ink)" }}
-                      />
-                    </div>
-                    <span style={{ color: "var(--color-ink4)" }}>—</span>
-                    <div
-                      className="flex items-center rounded-xl px-3 h-10 flex-1"
-                      style={{ border: "1px solid var(--color-border)" }}
-                    >
-                      <span
-                        className="text-xs mr-1"
-                        style={{ color: "var(--color-ink4)" }}
-                      >
-                        {currencySymbol}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        aria-label="Maximum price"
-                        value={filters.priceMax}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            priceMax: Number(e.target.value) || 0,
-                          }))
-                        }
-                        className="w-full bg-transparent outline-none text-sm"
-                        style={{ color: "var(--color-ink)" }}
-                      />
-                    </div>
-                  </div>
-                </FilterGroup>
-
-                <FilterGroup title="Style">
-                  <div className="flex flex-wrap gap-1.5">
-                    {STYLE_OPTIONS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() =>
-                          setFilters((f) => ({
-                            ...f,
-                            style: f.style === s ? null : s,
-                          }))
-                        }
-                        className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                        style={{
-                          background:
-                            filters.style === s
-                              ? "var(--color-accent)"
-                              : "var(--color-surface2)",
-                          color:
-                            filters.style === s ? "#fff" : "var(--color-ink3)",
-                          border: `1px solid ${filters.style === s ? "var(--color-accent)" : "var(--color-border)"}`,
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </FilterGroup>
-
-                <FilterGroup title="Material">
-                  <div className="flex flex-wrap gap-1.5">
-                    {MATERIAL_OPTIONS.map((m) => (
-                      <button
-                        key={m}
-                        onClick={() =>
-                          setFilters((f) => ({
-                            ...f,
-                            material: f.material === m ? null : m,
-                          }))
-                        }
-                        className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
-                        style={{
-                          background:
-                            filters.material === m
-                              ? "var(--color-accent)"
-                              : "var(--color-surface2)",
-                          color:
-                            filters.material === m
-                              ? "#fff"
-                              : "var(--color-ink3)",
-                          border: `1px solid ${filters.material === m ? "var(--color-accent)" : "var(--color-border)"}`,
-                        }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </FilterGroup>
-
-                <FilterGroup title="Size">
-                  <div className="flex flex-wrap gap-1.5">
-                    {SIZE_OPTIONS.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() =>
-                          setFilters((f) => ({
-                            ...f,
-                            size: f.size === size ? null : size,
-                          }))
-                        }
-                        className="chip"
-                        data-active={filters.size === size}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </FilterGroup>
-
-                {availableColors.length > 0 && (
-                  <FilterGroup title="Color">
-                    <ColorPicker
-                      colors={availableColors}
-                      selectedColor={filters.color}
-                      onSelect={(hex) =>
-                        setFilters((f) => ({ ...f, color: normHex(hex) || null }))
-                      }
-                    />
-                  </FilterGroup>
-                )}
-
-                <label
-                  className="flex items-center justify-between cursor-pointer pt-2"
-                  style={{ borderTop: "1px solid var(--color-border)" }}
+                <span
+                  className="text-base font-bold"
+                  style={{ color: "var(--color-ink)" }}
                 >
-                  <span
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--color-ink)" }}
-                  >
-                    In stock only
-                  </span>
-                  <span
-                    onClick={() =>
-                      setFilters((f) => ({ ...f, inStockOnly: !f.inStockOnly }))
-                    }
-                    className="w-11 h-6 rounded-full relative transition-colors"
-                    style={{
-                      background: filters.inStockOnly
-                        ? "var(--color-accent)"
-                        : "var(--color-border2)",
-                    }}
+                  Filters
+                </span>
+                <button
+                  aria-label="Close"
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                >
+                  <X size={20} style={{ color: "var(--color-ink2)" }} />
+                </button>
+              </div>
+
+              {/* Contenu scrollable */}
+              <div className="flex-1 overflow-y-auto px-5 pt-2 pb-4 overscroll-contain touch-pan-y">
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center justify-between">
+                    <h3
+                      className="text-sm font-bold"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      Filters
+                    </h3>
+                    {activeFilterCount > 0 && (
+                      <button
+                        onClick={handleResetAll}
+                        className="text-xs font-semibold flex items-center gap-1"
+                        style={{ color: "var(--color-accent-ink)" }}
+                      >
+                        <RotateCcw size={12} /> Reset
+                      </button>
+                    )}
+                  </div>
+
+                  <FilterGroup title="Event">
+                    <div className="flex flex-col gap-0.5">
+                      {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+                        <label
+                          key={value}
+                          className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedEventType === value}
+                            onChange={() =>
+                              setSelectedEventType(
+                                selectedEventType === value ? null : value,
+                              )
+                            }
+                            className="w-4 h-4 accent-(--color-accent)"
+                          />
+                          <Icon
+                            size={14}
+                            style={{ color: "var(--color-ink3)" }}
+                          />
+                          <span
+                            className="text-sm"
+                            style={{ color: "var(--color-ink2)" }}
+                          >
+                            {label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </FilterGroup>
+
+                  <FilterGroup title="Category">
+                    <div className="flex flex-col gap-0.5">
+                      {PRODUCT_CATEGORIES.map(
+                        ({ value, label, icon: Icon }) => (
+                          <label
+                            key={value}
+                            className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedCategory === value ||
+                                selectedCategory ===
+                                  value
+                                    .replace("t-shirts", "tshirt")
+                                    .replace("hoodies", "hoodie")
+                                    .replace("accessories", "accessory")
+                              }
+                              onChange={() =>
+                                setSelectedCategory(
+                                  selectedCategory === value ? null : value,
+                                )
+                              }
+                              className="w-4 h-4 accent-(--color-accent)"
+                            />
+                            <Icon
+                              size={14}
+                              style={{ color: "var(--color-ink3)" }}
+                            />
+                            <span
+                              className="text-sm"
+                              style={{ color: "var(--color-ink2)" }}
+                            >
+                              {label}
+                            </span>
+                          </label>
+                        ),
+                      )}
+                    </div>
+                  </FilterGroup>
+
+                  <FilterGroup title="Price">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center rounded-xl px-3 h-10 flex-1"
+                        style={{ border: "1px solid var(--color-border)" }}
+                      >
+                        <span
+                          className="text-xs mr-1"
+                          style={{ color: "var(--color-ink4)" }}
+                        >
+                          {currencySymbol}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          aria-label="Minimum price"
+                          value={filters.priceMin}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              priceMin: Number(e.target.value) || 0,
+                            }))
+                          }
+                          className="w-full bg-transparent outline-none text-sm"
+                          style={{ color: "var(--color-ink)" }}
+                        />
+                      </div>
+                      <span style={{ color: "var(--color-ink4)" }}>—</span>
+                      <div
+                        className="flex items-center rounded-xl px-3 h-10 flex-1"
+                        style={{ border: "1px solid var(--color-border)" }}
+                      >
+                        <span
+                          className="text-xs mr-1"
+                          style={{ color: "var(--color-ink4)" }}
+                        >
+                          {currencySymbol}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          aria-label="Maximum price"
+                          value={filters.priceMax}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              priceMax: Number(e.target.value) || 0,
+                            }))
+                          }
+                          className="w-full bg-transparent outline-none text-sm"
+                          style={{ color: "var(--color-ink)" }}
+                        />
+                      </div>
+                    </div>
+                  </FilterGroup>
+
+                  {availableStyles.length > 0 && (
+                    <FilterGroup title="Style">
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableStyles.map((s) => (
+                          <button
+                            key={s.value}
+                            onClick={() =>
+                              setFilters((f) => ({
+                                ...f,
+                                style: f.style === s.value ? null : s.value,
+                              }))
+                            }
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            style={{
+                              background:
+                                filters.style === s.value
+                                  ? "var(--color-accent)"
+                                  : "var(--color-surface2)",
+                              color:
+                                filters.style === s.value
+                                  ? "#fff"
+                                  : "var(--color-ink3)",
+                              border: `1px solid ${filters.style === s.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                            }}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </FilterGroup>
+                  )}
+
+                  {availableMaterials.length > 0 && (
+                    <FilterGroup title="Material">
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableMaterials.map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() =>
+                              setFilters((f) => ({
+                                ...f,
+                                material:
+                                  f.material === m.value ? null : m.value,
+                              }))
+                            }
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            style={{
+                              background:
+                                filters.material === m.value
+                                  ? "var(--color-accent)"
+                                  : "var(--color-surface2)",
+                              color:
+                                filters.material === m.value
+                                  ? "#fff"
+                                  : "var(--color-ink3)",
+                              border: `1px solid ${filters.material === m.value ? "var(--color-accent)" : "var(--color-border)"}`,
+                            }}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </FilterGroup>
+                  )}
+
+                  <FilterGroup title="Size">
+                    <div className="flex flex-wrap gap-1.5">
+                      {SIZE_OPTIONS.map((size) => (
+                        <button
+                          key={size}
+                          onClick={() =>
+                            setFilters((f) => ({
+                              ...f,
+                              size: f.size === size ? null : size,
+                            }))
+                          }
+                          className="chip"
+                          data-active={filters.size === size}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </FilterGroup>
+
+                  {availableColors.length > 0 && (
+                    <FilterGroup title="Color">
+                      <ColorPicker
+                        colors={availableColors}
+                        selectedColor={filters.color}
+                        onSelect={(hex) =>
+                          setFilters((f) => ({
+                            ...f,
+                            color: normHex(hex) || null,
+                          }))
+                        }
+                      />
+                    </FilterGroup>
+                  )}
+
+                  <label
+                    className="flex items-center justify-between cursor-pointer pt-2"
+                    style={{ borderTop: "1px solid var(--color-border)" }}
                   >
                     <span
-                      className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                      className="text-sm font-semibold"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      In stock only
+                    </span>
+                    <span
+                      onClick={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          inStockOnly: !f.inStockOnly,
+                        }))
+                      }
+                      className="w-11 h-6 rounded-full relative transition-colors"
                       style={{
-                        transform: filters.inStockOnly
-                          ? "translateX(22px)"
-                          : "translateX(2px)",
+                        background: filters.inStockOnly
+                          ? "var(--color-accent)"
+                          : "var(--color-border2)",
                       }}
-                    />
-                  </span>
-                </label>
+                    >
+                      <span
+                        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                        style={{
+                          transform: filters.inStockOnly
+                            ? "translateX(22px)"
+                            : "translateX(2px)",
+                        }}
+                      />
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Bouton sticky en bas - centré verticalement */}
+              <div
+                className="sticky bottom-0 px-5 safe-bottom flex items-center justify-center shrink-0"
+                style={{
+                  background: "var(--color-bg)",
+                  borderTop: "1px solid var(--color-border)",
+                  minHeight: "64px",
+                  paddingTop: "10px",
+                  paddingBottom: "10px",
+                }}
+              >
+                <button
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                  className="btn btn-accent w-full max-w-md"
+                >
+                  View {extraFiltered.length} items
+                </button>
               </div>
             </div>
-
-            {/* Bouton sticky en bas - centré verticalement */}
-            <div
-              className="sticky bottom-0 px-5 safe-bottom flex items-center justify-center shrink-0"
-              style={{
-                background: "var(--color-bg)",
-                borderTop: "1px solid var(--color-border)",
-                minHeight: "64px",
-                paddingTop: "10px",
-                paddingBottom: "10px",
-              }}
-            >
-              <button
-                onClick={() => setIsFilterDrawerOpen(false)}
-                className="btn btn-accent w-full max-w-md"
-              >
-                View {extraFiltered.length} items
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            {/* NOTE portal : la section porte .cv-auto (content-visibility) qui
+              fait d'elle le containing block des fixed descendants — sans
+              portail, inset-0 couvrait la section (haute) et le panneau,
+              plaqué à son bas, restait hors viewport (fond visible seul).
+              Règle générale : aucun overlay fixed dans un sous-arbre cv-auto. */}
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
@@ -1378,8 +1482,11 @@ function ColorPicker({
   onSelect: (hex: string | null) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState<"top" | "bottom">(
-    "bottom",
+  // Position mesurée du popup (fixed) : juste au-dessus du bloc filtre
+  // (titre "Color" inclus), à hauteur réelle. `position: fixed` garde le
+  // popup visible malgré les conteneurs à scroll (tiroir mobile).
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(
+    null,
   );
   const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1389,12 +1496,7 @@ function ColorPicker({
   const extraCount = colors.length - MAX_VISIBLE;
 
   const toggleOpen = () => {
-    if (!isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setDropdownPosition(spaceBelow < 200 ? "top" : "bottom");
-    }
+    setDropPos(null);
     setIsOpen(!isOpen);
   };
 
@@ -1413,41 +1515,37 @@ function ColorPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      const updatePosition = () => {
-        if (buttonRef.current) {
-          const rect = buttonRef.current.getBoundingClientRect();
-          const spaceBelow = window.innerHeight - rect.bottom;
-          setDropdownPosition(spaceBelow < 200 ? "top" : "bottom");
-        }
-      };
-      window.addEventListener("resize", updatePosition);
-      return () => window.removeEventListener("resize", updatePosition);
-    }
-  }, [isOpen]);
-
-  const getDropdownStyle = (): React.CSSProperties => {
-    if (!buttonRef.current) return {};
-    const rect = buttonRef.current.getBoundingClientRect();
-    const left = rect.left;
-    const top =
-      dropdownPosition === "bottom" ? rect.bottom + 8 : rect.top - 8 - 200; // 200 = max-height du dropdown
-    return {
-      position: "fixed",
-      top: top,
-      left: left,
-      width: Math.max(200, rect.width * 1.2),
-      maxHeight: 200,
-      overflowY: "auto",
-      background: "var(--color-surface)",
-      border: "1px solid var(--color-border)",
-      borderRadius: "0.75rem",
-      boxShadow: "var(--shadow-lg)",
-      padding: "0.5rem",
-      zIndex: 9999,
+  // Placement : ancré au bloc FilterGroup parent (titre + contenu), popup
+  // posé juste au-dessus à sa hauteur réelle mesurée (l'ancien code devinait
+  // 200px fixes → popup systématiquement trop haut, pire en desktop).
+  // Repositionné au resize/scroll (tiroir mobile scrollable). Invisible tant
+  // que non mesuré : jamais de flash mal placé.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const place = () => {
+      const anchor = buttonRef.current?.parentElement;
+      const drop = dropdownRef.current;
+      if (!anchor || !drop) return;
+      const a = anchor.getBoundingClientRect();
+      const h = drop.offsetHeight;
+      const w = drop.offsetWidth;
+      if (h === 0) return;
+      setDropPos({
+        top: Math.max(8, a.top - 8 - h),
+        left: Math.min(
+          Math.max(8, a.left),
+          Math.max(8, window.innerWidth - w - 8),
+        ),
+      });
     };
-  };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [isOpen, colors.length]);
 
   return (
     <div ref={buttonRef} className="inline-block">
@@ -1490,10 +1588,31 @@ function ColorPicker({
         )}
       </div>
 
-      {isOpen && (
-        <div
-          ref={dropdownRef}
-          style={getDropdownStyle()}
+      {/* Portail : comme le tiroir, le popup fixed doit échapper à la
+          section .cv-auto (content-visibility = containing block des fixed
+          → coordonnées viewport appliquées à la section : popup trop haut
+          en sidebar desktop). Mesure et click-outside inchangés. */}
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+            position: "fixed",
+            top: dropPos ? dropPos.top : 0,
+            left: dropPos ? dropPos.left : 8,
+            visibility: dropPos ? "visible" : "hidden",
+            minWidth: 200,
+            maxWidth: "min(320px, calc(100vw - 16px))",
+            maxHeight: 200,
+            overflowY: "auto",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "0.75rem",
+            boxShadow: "var(--shadow-lg)",
+            padding: "0.5rem",
+            zIndex: 9999,
+          }}
           className="flex flex-wrap gap-1.5 p-2"
         >
           {colors.map((c, cidx) => (
@@ -1512,10 +1631,11 @@ function ColorPicker({
                     : "1px solid var(--color-border2)",
               }}
               title={c.name}
-            />
-          ))}
-        </div>
-      )}
+              />
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

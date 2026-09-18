@@ -5,6 +5,7 @@ import { X, Star, ShieldCheck, Tag } from "lucide-react";
 import type { AdminProduct } from "./adminTypes";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { materialLabel } from "../data/materials";
 
 interface ProductQuickViewModalProps {
   product: AdminProduct | null;
@@ -524,6 +525,19 @@ export default function ProductQuickViewModal({
               >
                 {product.style}
               </span>
+              {product.material && (
+                <span
+                  className="badge"
+                  style={{
+                    background: "var(--color-surface2)",
+                    color: "var(--color-ink3)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                  title={`Matériau : ${materialLabel(product.material)}`}
+                >
+                  {materialLabel(product.material)}
+                </span>
+              )}
             </div>
             {/* Description courte */}
             {product.description && (

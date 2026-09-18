@@ -380,7 +380,7 @@ export function useAdminUsers() {
   };
 }
 
-// ─── Reference Lists (dynamic categories, event types, styles) ────────────
+// ─── Reference Lists (dynamic categories, event types, styles, materials) ─
 let cachedReferenceLists: import("./adminTypes").ReferenceItem[] | null = null;
 
 export function useReferenceLists() {

@@ -88,6 +88,18 @@ export const isImageKitUrl = (url: string): boolean => {
  * URL ImageKit (mode fetch) : <endpoint>/tr:<transforms>/<source-encodée>.
  * Retourne l'originale si : endpoint non configuré, URL déjà ImageKit,
  * ou source rejetée par la whitelist.
+ *
+ * POLITIQUE PROD (incidents 401 constatés, ne pas assouplir sans signer
+ * côté serveur) : le frontend ne détient pas la clé privée (par design) et
+ * le compte a la restriction "unsigned" active. Donc TOUTE URL construite
+ * ici répond 401 — nouveau tr: sur source brute comme réenrobage d'URL non
+ * signée (ex. tr:w-480 sans ik-s -> 401). Seules les URLs octets-identiques
+ * servies par le backend (signées serveur) chargent. En conséquence cette
+ * fonction est un passthrough pour toute URL distante : les appels avec
+ * options restent en place (les sondes `!== src` désactivent les srcSet
+ * factices d'elles-mêmes) et se réactiveront si le backend fournit un jour
+ * des variantes dimensionnées signées. Seul le serveur signe
+ * (cf. sync-printful/_shared/imagekit.ts + productImages.ts).
  */
 export const imageKitUrl = (
   sourceUrl: string,
@@ -95,31 +107,14 @@ export const imageKitUrl = (
 ): string => {
   if (!sourceUrl || typeof sourceUrl !== "string") return sourceUrl;
   if (!imageKitConfig.enabled) return imagekitOriginal(sourceUrl); // kill-switch : restaure les originales
-  if (isImageKitUrl(sourceUrl)) return normalizeImagekitUrl(sourceUrl, options);
-  if (!validateSourceUrl(sourceUrl)) {
+  if (!validateSourceUrl(sourceUrl) && !isImageKitUrl(sourceUrl)) {
     if (isDevEnv()) {
       console.warn(`[imageKit] source rejetée, original conservé: ${sourceUrl}`);
     }
     return sourceUrl;
   }
-
-  const parts: string[] = [];
-  if (options.width && options.width > 0) parts.push(`w-${Math.round(options.width)}`);
-  if (options.height && options.height > 0) parts.push(`h-${Math.round(options.height)}`);
-  if (options.quality) {
-    const q = Math.min(100, Math.max(1, Math.round(options.quality)));
-    parts.push(`q-${q}`);
-  }
-  if (options.format && options.format !== "auto") parts.push(`f-${options.format}`);
-  if (options.blur && options.blur > 0) parts.push(`bl-${Math.round(options.blur)}`);
-
-  const tr = parts.length > 0 ? `tr:${parts.join(",")}/` : "";
-  // Format fetch ImageKit (doc officielle) : source NON encodée, sauf si elle
-  // contient ? ou # (sinon le parser ImageKit tronque). L'encodage systématique
-  // donne des 404 (vérifié live).
-  const needsEncoding = /[?#]/.test(sourceUrl);
-  const src = needsEncoding ? encodeURIComponent(sourceUrl) : sourceUrl;
-  return `${imageKitConfig.urlEndpoint}/${tr}${src}`;
+  void options; // réservé : compatibilité d'API (sondes, réactivation future)
+  return sourceUrl;
 };
 
 /**
@@ -148,11 +143,11 @@ export function normalizeImagekitUrl(
   url: string,
   options: ImageTransformOptions = {},
 ): string {
-  const original = imagekitOriginal(url);
-  if (original === url) return url;
-  if (!imageKitConfig.enabled) return original;
-  if (!validateSourceUrl(original)) return original;
-  return imageKitUrl(original, options);
+  // Voir POLITIQUE PROD sur imageKitUrl : aucun réenrobage côté client,
+  // signé ou non (les deux répondent 401 dès que l'URL diffère d'un octet).
+  // Passthrough total ; conservé pour compatibilité d'API.
+  void options;
+  return url;
 }
 
 /** srcSet WebP responsive (largeurs en px, descripteurs `w`). */

@@ -38,6 +38,9 @@ export default function PrintfulProductForm({
   const [category, setCategory] = useState<string>("tshirt");
   const [eventType, setEventType] = useState<string>("culture");
   const [style, setStyle] = useState<string>("street");
+  // Matière : slug canonique (auto-détecté depuis les variants catalogue,
+  // fallback mots-clés) ; "" = non renseigné. L'admin valide toujours.
+  const [material, setMaterial] = useState<string>("");
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isLimitedTime, setIsLimitedTime] = useState(false);
   // Image et galerie éditables
@@ -138,6 +141,33 @@ export default function PrintfulProductForm({
             if (matchedSty) break;
           }
           if (matchedSty) setStyle(matchedSty);
+
+          // Matière : source primaire = variants catalogue (données serveur
+          // déjà classifiées en slug), fallback = mots-clés nom/type comme
+          // catégorie/event/style. L'admin garde le dernier mot (select).
+          const serverSlug =
+            typeof (data as any).material_top === "string" &&
+            (data as any).material_top
+              ? String((data as any).material_top)
+              : "";
+          if (serverSlug) {
+            setMaterial(serverSlug);
+          } else {
+            const materials = getByType("material");
+            for (const mat of materials) {
+              let hit = false;
+              for (const kw of mat.keywords) {
+                if (combined.includes(kw.toLowerCase())) {
+                  hit = true;
+                  break;
+                }
+              }
+              if (hit) {
+                setMaterial(mat.value);
+                break;
+              }
+            }
+          }
 
           // Pré-remplir les images depuis les données enrichies
           setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
@@ -449,7 +479,7 @@ export default function PrintfulProductForm({
         category: category as AdminProduct["category"],
         eventType: eventType as AdminProduct["eventType"],
         style: style as AdminProduct["style"],
-        material: "",
+        material: material || "",
         tags: [],
         isBestSeller: isBestSeller,
         isLimitedTime: isLimitedTime,
@@ -1380,6 +1410,21 @@ export default function PrintfulProductForm({
               {getByType("style").map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Matériau</label>
+            <select
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Non renseigné —</option>
+              {getByType("material").map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
             </select>

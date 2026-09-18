@@ -134,6 +134,11 @@ export default function App() {
   // Layout View States
   const [activeTab, setActiveTab] = useState<"store" | "admin">("store");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  // Latch deep-route : vrai quand l'overlay produit a été ouvert par charge
+  // directe /produit/:id (cold boot), pas par clic depuis l'accueil. Sert à
+  // suspendre le hero derrière l'overlay (cf. suspendHero). Posé dans l'effet
+  // boot, levé à chaque retour accueil (goHome, onClose, BuyNow, popstate /).
+  const [heroSuspendedForBoot, setHeroSuspendedForBoot] = useState(false);
 
   const [selectedProductInitialColor, setSelectedProductInitialColor] =
     useState<string | null>(null);
@@ -154,7 +159,10 @@ export default function App() {
     if (match && products.length > 0) {
       // Q2.1 : les inactifs sont invisibles (même en URL directe).
       const p = products.find((x) => x.id === match[1] && x.isActive !== false);
-      if (p) setSelectedProduct(p);
+      if (p) {
+        setSelectedProduct(p);
+        setHeroSuspendedForBoot(true);
+      }
     }
     if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
     else if (path === "/faq") setShowFaqPage(true);
@@ -194,9 +202,13 @@ export default function App() {
       if (m) {
         const p = products.find((x) => x.id === m[1] && x.isActive !== false);
         if (p) setSelectedProduct(p);
-        else setSelectedProduct(null);
+        else {
+          setSelectedProduct(null);
+          setHeroSuspendedForBoot(false);
+        }
       } else {
         setSelectedProduct(null);
+        setHeroSuspendedForBoot(false);
       }
       if (path.startsWith("/legal/")) setLegalSlug(path.split("/")[2] || "cgv");
       else setLegalSlug(null);
@@ -1492,6 +1504,7 @@ export default function App() {
   const goHome = () => {
     setUiTick((t) => t + 1);
     setSelectedProduct(null);
+    setHeroSuspendedForBoot(false);
     setLegalSlug(null);
     setShowFaqPage(false);
     setShowContactPage(false);
@@ -1528,6 +1541,16 @@ export default function App() {
     bootProduct.isActive === false &&
     !selectedProduct &&
     !loadingProducts;
+  // Suspension hero (Lighthouse page produit) : en charge directe /produit/:id,
+  // le hero 1536px partait derrière l'overlay et volait le LCP (LCP ignore
+  // l'occlusion) avec ~1 s de retard de découverte. Contrairement à la
+  // suppression du storefront (revert : elle regroupait le montage en un
+  // burst qui téléportait le footer déjà peint → CLS 0.88), suspendre le SEUL
+  // hero préserve le montage progressif (CLS-safe, prouvé) : le squelette
+  // garde le même gabarit, aucune <img> ne part. Ouvertures par clic
+  // inchangées (latch jamais posé → hero normal, retour instantané).
+  const suspendHeroForBootProduct =
+    !!bootProductId && (!selectedProduct || heroSuspendedForBoot);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
@@ -1619,10 +1642,11 @@ export default function App() {
           id="view-customer-storefront"
         >
           <SitewideCountdownBanner />
-          {/* Dynamic Hero Carousel Banner */}
+          {/* Dynamic Hero Carousel Banner (suspendu en cold deep-route produit : voir suspendHeroForBootProduct) */}
           <HeroCarousel
             banners={heroBanners}
             loading={promotionsLoading}
+            suspended={suspendHeroForBootProduct}
             onBannerAction={(banner) => {
               if (banner.productId) {
                 const target = products.find((p) => p.id === banner.productId);
@@ -1754,6 +1778,7 @@ export default function App() {
           onClose={() => {
             history.pushState({}, "", "/");
             setSelectedProduct(null);
+            setHeroSuspendedForBoot(false);
             setSelectedProductInitialColor(null);
             setSelectedProductInitialSize(null);
           }}
@@ -1769,6 +1794,7 @@ export default function App() {
             setCheckoutOpen(true);
             history.pushState({}, "", "/");
             setSelectedProduct(null);
+            setHeroSuspendedForBoot(false);
           }}
           onSelectProduct={(p: Product) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
