@@ -7,6 +7,7 @@ import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
 import { podApi } from "../api/supabaseApi";
 import { useReferenceLists } from "./adminHooks";
+import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import { AdminProduct } from "./adminTypes";
 
 interface ProductFormPanelProps {
@@ -23,6 +24,7 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   fullDescription: "",
   image: PLACEHOLDER_IMG,
   gallery: [],
+  galleryMeta: null,
   colorImages: undefined,
   mockupPreset: "",
   price: 24.99,
@@ -37,7 +39,7 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   category: "tshirt",
   eventType: "culture",
   style: "street",
-  material: "coton-bio",
+  material: "",
   tags: [],
   isBestSeller: false,
   isLimitedTime: false,
@@ -51,224 +53,6 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   showRatings: false,
   showBought: false,
 };
-
-// ─── GalleryInput component (inline in the same file) ────────────────────
-function GalleryInput({
-  value,
-  onChange,
-  max,
-}: {
-  value: string[];
-  onChange: (items: string[]) => void;
-  max: number;
-}) {
-  const [input, setInput] = useState("");
-
-  const addItem = (url?: string) => {
-    const trimmed = (url || input).trim();
-    if (trimmed && !value.includes(trimmed) && value.length < max) {
-      onChange([...value, trimmed]);
-      setInput("");
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addItem();
-    }
-  };
-
-  const removeItem = (url: string) => onChange(value.filter((v) => v !== url));
-
-  return (
-    <div>
-      {/* Chips */}
-      {value.length > 0 && (
-        <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}
-        >
-          {value.map((url) => (
-            <span
-              key={url}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "3px 8px",
-                borderRadius: 999,
-                background: "var(--color-surface2)",
-                border: "1px solid var(--color-border)",
-                fontSize: 12,
-                color: "var(--color-ink2)",
-                maxWidth: "100%",
-                overflow: "hidden",
-              }}
-            >
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                }}
-              >
-                <span
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 4,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  <img
-                    src={url}
-                    alt=""
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </span>
-                <span
-                  style={{
-                    maxWidth: 200,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {url}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => removeItem(url)}
-                style={{
-                  background: "var(--color-accent-soft)",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 16,
-                  height: 16,
-                  cursor: "pointer",
-                  color: "var(--color-accent)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Input + Add button + Upload button */}
-      <div style={{ display: "flex", gap: 6 }}>
-        <input
-          type="url"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="https://..."
-          disabled={value.length >= max}
-          style={{
-            flex: 1,
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--color-border)",
-            background:
-              value.length >= max
-                ? "var(--color-surface2)"
-                : "var(--color-surface2)",
-            fontSize: 13,
-            color: "var(--color-ink)",
-            fontFamily: "var(--font-body)",
-            outline: "none",
-            opacity: value.length >= max ? 0.5 : 1,
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => addItem()}
-          disabled={value.length >= max || !input.trim()}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--color-accent)",
-            background:
-              value.length >= max || !input.trim()
-                ? "var(--color-surface2)"
-                : "transparent",
-            color:
-              value.length >= max || !input.trim()
-                ? "var(--color-ink4)"
-                : "var(--color-accent)",
-            fontWeight: 700,
-            fontSize: 13,
-            cursor:
-              value.length >= max || !input.trim() ? "not-allowed" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            whiteSpace: "nowrap",
-          }}
-        >
-          + Ajouter
-        </button>
-        <label
-          title="Uploader une image"
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--color-border)",
-            background: "var(--color-surface2)",
-            color: "var(--color-ink3)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            whiteSpace: "nowrap",
-            opacity: value.length >= max ? 0.5 : 1,
-            pointerEvents: value.length >= max ? "none" : "auto",
-          }}
-        >
-          <Upload size={16} />
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/svg+xml"
-            style={{ display: "none" }}
-            multiple
-            onChange={async (e) => {
-              const files = e.target.files;
-              if (!files || files.length === 0) return;
-              for (let i = 0; i < files.length; i++) {
-                if (value.length >= max) break;
-                try {
-                  const url = await storageApi.uploadImage(files[i], "gallery");
-                  addItem(url);
-                } catch (err) {
-                  console.error("Upload failed", err);
-                  alert("Erreur lors de l'upload d'une image.");
-                }
-              }
-            }}
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
 
 export default function ProductFormPanel({
   product,
@@ -326,6 +110,47 @@ export default function ProductFormPanel({
 
   const update = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  // Sélecteur visuel galerie : picks locaux synchronisés du produit édité
+  // (galerie + méta), répercutés dans le form (gallery cochées + galleryMeta
+  // complète pour la persistance des choix kept:false).
+  const [galleryPicks, setGalleryPicks] = useState<GalleryPickItem[]>([]);
+  useEffect(() => {
+    const meta = Array.isArray((product as any)?.galleryMeta)
+      ? ((product as any).galleryMeta as Array<Record<string, unknown>>)
+      : null;
+    const gal = Array.isArray(product?.gallery)
+      ? (product.gallery as string[]).filter(
+          (u): u is string => typeof u === "string" && u.trim().length > 0,
+        )
+      : [];
+    if (meta && meta.length > 0) {
+      setGalleryPicks(
+        meta
+          .filter((m) => typeof m.url === "string" && m.url)
+          .map((m) => ({
+            url: m.url as string,
+            color: typeof m.color === "string" ? m.color : null,
+            placement: typeof m.placement === "string" ? m.placement : null,
+            source:
+              m.source === "generated" || m.source === "blank"
+                ? m.source
+                : ("custom" as const),
+            checked: m.kept !== false,
+          })),
+      );
+    } else {
+      setGalleryPicks(
+        gal.map((url) => ({
+          url,
+          color: null,
+          placement: null,
+          source: "custom" as const,
+          checked: true,
+        })),
+      );
+    }
+  }, [product?.id]);
 
   //  fonction d'import et un état de chargement
   const [importingPrintful, setImportingPrintful] = useState(false);
@@ -480,6 +305,24 @@ export default function ProductFormPanel({
       };
 
       setForm(updatedForm);
+      // Picker galerie : mêmes visuels, cochés (custom, droits acquis).
+      setGalleryPicks(
+        (updatedForm.gallery || [])
+          .filter(
+            (url): url is string =>
+              typeof url === "string" && url.trim().length > 0,
+          )
+          .filter(
+            (url, i, arr) => arr.indexOf(url) === i,
+          )
+          .map((url) => ({
+            url,
+            color: null,
+            placement: null,
+            source: "custom" as const,
+            checked: true,
+          })),
+      );
       setImportError(null);
       setImportingPrintful(false);
 
@@ -494,9 +337,26 @@ export default function ProductFormPanel({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanedGallery = (form.gallery || []).filter(
-      (url) => url && url !== PLACEHOLDER_IMG,
-    );
+    // Galerie = choix visuels du picker (cochées, sans placeholder) + méta
+    // complète (mémoire kept:false persistée).
+    const pickedGallery = galleryPicks
+      .filter((p) => p.checked && p.url && p.url !== PLACEHOLDER_IMG)
+      .map((p) => p.url);
+    const pickedMeta = galleryPicks
+      .filter((p) => p.url)
+      .map((p) => ({
+        url: p.url,
+        color: p.color ?? null,
+        placement: p.placement ?? null,
+        source: p.source ?? "custom",
+        kept: p.checked,
+      }));
+    const cleanedGallery =
+      pickedGallery.length > 0
+        ? pickedGallery
+        : (form.gallery || []).filter(
+            (url) => url && url !== PLACEHOLDER_IMG,
+          );
     const cleanedColorImages = (form.colorImages || []).filter(
       (url) => url && url.trim().length > 0,
     );
@@ -513,6 +373,7 @@ export default function ProductFormPanel({
     const savedProduct = await onSave({
       ...form,
       gallery: cleanedGallery,
+      galleryMeta: pickedMeta.length > 0 ? pickedMeta : null,
       colors: cleanedColors,
       colorNames: cleanedColorNames,
       colorImages:
@@ -1182,14 +1043,13 @@ export default function ProductFormPanel({
           </div>
           <div>
             <label style={labelStyle}>
-              Galerie d'images ({form.gallery?.length || 0}/6)
+              Galerie d'images (
+              {galleryPicks.filter((p) => p.checked).length}/12)
             </label>
-            <GalleryInput
-              value={(form.gallery || []).filter(
-                (url) => url && url.trim().length > 0,
-              )}
-              onChange={(v) => update("gallery", v)}
+            <GalleryPicker
+              items={galleryPicks}
               max={12}
+              onChange={setGalleryPicks}
             />
           </div>
         </div>

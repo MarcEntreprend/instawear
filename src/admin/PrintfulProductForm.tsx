@@ -6,6 +6,7 @@ import { storageApi } from "../api/storageApi";
 import { Upload } from "lucide-react";
 import { AdminProduct } from "./adminTypes";
 import { useReferenceLists } from "./adminHooks";
+import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 
@@ -43,9 +44,13 @@ export default function PrintfulProductForm({
   const [material, setMaterial] = useState<string>("");
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isLimitedTime, setIsLimitedTime] = useState(false);
-  // Image et galerie éditables
+  // Image et galerie éditables (sélecteur visuel : on VOIT et on coche).
   const [mainImageUrl, setMainImageUrl] = useState<string>("");
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryPicks, setGalleryPicks] = useState<GalleryPickItem[]>([]);
+  // Galerie cochée (ordre du picker), pour le submit.
+  const galleryImages = galleryPicks
+    .filter((p) => p.checked)
+    .map((p) => p.url);
 
   const [colors, setColors] = useState<string[]>([]);
   const [colorNames, setColorNames] = useState<string[]>([]);
@@ -169,18 +174,47 @@ export default function PrintfulProductForm({
             }
           }
 
-          // Pré-remplir les images depuis les données enrichies
+          // Pré-remplir les images depuis les données enrichies.
+          // Le picker affiche les candidats calculés serveur (avec `kept`) ;
+          // repli legacy si l'edge ne les fournit pas (tout coché, comme avant).
           setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
 
-          const colorGallery = (data.color_images || []) as string[];
-
-          const catalogGallery = (data.catalog_variants || [])
-            .map((v: any) => v.image as string)
-            .filter(Boolean) as string[];
-          const initialGallery = [
-            ...new Set([...colorGallery, ...catalogGallery]),
-          ].slice(0, 12);
-          setGalleryImages(initialGallery.length > 0 ? initialGallery : []);
+          const serverCands: unknown = (data as any).gallery_candidates;
+          if (Array.isArray(serverCands) && serverCands.length > 0) {
+            const picks: GalleryPickItem[] = [];
+            for (const c of serverCands) {
+              if (c == null || typeof c !== "object") continue;
+              const r = c as Record<string, unknown>;
+              if (typeof r.url !== "string" || !r.url.trim()) continue;
+              if (picks.some((p) => p.url === r.url)) continue;
+              picks.push({
+                url: r.url,
+                color: typeof r.color === "string" ? r.color : null,
+                placement: typeof r.placement === "string" ? r.placement : null,
+                source:
+                  r.source === "generated" || r.source === "blank" ? r.source : "custom",
+                checked: r.kept !== false,
+              });
+            }
+            setGalleryPicks(picks.slice(0, 60));
+          } else {
+            const colorGallery = (data.color_images || []) as string[];
+            const catalogGallery = (data.catalog_variants || [])
+              .map((v: any) => v.image as string)
+              .filter(Boolean) as string[];
+            const initialGallery = [
+              ...new Set([...colorGallery, ...catalogGallery]),
+            ].slice(0, 12);
+            setGalleryPicks(
+              initialGallery.map((url) => ({
+                url,
+                color: null,
+                placement: null,
+                source: "custom" as const,
+                checked: true,
+              })),
+            );
+          }
         }
         // Pré-remplir les couleurs, noms de couleurs, tailles et images par couleur
         // Couleurs – avec fallback si l'Edge Function ne les remonte pas
@@ -360,9 +394,14 @@ export default function PrintfulProductForm({
       // On stocke tel quel ; l'edge renvoie les originales si non configuré.
       const mainImage = mainImageUrl || pfData.thumbnail_url || "";
 
+      // Galerie = choix visuels du picker (déjà cochés/filtrés). Repli :
+      // color_images + blanks catalogue (comportement historique).
+      const pickedGallery = galleryImages.filter(
+        (url) => url && url.trim().length > 0,
+      );
       const allImages: string[] =
-        galleryImages.length > 0
-          ? galleryImages.filter((url) => url && url.trim().length > 0)
+        pickedGallery.length > 0
+          ? pickedGallery
           : (
               [
                 ...new Set(
@@ -374,6 +413,18 @@ export default function PrintfulProductForm({
                 ),
               ].filter(Boolean) as string[]
             ).slice(0, 12);
+      const galleryMetaPayload =
+        galleryPicks.length > 0
+          ? galleryPicks
+              .filter((p) => p.url && p.url.trim().length > 0)
+              .map((p) => ({
+                url: p.url,
+                color: p.color ?? null,
+                placement: p.placement ?? null,
+                source: p.source ?? "custom",
+                kept: p.checked,
+              }))
+          : null;
 
       const cleanColorImgs = colorImages.filter(
         (url) => url && url.trim().length > 0,
@@ -464,6 +515,7 @@ export default function PrintfulProductForm({
         fullDescription: "",
         image: mainImage,
         gallery: allImages,
+        galleryMeta: galleryMetaPayload,
         mockupPreset: "",
         price: price, // Retail price calculé
         originalPrice: undefined,
@@ -784,198 +836,13 @@ export default function PrintfulProductForm({
               marginBottom: 8,
             }}
           >
-            {galleryImages
-              .filter((url) => url && url.trim().length > 0)
-              .map((url, idx) => (
-                <span
-                  key={idx}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "3px 8px",
-                    borderRadius: 999,
-                    background: "var(--color-surface2)",
-                    border: "1px solid var(--color-border)",
-                    fontSize: 12,
-                    color: "var(--color-ink2)",
-                    maxWidth: "100%",
-                    overflow: "hidden",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      maxWidth: "100%",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 4,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                      }}
-                    >
-                      <img
-                        src={url}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    </span>
-                    <span
-                      style={{
-                        maxWidth: 200,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {url}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setGalleryImages(
-                        galleryImages.filter((_, i) => i !== idx),
-                      )
-                    }
-                    style={{
-                      background: "var(--color-accent-soft)",
-                      border: "none",
-                      borderRadius: "50%",
-                      width: 16,
-                      height: 16,
-                      cursor: "pointer",
-                      color: "var(--color-accent)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <input
-              type="url"
-              placeholder="https://..."
-              style={{ ...inputStyle, flex: 1 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const input = e.currentTarget;
-                  const url = input.value.trim();
-                  if (
-                    url &&
-                    !galleryImages.includes(url) &&
-                    galleryImages.length < 12
-                  ) {
-                    setGalleryImages([...galleryImages, url]);
-                    input.value = "";
-                  }
-                }
-              }}
+            {/* Sélecteur visuel : on VOIT les images (placement, source,
+                couleur) et on coche ce qui reste en galerie. */}
+            <GalleryPicker
+              items={galleryPicks}
+              max={12}
+              onChange={setGalleryPicks}
             />
-            <button
-              type="button"
-              onClick={() => {
-                const input = document.querySelector(
-                  'input[placeholder="https://..."]',
-                ) as HTMLInputElement;
-                const url = input?.value?.trim();
-                if (
-                  url &&
-                  !galleryImages.includes(url) &&
-                  galleryImages.length < 12
-                ) {
-                  setGalleryImages([...galleryImages, url]);
-                  input.value = "";
-                }
-              }}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid var(--color-accent)",
-                background: "transparent",
-                color: "var(--color-accent)",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                whiteSpace: "nowrap",
-              }}
-            >
-              + Ajouter
-            </button>
-            <label
-              title="Uploader une image"
-              style={{
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid var(--color-border)",
-                background: "var(--color-surface2)",
-                color: "var(--color-ink3)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Upload size={16} />
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                multiple
-                style={{ display: "none" }}
-                onChange={async (e) => {
-                  const files = e.target.files;
-                  if (!files || files.length === 0) return;
-                  let newUrls: string[] = [];
-                  for (let i = 0; i < files.length; i++) {
-                    if (galleryImages.length + newUrls.length >= 12) break;
-                    try {
-                      const url = await storageApi.uploadImage(
-                        files[i],
-                        "gallery",
-                      );
-                      if (
-                        !galleryImages.includes(url) &&
-                        !newUrls.includes(url)
-                      ) {
-                        newUrls.push(url);
-                      }
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                      setError("Erreur lors de l'upload d'une image.");
-                    }
-                  }
-                  if (newUrls.length > 0) {
-                    setGalleryImages([...galleryImages, ...newUrls]);
-                  }
-                }}
-              />
-            </label>
           </div>
         </div>
 

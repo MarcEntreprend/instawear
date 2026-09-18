@@ -22,6 +22,15 @@ export interface AdminProduct {
   fullDescription?: string;
   image: string;
   gallery: string[];
+  /** Curation galerie : [{url, color, placement, source, kept}] — mémoire
+   *  des choix (un retiré ne revient jamais en auto). Voir GalleryPicker. */
+  galleryMeta?: Array<{
+    url: string;
+    color: string | null;
+    placement: string | null;
+    source: "generated" | "blank" | "custom";
+    kept: boolean;
+  }> | null;
   mockupPreset?: string;
   price: number;
   originalPrice?: number;
