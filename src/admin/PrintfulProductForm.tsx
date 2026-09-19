@@ -1,5 +1,5 @@
 ﻿// src/admin/PrintfulProductForm.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
 import { storageApi } from "../api/storageApi";
@@ -14,6 +14,27 @@ import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 interface PrintfulProductFormProps {
   onBack: () => void;
   onSave: (product: AdminProduct) => Promise<AdminProduct>;
+}
+
+/**
+ * Détection matière : slug serveur d'abord, mots-clés des listes de
+ * référence ensuite. Extraite pour être rejouée quand les listes arrivent
+ * APRÈS l'enrich (race au premier chargement) — voir effet dédié.
+ * Ne choisit jamais à la place de l'admin : "" si rien ne matche.
+ */
+function detectMaterial(
+  input: { combined: string; serverSlug: string },
+  materials: { value: string; keywords: string[] }[],
+): string {
+  if (input.serverSlug) return input.serverSlug;
+  for (const mat of materials) {
+    for (const kw of mat.keywords || []) {
+      if (input.combined.includes(String(kw).toLowerCase())) {
+        return mat.value;
+      }
+    }
+  }
+  return "";
 }
 
 export default function PrintfulProductForm({
@@ -42,6 +63,11 @@ export default function PrintfulProductForm({
   // Matière : slug canonique (auto-détecté depuis les variants catalogue,
   // fallback mots-clés) ; "" = non renseigné. L'admin valide toujours.
   const [material, setMaterial] = useState<string>("");
+  // Contexte du dernier enrich pour rejouer la détection matière quand les
+  // listes de référence arrivent APRÈS (voir effet ci-dessous).
+  const enrichedCtxRef = useRef<{ combined: string; serverSlug: string } | null>(
+    null,
+  );
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isLimitedTime, setIsLimitedTime] = useState(false);
   // Image et galerie éditables (sélecteur visuel : on VOIT et on coche).
@@ -155,24 +181,12 @@ export default function PrintfulProductForm({
             (data as any).material_top
               ? String((data as any).material_top)
               : "";
-          if (serverSlug) {
-            setMaterial(serverSlug);
-          } else {
-            const materials = getByType("material");
-            for (const mat of materials) {
-              let hit = false;
-              for (const kw of mat.keywords) {
-                if (combined.includes(kw.toLowerCase())) {
-                  hit = true;
-                  break;
-                }
-              }
-              if (hit) {
-                setMaterial(mat.value);
-                break;
-              }
-            }
-          }
+          enrichedCtxRef.current = { combined, serverSlug };
+          const detectedNow = detectMaterial(
+            { combined, serverSlug },
+            getByType("material"),
+          );
+          if (detectedNow) setMaterial(detectedNow);
 
           // Pré-remplir les images depuis les données enrichies.
           // Le picker affiche les candidats calculés serveur (avec `kept`) ;
@@ -264,6 +278,20 @@ export default function PrintfulProductForm({
       .catch(() => setError("Erreur chargement variantes."))
       .finally(() => setLoadingVariants(false));
   }, [selectedProductId]);
+
+  // Rejoue la détection matière quand les listes de référence arrivent
+  // APRÈS l'enrich (premier chargement : les deux fetchs courent en
+  // parallèle). Garde-fou strict : seulement si toujours vide (jamais
+  // d'écrasement d'un choix admin ou d'une détection déjà faite).
+  const materialRefCount = getByType("material").length;
+  useEffect(() => {
+    if (material !== "" || !enrichedCtxRef.current) return;
+    const detected = detectMaterial(
+      enrichedCtxRef.current,
+      getByType("material"),
+    );
+    if (detected) setMaterial(detected);
+  }, [material, materialRefCount]);
 
   // Récupérer le Printful price (retail_price) depuis les données déjà chargées
   useEffect(() => {
