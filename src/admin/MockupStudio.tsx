@@ -10,7 +10,7 @@
 // (pas fichiers générés) + orphelins visibles.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, RefreshCw, Play, ListPlus, RotateCcw, Download, ChevronDown, Settings2 } from "lucide-react";
+import { ArrowLeft, RefreshCw, Play, ListPlus, RotateCcw, Download, ChevronDown, Settings2, Trash2 } from "lucide-react";
 import type { AdminProduct } from "./adminTypes";
 import type {
   MockupJob,
@@ -142,6 +142,30 @@ export default function MockupStudio({
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const cancelledRef = useRef(false);
+  // Anti-double-clic : un Set par action (chaque bouton sait s'il travaille).
+  const [queueOneBusy, setQueueOneBusy] = useState<Set<string>>(new Set());
+  const [retryBusy, setRetryBusy] = useState<Set<string>>(new Set());
+  const [clearing, setClearing] = useState(false);
+  // Verrou Printful (429) : bloque les relances jusqu'au timestamp (ms).
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const lockTimerRef = useRef<number | null>(null);
+  const locked = lockedUntil != null && Date.now() < lockedUntil;
+  const lockSecsLeft =
+    locked && lockedUntil != null
+      ? Math.max(1, Math.ceil((lockedUntil - Date.now()) / 1000))
+      : 0;
+
+  /** Arme le verrou anti-429 (borné 1..300 s) + timer de levée. */
+  const armLock = (secs: number): number => {
+    const s = Math.max(1, Math.min(Math.floor(secs) || 60, 300));
+    if (lockTimerRef.current) window.clearTimeout(lockTimerRef.current);
+    setLockedUntil(Date.now() + s * 1000);
+    lockTimerRef.current = window.setTimeout(() => {
+      lockTimerRef.current = null;
+      setLockedUntil(null);
+    }, s * 1000);
+    return s;
+  };
 
   const missing = useMemo(
     () => (products || []).filter((p) => needsMockups(p as any)),
@@ -201,6 +225,7 @@ export default function MockupStudio({
     return () => {
       cancelledRef.current = true;
       clearInterval(t);
+      if (lockTimerRef.current) window.clearTimeout(lockTimerRef.current);
     };
   }, [loadStatus]);
 
@@ -209,7 +234,7 @@ export default function MockupStudio({
 
   // Met en file TOUS les manquants, par vagues (l'edge borne à 5/appel).
   const handleQueueMissing = async () => {
-    if (queueing || missing.length === 0) return;
+    if (queueing || working || locked || missing.length === 0) return;
     setQueueing(true);
     setNotice(null);
     setQueueProgress({ done: 0, total: missing.length });
@@ -218,6 +243,7 @@ export default function MockupStudio({
       let remaining = missing.map((p) => p.id);
       let queuedTotal = 0;
       let failedTotal = 0;
+      let lockedSecs: number | null = null;
       let guard = 0;
       while (remaining.length > 0 && guard < 300) {
         if (cancelledRef.current) break;
@@ -225,6 +251,9 @@ export default function MockupStudio({
         const r = await podApi.queueMockups(remaining);
         queuedTotal += r.queued || 0;
         failedTotal += r.failed || 0;
+        if (typeof r.retryAfterSec === "number") {
+          lockedSecs = Math.max(lockedSecs ?? 0, r.retryAfterSec);
+        }
         if (r.done) break;
         // Retire ce qui est désormais en file/échoué pour avancer.
         const settled = new Set([
@@ -238,7 +267,9 @@ export default function MockupStudio({
         setQueueProgress({ done: missing.length - remaining.length, total: missing.length });
       }
       setNotice(
-        `File alimentée : ${queuedTotal} mis en file, ${failedTotal} en échec.`,
+        lockedSecs != null
+          ? `Verrou Printful : pause ${armLock(lockedSecs)}s avant de relancer (les relances pendant le verrou le prolongent). ${queuedTotal} mis en file, ${failedTotal} en échec.`
+          : `File alimentée : ${queuedTotal} mis en file, ${failedTotal} en échec.`,
       );
       await loadStatus(true);
     } catch (e: any) {
@@ -275,12 +306,24 @@ export default function MockupStudio({
   };
 
   const handleRetry = async (productId: string) => {
+    if (retryBusy.has(productId) || locked) return;
+    setRetryBusy((prev) => new Set(prev).add(productId));
     try {
       const { podApi } = await import("../api/supabaseApi");
-      await podApi.queueMockups([productId]);
+      const r = await podApi.queueMockups([productId]);
+      if (typeof r.retryAfterSec === "number") {
+        const s = armLock(r.retryAfterSec);
+        setNotice(`Verrou Printful : pause ${s}s avant de relancer.`);
+      }
       await loadStatus(true);
     } catch (e: any) {
       setNotice(`Erreur relance : ${e?.message || e}`);
+    } finally {
+      setRetryBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
     }
   };
 
@@ -303,6 +346,8 @@ export default function MockupStudio({
 
   // Met un produit en file avec sa configuration (défauts si vide).
   const handleQueueOne = async (p: AdminProduct) => {
+    if (queueOneBusy.has(p.id) || locked) return;
+    setQueueOneBusy((prev) => new Set(prev).add(p.id));
     const c = getCfg(p.id);
     const options: MockupQueueOptions = {};
     if (c.placements.length > 0) options.placements = c.placements;
@@ -313,14 +358,48 @@ export default function MockupStudio({
     if (c.keepMainImage) options.keepMainImage = true;
     try {
       const { podApi } = await import("../api/supabaseApi");
-      await podApi.queueMockups(
+      const r = await podApi.queueMockups(
         [p.id],
         Object.keys(options).length > 0 ? options : undefined,
       );
-      setNotice(`« ${p.title} » mis en file.`);
+      if (typeof r.retryAfterSec === "number") {
+        const s = armLock(r.retryAfterSec);
+        setNotice(`Verrou Printful : pause ${s}s avant de relancer.`);
+      } else {
+        setNotice(`« ${p.title} » mis en file.`);
+      }
       await loadStatus(true);
     } catch (e: any) {
       setNotice(`Erreur mise en file : ${e?.message || e}`);
+    } finally {
+      setQueueOneBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
+    }
+  };
+
+  // Efface l'historique terminé (Terminés + Échoués). En-cours conservés.
+  const handleClearHistory = async () => {
+    if (clearing) return;
+    if (
+      !window.confirm(
+        "Effacer l'historique terminé (Terminés + Échoués) ? Les jobs en file/en cours sont conservés.",
+      )
+    ) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const { podApi } = await import("../api/supabaseApi");
+      const r = await podApi.clearMockupHistory();
+      setNotice(`Historique effacé : ${r.cleared} ligne(s) supprimée(s).`);
+      await loadStatus(true);
+    } catch (e: any) {
+      setNotice(`Erreur effacement : ${e?.message || e}`);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -436,34 +515,42 @@ export default function MockupStudio({
         <button
           type="button"
           onClick={handleQueueMissing}
-          disabled={queueing || missing.length === 0}
+          disabled={queueing || working || locked || missing.length === 0}
           style={{
             ...btnPrimary,
-            opacity: queueing || missing.length === 0 ? 0.6 : 1,
+            opacity: queueing || working || locked || missing.length === 0 ? 0.6 : 1,
             cursor:
-              queueing || missing.length === 0 ? "not-allowed" : "pointer",
+              queueing || working || locked || missing.length === 0 ? "not-allowed" : "pointer",
           }}
         >
           <ListPlus size={15} strokeWidth={2.5} />
-          {queueing ? "Mise en file…" : "Mettre en file les manquants"}
+          {queueing
+            ? "Mise en file…"
+            : locked
+              ? `Pause Printful (${lockSecsLeft}s)`
+              : "Mettre en file les manquants"}
         </button>
         <button
           type="button"
           onClick={handleRunWorker}
-          disabled={working || openCount === 0}
+          disabled={working || queueing || locked || openCount === 0}
           style={{
             ...btnGhost,
-            opacity: working || openCount === 0 ? 0.6 : 1,
-            cursor: working || openCount === 0 ? "not-allowed" : "pointer",
+            opacity: working || queueing || locked || openCount === 0 ? 0.6 : 1,
+            cursor: working || queueing || locked || openCount === 0 ? "not-allowed" : "pointer",
           }}
         >
           <Play size={15} strokeWidth={2.5} />
-          {working ? "Traitement…" : "Traiter la file"}
+          {working
+            ? "Traitement…"
+            : locked
+              ? `Pause Printful (${lockSecsLeft}s)`
+              : "Traiter la file"}
         </button>
         <button
           type="button"
           onClick={() => loadStatus(false)}
-          disabled={loading}
+          disabled={loading || clearing}
           style={btnGhost}
         >
           <RefreshCw
@@ -472,6 +559,20 @@ export default function MockupStudio({
             className={loading ? "animate-spin" : ""}
           />
           Actualiser
+        </button>
+        <button
+          type="button"
+          onClick={handleClearHistory}
+          disabled={clearing || loading}
+          title="Efface les jobs Terminés et Échoués (les jobs en file/en cours sont conservés)"
+          style={{
+            ...btnGhost,
+            opacity: clearing || loading ? 0.6 : 1,
+            cursor: clearing || loading ? "not-allowed" : "pointer",
+          }}
+        >
+          <Trash2 size={14} strokeWidth={2.5} />
+          {clearing ? "Effacement…" : "Effacer l'historique"}
         </button>
       </div>
 
@@ -705,6 +806,7 @@ export default function MockupStudio({
                                 )}
                                 <button
                                   type="button"
+                                  disabled={queueOneBusy.has(p.id) || locked}
                                   onClick={() => {
                                     if (
                                       job?.status === "done" &&
@@ -724,10 +826,15 @@ export default function MockupStudio({
                                     color: "var(--color-ink2)",
                                     fontWeight: 700,
                                     fontSize: 11,
-                                    cursor: "pointer",
+                                    cursor:
+                                      queueOneBusy.has(p.id) || locked
+                                        ? "wait"
+                                        : "pointer",
+                                    opacity:
+                                      queueOneBusy.has(p.id) || locked ? 0.6 : 1,
                                   }}
                                 >
-                                  {label}
+                                  {queueOneBusy.has(p.id) ? "Envoi…" : label}
                                 </button>
                               </span>
                             );
@@ -1056,6 +1163,7 @@ export default function MockupStudio({
                       {j.status === "failed" && (
                         <button
                           type="button"
+                          disabled={retryBusy.has(j.product_id) || locked}
                           onClick={() => handleRetry(j.product_id)}
                           title="Remettre en file"
                           style={{
@@ -1069,10 +1177,16 @@ export default function MockupStudio({
                             color: "var(--color-ink2)",
                             fontWeight: 700,
                             fontSize: 11,
-                            cursor: "pointer",
+                            cursor:
+                              retryBusy.has(j.product_id) || locked
+                                ? "wait"
+                                : "pointer",
+                            opacity:
+                              retryBusy.has(j.product_id) || locked ? 0.6 : 1,
                           }}
                         >
-                          <RotateCcw size={12} /> Relancer
+                          <RotateCcw size={12} />{" "}
+                          {retryBusy.has(j.product_id) ? "Relance…" : "Relancer"}
                         </button>
                       )}
                     </td>

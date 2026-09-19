@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
-import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
+import { fetchWithRetry, reportError, parseRetryAfterBody } from "./_shared/opsUtils.ts";
 import {
   displayImageUrl,
   imagekitEndpoint,
@@ -622,6 +622,8 @@ interface MockupCreated {
   error?: string;
   taskKey?: string;
   raw?: any;
+  /** Verrou Printful actif : ne pas relancer avant N secondes. */
+  retryAfterSec?: number;
 }
 
 // Construit les entrées files[] d'une tâche (Phase 3) : un placement =
@@ -727,7 +729,18 @@ async function createMockupTask(
   }
   if (!createRes.ok) {
     const errText = await createRes.text();
-    return { ok: false, error: `Échec création tâche mockup (${createRes.status}): ${errText}`, status: 502 };
+    // Verrou 429 : le délai dit par Printful remonte (sinon on retente
+    // dedans et chaque retry ALLONGE le verrou : 29s -> 30s -> 60s constaté).
+    const retryAfterSec =
+      createRes.status === 429 ? parseRetryAfterBody(errText) : null;
+    return {
+      ok: false,
+      error:
+        `Échec création tâche mockup (${createRes.status}): ${errText}` +
+        (retryAfterSec != null ? ` Réessayez dans ${retryAfterSec}s.` : ""),
+      status: 502,
+      ...(retryAfterSec != null ? { retryAfterSec } : {}),
+    };
   }
   const createData = await createRes.json();
   const taskKey = createData?.result?.task_key;
@@ -2431,6 +2444,28 @@ export default {
               await supabaseAdmin.from("mockup_jobs").insert({
                 product_id: pid, status: "failed", result: { error: created.error },
               });
+              // Verrou 429 : inutile (et nuisible) de continuer — chaque
+              // tentative suivante PROLONGE le verrou côté Printful. Le reste
+              // passe en ignoré avec le délai à respecter.
+              if (created.retryAfterSec != null) {
+                for (const restId of targetIds.slice(i + 1)) {
+                  skipped.push({
+                    productId: restId,
+                    reason: `verrou Printful, réessayez dans ${created.retryAfterSec}s`,
+                  });
+                }
+                return new Response(
+                  JSON.stringify({
+                    queued: queued.length,
+                    failed: failed.length,
+                    skipped: skipped.length,
+                    details: { queued, failed, skipped },
+                    locked: true,
+                    retryAfterSec: created.retryAfterSec,
+                  }),
+                  { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+              }
               continue;
             }
             const { data: job, error: jobErr } = await supabaseAdmin
@@ -2512,6 +2547,44 @@ export default {
               product_title: titles[j.product_id] || null,
             })),
           }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ─── Mode "mockup-clear" ──────────────────────────────────────
+      // Efface l'historique TERMINÉ (done + failed) : le tableau du bas et
+      // les compteurs repartent à zéro. queued/processing conservés
+      // (travail en cours jamais supprimé). Admin-only via le gate global.
+      if (body.action === "mockup-clear") {
+        const { data: old, error: oldErr } = await supabaseAdmin
+          .from("mockup_jobs")
+          .select("id")
+          .in("status", ["done", "failed"]);
+        if (oldErr) {
+          return new Response(
+            JSON.stringify({ error: "Lecture historique impossible." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            },
+          );
+        }
+        const ids = (old || []).map((j: any) => j.id);
+        let cleared = 0;
+        if (ids.length > 0) {
+          // Par lots (limite de taille de requête) : échec partiel = compte réel.
+          for (let i = 0; i < ids.length; i += 100) {
+            const chunk = ids.slice(i, i + 100);
+            const { error: delErr, count } = await supabaseAdmin
+              .from("mockup_jobs")
+              .delete({ count: "exact" })
+              .in("id", chunk);
+            if (delErr) break;
+            cleared += count || 0;
+          }
+        }
+        return new Response(
+          JSON.stringify({ cleared, remaining: ids.length - cleared }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }

@@ -1245,6 +1245,9 @@ export interface MockupQueueResult {
   skipped: number;
   done?: boolean;
   message?: string;
+  /** Verrou Printful actif : ne pas relancer avant retryAfterSec. */
+  locked?: boolean;
+  retryAfterSec?: number;
   details?: {
     queued: { productId: string; jobId: string; taskKey: string }[];
     failed: { productId: string; error: string }[];
@@ -1890,6 +1893,22 @@ export const podApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Erreur statut file mockups");
+    }
+    return res.json();
+  },
+
+  /** Efface l'historique terminé (done + failed). En-cours conservés. */
+  async clearMockupHistory(): Promise<{ cleared: number; remaining: number }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "mockup-clear" }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur effacement historique mockups");
     }
     return res.json();
   },
