@@ -19,7 +19,16 @@ import type {
   MockupTemplatePlacement,
 } from "../api/supabaseApi";
 
-/** Un produit a besoin de mockups si importé Printful sans visuels complets. */
+/** Vrai si l'URL est un mockup GÉNÉRÉ (design-sur-vêtement, bucket dédié).
+ *  Miroir de isStorageMockupUrl (edge _shared/productImages.ts) : un blank
+ *  catalogue ou un artwork brut ne compte PAS comme mockup — sinon un
+ *  produit fraîchement importé (que des blanks) passe pour "complet" et
+ *  "Mettre en file les manquants" reste désactivé à tort. */
+export function isGeneratedMockup(u: unknown): boolean {
+  return typeof u === "string" && u.includes("/product-mockups/");
+}
+
+/** Un produit a besoin de mockups si importé Printful sans visuels GÉNÉRÉS complets. */
 export function needsMockups(p: {
   externalProductId?: string | null;
   variants?: { image?: string }[] | null;
@@ -27,19 +36,15 @@ export function needsMockups(p: {
   if (!p.externalProductId) return false;
   const variants = Array.isArray(p.variants) ? p.variants : [];
   if (variants.length === 0) return true;
-  return !variants.every(
-    (v) => v.image && String(v.image).trim().length > 0,
-  );
+  return !variants.every((v) => isGeneratedMockup(v.image));
 }
 
-/** Couverture mockups d'un produit : X/Y variantes imagées. */
+/** Couverture mockups d'un produit : X/Y variantes avec visuel GÉNÉRÉ. */
 export function mockupCoverage(p: {
   variants?: { image?: string }[] | null;
 }): { total: number; imaged: number } {
   const variants = Array.isArray(p?.variants) ? p.variants : [];
-  const imaged = variants.filter(
-    (v) => v.image && String(v.image).trim().length > 0,
-  ).length;
+  const imaged = variants.filter((v) => isGeneratedMockup(v.image)).length;
   return { total: variants.length, imaged };
 }
 

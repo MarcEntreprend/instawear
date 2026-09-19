@@ -13,6 +13,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { needsMockups } from "../src/admin/MockupStudio.tsx";
 import { mockupCoverage } from "../src/admin/MockupStudio.tsx";
+import { isGeneratedMockup } from "../src/admin/MockupStudio.tsx";
 import { latestJobForProduct } from "../src/admin/MockupStudio.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +23,18 @@ const syncSource = readFileSync(
 );
 
 // ─── needsMockups (vrai code importé) ───────────────────────────────────────
+// "Complet" = visuels GÉNÉRÉS (bucket product-mockups). Les blanks catalogue
+// et artworks ne comptent pas — sinon un import frais passe pour complet.
+
+const GEN = "https://x.supabase.co/storage/v1/object/public/product-mockups/p/aa.jpg";
+const BLANK = "https://files.cdn.printful.com/products/1/1.jpg";
+
+test("isGeneratedMockup : seul le bucket dédié compte", () => {
+  assert.equal(isGeneratedMockup(GEN), true);
+  assert.equal(isGeneratedMockup(BLANK), false);
+  assert.equal(isGeneratedMockup(""), false);
+  assert.equal(isGeneratedMockup(null), false);
+});
 
 test("sans external_product_id : jamais en file (non-Printful)", () => {
   assert.equal(
@@ -42,28 +55,38 @@ test("sans variantes : à mettre en file", () => {
   );
 });
 
-test("variantes toutes imagées : rien à faire", () => {
+test("variantes toutes générées : rien à faire", () => {
   assert.equal(
     needsMockups({
       externalProductId: "123",
-      variants: [{ image: "a.jpg" }, { image: "b.jpg" }],
+      variants: [{ image: GEN }, { image: GEN.replace("aa", "bb") }],
     }),
     false,
   );
 });
 
-test("une variante sans image : à mettre en file", () => {
+test("blanks seuls : à mettre en file (import frais)", () => {
   assert.equal(
     needsMockups({
       externalProductId: "123",
-      variants: [{ image: "a.jpg" }, { image: "" }],
+      variants: [{ image: BLANK }, { image: BLANK }],
+    }),
+    true,
+  );
+});
+
+test("une variante sans généré : à mettre en file", () => {
+  assert.equal(
+    needsMockups({
+      externalProductId: "123",
+      variants: [{ image: GEN }, { image: BLANK }],
     }),
     true,
   );
   assert.equal(
     needsMockups({
       externalProductId: "123",
-      variants: [{ image: "a.jpg" }, {}],
+      variants: [{ image: GEN }, {}],
     }),
     true,
   );
@@ -181,9 +204,9 @@ test("action mockup-templates exposée", () => {
 
 // ─── Couverture par produit (vrai code) ─────────────────────────────────────
 
-test("couverture : X/Y variantes imagées", () => {
+test("couverture : X/Y variantes générées", () => {
   assert.deepEqual(
-    mockupCoverage({ variants: [{ image: "a.jpg" }, { image: "" }, {}] } as any),
+    mockupCoverage({ variants: [{ image: GEN }, { image: BLANK }, {}] } as any),
     { total: 3, imaged: 1 },
   );
 });

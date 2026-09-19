@@ -28,6 +28,7 @@ import {
   mergeGalleries,
   preferStoredMain,
   applyStorageToVariants,
+  isStorageMockupUrl,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -2366,9 +2367,9 @@ export default {
               if (openSet.has(p.id)) return false;
               const variants = Array.isArray(p.variants) ? p.variants : [];
               if (variants.length === 0) return true;
-              return !variants.every(
-                (v: any) => v.image && String(v.image).trim().length > 0,
-              );
+              // "Manquant" = sans visuel GÉNÉRÉ (les blanks catalogue ne
+              // comptent pas, sinon un import frais passe pour complet).
+              return !variants.every((v: any) => isStorageMockupUrl(v.image));
             })
             .slice(0, MOCKUP_MAX_PER_QUEUE_CALL)
             .map((p: any) => p.id);
