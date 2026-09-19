@@ -1,338 +1,388 @@
-// // tests/mockup-studio.test.ts
-// // Phases 1+2 Mockup Studio : file découplée.
-// // - needsMockups : sélection des produits à mettre en file
-// // - pacing : bornes d'appels (rate limit Printful 10 req/60s)
-// // - worker : sélection queued + processing périmés, statuts finaux
-// // - non-régression : écritures finalize identiques au legacy
-// // Miroirs (edge Deno non importable), sauf needsMockups (vrai code).
+// tests/mockup-studio.test.ts
+// Phases 1+2 Mockup Studio : file découplée.
+// - needsMockups : sélection des produits à mettre en file
+// - pacing : bornes d'appels (rate limit Printful 10 req/60s)
+// - worker : sélection queued + processing périmés, statuts finaux
+// - non-régression : écritures finalize identiques au legacy
+// Miroirs (edge Deno non importable), sauf needsMockups (vrai code).
 
-// import { test } from "node:test";
-// import assert from "node:assert/strict";
-// import { readFileSync } from "node:fs";
-// import { join, dirname } from "node:path";
-// import { fileURLToPath } from "node:url";
-// import { needsMockups } from "../src/admin/MockupStudio.tsx";
-// import { mockupCoverage } from "../src/admin/MockupStudio.tsx";
-// import { latestJobForProduct } from "../src/admin/MockupStudio.tsx";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { needsMockups } from "../src/admin/MockupStudio.tsx";
+import { mockupCoverage } from "../src/admin/MockupStudio.tsx";
+import { isGeneratedMockup } from "../src/admin/MockupStudio.tsx";
+import { latestJobForProduct } from "../src/admin/MockupStudio.tsx";
 
-// const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-// const syncSource = readFileSync(
-//   join(root, "supabase/functions/sync-printful/index.ts"),
-//   "utf-8",
-// );
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const syncSource = readFileSync(
+  join(root, "supabase/functions/sync-printful/index.ts"),
+  "utf-8",
+);
 
-// // ─── needsMockups (vrai code importé) ───────────────────────────────────────
+// ─── needsMockups (vrai code importé) ───────────────────────────────────────
+// "Complet" = visuels GÉNÉRÉS (bucket product-mockups). Les blanks catalogue
+// et artworks ne comptent pas — sinon un import frais passe pour complet.
 
-// test("sans external_product_id : jamais en file (non-Printful)", () => {
-//   assert.equal(
-//     needsMockups({ externalProductId: null, variants: [] }),
-//     false,
-//   );
-//   assert.equal(needsMockups({ variants: [] } as any), false);
-// });
+const GEN = "https://x.supabase.co/storage/v1/object/public/product-mockups/p/aa.jpg";
+const BLANK = "https://files.cdn.printful.com/products/1/1.jpg";
 
-// test("sans variantes : à mettre en file", () => {
-//   assert.equal(
-//     needsMockups({ externalProductId: "123", variants: [] }),
-//     true,
-//   );
-//   assert.equal(
-//     needsMockups({ externalProductId: "123", variants: null }),
-//     true,
-//   );
-// });
+test("isGeneratedMockup : seul le bucket dédié compte", () => {
+  assert.equal(isGeneratedMockup(GEN), true);
+  assert.equal(isGeneratedMockup(BLANK), false);
+  assert.equal(isGeneratedMockup(""), false);
+  assert.equal(isGeneratedMockup(null), false);
+});
 
-// test("variantes toutes imagées : rien à faire", () => {
-//   assert.equal(
-//     needsMockups({
-//       externalProductId: "123",
-//       variants: [{ image: "a.jpg" }, { image: "b.jpg" }],
-//     }),
-//     false,
-//   );
-// });
+test("sans external_product_id : jamais en file (non-Printful)", () => {
+  assert.equal(
+    needsMockups({ externalProductId: null, variants: [] }),
+    false,
+  );
+  assert.equal(needsMockups({ variants: [] } as any), false);
+});
 
-// test("une variante sans image : à mettre en file", () => {
-//   assert.equal(
-//     needsMockups({
-//       externalProductId: "123",
-//       variants: [{ image: "a.jpg" }, { image: "" }],
-//     }),
-//     true,
-//   );
-//   assert.equal(
-//     needsMockups({
-//       externalProductId: "123",
-//       variants: [{ image: "a.jpg" }, {}],
-//     }),
-//     true,
-//   );
-// });
+test("sans variantes : à mettre en file", () => {
+  assert.equal(
+    needsMockups({ externalProductId: "123", variants: [] }),
+    true,
+  );
+  assert.equal(
+    needsMockups({ externalProductId: "123", variants: null }),
+    true,
+  );
+});
 
-// // ─── Pacing file (miroir constantes edge) ───────────────────────────────────
+test("variantes toutes générées : rien à faire", () => {
+  assert.equal(
+    needsMockups({
+      externalProductId: "123",
+      variants: [{ image: GEN }, { image: GEN.replace("aa", "bb") }],
+    }),
+    false,
+  );
+});
 
-// const MOCKUP_MAX_PER_QUEUE_CALL = 5;
-// const MOCKUP_CREATE_PACING_MS = 7000;
-// const MOCKUP_MAX_PER_WORKER_RUN = 25;
+test("blanks seuls : à mettre en file (import frais)", () => {
+  assert.equal(
+    needsMockups({
+      externalProductId: "123",
+      variants: [{ image: BLANK }, { image: BLANK }],
+    }),
+    true,
+  );
+});
 
-// test("borne par appel : 5 produits max", () => {
-//   const ids = Array.from({ length: 12 }, (_, i) => `p${i}`);
-//   assert.equal(ids.slice(0, MOCKUP_MAX_PER_QUEUE_CALL).length, 5);
-// });
+test("une variante sans généré : à mettre en file", () => {
+  assert.equal(
+    needsMockups({
+      externalProductId: "123",
+      variants: [{ image: GEN }, { image: BLANK }],
+    }),
+    true,
+  );
+  assert.equal(
+    needsMockups({
+      externalProductId: "123",
+      variants: [{ image: GEN }, {}],
+    }),
+    true,
+  );
+});
 
-// test("pacing création : ≤8/min sous la limite 10 req/60s", () => {
-//   const perMinute = 60000 / MOCKUP_CREATE_PACING_MS;
-//   assert.ok(perMinute < 10, `${perMinute}/min doit rester < 10`);
-//   assert.ok(perMinute >= 5, "pas trop lent non plus");
-// });
+// ─── Pacing file (miroir constantes edge) ───────────────────────────────────
 
-// test("1000 produits : file complète en ~200 appels bornés", () => {
-//   const calls = Math.ceil(1000 / MOCKUP_MAX_PER_QUEUE_CALL);
-//   assert.equal(calls, 200);
-// });
+const MOCKUP_MAX_PER_QUEUE_CALL = 5;
+const MOCKUP_CREATE_PACING_MS = 7000;
+const MOCKUP_MAX_PER_WORKER_RUN = 25;
 
-// // ─── Worker : sélection et statuts (miroir logique edge) ────────────────────
+test("borne par appel : 5 produits max", () => {
+  const ids = Array.from({ length: 12 }, (_, i) => `p${i}`);
+  assert.equal(ids.slice(0, MOCKUP_MAX_PER_QUEUE_CALL).length, 5);
+});
 
-// interface Job {
-//   id: string;
-//   status: string;
-//   updated_at: string;
-// }
+test("pacing création : ≤8/min sous la limite 10 req/60s", () => {
+  const perMinute = 60000 / MOCKUP_CREATE_PACING_MS;
+  assert.ok(perMinute < 10, `${perMinute}/min doit rester < 10`);
+  assert.ok(perMinute >= 5, "pas trop lent non plus");
+});
 
-// function pickJobs(jobs: Job[], limit: number, stuckMinutes: number): Job[] {
-//   const cutoff = new Date(Date.now() - stuckMinutes * 60000).toISOString();
-//   const q = jobs
-//     .filter((j) => j.status === "queued")
-//     .sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1));
-//   const stale = jobs
-//     .filter(
-//       (j) => j.status === "processing" && j.updated_at < cutoff,
-//     )
-//     .sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1));
-//   return [...q, ...stale].slice(0, limit);
-// }
+test("1000 produits : file complète en ~200 appels bornés", () => {
+  const calls = Math.ceil(1000 / MOCKUP_MAX_PER_QUEUE_CALL);
+  assert.equal(calls, 200);
+});
 
-// const now = Date.now();
-// const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
-// const JOBS: Job[] = [
-//   { id: "q1", status: "queued", updated_at: iso(60000) },
-//   { id: "q2", status: "queued", updated_at: iso(120000) },
-//   { id: "p-stuck", status: "processing", updated_at: iso(20 * 60000) },
-//   { id: "p-fresh", status: "processing", updated_at: iso(60000) },
-//   { id: "d1", status: "done", updated_at: iso(60000) },
-//   { id: "f1", status: "failed", updated_at: iso(60000) },
-// ];
+// ─── Worker : sélection et statuts (miroir logique edge) ────────────────────
 
-// test("worker : queued d'abord (plus anciens), puis processing périmés", () => {
-//   const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
-//   assert.deepEqual(picked, ["q2", "q1", "p-stuck"]);
-// });
+interface Job {
+  id: string;
+  status: string;
+  updated_at: string;
+}
 
-// test("worker : processing récent non repris", () => {
-//   const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
-//   assert.ok(!picked.includes("p-fresh"));
-// });
+function pickJobs(jobs: Job[], limit: number, stuckMinutes: number): Job[] {
+  const cutoff = new Date(Date.now() - stuckMinutes * 60000).toISOString();
+  const q = jobs
+    .filter((j) => j.status === "queued")
+    .sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1));
+  const stale = jobs
+    .filter(
+      (j) => j.status === "processing" && j.updated_at < cutoff,
+    )
+    .sort((a, b) => (a.updated_at < b.updated_at ? -1 : 1));
+  return [...q, ...stale].slice(0, limit);
+}
 
-// test("worker : done/failed jamais repris", () => {
-//   const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
-//   assert.ok(!picked.includes("d1"));
-//   assert.ok(!picked.includes("f1"));
-// });
+const now = Date.now();
+const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+const JOBS: Job[] = [
+  { id: "q1", status: "queued", updated_at: iso(60000) },
+  { id: "q2", status: "queued", updated_at: iso(120000) },
+  { id: "p-stuck", status: "processing", updated_at: iso(20 * 60000) },
+  { id: "p-fresh", status: "processing", updated_at: iso(60000) },
+  { id: "d1", status: "done", updated_at: iso(60000) },
+  { id: "f1", status: "failed", updated_at: iso(60000) },
+];
 
-// test("worker : limite respectée", () => {
-//   assert.equal(pickJobs(JOBS, 2, 15).length, 2);
-// });
+test("worker : queued d'abord (plus anciens), puis processing périmés", () => {
+  const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
+  assert.deepEqual(picked, ["q2", "q1", "p-stuck"]);
+});
 
-// // ─── Non-régression finalize (contrat d'écriture legacy) ────────────────────
+test("worker : processing récent non repris", () => {
+  const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
+  assert.ok(!picked.includes("p-fresh"));
+});
 
-// test("finalize écrit variants[].image + color_images + gallery + image", () => {
-//   assert.ok(syncSource.includes("return { ...v, image: displayUrl }"));
-//   assert.ok(syncSource.includes("updatePayload.color_images = newColorImages"));
-//   assert.ok(syncSource.includes("updatePayload.image = displayImageUrl(firstMockupUrl)"));
-//   assert.ok(syncSource.includes(".from(\"product_mockups\").insert(mockupInserts)"));
-//   assert.ok(syncSource.includes("newGallery.push(displayUrl)"));
-// });
+test("worker : done/failed jamais repris", () => {
+  const picked = pickJobs(JOBS, 25, 15).map((j) => j.id);
+  assert.ok(!picked.includes("d1"));
+  assert.ok(!picked.includes("f1"));
+});
 
-// test("finalize : les URLs stockées passent en WebP serveur (originaux préservés)", () => {
-//   // storageUrls / product_mockups gardent les originaux (source de vérité),
-//   // seuls les champs d'affichage sont convertis (displayImageUrl = passthrough sinon).
-//   assert.ok(syncSource.includes("storageUrls[hex] = storageUrl;"));
-//   assert.ok(syncSource.includes("mockup_url: mockupUrl,"));
-//   assert.ok(syncSource.includes("storage_url: storageUrl,"));
-//   assert.ok(syncSource.includes("newColorImages.push(displayUrl)"));
-// });
+test("worker : limite respectée", () => {
+  assert.equal(pickJobs(JOBS, 2, 15).length, 2);
+});
 
-// test("legacy generate-mockups orchestre les mêmes helpers", () => {
-//   assert.ok(syncSource.includes("await prepareMockupTask("));
-//   assert.ok(syncSource.includes("await createMockupTask("));
-//   assert.ok(syncSource.includes("await pollMockupTask("));
-//   assert.ok(syncSource.includes("await finalizeMockupTask("));
-// });
+// ─── Non-régression finalize (contrat d'écriture legacy) ────────────────────
 
-// test("queue/worker/status exposés comme actions", () => {
-//   assert.ok(syncSource.includes('body.action === "queue-mockups"'));
-//   assert.ok(syncSource.includes('body.action === "mockup-status"'));
-//   assert.ok(syncSource.includes('body.action === "mockup-worker"'));
-// });
+test("finalize écrit variants[].image + color_images + gallery + image", () => {
+  assert.ok(syncSource.includes("return { ...v, image: displayUrl }"));
+  assert.ok(syncSource.includes("updatePayload.color_images = newColorImages"));
+  assert.ok(syncSource.includes("updatePayload.image = displayImageUrl(firstMockupUrl)"));
+  assert.ok(syncSource.includes(".from(\"product_mockups\").insert(mockupInserts)"));
+  assert.ok(syncSource.includes("newGallery.push(displayUrl)"));
+});
 
-// test("action mockup-templates exposée", () => {
-//   assert.ok(syncSource.includes('body.action === "mockup-templates"'));
-// });
+test("finalize : les URLs stockées passent en WebP serveur (originaux préservés)", () => {
+  // storageUrls / product_mockups gardent les originaux (source de vérité),
+  // seuls les champs d'affichage sont convertis (displayImageUrl = passthrough sinon).
+  assert.ok(syncSource.includes("storageUrls[hex] = storageUrl;"));
+  assert.ok(syncSource.includes("mockup_url: mockupUrl,"));
+  assert.ok(syncSource.includes("storage_url: storageUrl,"));
+  assert.ok(syncSource.includes("newColorImages.push(displayUrl)"));
+});
 
-// // ─── Couverture par produit (vrai code) ─────────────────────────────────────
+test("legacy generate-mockups orchestre les mêmes helpers", () => {
+  assert.ok(syncSource.includes("await prepareMockupTask("));
+  assert.ok(syncSource.includes("await createMockupTask("));
+  assert.ok(syncSource.includes("await pollMockupTask("));
+  assert.ok(syncSource.includes("await finalizeMockupTask("));
+});
 
-// test("couverture : X/Y variantes imagées", () => {
-//   assert.deepEqual(
-//     mockupCoverage({ variants: [{ image: "a.jpg" }, { image: "" }, {}] } as any),
-//     { total: 3, imaged: 1 },
-//   );
-// });
+test("queue/worker/status exposés comme actions", () => {
+  assert.ok(syncSource.includes('body.action === "queue-mockups"'));
+  assert.ok(syncSource.includes('body.action === "mockup-status"'));
+  assert.ok(syncSource.includes('body.action === "mockup-worker"'));
+});
 
-// test("couverture : sans variantes → 0/0", () => {
-//   assert.deepEqual(mockupCoverage({ variants: [] } as any), { total: 0, imaged: 0 });
-//   assert.deepEqual(mockupCoverage({} as any), { total: 0, imaged: 0 });
-// });
+test("action mockup-templates exposée", () => {
+  assert.ok(syncSource.includes('body.action === "mockup-templates"'));
+});
 
-// // ─── Marqueur file par produit (vrai code) ──────────────────────────────────
+// ─── Couverture par produit (vrai code) ─────────────────────────────────────
 
-// const PJOBS: { product_id: string; status: string; updated_at: string }[] = [
-//   { product_id: "p1", status: "done", updated_at: "2026-01-01T10:00:00Z" },
-//   { product_id: "p1", status: "queued", updated_at: "2026-01-02T10:00:00Z" },
-//   { product_id: "p2", status: "done", updated_at: "2026-01-01T10:00:00Z" },
-//   { product_id: "p2", status: "failed", updated_at: "2026-01-03T10:00:00Z" },
-//   { product_id: "p3", status: "done", updated_at: "2026-01-01T10:00:00Z" },
-//   { product_id: "p3", status: "done", updated_at: "2026-01-05T10:00:00Z" },
-// ];
+test("couverture : X/Y variantes générées", () => {
+  assert.deepEqual(
+    mockupCoverage({ variants: [{ image: GEN }, { image: BLANK }, {}] } as any),
+    { total: 3, imaged: 1 },
+  );
+});
 
-// test("sans job → null (bouton Mettre en file)", () => {
-//   assert.equal(latestJobForProduct(PJOBS, "px"), null);
-// });
+test("couverture : sans variantes → 0/0", () => {
+  assert.deepEqual(mockupCoverage({ variants: [] } as any), { total: 0, imaged: 0 });
+  assert.deepEqual(mockupCoverage({} as any), { total: 0, imaged: 0 });
+});
 
-// test("en-cours prioritaire sur terminé (bouton En file…)", () => {
-//   assert.equal(latestJobForProduct(PJOBS, "p1")?.status, "queued");
-// });
+// ─── Marqueur file par produit (vrai code) ──────────────────────────────────
 
-// test("échoué prioritaire sur terminé (bouton Relancer)", () => {
-//   assert.equal(latestJobForProduct(PJOBS, "p2")?.status, "failed");
-// });
+const PJOBS: { product_id: string; status: string; updated_at: string }[] = [
+  { product_id: "p1", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p1", status: "queued", updated_at: "2026-01-02T10:00:00Z" },
+  { product_id: "p2", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p2", status: "failed", updated_at: "2026-01-03T10:00:00Z" },
+  { product_id: "p3", status: "done", updated_at: "2026-01-01T10:00:00Z" },
+  { product_id: "p3", status: "done", updated_at: "2026-01-05T10:00:00Z" },
+];
 
-// test("à égalité : le plus récent gagne", () => {
-//   assert.equal(
-//     latestJobForProduct(PJOBS, "p3")?.updated_at,
-//     "2026-01-05T10:00:00Z",
-//   );
-// });
+test("sans job → null (bouton Mettre en file)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "px"), null);
+});
 
-// // ─── buildMockupFiles : 1 fichier par placement (miroir edge) ───────────────
+test("en-cours prioritaire sur terminé (bouton En file…)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "p1")?.status, "queued");
+});
 
-// function buildMockupFiles(
-//   printFileUrl: string,
-//   requested: string[] | undefined,
-//   printfiles: any[],
-//   fallback: { placement: string; width: number; height: number },
-// ) {
-//   const wanted =
-//     requested && requested.length > 0
-//       ? [...new Set(requested)].slice(0, 5)
-//       : [fallback.placement];
-//   return wanted.map((placement) => {
-//     const entry = (printfiles || []).find((p: any) => p?.placement === placement);
-//     const width = Number(entry?.width) > 0 ? Number(entry.width) : fallback.width;
-//     const height = Number(entry?.height) > 0 ? Number(entry.height) : fallback.height;
-//     return {
-//       placement,
-//       image_url: printFileUrl,
-//       position: { area_width: width, area_height: height, width, height, top: 0, left: 0 },
-//     };
-//   });
-// }
+test("échoué prioritaire sur terminé (bouton Relancer)", () => {
+  assert.equal(latestJobForProduct(PJOBS, "p2")?.status, "failed");
+});
 
-// const PF = [
-//   { placement: "front", width: 1800, height: 2400 },
-//   { placement: "back", width: 1500, height: 2000 },
-// ];
-// const FB = { placement: "front", width: 1800, height: 2400 };
+test("à égalité : le plus récent gagne", () => {
+  assert.equal(
+    latestJobForProduct(PJOBS, "p3")?.updated_at,
+    "2026-01-05T10:00:00Z",
+  );
+});
 
-// test("sans placements demandés : 1 fichier legacy exact", () => {
-//   assert.deepEqual(buildMockupFiles("u", undefined, PF, FB), [
-//     {
-//       placement: "front",
-//       image_url: "u",
-//       position: {
-//         area_width: 1800, area_height: 2400, width: 1800, height: 2400, top: 0, left: 0,
-//       },
-//     },
-//   ]);
-// });
+// ─── buildMockupFiles : 1 fichier par placement (miroir edge) ───────────────
 
-// test("front+back : 2 fichiers, géométries par placement", () => {
-//   const files = buildMockupFiles("u", ["front", "back"], PF, FB);
-//   assert.equal(files.length, 2);
-//   assert.equal(files[1].placement, "back");
-//   assert.equal(files[1].position.width, 1500);
-// });
+function buildMockupFiles(
+  printFileUrl: string,
+  requested: string[] | undefined,
+  printfiles: any[],
+  fallback: { placement: string; width: number; height: number },
+) {
+  const wanted =
+    requested && requested.length > 0
+      ? [...new Set(requested)].slice(0, 5)
+      : [fallback.placement];
+  return wanted.map((placement) => {
+    const entry = (printfiles || []).find((p: any) => p?.placement === placement);
+    const width = Number(entry?.width) > 0 ? Number(entry.width) : fallback.width;
+    const height = Number(entry?.height) > 0 ? Number(entry.height) : fallback.height;
+    return {
+      placement,
+      image_url: printFileUrl,
+      position: { area_width: width, area_height: height, width, height, top: 0, left: 0 },
+    };
+  });
+}
 
-// test("placement inconnu : géométrie de repli", () => {
-//   const files = buildMockupFiles("u", ["sleeve"], PF, FB);
-//   assert.equal(files[0].placement, "sleeve");
-//   assert.equal(files[0].position.width, 1800);
-// });
+const PF = [
+  { placement: "front", width: 1800, height: 2400 },
+  { placement: "back", width: 1500, height: 2000 },
+];
+const FB = { placement: "front", width: 1800, height: 2400 };
 
-// test("déduplique et borne à 5 placements", () => {
-//   const files = buildMockupFiles(
-//     "u",
-//     ["front", "front", "back", "a", "b", "c", "d"],
-//     PF,
-//     FB,
-//   );
-//   assert.equal(files.length, 5);
-// });
+test("sans placements demandés : 1 fichier legacy exact", () => {
+  assert.deepEqual(buildMockupFiles("u", undefined, PF, FB), [
+    {
+      placement: "front",
+      image_url: "u",
+      position: {
+        area_width: 1800, area_height: 2400, width: 1800, height: 2400, top: 0, left: 0,
+      },
+    },
+  ]);
+});
 
-// // ─── Validation options queue (miroir edge) ─────────────────────────────────
+test("front+back : 2 fichiers, géométries par placement", () => {
+  const files = buildMockupFiles("u", ["front", "back"], PF, FB);
+  assert.equal(files.length, 2);
+  assert.equal(files[1].placement, "back");
+  assert.equal(files[1].position.width, 1500);
+});
 
-// function validateQueueOptions(raw: any): { ok: boolean; error?: string; clean?: any } {
-//   const placements: string[] | undefined = Array.isArray(raw?.placements)
-//     ? ([...new Set(
-//         raw.placements
-//           .filter((x: any) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= 40)
-//           .map((x: string) => x.trim()),
-//       )] as string[]).slice(0, 5)
-//     : undefined;
-//   const format = raw?.format === "png" ? "png" : raw?.format === "jpg" ? "jpg" : undefined;
-//   if (raw?.format !== undefined && !format) return { ok: false, error: "format invalide (jpg|png)" };
-//   const width = raw?.width !== undefined ? Number(raw.width) : undefined;
-//   if (width !== undefined && (!Number.isInteger(width) || width < 50 || width > 2000)) {
-//     return { ok: false, error: "width invalide (50-2000)" };
-//   }
-//   return { ok: true, clean: { placements, format, width } };
-// }
+test("placement inconnu : géométrie de repli", () => {
+  const files = buildMockupFiles("u", ["sleeve"], PF, FB);
+  assert.equal(files[0].placement, "sleeve");
+  assert.equal(files[0].position.width, 1800);
+});
 
-// test("options valides acceptées", () => {
-//   const r = validateQueueOptions({ placements: ["front", "back"], format: "png", width: 1500 });
-//   assert.ok(r.ok);
-//   assert.deepEqual(r.clean?.placements, ["front", "back"]);
-// });
+test("déduplique et borne à 5 placements", () => {
+  const files = buildMockupFiles(
+    "u",
+    ["front", "front", "back", "a", "b", "c", "d"],
+    PF,
+    FB,
+  );
+  assert.equal(files.length, 5);
+});
 
-// test("format/width invalides rejetés", () => {
-//   assert.equal(validateQueueOptions({ format: "gif" }).ok, false);
-//   assert.equal(validateQueueOptions({ width: 49 }).ok, false);
-//   assert.equal(validateQueueOptions({ width: 2001 }).ok, false);
-//   assert.equal(validateQueueOptions({ width: 1500 }).ok, true);
-// });
+// ─── Validation options queue (miroir edge) ─────────────────────────────────
 
-// // ─── Chemin storage par placement (miroir edge) ─────────────────────────────
+function validateQueueOptions(raw: any): { ok: boolean; error?: string; clean?: any } {
+  const placements: string[] | undefined = Array.isArray(raw?.placements)
+    ? ([...new Set(
+        raw.placements
+          .filter((x: any) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= 40)
+          .map((x: string) => x.trim()),
+      )] as string[]).slice(0, 5)
+    : undefined;
+  const format = raw?.format === "png" ? "png" : raw?.format === "jpg" ? "jpg" : undefined;
+  if (raw?.format !== undefined && !format) return { ok: false, error: "format invalide (jpg|png)" };
+  const width = raw?.width !== undefined ? Number(raw.width) : undefined;
+  if (width !== undefined && (!Number.isInteger(width) || width < 50 || width > 2000)) {
+    return { ok: false, error: "width invalide (50-2000)" };
+  }
+  return { ok: true, clean: { placements, format, width } };
+}
 
-// function storagePath(productId: string, hex: string, placement: string): string {
-//   const safeHex = hex.replace("#", "");
-//   return placement === "front"
-//     ? `${productId}/${safeHex}.jpg`
-//     : `${productId}/${safeHex}-${placement}.jpg`;
-// }
+test("options valides acceptées", () => {
+  const r = validateQueueOptions({ placements: ["front", "back"], format: "png", width: 1500 });
+  assert.ok(r.ok);
+  assert.deepEqual(r.clean?.placements, ["front", "back"]);
+});
 
-// test("front : chemin legacy inchangé (URLs existantes préservées)", () => {
-//   assert.equal(storagePath("p1", "#aabbcc", "front"), "p1/aabbcc.jpg");
-// });
+test("format/width invalides rejetés", () => {
+  assert.equal(validateQueueOptions({ format: "gif" }).ok, false);
+  assert.equal(validateQueueOptions({ width: 49 }).ok, false);
+  assert.equal(validateQueueOptions({ width: 2001 }).ok, false);
+  assert.equal(validateQueueOptions({ width: 1500 }).ok, true);
+});
 
-// test("autres placements : suffixés (pas d'écrasement)", () => {
-//   assert.equal(storagePath("p1", "#aabbcc", "back"), "p1/aabbcc-back.jpg");
-// });
+// ─── Chemin storage par placement (miroir edge) ─────────────────────────────
+
+function storagePath(productId: string, hex: string, placement: string): string {
+  const safeHex = hex.replace("#", "");
+  return placement === "front"
+    ? `${productId}/${safeHex}.jpg`
+    : `${productId}/${safeHex}-${placement}.jpg`;
+}
+
+test("front : chemin legacy inchangé (URLs existantes préservées)", () => {
+  assert.equal(storagePath("p1", "#aabbcc", "front"), "p1/aabbcc.jpg");
+});
+
+test("autres placements : suffixés (pas d'écrasement)", () => {
+  assert.equal(storagePath("p1", "#aabbcc", "back"), "p1/aabbcc-back.jpg");
+});
+
+// ─── Contrats récents (appariement IDs, galerie, vérité d'alerte) ─────────
+// Ces miroirs empêchent toute régression silencieuse des correctifs :
+// hexes dérivées divergentes, galerie curatée, alertes mensongères.
+
+test("finalize apparie par IDs stables (pas hexes seules)", () => {
+  assert.ok(syncSource.includes("applyStorageToVariants("));
+  assert.ok(syncSource.includes("unmatchedVids"));
+  assert.ok(syncSource.includes("unmatchedHexes"));
+});
+
+test("finalize écrit gallery_meta + galerie curatée", () => {
+  assert.ok(syncSource.includes("gallery_meta: galleryMetaBuilt"));
+  assert.ok(syncSource.includes("buildGalleryMeta("));
+  assert.ok(syncSource.includes("gallery: updatedGallery"));
+});
+
+test("réponses exposent applied/unmatched/placements/gallery", () => {
+  assert.ok(syncSource.includes("applied: appliedRes.applied.length"));
+  assert.ok(syncSource.includes("placements: [...new Set("));
+  assert.ok(syncSource.includes("gallery: galleryUrls(galleryMetaBuilt, 20)"));
+});
+
+test("generate-mockups accepte placements (validés, max 5, défaut front)", () => {
+  assert.ok(syncSource.includes("body.placements"));
+  assert.ok(syncSource.includes("requestedPl"));
+});

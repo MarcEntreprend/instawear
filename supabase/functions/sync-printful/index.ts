@@ -6,12 +6,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
-import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
+import { fetchWithRetry, reportError, parseRetryAfterBody } from "./_shared/opsUtils.ts";
 import {
   displayImageUrl,
   imagekitEndpoint,
   hasImagekitPrivateKey,
   signImagekitDeep,
+  imagekitOriginal,
 } from "./_shared/imagekit.ts";
 import {
   buildCatalogPriceIndex,
@@ -19,6 +20,7 @@ import {
 } from "./_shared/variantPricing.ts";
 import { aggregateProductMaterials } from "./_shared/materials.ts";
 import { extractCatalogVariants } from "./_shared/catalog.ts";
+import { buildGalleryMeta, galleryUrls } from "./_shared/gallery.ts";
 import {
   oldImagesByColor,
   substituteVariantImages,
@@ -26,6 +28,7 @@ import {
   mergeGalleries,
   preferStoredMain,
   applyStorageToVariants,
+  isStorageMockupUrl,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -620,6 +623,8 @@ interface MockupCreated {
   error?: string;
   taskKey?: string;
   raw?: any;
+  /** Verrou Printful actif : ne pas relancer avant N secondes. */
+  retryAfterSec?: number;
 }
 
 // Construit les entrées files[] d'une tâche (Phase 3) : un placement =
@@ -725,7 +730,18 @@ async function createMockupTask(
   }
   if (!createRes.ok) {
     const errText = await createRes.text();
-    return { ok: false, error: `Échec création tâche mockup (${createRes.status}): ${errText}`, status: 502 };
+    // Verrou 429 : le délai dit par Printful remonte (sinon on retente
+    // dedans et chaque retry ALLONGE le verrou : 29s -> 30s -> 60s constaté).
+    const retryAfterSec =
+      createRes.status === 429 ? parseRetryAfterBody(errText) : null;
+    return {
+      ok: false,
+      error:
+        `Échec création tâche mockup (${createRes.status}): ${errText}` +
+        (retryAfterSec != null ? ` Réessayez dans ${retryAfterSec}s.` : ""),
+      status: 502,
+      ...(retryAfterSec != null ? { retryAfterSec } : {}),
+    };
   }
   const createData = await createRes.json();
   const taskKey = createData?.result?.task_key;
@@ -972,17 +988,64 @@ async function finalizeMockupTask(
     if (!newGallery.includes(displayUrl)) newGallery.push(displayUrl);
   }
 
-  // Legacy : galerie reconstruite (cap 20). Opt-in appendGallery (Phase 4) :
-  // conserve la galerie existante et ajoute (dédupliqué, sans plafond bas
-  // pour ne pas perdre les visuels manuels).
-  const updatedGallery = opts?.appendGallery
-    ? [...new Set([...(dbProduct.gallery || []), ...newGallery])]
-    : [...new Set(newGallery)].slice(0, 20);
+  // Galerie curatée (voir _shared/gallery.ts) : générés par couleur (avec
+  // placement) + extras Printful, moins fronts déjà en section Color, moins
+  // blanks fantômes, jamais de brut, choix admin persistés (kept).
+  // Legacy `appendGallery` : absorbé (la méta EST la mémoire : customs
+  // conservés, retirés jamais ré-ajoutés) — paramètre conservé pour compat.
+  const galleryCandidates: Array<{
+    url: string;
+    color?: string | null;
+    placement?: string | null;
+    source: "generated" | "blank" | "custom";
+  }> = [];
+  for (const [hex, entries] of colorMockups) {
+    for (const e of entries) {
+      galleryCandidates.push({
+        url: e.url,
+        color: hex,
+        placement: e.placement,
+        source: "generated",
+      });
+    }
+  }
+  for (const m of taskResult?.mockups ?? []) {
+    if (m == null || typeof m !== "object") continue;
+    const placement =
+      typeof (m as any).placement === "string" ? (m as any).placement : null;
+    for (const e of (Array.isArray((m as any).extra) ? (m as any).extra : [])) {
+      const u = (e as any)?.url;
+      if (typeof u === "string" && u) {
+        galleryCandidates.push({ url: u, color: null, placement, source: "generated" });
+      }
+    }
+  }
+  const galleryMetaBuilt = buildGalleryMeta(galleryCandidates, {
+    existingMeta: (dbProduct as any)?.gallery_meta,
+    existingGallery: (dbProduct as any)?.gallery,
+    variantFronts: updatedVariants.map((v: any) => v.image),
+    importedColors: updatedVariants.flatMap((v: any) => [v.color, v.color_name]),
+    identity: (u: string) => {
+      try {
+        return imagekitOriginal(u);
+      } catch {
+        return u;
+      }
+    },
+  });
+  const galleryFromMeta = galleryUrls(galleryMetaBuilt, 20).map((u) =>
+    displayImageUrl(u),
+  );
+  const updatedGallery =
+    galleryFromMeta.length > 0
+      ? galleryFromMeta
+      : [...new Set(newGallery)].slice(0, 20);
   const firstMockupUrl = Object.values(storageUrls)[0] || "";
 
   const updatePayload: Record<string, any> = {
     variants: updatedVariants,
     gallery: updatedGallery.length > 0 ? updatedGallery : dbProduct.gallery,
+    gallery_meta: galleryMetaBuilt.slice(0, 100),
   };
   if (newColorImages.length > 0) {
     updatePayload.color_images = newColorImages;
@@ -1036,6 +1099,12 @@ async function finalizeMockupTask(
     applied: appliedRes.applied.length,
     unmatchedVids: appliedRes.unmatchedVids,
     unmatchedHexes: appliedRes.unmatchedHexes,
+    placements: [...new Set(
+      [...colorMockups.values()].flatMap((es) => es.map((e) => e.placement)),
+    )],
+    // URLs BRUTES (non signées) : usage forensique/aperçu uniquement.
+    // La colonne gallery écrite en DB, elle, est signée.
+    gallery: galleryUrls(galleryMetaBuilt, 20),
   };
 }
 
@@ -1331,6 +1400,66 @@ export default {
           color_names: colorNames,
           color_images: colorImages,
           sizes,
+          // Candidats galerie pour le picker du form (blanks attribués +
+          // extras catalogue LIMITÉS aux couleurs importées : pas d'avatars
+          // fantômes). `kept` calculé ici (source unique) : le form affiche
+          // checked=kept sans dupliquer les règles.
+          gallery_candidates: (() => {
+            try {
+              const cands: Array<{
+                url: string;
+                color: string | null;
+                placement: string | null;
+                source: "blank";
+              }> = [];
+              const seen = new Set<string>();
+              const imported = new Set(
+                (colors as string[]).map((c) => String(c || "").toLowerCase()),
+              );
+              (colorImages as string[]).forEach((u, i) => {
+                if (!u || seen.has(u)) return;
+                seen.add(u);
+                cands.push({
+                  url: u,
+                  color: (colors as string[])[i] ?? null,
+                  placement: null,
+                  source: "blank",
+                });
+              });
+              for (const cv of catalogVariants || []) {
+                const img = (cv as any)?.image;
+                if (!img || seen.has(img)) continue;
+                const hex = resolveHexColor(
+                  (cv as any)?.color,
+                  (cv as any)?.color_code,
+                  (cv as any)?.color_code2,
+                );
+                if (!imported.has(String(hex).toLowerCase())) continue;
+                seen.add(img);
+                cands.push({ url: img, color: hex, placement: null, source: "blank" });
+              }
+              const meta = buildGalleryMeta(cands, {
+                variantFronts: colorImages,
+                importedColors: colors,
+                identity: (u: string) => {
+                  try {
+                    return imagekitOriginal(u);
+                  } catch {
+                    return u;
+                  }
+                },
+              });
+              return meta.map((m) => ({
+                url: m.url,
+                color: m.color,
+                placement: m.placement,
+                source: m.source,
+                kept: m.kept,
+              }));
+            } catch {
+              return [];
+            }
+          })(),
           retail_price: mainVariant?.retail_price || null,
           original_price: mainVariant?.retail_price
             ? Math.round(parseFloat(mainVariant.retail_price) * 1.3 * 100) / 100
@@ -1494,10 +1623,67 @@ export default {
               } catch {
                 /* préservation ignorée */
               }
-              const gallery = [
-                ...cis,
-                ...((fresh.mockupImages || []) as string[]),
-              ].filter(Boolean);
+              // Galerie curatée (mêmes règles que sync/finalize) + méta.
+              const repCands: Array<{
+                url: string;
+                color?: string | null;
+                placement?: string | null;
+                source: "generated" | "blank" | "custom";
+              }> = [];
+              {
+                const fc: unknown[] = Array.isArray((fresh as any).colors)
+                  ? (fresh as any).colors
+                  : [];
+                cis.forEach((u, i) => {
+                  if (u) {
+                    repCands.push({
+                      url: u,
+                      color: typeof fc[i] === "string" ? (fc[i] as string) : null,
+                      placement: null,
+                      source: "blank",
+                    });
+                  }
+                });
+              }
+              for (const u of ((fresh.mockupImages || []) as string[])) {
+                if (u) {
+                  repCands.push({ url: u, color: null, placement: null, source: "blank" });
+                }
+              }
+              let repMeta: unknown[] = [];
+              let repGallery: string[] = [];
+              try {
+                const built = buildGalleryMeta(repCands, {
+                  existingMeta: (row as any)?.gallery_meta,
+                  existingGallery: (row as any)?.gallery,
+                  variantFronts: Array.isArray(patch.variants)
+                    ? (patch.variants as any[]).map((v: any) => v.image)
+                    : Array.isArray((fresh as any).variants)
+                      ? ((fresh as any).variants as any[]).map((v: any) => v.image)
+                      : [],
+                  importedColors: Array.isArray((fresh as any).colors)
+                    ? (fresh as any).colors
+                    : [],
+                  identity: (u: string) => {
+                    try {
+                      return imagekitOriginal(u);
+                    } catch {
+                      return u;
+                    }
+                  },
+                });
+                repMeta = built.slice(0, 100);
+                repGallery = galleryUrls(built, 12).map((u) => displayImageUrl(u));
+              } catch {
+                /* curation ignorée, repli legacy */
+              }
+              const gallery =
+                repGallery.length > 0
+                  ? repGallery
+                  : [
+                      ...cis,
+                      ...((fresh.mockupImages || []) as string[]),
+                    ].filter(Boolean);
               if (gallery.length > 0) {
                 try {
                   const merged = mergeGalleries(gallery, (row as any)?.gallery, 12);
@@ -1506,6 +1692,13 @@ export default {
                   imgs.gallery = [...new Set(gallery)].slice(0, 12);
                 }
                 imgs.color_images = cis;
+                if (repMeta.length > 0) {
+                  try {
+                    (imgs as any).gallery_meta = repMeta;
+                  } catch {
+                    /* colonne absente */
+                  }
+                }
               }
             }
             if (Object.keys(imgs).length > 0) {
@@ -2174,9 +2367,9 @@ export default {
               if (openSet.has(p.id)) return false;
               const variants = Array.isArray(p.variants) ? p.variants : [];
               if (variants.length === 0) return true;
-              return !variants.every(
-                (v: any) => v.image && String(v.image).trim().length > 0,
-              );
+              // "Manquant" = sans visuel GÉNÉRÉ (les blanks catalogue ne
+              // comptent pas, sinon un import frais passe pour complet).
+              return !variants.every((v: any) => isStorageMockupUrl(v.image));
             })
             .slice(0, MOCKUP_MAX_PER_QUEUE_CALL)
             .map((p: any) => p.id);
@@ -2252,6 +2445,28 @@ export default {
               await supabaseAdmin.from("mockup_jobs").insert({
                 product_id: pid, status: "failed", result: { error: created.error },
               });
+              // Verrou 429 : inutile (et nuisible) de continuer — chaque
+              // tentative suivante PROLONGE le verrou côté Printful. Le reste
+              // passe en ignoré avec le délai à respecter.
+              if (created.retryAfterSec != null) {
+                for (const restId of targetIds.slice(i + 1)) {
+                  skipped.push({
+                    productId: restId,
+                    reason: `verrou Printful, réessayez dans ${created.retryAfterSec}s`,
+                  });
+                }
+                return new Response(
+                  JSON.stringify({
+                    queued: queued.length,
+                    failed: failed.length,
+                    skipped: skipped.length,
+                    details: { queued, failed, skipped },
+                    locked: true,
+                    retryAfterSec: created.retryAfterSec,
+                  }),
+                  { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+              }
               continue;
             }
             const { data: job, error: jobErr } = await supabaseAdmin
@@ -2333,6 +2548,44 @@ export default {
               product_title: titles[j.product_id] || null,
             })),
           }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ─── Mode "mockup-clear" ──────────────────────────────────────
+      // Efface l'historique TERMINÉ (done + failed) : le tableau du bas et
+      // les compteurs repartent à zéro. queued/processing conservés
+      // (travail en cours jamais supprimé). Admin-only via le gate global.
+      if (body.action === "mockup-clear") {
+        const { data: old, error: oldErr } = await supabaseAdmin
+          .from("mockup_jobs")
+          .select("id")
+          .in("status", ["done", "failed"]);
+        if (oldErr) {
+          return new Response(
+            JSON.stringify({ error: "Lecture historique impossible." }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            },
+          );
+        }
+        const ids = (old || []).map((j: any) => j.id);
+        let cleared = 0;
+        if (ids.length > 0) {
+          // Par lots (limite de taille de requête) : échec partiel = compte réel.
+          for (let i = 0; i < ids.length; i += 100) {
+            const chunk = ids.slice(i, i + 100);
+            const { error: delErr, count } = await supabaseAdmin
+              .from("mockup_jobs")
+              .delete({ count: "exact" })
+              .in("id", chunk);
+            if (delErr) break;
+            cleared += count || 0;
+          }
+        }
+        return new Response(
+          JSON.stringify({ cleared, remaining: ids.length - cleared }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -2517,10 +2770,50 @@ export default {
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: prep.status || 500 },
           );
         }
+        // Placements demandés (défaut front seul) : validés contre les
+        // placements réellement dispo du blank, max 5 (quota Printful).
+        // Sans UI dédiée pour l'instant : l'appelant passe ?placements=back
+        // pour les vues alternées (galerie showcase) ; sinon front seul.
+        const availablePl: string[] = Array.isArray(prep.printfiles)
+          ? [
+              ...new Set(
+                prep.printfiles
+                  .map((p: any) => String(p?.placement || "").toLowerCase())
+                  .filter((s: string) => s.length > 0),
+              ),
+            ]
+          : [];
+        const poolPl =
+          availablePl.length > 0 ? availablePl : [prep.placement!];
+        let requestedPl: string[] | undefined;
+        if (Array.isArray(body.placements)) {
+          const clean = [
+            ...new Set(
+              body.placements
+                .map((s: any) => String(s ?? "").toLowerCase())
+                .filter((s: string) => s.length > 0 && poolPl.includes(s)),
+            ),
+          ].slice(0, 5);
+          if (clean.length > 0) requestedPl = clean;
+        }
         const created = await createMockupTask(
           supabaseAdmin, apiKey, storeId,
           prep.catalogProductId!, prep.uniqueVariantIds!, prep.printFileUrl!,
           prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
+          requestedPl
+            ? {
+                files: buildMockupFiles(
+                  prep.printFileUrl!,
+                  requestedPl,
+                  prep.printfiles || [],
+                  {
+                    placement: prep.placement!,
+                    width: prep.printAreaWidth!,
+                    height: prep.printAreaHeight!,
+                  },
+                ),
+              }
+            : undefined,
         );
         if (!created.ok) {
           return new Response(
@@ -2564,6 +2857,7 @@ export default {
             applied: fin.applied ?? null,
             unmatchedVids: fin.unmatchedVids ?? [],
             unmatchedHexes: fin.unmatchedHexes ?? [],
+            placements: requestedPl ?? [prep.placement!],
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
@@ -2704,7 +2998,7 @@ export default {
           try {
             const { data: existingForMerge } = await supabaseAdmin
               .from("products")
-              .select("variants")
+              .select("variants, gallery, gallery_meta")
               .eq("external_product_id", pfProduct.id.toString())
               .maybeSingle();
             const oldVariants: any[] = existingForMerge?.variants || [];
@@ -2776,19 +3070,45 @@ export default {
             }
           }
 
-          // Galerie = mockups vierges uniquement (les aperçus avec design
-          // vivent sur chaque variante). Replis : colorImages puis fichiers.
-          const catalogGallery = [...new Set(mockupImages)].slice(0, 12);
-          const colorGallery = [...new Set(colorImages)].slice(0, 12);
-          const fileGallery = (
-            mainVariant?.files?.map((f: any) => f.thumbnail_url) || []
-          ).filter((u: string) => u && u.trim().length > 0);
-          const gallery =
-            catalogGallery.length > 0
-              ? catalogGallery
-              : colorGallery.length > 0
-                ? colorGallery
-                : fileGallery;
+          // Galerie curatée (voir _shared/gallery.ts) : AUCUN aperçu brut
+          // (jamais un visuel galerie), AUCUN blank de couleur non importée
+          // (avatars fantômes), AUCUN doublon des fronts (section Color).
+          // Blanks gardés en plancher pré-génération ; customs admin acquis.
+          const galCands: Array<{
+            url: string;
+            color?: string | null;
+            placement?: string | null;
+            source: "generated" | "blank" | "custom";
+          }> = [];
+          colorImages.forEach((u: string, i: number) => {
+            if (u) {
+              galCands.push({
+                url: u,
+                color: (colors as string[])[i] ?? null,
+                placement: null,
+                source: "blank",
+              });
+            }
+          });
+          for (const u of mockupImages) {
+            if (u) {
+              galCands.push({ url: u, color: null, placement: null, source: "blank" });
+            }
+          }
+          const galMeta = buildGalleryMeta(galCands, {
+            existingMeta: (existingForMerge as any)?.gallery_meta,
+            existingGallery: (existingForMerge as any)?.gallery,
+            variantFronts: (variants as any[]).map((v: any) => v.image),
+            importedColors: colors,
+            identity: (u: string) => {
+              try {
+                return imagekitOriginal(u);
+              } catch {
+                return u;
+              }
+            },
+          });
+          const gallery = galleryUrls(galMeta, 12);
 
           const price = mainVariant?.retail_price
             ? parseFloat(mainVariant.retail_price)
@@ -2852,6 +3172,14 @@ export default {
               colorImages.length > 0 ? colorImages : null;
           } catch {
             // column may not exist yet
+          }
+
+          // Méta galerie curatée (dont mémoire kept:false) : écrite avec la
+          // galerie pour les runs suivants et le picker admin.
+          try {
+            (productPayload as any).gallery_meta = galMeta.slice(0, 100);
+          } catch {
+            // colonne absente (migration non appliquée) : galerie seule
           }
 
           // Durabilité mockups générés : un resync n'écrase JAMAIS un visuel

@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   fetchWithRetry,
   isRetriableStatus,
+  parseRetryAfterBody,
   reportError,
 } from "../supabase/functions/_shared/opsUtils.ts";
 
@@ -389,4 +390,57 @@ test("stripe not_configured compte comme échec (pastille grise côté UI)", () 
   const detail = "not_configured";
   const display: string = detail === "not_configured" ? "gray" : "red";
   assert.equal(display, "gray");
+});
+
+// ─── 429 Printful : délai explicite du corps (anti-verrou prolongé) ─────────
+// Constat réel : sans lecture du "try again after N seconds", chaque retry
+// retombe dans le verrou et l'ALLONGE (29s -> 30s -> 60s).
+
+test("parseRetryAfterBody : lit le délai Printful", () => {
+  assert.equal(
+    parseRetryAfterBody(
+      '{"code":429,"result":"You\'ve recently sent too many requests. Please try again after 29 seconds."}',
+    ),
+    29,
+  );
+  assert.equal(parseRetryAfterBody("Please try again after 60 seconds."), 60);
+  assert.equal(parseRetryAfterBody("Please try again after 1 second."), 1);
+  assert.equal(parseRetryAfterBody(""), null);
+  assert.equal(parseRetryAfterBody(null), null);
+  assert.equal(parseRetryAfterBody(42), null);
+  assert.equal(parseRetryAfterBody("no directive here"), null);
+  assert.equal(parseRetryAfterBody("after 0 seconds"), null);
+  // Cap 120 s : directive explicite > backoff local, mais bornée.
+  assert.equal(parseRetryAfterBody("try again after 9999 seconds"), 120);
+  assert.equal(parseRetryAfterBody("try again after 9999 seconds", 30), 30);
+});
+
+test("fetchWithRetry : 429 finale expose retryAfterSec", async () => {
+  (globalThis as any).fetch = async () => ({
+    ok: false,
+    status: 429,
+    headers: { get: () => null },
+    clone: () => ({
+      text: async () =>
+        "You've recently sent too many requests. Please try again after 45 seconds.",
+    }),
+    json: async () => ({}),
+    text: async () => "",
+  });
+  const r = await fetchWithRetry("https://x.test/", {}, { baseMs: 1, attempts: 1 });
+  assert.equal(r.attempts, 1);
+  assert.equal(r.retryAfterSec, 45);
+});
+
+test("fetchWithRetry : sans clone (mocks légers) → pas de crash", async () => {
+  (globalThis as any).fetch = async () => ({
+    ok: false,
+    status: 429,
+    headers: { get: () => null },
+    json: async () => ({}),
+    text: async () => "",
+  });
+  const r = await fetchWithRetry("https://x.test/", {}, { baseMs: 1, attempts: 1 });
+  assert.equal(r.attempts, 1);
+  assert.equal(r.retryAfterSec, undefined);
 });

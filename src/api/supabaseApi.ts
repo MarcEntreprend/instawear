@@ -30,6 +30,13 @@ interface ProductRow {
   full_description?: string | null;
   image: string;
   gallery: string[];
+  gallery_meta?: Array<{
+    url: string;
+    color: string | null;
+    placement: string | null;
+    source: "generated" | "blank" | "custom";
+    kept: boolean;
+  }> | null;
   mockup_preset?: string | null;
   price: number;
   original_price?: number | null;
@@ -78,6 +85,7 @@ const mapProduct = (row: any): AdminProduct => ({
   fullDescription: row.full_description,
   image: row.image,
   gallery: row.gallery,
+  galleryMeta: row.gallery_meta ?? null,
   mockupPreset: row.mockup_preset,
   price: row.price,
   originalPrice: row.original_price,
@@ -243,8 +251,9 @@ export const productApi = {
       brand: product.brand,
       description: product.description,
       full_description: product.fullDescription,
-      image: product.image,
-      gallery: product.gallery.filter((url) => url && url.trim().length > 0),
+  image: product.image,
+  gallery: product.gallery.filter((url) => url && url.trim().length > 0),
+  gallery_meta: product.galleryMeta ?? null,
       mockup_preset: product.mockupPreset,
       price: product.price,
       original_price: product.originalPrice,
@@ -325,6 +334,7 @@ export const productApi = {
       gallery: updates.gallery?.filter(
         (url: string) => url && url.trim().length > 0,
       ),
+      gallery_meta: (updates as any).galleryMeta ?? null,
       mockup_preset: updates.mockupPreset,
       price: updates.price,
       original_price: updates.originalPrice,
@@ -1235,6 +1245,9 @@ export interface MockupQueueResult {
   skipped: number;
   done?: boolean;
   message?: string;
+  /** Verrou Printful actif : ne pas relancer avant retryAfterSec. */
+  locked?: boolean;
+  retryAfterSec?: number;
   details?: {
     queued: { productId: string; jobId: string; taskKey: string }[];
     failed: { productId: string; error: string }[];
@@ -1796,12 +1809,20 @@ export const podApi = {
    * @param productId - L'ID interne du produit dans notre base.
    * @returns { success, taskKey, mockupsGenerated, colors, storageUrls }
    */
-  async generateMockups(productId: string): Promise<{
+  async generateMockups(
+    productId: string,
+    placements?: string[],
+  ): Promise<{
     success: boolean;
     taskKey: string;
     mockupsGenerated: number;
     colors: string[];
     storageUrls: Record<string, string>;
+    applied?: number | null;
+    unmatchedVids?: string[];
+    unmatchedHexes?: string[];
+    placements?: string[];
+    gallery?: string[];
   }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
     const headers = await getPodAuthHeaders();
@@ -1811,6 +1832,7 @@ export const podApi = {
       body: JSON.stringify({
         action: "generate-mockups",
         productId,
+        ...(placements && placements.length > 0 ? { placements } : {}),
       }),
     });
     if (!res.ok) {
@@ -1871,6 +1893,22 @@ export const podApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Erreur statut file mockups");
+    }
+    return res.json();
+  },
+
+  /** Efface l'historique terminé (done + failed). En-cours conservés. */
+  async clearMockupHistory(): Promise<{ cleared: number; remaining: number }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
+    const headers = await getPodAuthHeaders();
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "mockup-clear" }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erreur effacement historique mockups");
     }
     return res.json();
   },

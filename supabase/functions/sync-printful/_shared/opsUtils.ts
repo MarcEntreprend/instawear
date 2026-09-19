@@ -28,6 +28,23 @@ export interface RetryResult {
   res: Response | null;
   attempts: number;
   error?: string;
+  /** Délai explicite imposé par le serveur (429 avec directive), en secondes. */
+  retryAfterSec?: number;
+}
+
+/**
+ * Délai "try again after N seconds" DANS LE CORPS d'une 429 Printful.
+ * Le header Retry-After est absent/ignoré ici ; sans cette lecture, on
+ * retente pendant le verrou et chaque retry l'ALLONGE (29s -> 30s -> 60s
+ * constaté). Cap 120 s (directive explicite > backoff local).
+ */
+export function parseRetryAfterBody(text: unknown, capSec = 120): number | null {
+  if (typeof text !== "string" || text.length === 0) return null;
+  const m = text.match(/\bafter\s+(\d+)\s*seconds?\b/i);
+  if (!m) return null;
+  const s = parseInt(m[1], 10);
+  if (!Number.isFinite(s) || s <= 0) return null;
+  return Math.min(s, Math.max(1, capSec));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -79,13 +96,38 @@ export async function fetchWithRetry(
     if (res.ok) return { res, attempts: i };
     lastError = `HTTP ${res.status}`;
     if (!isRetriableStatus(res.status, idempotent) || i >= attempts) {
+      if (res.status === 429) {
+        const explicit = await readRetryAfterSec(res);
+        if (explicit != null) return { res, attempts: i, error: lastError, retryAfterSec: explicit };
+      }
       return { res, attempts: i, error: lastError };
     }
-    const wait =
-      retryAfterMs(res) ?? baseMs * 2 ** (i - 1) + Math.random() * 250;
+    const headerMs = retryAfterMs(res);
+    // Directive explicite du corps (Printful : "try again after N seconds").
+    // Prioritaire sur tout : retenter avant = prolonger le verrou.
+    let explicitMs: number | null = null;
+    if (res.status === 429) {
+      const bodySec = await readRetryAfterSec(res);
+      if (bodySec != null) explicitMs = bodySec * 1000;
+    }
+    const backoffMs = baseMs * 2 ** (i - 1) + Math.random() * 250;
+    const wait = Math.max(headerMs ?? 0, explicitMs ?? 0, backoffMs);
+    if (res.status === 429 && explicitMs != null) {
+      lastError = `${lastError} (réessayer dans ${Math.ceil(explicitMs / 1000)}s)`;
+    }
     await sleep(wait);
   }
   return { res: null, attempts, error: lastError };
+}
+
+/** Lit le délai explicite d'une 429 SANS consommer la réponse (clone). */
+async function readRetryAfterSec(res: Response): Promise<number | null> {
+  try {
+    const text = await res.clone?.().text?.();
+    return parseRetryAfterBody(text);
+  } catch {
+    return null;
+  }
 }
 
 // ─── Monitoring autonome ────────────────────────────────────────────────────
