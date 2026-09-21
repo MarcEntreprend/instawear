@@ -2,6 +2,9 @@
 
 import { supabase } from "../lib/supabaseClient";
 import { escapeHtml } from "../utils/format";
+// Règle CA net canonique (Vague B item 8) : orderStatusLabels n'importe
+// que React — pas de cycle api ↔ admin.
+import { sumRevenue } from "../admin/orderStatusLabels";
 import type {
   AdminProduct,
   Customer,
@@ -915,6 +918,11 @@ export const customerApi = {
   },
 };
 
+let ordersCache: { data: Order[] | null; ts: number } = {
+  data: null,
+  ts: 0,
+};
+
 export const orderApi = {
   /**
    * Compteurs par statut (léger : colonne status seule, sans items).
@@ -929,6 +937,26 @@ export const orderApi = {
       counts[s] = (counts[s] || 0) + 1;
     }
     return counts;
+  },
+  /**
+   * Cache partagé des commandes (Vague B item 6 : fini les N× list()
+   * indépendants — Orders, Expéditions, Finances, Rapports, Dashboard
+   * partagent UNE requête par fenêtre de 30 s). Invalidé à chaque
+   * changement de statut (updateStatusViaEdge) ; les statuts/chiffres
+   * restent définis UNE fois dans orderStatusLabels.ts.
+   */
+  async listCached(ttlMs = 30000): Promise<Order[]> {
+    const now = Date.now();
+    if (ordersCache.data && now - ordersCache.ts < ttlMs) {
+      return ordersCache.data;
+    }
+    const fresh = await this.list();
+    ordersCache = { data: fresh, ts: now };
+    return fresh;
+  },
+  /** À appeler après toute mutation de commandes (statut, remboursement). */
+  invalidateOrdersCache(): void {
+    ordersCache = { data: null, ts: 0 };
   },
   async list(): Promise<Order[]> {
     // 1. Charger toutes les commandes (1 requête)
@@ -1206,6 +1234,8 @@ export const orderApi = {
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    // Le statut a changé côté serveur : le cache partagé est périmé.
+    orderApi.invalidateOrdersCache();
     return {
       emailed: !!data.emailed,
       status: data.status || status,
@@ -2192,7 +2222,7 @@ export const dashboardApi = {
     const [products, customers, orders, pod] = await Promise.all([
       productApi.list(),
       customerApi.list(),
-      orderApi.list(),
+      orderApi.listCached(),
       podApi.getSettings(),
     ]);
     const today = new Date().toDateString();
@@ -2204,7 +2234,9 @@ export const dashboardApi = {
       productsOffline: products.filter((p) => !p.isActive).length,
       totalCustomers: customers.length,
       ordersToday: ordersToday.length,
-      revenueEstimate: orders.reduce((acc, o) => acc + o.totalAmount, 0),
+      // CA NET (règle canonique sumRevenue, même chiffre que Rapports —
+      // Vague B item 8 : fini les deux CA incompatibles).
+      revenueEstimate: sumRevenue(orders),
       podConnected: pod.isConnected,
       recentOrders: orders.slice(0, 5),
       recentProducts: products.slice(0, 4),

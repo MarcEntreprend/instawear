@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
 import { useAdminBadges } from "./useAdminBadges";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { formatDateTimeFR } from "../utils/dates";
 import { useHighlightListener } from "./useAdminHighlight";
 import CopyID from "../components/CopyID";
 import { productApi } from "../api/supabaseApi";
@@ -61,9 +63,10 @@ const iconBtn: React.CSSProperties = {
   alignItems: "center",
 };
 
-// ─── Format currency ───────────────────────────────────────────────────────
-const formatCurrency = (value: number) =>
-  value.toFixed(2).replace(".", ",") + " $";
+// ─── Format currency : devise du store (Vague B item 7, fini le "$" en dur).
+// Défini dans le composant (a besoin du hook). Les coûts Printful gardent
+// leur propre devise (donnée Printful, USD) dans PrintfulCostsBlock.
+
 
 // ─── Coûts Printful (ADMIN uniquement) ──────────────────────────────────────
 // Affiche le snapshot estimé persisté à la création (costs/retail_costs).
@@ -127,9 +130,7 @@ function PrintfulCostsBlock({
       ))}
       <p style={{ fontSize: 10, color: "var(--color-ink3)", marginTop: 4 }}>
         Estimé à la création
-        {costs.estimated_at
-          ? ` le ${new Date(costs.estimated_at).toLocaleString("fr-FR")}`
-          : ""}
+        {costs.estimated_at ? ` le ${formatDateTimeFR(costs.estimated_at)}` : ""}
         . Le calcul final Printful peut différer.
       </p>
     </div>
@@ -207,6 +208,10 @@ export default function OrdersPage() {
   // ── Filter & sort ────────────────────────────────────────────────────────
   // "En attente" = total partagé (même chiffre que badge + dashboard).
   const { ordersPending: pendingShared } = useAdminBadges(true);
+  // Devise du store (Vague B item 7).
+  const currencySymbol = useCurrencySymbol();
+  const formatCurrency = (value: number) =>
+    `${value.toFixed(2).replace(".", ",")} ${currencySymbol}`;
   const filteredOrders = useMemo(() => {
     let list = [...allOrders];
 

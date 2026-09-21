@@ -40,7 +40,7 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
-import { OrderStatusBadge } from "./orderStatusLabels";
+import { OrderStatusBadge, isPendingOrder } from "./orderStatusLabels";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -493,10 +493,10 @@ function DashboardHome({
         </div>
       </div>
 
-      {/* Commandes en attente (alerte) */}
+      {/* Commandes en attente (alerte) — règle canonique isPendingOrder */}
       {(() => {
-        const pendingOrders = stats.recentOrders.filter(
-          (o) => o.status === "pending",
+        const pendingOrders = stats.recentOrders.filter((o) =>
+          isPendingOrder(o.status),
         );
         if (pendingOrders.length === 0) return null;
         const visibleOrders = pendingOrders.slice(0, 3);
@@ -691,9 +691,9 @@ function DashboardHome({
         />
         <StatCard
           icon={<TrendingUp size={20} strokeWidth={2} />}
-          label="CA estimé"
+          label="CA net"
           value={`${stats.revenueEstimate.toFixed(0)} ${currencySymbol}`}
-          sub="toutes commandes"
+          sub="encaissé · partiels inclus · même règle que Rapports"
         />
         <StatCard
           icon={

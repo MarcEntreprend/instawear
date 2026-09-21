@@ -16,8 +16,11 @@
 // (jamais de remise à zéro qui ferait clignoter les badges).
 
 import { useSyncExternalStore } from "react";
+import { ORDER_PENDING_STATUSES } from "./orderStatusLabels";
 
-export const ORDER_PENDING_STATUSES = ["pending"] as const;
+// Ré-export de compat : la définition canonique vit dans
+// orderStatusLabels.ts (Vague B item 6 — une seule vérité "en attente").
+export { ORDER_PENDING_STATUSES };
 export const ORDER_TOSHIP_STATUSES = ["in_production", "partial"] as const;
 
 export interface AdminBadges {

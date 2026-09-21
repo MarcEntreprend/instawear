@@ -54,27 +54,12 @@ import {
 import { customerApi, interactionApi } from "../api/supabaseApi";
 import CartIcon from "../components/CartIcon";
 import { OrderStatusBadge } from "./orderStatusLabels";
-
-// ─── Format date ──────────────────────────────────────────────────────────
-function formatDate(iso?: string) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(iso?: string) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// Dates FR canoniques partagées (Vague B item 7) — mêmes noms qu'avant,
+// format unifié JJ/MM/AAAA (+ HH:MM).
+import {
+  formatDateFR as formatDate,
+  formatDateTimeFR as formatDateTime,
+} from "../utils/dates";
 
 // ─── Main component ───────────────────────────────────────────────────────
 export default function CustomersPage({

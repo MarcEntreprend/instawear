@@ -13,8 +13,9 @@ import { Wallet, Check, X, RefreshCw, Search, AlertCircle } from "lucide-react";
 import { orderApi, refundApi } from "../api/supabaseApi";
 import type { OrderRefund, RefundRequest } from "../api/supabaseApi";
 import type { Order } from "./adminTypes";
-import { ORDER_STATUS_LABEL } from "./orderStatusLabels";
+import { OrderStatusBadge } from "./orderStatusLabels";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { formatDateFR } from "../utils/dates";
 import CopyID from "../components/CopyID";
 
 interface FinancesPageProps {
@@ -64,8 +65,10 @@ export default function FinancesPage({
     setLoading(true);
     setError("");
     try {
+      // Refresh manuel = bypass cache (Vague B item 6 : frais + recache).
+      orderApi.invalidateOrdersCache();
       const [o, r, f] = await Promise.all([
-        orderApi.list(),
+        orderApi.listCached(),
         refundApi.listRequests(),
         refundApi.listRefunds(),
       ]);
@@ -342,7 +345,7 @@ export default function FinancesPage({
                       ? `${(r.amountCents / 100).toFixed(2)} ${currencySymbol} souhaités`
                       : "montant total souhaité"}
                     {r.reason ? ` · « ${r.reason} »` : ""} ·{" "}
-                    {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                    {formatDateFR(r.createdAt)}
                   </p>
                 </div>
                 {r.status === "pending" ? (
@@ -518,19 +521,8 @@ export default function FinancesPage({
                 {selected.id}
               </strong>
               <CopyID id={selected.id} size={12} />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "2px 10px",
-                  borderRadius: 999,
-                  background:
-                    ORDER_STATUS_LABEL[selected.status]?.bg || "#f3f4f6",
-                  color: ORDER_STATUS_LABEL[selected.status]?.color || "#555",
-                }}
-              >
-                {ORDER_STATUS_LABEL[selected.status]?.label || selected.status}
-              </span>
+              {/* Badge canonique (Vague B item 8 : fini le span recodé). */}
+              <OrderStatusBadge status={selected.status} />
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "var(--color-ink2)" }}>
               {selected.clientName || selected.clientEmail || "—"} · Total{" "}
@@ -544,7 +536,7 @@ export default function FinancesPage({
                   <div key={r.id}>
                     • {(r.amountCents / 100).toFixed(2)} {r.currency} —{" "}
                     {r.stripeRefundId || r.status} —{" "}
-                    {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                    {formatDateFR(r.createdAt)}
                   </div>
                 ))}
               </div>
@@ -689,7 +681,7 @@ export default function FinancesPage({
                 </span>
                 <span style={{ color: "var(--color-ink3)" }}>
                   {r.stripeRefundId || r.status} · {r.reason || "—"} ·{" "}
-                  {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                  {formatDateFR(r.createdAt)}
                 </span>
               </div>
             ))}

@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { errorMonitoringApi, type EdgeErrorRow } from "../api/supabaseApi";
+import { formatDateTimeFR } from "../utils/dates";
 
 const SEVERITY_STYLE: Record<
   string,
@@ -35,16 +36,7 @@ const KNOWN_FUNCTIONS = [
 ];
 
 function fmtDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateTimeFR(iso);
 }
 
 export default function ErrorMonitoringPage() {

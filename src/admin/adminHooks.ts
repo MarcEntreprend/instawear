@@ -234,11 +234,20 @@ export function useCustomerDetail(id: string | null) {
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────
+// Source partagée (Vague B item 6) : listCached = UNE requête / 30 s pour
+// tout l'admin (Orders, Expéditions, Finances, Rapports, Dashboard).
 export function useOrders() {
   const { data, loading, error, refetch } = useAsync<Order[]>(() =>
-    orderApi.list(),
+    orderApi.listCached(),
   );
   const [saving, setSaving] = useState(false);
+
+  // Refresh manuel = bypass cache (données fraîches garanties + recache).
+  // Les chargements automatiques restent sur listCached (1 req / 30 s).
+  const refresh = useCallback(async () => {
+    orderApi.invalidateOrdersCache();
+    await refetch();
+  }, [refetch]);
 
   const updateStatus = useCallback(
     async (
@@ -277,7 +286,7 @@ export function useOrders() {
     loading,
     error,
     saving,
-    refetch,
+    refetch: refresh,
     updateStatus,
     exportCsv,
   };

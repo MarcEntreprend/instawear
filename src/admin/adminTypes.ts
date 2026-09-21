@@ -329,6 +329,8 @@ export interface DashboardStats {
   productsOffline: number;
   totalCustomers: number;
   ordersToday: number;
+  /** CA NET (règle sumRevenue : pending/cancelled/refunded/returned exclus,
+   *  partial plein — même chiffre que Rapports, Vague B item 8). */
   revenueEstimate: number;
   podConnected: boolean;
   recentOrders: Order[];
