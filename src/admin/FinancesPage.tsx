@@ -46,8 +46,9 @@ export default function FinancesPage({
     initialOrderId || null,
   );
   const [amountInput, setAmountInput] = useState("");
-  const [reasonInput, setReasonInput] =
-    useState<string>("requested_by_customer");
+  const [reasonInput, setReasonInput] = useState<string>(
+    "requested_by_customer",
+  );
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<{
     text: string;
@@ -225,11 +226,11 @@ export default function FinancesPage({
             gap: 8,
           }}
         >
-          <Wallet size={20} strokeWidth={2} /> Finances
+          Finances
         </h2>
         <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-          Remboursements réels Stripe + demandes clients. Chaque euro qui
-          bouge est tracé (id `re_…`, montant, motif, auteur).
+          Remboursements réels Stripe + demandes clients. Chaque euro qui bouge
+          est tracé (id `re_…`, montant, motif, auteur).
         </p>
       </div>
 
@@ -409,8 +410,7 @@ export default function FinancesPage({
                       borderRadius: 999,
                       background:
                         r.status === "approved" ? "#dcfce7" : "#f3f4f6",
-                      color:
-                        r.status === "approved" ? "#166534" : "#6b7280",
+                      color: r.status === "approved" ? "#166534" : "#6b7280",
                     }}
                   >
                     {r.status === "approved" ? "Approuvée" : "Rejetée"}
@@ -507,7 +507,12 @@ export default function FinancesPage({
             }}
           >
             <div
-              style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
             >
               <strong style={{ fontFamily: "monospace", fontSize: 14 }}>
                 {selected.id}
@@ -521,8 +526,7 @@ export default function FinancesPage({
                   borderRadius: 999,
                   background:
                     ORDER_STATUS_LABEL[selected.status]?.bg || "#f3f4f6",
-                  color:
-                    ORDER_STATUS_LABEL[selected.status]?.color || "#555",
+                  color: ORDER_STATUS_LABEL[selected.status]?.color || "#555",
                 }}
               >
                 {ORDER_STATUS_LABEL[selected.status]?.label || selected.status}
