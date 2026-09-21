@@ -22,6 +22,8 @@ import {
 import { useProducts, useReferenceLists, normalizeRefKey } from "./adminHooks";
 import { normalizeMaterialKey } from "../data/materials";
 import { DISCOUNT_EVENT_TYPE } from "../data/categories";
+import AdminBadge from "./ui/AdminBadge";
+import AdminEmpty from "./ui/AdminEmpty";
 import MockupStudio, { mockupCoverage, needsMockups } from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -46,25 +48,25 @@ const BADGE_STYLE: Record<string, React.CSSProperties> = {
 function Badge({
   label,
   style,
+  title,
 }: {
   label: string;
   style: React.CSSProperties;
+  title?: string;
 }) {
+  // Géométrie via AdminBadge sm (Vague C2 : pastille unique) ; les couleurs
+  // restent du domaine (BADGE_STYLE).
+  const { background, color } = style as { background?: string; color?: string };
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "2px 8px",
-        borderRadius: 999,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        ...style,
-      }}
+    <AdminBadge
+      size="sm"
+      uppercase
+      title={title}
+      color={typeof color === "string" ? color : "#555"}
+      bg={typeof background === "string" ? background : "#f3f4f6"}
     >
       {label}
-    </span>
+    </AdminBadge>
   );
 }
 
@@ -1563,6 +1565,7 @@ export default function ProductsPage() {
                         <Badge
                           label={`Mockups ${cov.imaged}/${cov.total}`}
                           style={BADGE_STYLE.mockups}
+                          title={`Mockups ${cov.imaged}/${cov.total} — à compléter`}
                         />
                       )}
                       {!p.isActive && (
@@ -1638,18 +1641,11 @@ export default function ProductsPage() {
           </tbody>
         </table>
         {orderedProducts.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 32,
-              color: "var(--color-ink4)",
-            }}
-          >
-            <Package
-              size={28}
-              style={{ margin: "0 auto 10px", opacity: 0.5 }}
+          <div style={{ padding: 16 }}>
+            <AdminEmpty
+              icon={<Package size={28} />}
+              title="Aucun produit trouvé."
             />
-            Aucun produit trouvé.
           </div>
         )}
       </div>

@@ -30,6 +30,7 @@ import ProductQuickViewModal, {
   type OrderPriceSnapshot,
 } from "./ProductQuickViewModal";
 import AdminButton from "./ui/AdminButton";
+import AdminEmpty from "./ui/AdminEmpty";
 import CartIcon from "../components/CartIcon";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 import {
@@ -676,19 +677,11 @@ export default function OrdersPage() {
           <tbody>
             {filteredOrders.length === 0 && (
               <tr>
-                <td
-                  colSpan={7}
-                  style={{
-                    textAlign: "center",
-                    padding: 32,
-                    color: "var(--color-ink4)",
-                  }}
-                >
-                  <Package
-                    size={28}
-                    style={{ margin: "0 auto 10px", opacity: 0.5 }}
+                <td colSpan={7} style={{ padding: 16 }}>
+                  <AdminEmpty
+                    icon={<Package size={28} />}
+                    title="Aucune commande trouvée."
                   />
-                  Aucune commande trouvée.
                 </td>
               </tr>
             )}

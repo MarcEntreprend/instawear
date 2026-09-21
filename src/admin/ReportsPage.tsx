@@ -27,6 +27,7 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { Order, AdminProduct, Customer } from "./adminTypes";
 import { isRevenueOrder, sumRevenue } from "./orderStatusLabels";
+import AdminEmpty from "./ui/AdminEmpty";
 import ReportInfoModal from "./ReportInfoModal";
 import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -219,21 +220,6 @@ function StatCard({
 }
 
 // ─── Section vide ──────────────────────────────────────────────────────────
-function EmptySection({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: 24,
-        color: "var(--color-ink4)",
-        fontSize: 13,
-      }}
-    >
-      {message}
-    </div>
-  );
-}
-
 // ─── Helpers de date ──────────────────────────────────────────────────────
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -1590,7 +1576,7 @@ export default function ReportsPage() {
               </div>
             ))
           ) : (
-            <EmptySection message="Aucune vente sur cette période." />
+            <AdminEmpty title="Aucune vente sur cette période." />
           )}
         </div>
 
@@ -1719,7 +1705,7 @@ export default function ReportsPage() {
               ))}
             </div>
           ) : (
-            <EmptySection message="Aucun produit vendu pour le moment." />
+            <AdminEmpty title="Aucun produit vendu pour le moment." />
           )}
         </div>
       </div>
@@ -1784,7 +1770,7 @@ export default function ReportsPage() {
               </button>
             </div>
             {topProducts.length === 0 ? (
-              <EmptySection message="Aucun produit vendu pour le moment." />
+            <AdminEmpty title="Aucun produit vendu pour le moment." />
             ) : (
               topProducts.map((product, index) => (
                 <div
@@ -1946,7 +1932,7 @@ export default function ReportsPage() {
               </button>
             </div>
             {categorySales.length === 0 && (
-              <EmptySection message="Aucune vente sur cette période." />
+            <AdminEmpty title="Aucune vente sur cette période." />
             )}
             {categorySales.map((item, idx) => (
               <div

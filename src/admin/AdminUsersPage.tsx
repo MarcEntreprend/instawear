@@ -16,6 +16,15 @@ import {
 import { useAdminUsers } from "./adminHooks";
 import { AdminUser, AdminRole, AdminAuditEntry } from "./adminTypes";
 import { iconBtn } from "./adminStyles";
+import {
+  tableWrapperStyle,
+  theadStyle,
+  thStyle,
+  tdStyle,
+} from "./adminStyles";
+import AdminBadge from "./ui/AdminBadge";
+import AdminEmpty from "./ui/AdminEmpty";
+import { formatDateFR, formatDateTimeFR } from "../utils/dates";
 import { canDeleteAdmin, canChangeRole, emailExists } from "./adminGuards";
 
 // ─── Badge de rôle ──────────────────────────────────────────────────────────
@@ -40,23 +49,11 @@ function RoleBadge({ role }: { role: AdminRole }) {
     color: "#555",
     bg: "#f3f4f6",
   };
+  // Géométrie via AdminBadge (Vague C2 : pastille unique).
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "2px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: style.color,
-        background: style.bg,
-        textTransform: "uppercase",
-        letterSpacing: "0.03em",
-        whiteSpace: "nowrap",
-      }}
-    >
+    <AdminBadge color={style.color} bg={style.bg} uppercase>
       {style.label}
-    </span>
+    </AdminBadge>
   );
 }
 
@@ -430,37 +427,25 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Tableau */}
-      <div
-        style={{
-          overflowX: "auto",
-          borderRadius: 16,
-          border: "1px solid var(--color-border)",
-          background: "var(--color-surface)",
-        }}
-      >
+      {/* Tableau — objets canoniques adminStyles (Vague C2 : fini le
+          3e padding maison ; 12px/14px th, 10px/14px td). */}
+      <div style={tableWrapperStyle}>
         <table
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
         >
-          <thead
-            style={{
-              background: "var(--color-surface2)",
-              fontWeight: 700,
-              color: "var(--color-ink2)",
-            }}
-          >
+          <thead style={theadStyle}>
             <tr>
-              <th style={{ padding: "12px 14px", textAlign: "left" }}>Email</th>
-              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+              <th style={{ ...thStyle, textAlign: "left" }}>Email</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>
                 Rôle
               </th>
-              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+              <th style={{ ...thStyle, textAlign: "center" }}>
                 Créé le
               </th>
-              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+              <th style={{ ...thStyle, textAlign: "center" }}>
                 Dernière connexion
               </th>
-              <th style={{ padding: "12px 14px", textAlign: "center" }}>
+              <th style={{ ...thStyle, textAlign: "center" }}>
                 Actions
               </th>
             </tr>
@@ -468,19 +453,11 @@ export default function AdminUsersPage() {
           <tbody>
             {filteredUsers.length === 0 ? (
               <tr>
-                <td
-                  colSpan={5}
-                  style={{
-                    textAlign: "center",
-                    padding: 32,
-                    color: "var(--color-ink4)",
-                  }}
-                >
-                  <User
-                    size={28}
-                    style={{ margin: "0 auto 10px", opacity: 0.5 }}
+                <td colSpan={5} style={{ padding: 16 }}>
+                  <AdminEmpty
+                    icon={<User size={28} />}
+                    title="Aucun administrateur trouvé."
                   />
-                  Aucun administrateur trouvé.
                 </td>
               </tr>
             ) : (
@@ -491,71 +468,52 @@ export default function AdminUsersPage() {
                 >
                   <td
                     style={{
-                      padding: "10px 14px",
+                      ...tdStyle,
                       fontWeight: 600,
                       color: "var(--color-ink)",
                     }}
                   >
                     {user.email}
-                    {myEmail &&
-                      user.email.trim().toLowerCase() ===
-                        myEmail.trim().toLowerCase() && (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            marginLeft: 8,
-                            padding: "1px 8px",
-                            borderRadius: 999,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: "var(--color-ink2)",
-                            background: "var(--color-surface2)",
-                            border: "1px solid var(--color-border)",
-                          }}
-                        >
-                          Vous
-                        </span>
-                      )}
+                      {myEmail &&
+                        user.email.trim().toLowerCase() ===
+                          myEmail.trim().toLowerCase() && (
+                          <AdminBadge
+                            size="sm"
+                            bordered
+                            color="var(--color-ink2)"
+                            bg="var(--color-surface2)"
+                            style={{ marginLeft: 8 }}
+                          >
+                            Vous
+                          </AdminBadge>
+                        )}
                   </td>
-                  <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
                     <RoleBadge role={user.role} />
                   </td>
                   <td
                     style={{
-                      padding: "10px 14px",
+                      ...tdStyle,
                       textAlign: "center",
                       fontSize: 12,
                       color: "var(--color-ink2)",
                     }}
                   >
-                    {new Date(user.createdAt).toLocaleDateString("fr-FR", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatDateFR(user.createdAt)}
                   </td>
                   <td
                     style={{
-                      padding: "10px 14px",
+                      ...tdStyle,
                       textAlign: "center",
                       fontSize: 12,
                       color: "var(--color-ink2)",
                     }}
                   >
                     {user.lastLoginDate
-                      ? new Date(user.lastLoginDate).toLocaleDateString(
-                          "fr-FR",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )
+                      ? formatDateTimeFR(user.lastLoginDate)
                       : "Jamais"}
                   </td>
-                  <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
                     {canManage ? (
                       <div
                         style={{
@@ -639,7 +597,7 @@ export default function AdminUsersPage() {
                     key={entry.id}
                     style={{ borderTop: "1px solid var(--color-border)" }}
                   >
-                    <td style={{ padding: "8px 10px", color: "var(--color-ink)" }}>
+                    <td style={{ ...tdStyle, color: "var(--color-ink)" }}>
                       <strong>{entry.actorEmail}</strong>{" "}
                       <span style={{ color: "var(--color-ink3)" }}>
                         {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
@@ -656,18 +614,13 @@ export default function AdminUsersPage() {
                     </td>
                     <td
                       style={{
-                        padding: "8px 10px",
+                        ...tdStyle,
                         textAlign: "right",
                         whiteSpace: "nowrap",
                         color: "var(--color-ink4)",
                       }}
                     >
-                      {new Date(entry.createdAt).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatDateTimeFR(entry.createdAt)}
                     </td>
                   </tr>
                 ))}

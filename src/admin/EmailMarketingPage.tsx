@@ -63,6 +63,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import * as S from "./adminStyles";
+import AdminEmpty from "./ui/AdminEmpty";
 import { supabase } from "../lib/supabaseClient";
 import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
 import VariablesModal from "./emailMarketing/VariablesModal";
@@ -695,7 +696,7 @@ function DashboardSection({
           </button>
         </div>
         {recentCampaigns.length === 0 ? (
-          <EmptyPlaceholder
+          <AdminEmpty
             icon={<Mail size={24} strokeWidth={1.5} />}
             title="Aucune campagne"
             sub="Créez votre première campagne email."
@@ -977,7 +978,7 @@ function CampaignsSection({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyPlaceholder
+        <AdminEmpty
           icon={<Mail size={24} strokeWidth={1.5} />}
           title="Aucune campagne"
           sub="Créez votre première campagne email."
@@ -3184,10 +3185,10 @@ function SubscribersSection({
       {loading ? (
         <SkeletonSection />
       ) : filtered.length === 0 ? (
-        <EmptyPlaceholder
+        <AdminEmpty
           icon={<Users size={24} strokeWidth={1.5} />}
-          title="No subscribers found"
-          sub="Add subscribers manually or import a CSV file."
+          title="Aucun abonné"
+          sub="Ajoutez des abonnés manuellement ou importez un fichier CSV."
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3479,68 +3480,6 @@ function InputField({
         >
           {hint}
         </p>
-      )}
-    </div>
-  );
-}
-
-function EmptyPlaceholder({
-  icon,
-  title,
-  sub,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  sub: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        padding: "48px 24px",
-        borderRadius: 16,
-        border: "1px dashed var(--color-border)",
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          background: "var(--color-surface2)",
-          color: "var(--color-ink4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <p
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--color-ink2)",
-            margin: "0 0 3px",
-          }}
-        >
-          {title}
-        </p>
-        <p style={{ fontSize: 12.5, color: "var(--color-ink4)", margin: 0 }}>
-          {sub}
-        </p>
-      </div>
-      {action && (
-        <button onClick={action.onClick} style={accentBtn}>
-          {action.label}
-        </button>
       )}
     </div>
   );

@@ -49,6 +49,7 @@ import { useAdminBadges } from "./useAdminBadges";
 import type { AdminSection } from "./AdminSidebar";
 import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
+import AdminEmpty from "./ui/AdminEmpty";
 import CartIcon from "../components/CartIcon";
 
 // ─── Types ──────────────────────────────────────
@@ -1280,9 +1281,26 @@ export default function NotificationsPage() {
           ))}
         </div>
       ) : notifications.length === 0 ? (
-        <EmptyState
-          hasFilters={activeFilterCount > 0 || !!searchTerm}
-          onReset={resetFilters}
+        <AdminEmpty
+          icon={<Inbox size={22} strokeWidth={1.5} />}
+          title={
+            activeFilterCount > 0 || !!searchTerm
+              ? "Aucune notification ne correspond"
+              : "Aucune notification"
+          }
+          sub={
+            activeFilterCount > 0 || !!searchTerm
+              ? "Essayez d'ajuster vos filtres ou votre recherche."
+              : "Les nouveaux événements de la boutique apparaîtront ici."
+          }
+          action={
+            activeFilterCount > 0 || !!searchTerm
+              ? {
+                  label: "Réinitialiser les filtres",
+                  onClick: resetFilters,
+                }
+              : undefined
+          }
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1664,63 +1682,6 @@ function FilterSelect({
         >
           {dotCount}
         </span>
-      )}
-    </div>
-  );
-}
-
-function EmptyState({
-  hasFilters,
-  onReset,
-}: {
-  hasFilters: boolean;
-  onReset: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        padding: 64,
-        borderRadius: 16,
-        border: "1px dashed var(--color-border)",
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--color-surface2)",
-          color: "var(--color-ink4)",
-        }}
-      >
-        <Inbox size={22} strokeWidth={1.5} />
-      </div>
-      <div>
-        <p
-          style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink2)" }}
-        >
-          {hasFilters
-            ? "Aucune notification ne correspond"
-            : "Aucune notification"}
-        </p>
-        <p style={{ fontSize: 12.5, color: "var(--color-ink4)", marginTop: 2 }}>
-          {hasFilters
-            ? "Essayez d'ajuster vos filtres ou votre recherche."
-            : "Les nouveaux événements de la boutique apparaîtront ici."}
-        </p>
-      </div>
-      {hasFilters && (
-        <button onClick={onReset} style={{ ...secondaryBtn, marginTop: 4 }}>
-          Réinitialiser les filtres
-        </button>
       )}
     </div>
   );

@@ -15,6 +15,7 @@
 // orange → partielle, indigo → expédiée, vert → livrée, ardoise → pause.
 
 import React from "react";
+import AdminBadge from "./ui/AdminBadge";
 
 export const ORDER_STATUS_LABEL: Record<
   string,
@@ -83,21 +84,10 @@ export function OrderStatusBadge({ status }: { status: string }) {
     color: "#555",
     bg: "#f3f4f6",
   };
-  return React.createElement(
-    "span",
-    {
-      style: {
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-        whiteSpace: "nowrap",
-        lineHeight: 1.4,
-      },
-    },
-    s.label,
-  );
+  // Géométrie via AdminBadge (Vague C2 : pastille unique).
+  return React.createElement(AdminBadge, {
+    color: s.color,
+    bg: s.bg,
+    children: s.label,
+  });
 }

@@ -25,6 +25,7 @@ import CopyID from "../components/CopyID";
 import { useHighlightListener } from "./useAdminHighlight";
 import CartIcon from "../components/CartIcon";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import AdminBadge from "./ui/AdminBadge";
 import type { AdminProduct } from "./adminTypes";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -153,21 +154,11 @@ function formatMessageText(
 
 function StatusBadge({ status }: { status: InteractionStatus }) {
   const s = STATUS_META[status];
+  // Géométrie via AdminBadge (Vague C2 : pastille unique).
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-        whiteSpace: "nowrap",
-      }}
-    >
+    <AdminBadge color={s.color} bg={s.bg}>
       {s.label}
-    </span>
+    </AdminBadge>
   );
 }
 

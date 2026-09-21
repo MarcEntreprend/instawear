@@ -41,6 +41,7 @@ import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
 import { OrderStatusBadge, isPendingOrder } from "./orderStatusLabels";
+import AdminEmpty from "./ui/AdminEmpty";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -840,16 +841,9 @@ function DashboardHome({
               </div>
             ))}
             {stats.recentOrders.length === 0 && (
-              <p
-                style={{
-                  padding: "20px",
-                  fontSize: 13,
-                  color: "var(--color-ink4)",
-                  textAlign: "center",
-                }}
-              >
-                Aucune commande pour l'instant.
-              </p>
+              <div style={{ padding: 12 }}>
+                <AdminEmpty title="Aucune commande pour l'instant." />
+              </div>
             )}
           </div>
         </div>

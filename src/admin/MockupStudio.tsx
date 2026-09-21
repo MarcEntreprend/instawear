@@ -18,6 +18,8 @@ import type {
   MockupQueueOptions,
   MockupTemplatePlacement,
 } from "../api/supabaseApi";
+import AdminBadge from "./ui/AdminBadge";
+import AdminEmpty from "./ui/AdminEmpty";
 
 /** Vrai si l'URL est un mockup GÉNÉRÉ (design-sur-vêtement, bucket dédié).
  *  Miroir de isStorageMockupUrl (edge _shared/productImages.ts) : un blank
@@ -738,8 +740,8 @@ export default function MockupStudio({
             <tbody>
               {printfulProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: 20, textAlign: "center", color: "var(--color-ink3)" }}>
-                    Aucun produit Printful importé.
+                  <td colSpan={4} style={{ padding: 16 }}>
+                    <AdminEmpty title="Aucun produit Printful importé." />
                   </td>
                 </tr>
               ) : (
@@ -759,19 +761,16 @@ export default function MockupStudio({
                           {p.title}
                         </td>
                         <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              padding: "2px 8px",
-                              borderRadius: 999,
-                              fontSize: 10,
-                              fontWeight: 800,
-                              color: complete ? "#065f46" : "#92400e",
-                              background: complete ? "#d1fae5" : "#fef3c7",
-                            }}
+                          <AdminBadge
+                            size="sm"
+                            color={complete ? "#065f46" : "#92400e"}
+                            bg={complete ? "#d1fae5" : "#fef3c7"}
+                            title={
+                              complete ? "Mockups complets" : "Mockups incomplets"
+                            }
                           >
                             {cov.imaged}/{cov.total}
-                          </span>
+                          </AdminBadge>
                         </td>
                         <td style={{ padding: "10px 12px" }}>
                           {(() => {
@@ -795,19 +794,13 @@ export default function MockupStudio({
                                 }}
                               >
                                 {st && (
-                                  <span
-                                    style={{
-                                      display: "inline-block",
-                                      padding: "2px 8px",
-                                      borderRadius: 999,
-                                      fontSize: 10,
-                                      fontWeight: 800,
-                                      color: st.color,
-                                      background: st.bg,
-                                    }}
+                                  <AdminBadge
+                                    size="sm"
+                                    color={st.color}
+                                    bg={st.bg}
                                   >
                                     {st.label}
-                                  </span>
+                                  </AdminBadge>
                                 )}
                                 <button
                                   type="button"
@@ -1134,19 +1127,9 @@ export default function MockupStudio({
                       {j.product_title || j.product_id}
                     </td>
                     <td style={{ padding: "10px 12px" }}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: st.color,
-                          background: st.bg,
-                        }}
-                      >
+                      <AdminBadge size="sm" color={st.color} bg={st.bg}>
                         {st.label}
-                      </span>
+                      </AdminBadge>
                     </td>
                     <td style={{ padding: "10px 12px" }}>{j.attempts}</td>
                     <td
