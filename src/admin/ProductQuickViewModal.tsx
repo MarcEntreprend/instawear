@@ -7,6 +7,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { materialLabel } from "../data/materials";
 import { useReferenceLists, referenceLabel } from "./adminHooks";
+import AdminModal from "./ui/AdminModal";
 
 /**
  * Snapshot prix payé (ligne de commande — Vague B item 9) : le modal affiche
@@ -79,44 +80,8 @@ export default function ProductQuickViewModal({
     if (!orderSnapshot) return null;
     const qty = orderSnapshot.quantity ?? 1;
     return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 300,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(0,0,0,0.5)",
-          padding: 16,
-        }}
-        onClick={onClose}
-      >
-        <div
-          style={{
-            background: "var(--color-surface)",
-            borderRadius: 16,
-            padding: 24,
-            maxWidth: 420,
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong style={{ fontSize: 16, color: "var(--color-ink)" }}>
-              Produit archivé ou supprimé
-            </strong>
-            <button
-              onClick={onClose}
-              aria-label="Fermer"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-ink3)" }}
-            >
-              <X size={18} />
-            </button>
-          </div>
+      <AdminModal title="Produit archivé ou supprimé" onClose={onClose} size="sm">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <img
             src={orderSnapshot.productImage || PLACEHOLDER_IMG}
             alt={orderSnapshot.productTitle ?? ""}
@@ -133,7 +98,7 @@ export default function ProductQuickViewModal({
             {qty > 1 && ` × ${qty}`} — fiche live indisponible.
           </div>
         </div>
-      </div>
+      </AdminModal>
     );
   }
 

@@ -1,115 +1,24 @@
 // src/admin/MerchandisingInfoModal.tsx
 // Lexicon modal for the Merchandising page (same pattern as ReportInfoModal).
 // Plain-English explanations of every control, signal and fallback.
-import React from "react";
-import { X } from "lucide-react";
+import AdminModal from "./ui/AdminModal";
+// Styles lexique partagés (Vague C1 : fini la copie locale).
+import {
+  infoSectionStyle as sectionStyle,
+  infoTitleStyle as titleStyle,
+  infoTableStyle as tableStyle,
+  infoThStyle as thStyle,
+  infoTdStyle as tdStyle,
+  infoNoteStyle as noteStyle,
+} from "./ui/infoStyles";
 
 interface MerchandisingInfoModalProps {
   onClose: () => void;
 }
 
 export default function MerchandisingInfoModal({ onClose }: MerchandisingInfoModalProps) {
-  const sectionStyle: React.CSSProperties = {
-    marginBottom: 24,
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontWeight: 700,
-    fontSize: 15,
-    color: "var(--color-ink)",
-    marginBottom: 10,
-    paddingBottom: 6,
-    borderBottom: "1px solid var(--color-border)",
-  };
-
-  const tableStyle: React.CSSProperties = {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: 12,
-    color: "var(--color-ink2)",
-  };
-
-  const thStyle: React.CSSProperties = {
-    textAlign: "left",
-    padding: "8px 10px",
-    background: "var(--color-surface2)",
-    fontWeight: 700,
-    color: "var(--color-ink3)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-    borderBottom: "1px solid var(--color-border)",
-  };
-
-  const tdStyle: React.CSSProperties = {
-    padding: "8px 10px",
-    borderBottom: "1px solid var(--color-border)",
-    verticalAlign: "top",
-    lineHeight: 1.5,
-  };
-
-  const noteStyle: React.CSSProperties = {
-    fontSize: 11,
-    color: "var(--color-ink4)",
-    marginTop: 12,
-    lineHeight: 1.6,
-  };
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 300,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(26,20,10,0.5)",
-        backdropFilter: "blur(4px)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "var(--color-surface)",
-          borderRadius: 20,
-          maxWidth: 900,
-          width: "90%",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          padding: 28,
-          boxShadow: "var(--shadow-xl)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{ fontWeight: 700, fontSize: 18, color: "var(--color-ink)" }}
-          >
-            ✨ How merchandising works
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "var(--color-surface2)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: 4,
-              cursor: "pointer",
-              color: "var(--color-ink2)",
-              display: "flex",
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <AdminModal title="✨ How merchandising works" onClose={onClose} size="lg">
 
         {/* Pipeline */}
         <div style={sectionStyle}>
@@ -378,7 +287,6 @@ export default function MerchandisingInfoModal({ onClose }: MerchandisingInfoMod
             </li>
           </ul>
         </div>
-      </div>
-    </div>
+    </AdminModal>
   );
 }

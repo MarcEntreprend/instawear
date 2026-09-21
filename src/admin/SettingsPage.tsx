@@ -28,6 +28,8 @@ import {
   productApi,
 } from "../api/supabaseApi";
 import { normalizeMaterialKey } from "../data/materials";
+import AdminModal from "./ui/AdminModal";
+import AdminButton from "./ui/AdminButton";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
@@ -1132,41 +1134,15 @@ export default function SettingsPage() {
 
       {/* Modale pour ajouter/modifier un élément de référence */}
       {showRefModal && editingRef && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+        <AdminModal
+          title={editingRef.id ? "Modifier l'élément" : "Ajouter un élément"}
+          onClose={() => setShowRefModal(false)}
+          size="sm"
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(26,20,10,0.5)",
-              backdropFilter: "blur(4px)",
-            }}
-            onClick={() => setShowRefModal(false)}
-          />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 201,
-              background: "var(--color-surface)",
-              borderRadius: 20,
-              maxWidth: 500,
-              width: "90%",
-              padding: "28px",
-              boxShadow: "var(--shadow-xl)",
-            }}
+          <form
+            onSubmit={handleSaveRef}
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
           >
-            <form
-              onSubmit={handleSaveRef}
-              style={{ display: "flex", flexDirection: "column", gap: 16 }}
-            >
               <div>
                 <label
                   style={{
@@ -1245,47 +1221,20 @@ export default function SettingsPage() {
                   marginTop: 8,
                 }}
               >
-                <button
+                <AdminButton
                   type="button"
+                  variant="secondary"
                   onClick={() => setShowRefModal(false)}
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 12,
-                    border: "1.5px solid var(--color-border2)",
-                    background: "var(--color-surface)",
-                    color: "var(--color-ink2)",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
                 >
                   Annuler
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 22px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "var(--color-accent)",
-                    color: "white",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    cursor: "pointer",
-                  }}
-                >
+                </AdminButton>
+                <AdminButton type="submit" variant="primary">
                   <Save size={15} strokeWidth={2} />
                   {editingRef.id ? "Mettre à jour" : "Ajouter"}
-                </button>
+                </AdminButton>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
 
       {/* ─── Section 2 : Connexion Printful ──────────────────────────────── */}

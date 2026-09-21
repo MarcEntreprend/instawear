@@ -14,6 +14,7 @@ import { orderApi, refundApi } from "../api/supabaseApi";
 import type { OrderRefund, RefundRequest } from "../api/supabaseApi";
 import type { Order } from "./adminTypes";
 import { OrderStatusBadge } from "./orderStatusLabels";
+import AdminButton from "./ui/AdminButton";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { formatDateFR } from "../utils/dates";
 import CopyID from "../components/CopyID";
@@ -590,25 +591,15 @@ export default function FinancesPage({
                   ))}
                 </select>
               </label>
-              <button
+              <AdminButton
                 type="button"
+                variant="danger"
                 disabled={working || suggestedCents <= 0}
                 onClick={() => {
                   const pending = pendingRequests.find(
                     (r) => r.orderId === selected.id,
                   );
                   doRefund(selected.id, pending?.id);
-                }}
-                style={{
-                  padding: "10px 18px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: "#991b1b",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: working ? "not-allowed" : "pointer",
-                  opacity: working || suggestedCents <= 0 ? 0.6 : 1,
                 }}
               >
                 {working ? (
@@ -623,7 +614,7 @@ export default function FinancesPage({
                 ) : (
                   "Rembourser (Stripe réel)"
                 )}
-              </button>
+              </AdminButton>
             </div>
             {suggestedCents <= 0 && (
               <p

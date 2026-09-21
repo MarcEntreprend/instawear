@@ -29,6 +29,7 @@ import { Order, OrderFilters, AdminProduct } from "./adminTypes";
 import ProductQuickViewModal, {
   type OrderPriceSnapshot,
 } from "./ProductQuickViewModal";
+import AdminButton from "./ui/AdminButton";
 import CartIcon from "../components/CartIcon";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 import {
@@ -1078,7 +1079,8 @@ export default function OrdersPage() {
                     selectedOrder.status,
                   ) && (
                     <div style={{ marginTop: 10 }}>
-                      <button
+                      <AdminButton
+                        variant="danger"
                         onClick={async () => {
                           if (
                             !window.confirm(
@@ -1105,20 +1107,7 @@ export default function OrdersPage() {
                           }
                         }}
                         disabled={cancellingPrintful}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: 8,
-                          border: "1px solid #991b1b",
-                          background: cancellingPrintful ? "var(--color-surface2)" : "#991b1b",
-                          color: cancellingPrintful ? "var(--color-ink3)" : "white",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          cursor: cancellingPrintful ? "not-allowed" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          opacity: cancellingPrintful ? 0.7 : 1,
-                        }}
+                        style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8 }}
                       >
                         {cancellingPrintful ? (
                           <RefreshCw size={14} strokeWidth={2} className="animate-spin" />
@@ -1126,7 +1115,7 @@ export default function OrdersPage() {
                           <X size={14} strokeWidth={2} />
                         )}
                         {cancellingPrintful ? "Annulation en cours…" : "Annuler chez Printful"}
-                      </button>
+                      </AdminButton>
                     </div>
                   )}
                 {/* P4 POD: commandes partielles / on_hold avec bloqués -> choix admin */}
