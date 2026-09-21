@@ -56,12 +56,14 @@ test("sendReplyEmail : edge send-email + escapeHtml + garde destinataire", () =>
   assert.ok(src.includes("getPodAuthHeaders()"));
 });
 
-test("InteractionsPage : anti-double-clic + statut email affiché", () => {
+test("InteractionsPage : anti-double-clic + statut email affiché + retry", () => {
   const src = read("src/admin/InteractionsPage.tsx");
   assert.ok(src.includes("sendingReply"));
   assert.ok(src.includes("emailStatus"));
   assert.ok(src.includes("✉ envoyé"));
   assert.ok(src.includes("email non parti"));
+  assert.ok(src.includes("onRetryEmail"), "pastille cliquable qui relance");
+  assert.ok(src.includes("retryingEmailId"), "retry anti-double-clic");
 });
 
 // ─── last_login_date admin ──────────────────────────────────────────────────

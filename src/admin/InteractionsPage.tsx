@@ -192,7 +192,12 @@ export default function InteractionsPage() {
   // est toujours enregistré ; l'email est best-effort).
   const [sendingReply, setSendingReply] = useState(false);
   const [replyNotice, setReplyNotice] = useState<string | null>(null);
-  const [emailStatus, setEmailStatus] = useState<Record<string, "sent" | "failed">>({});
+  // Statut email par message : la raison d'échec est conservée pour
+  // l'affichage, et un clic sur la pastille relance l'envoi.
+  const [emailStatus, setEmailStatus] = useState<
+    Record<string, { state: "sent" } | { state: "failed"; reason: string }>
+  >({});
+  const [retryingEmailId, setRetryingEmailId] = useState<string | null>(null);
   const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(
     null,
   );
@@ -305,7 +310,7 @@ export default function InteractionsPage() {
       }));
       setMessages(mapped);
       // Email client (best-effort) : le message reste enregistré en cas
-      // d'échec, seul le statut affiché change.
+      // d'échec, seul le statut affiché change (avec la raison).
       const mine = [...mapped]
         .reverse()
         .find((m) => m.from === "admin" && m.text === text);
@@ -317,15 +322,20 @@ export default function InteractionsPage() {
           replyText: text,
         });
         if (mine) {
-          setEmailStatus((prev) => ({ ...prev, [mine.id]: "sent" }));
+          setEmailStatus((prev) => ({ ...prev, [mine.id]: { state: "sent" } }));
         } else {
           setReplyNotice("Message enregistré, email envoyé au client.");
         }
-      } catch {
+      } catch (e) {
+        const reason =
+          e instanceof Error ? e.message : "Envoi email impossible.";
         if (mine) {
-          setEmailStatus((prev) => ({ ...prev, [mine.id]: "failed" }));
+          setEmailStatus((prev) => ({
+            ...prev,
+            [mine.id]: { state: "failed", reason },
+          }));
         } else {
-          setReplyNotice("Message enregistré, mais l'email n'est pas parti.");
+          setReplyNotice(`Message enregistré, mais l'email n'est pas parti (${reason})`);
         }
       }
       setReplyText("");
@@ -334,6 +344,33 @@ export default function InteractionsPage() {
       console.error(e);
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  // Relance l'email d'une réponse (clic sur la pastille d'échec).
+  const handleRetryEmail = async (messageId: string) => {
+    if (!selectedTicket || retryingEmailId) return;
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg || msg.from !== "admin") return;
+    setRetryingEmailId(messageId);
+    try {
+      await interactionApi.sendReplyEmail({
+        customerEmail: selectedTicket.customerEmail,
+        customerName: selectedTicket.customerName,
+        subject: selectedTicket.subject,
+        replyText: msg.text,
+      });
+      setEmailStatus((prev) => ({ ...prev, [messageId]: { state: "sent" } }));
+    } catch (e) {
+      setEmailStatus((prev) => ({
+        ...prev,
+        [messageId]: {
+          state: "failed",
+          reason: e instanceof Error ? e.message : "Envoi email impossible.",
+        },
+      }));
+    } finally {
+      setRetryingEmailId(null);
     }
   };
 
@@ -427,6 +464,8 @@ export default function InteractionsPage() {
         sendingReply={sendingReply}
         replyNotice={replyNotice}
         emailStatus={emailStatus}
+        onRetryEmail={handleRetryEmail}
+        retryingEmailId={retryingEmailId}
         onChangeStatus={(status) =>
           handleChangeStatus(selectedTicket.id, status)
         }
@@ -729,6 +768,8 @@ function TicketDetail({
   sendingReply,
   replyNotice,
   emailStatus,
+  onRetryEmail,
+  retryingEmailId,
   onChangeStatus,
   onBack,
   onQuickViewOrder,
@@ -743,7 +784,9 @@ function TicketDetail({
   onSendReply: () => void;
   sendingReply: boolean;
   replyNotice: string | null;
-  emailStatus: Record<string, "sent" | "failed">;
+  emailStatus: Record<string, { state: "sent" } | { state: "failed"; reason: string }>;
+  onRetryEmail: (messageId: string) => void;
+  retryingEmailId: string | null;
   onChangeStatus: (status: InteractionStatus) => void;
   onBack: () => void;
   onQuickViewOrder: (orderId: string) => void;
@@ -942,18 +985,35 @@ function TicketDetail({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              {msg.from === "admin" && emailStatus[msg.id] === "sent" && (
+              {msg.from === "admin" && emailStatus[msg.id]?.state === "sent" && (
                 <span style={{ color: "var(--color-success)" }}>
                   {" "}
                   · ✉ envoyé
                 </span>
               )}
-              {msg.from === "admin" && emailStatus[msg.id] === "failed" && (
-                <span style={{ color: "#991b1b" }}>
-                  {" "}
-                  · ⚠ email non parti
-                </span>
-              )}
+              {msg.from === "admin" &&
+                emailStatus[msg.id]?.state === "failed" && (
+                  <button
+                    type="button"
+                    onClick={() => onRetryEmail(msg.id)}
+                    disabled={retryingEmailId === msg.id}
+                    title={`${(emailStatus[msg.id] as { reason: string }).reason} — cliquer pour réessayer`}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 10,
+                      color: "#991b1b",
+                      cursor:
+                        retryingEmailId === msg.id ? "wait" : "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {" "}
+                    · ⚠ email non parti
+                    {retryingEmailId === msg.id ? " (…)" : " — réessayer"}
+                  </button>
+                )}
             </span>
           </div>
         ))}
