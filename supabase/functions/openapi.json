@@ -65,6 +65,9 @@
     },
     "/refund-request": {
       "post": { "summary": "Customer refund request (owner JWT, server-side eligibility, deduped)", "x-roles": ["public"], "x-edges": ["refund-request"] }
+    },
+    "/admin-invite": {
+      "post": { "summary": "Super-admin: invite a new administrator (creates admin_users row + Auth invite, no password in transit)", "x-roles": ["admin"], "x-edges": ["admin-invite"] }
     }
   }
 }

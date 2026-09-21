@@ -88,7 +88,7 @@ test("config.toml fige verify_jwt pour chaque edge openapi", () => {
   );
   const toml = read("supabase/config.toml");
   const edges = Object.keys(spec.paths).map((p) => p.replace(/^\//, ""));
-  assert.equal(edges.length, 20);
+  assert.equal(edges.length, 21);
   for (const e of edges) {
     assert.ok(
       toml.includes(`[functions.${e}]`),

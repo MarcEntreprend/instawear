@@ -2254,6 +2254,103 @@ export const adminUserApi = {
     const { error } = await supabase.from("admin_users").delete().eq("id", id);
     if (error) throw error;
   },
+  /**
+   * Mon rôle admin ({email, role}) ou null. Fail-closed : toute erreur
+   * (pas de ligne, pas de session) => null => UI en lecture seule.
+   * Lecture couverte par la policy select admin (tout admin peut lire).
+   */
+  async getMyRole(): Promise<{ email: string; role: string } | null> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const email = user?.email || "";
+      if (!email) return null;
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("email, role")
+        .ilike("email", email)
+        .maybeSingle();
+      if (error || !data) return null;
+      return { email: data.email, role: data.role };
+    } catch {
+      return null;
+    }
+  },
+  /**
+   * Invitation via l'edge admin-invite (super_admin uniquement, vérifié
+   * côté edge). La edge crée la ligne ET envoie l'invitation Auth.
+   * Retourne invited=false + warning si seul le mail a échoué.
+   */
+  async invite(
+    email: string,
+    role: "super_admin" | "editor",
+  ): Promise<{
+    ok: boolean;
+    adminId: string;
+    invited: boolean;
+    warning?: string;
+    role: string;
+  }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-invite`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: await getPodAuthHeaders(),
+      body: JSON.stringify({ email, role }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) {
+      throw new Error(body?.error || "Invitation impossible.");
+    }
+    return {
+      ok: true,
+      adminId: body.adminId,
+      invited: body.invited !== false,
+      warning: body.warning,
+      role: body.role,
+    };
+  },
+};
+
+// ─── Admin Audit Log (vague A) ────────────────────────────────────────────
+export const adminAuditApi = {
+  async list(limit = 50): Promise<import("../admin/adminTypes").AdminAuditEntry[]> {
+    const { data, error } = await supabase
+      .from("admin_audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 200)));
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      actorEmail: r.actor_email,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      before: r.before_data ?? {},
+      after: r.after_data ?? {},
+      createdAt: r.created_at,
+    }));
+  },
+  /** Best-effort : l'appelant ignore l'échec (le journal ne bloque jamais). */
+  async create(entry: {
+    actorEmail: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  }): Promise<void> {
+    const { error } = await supabase.from("admin_audit_log").insert({
+      actor_email: entry.actorEmail,
+      action: entry.action,
+      target_type: entry.targetType ?? "",
+      target_id: entry.targetId ?? "",
+      before_data: entry.before ?? {},
+      after_data: entry.after ?? {},
+    });
+    if (error) throw error;
+  },
 };
 // ─── Hero Promotions ───────────────────────────────────────────────────
 export const heroPromotionsApi = {

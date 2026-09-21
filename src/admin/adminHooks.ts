@@ -377,6 +377,7 @@ export function useAdminUsers() {
     createUser,
     updateUser,
     deleteUser,
+    refetch,
   };
 }
 

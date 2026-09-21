@@ -284,6 +284,20 @@ export interface CreateAdminUserPayload {
   role: AdminRole;
 }
 
+// ─── Admin Audit Log (vague A) : qui a fait quoi, quand ──────────────────
+// Table admin_audit_log (migration 20261025). Écriture best-effort :
+// un échec d'insert ne doit jamais faire échouer l'action métier.
+export interface AdminAuditEntry {
+  id: string;
+  actorEmail: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  createdAt: string;
+}
+
 // ─── Reference List (dynamic categories, event types, styles, materials) ─
 export interface ReferenceItem {
   id: string;
