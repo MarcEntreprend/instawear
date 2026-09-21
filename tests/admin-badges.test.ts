@@ -112,6 +112,15 @@ test("ProductsPage : dot vignette + badge Mockups X/Y + filtre", () => {
   assert.ok(src.includes("Sans mockups complets"));
 });
 
+test("ProductsPage : clear immédiat succès complet + refresh fiable", () => {
+  const src = read("src/admin/ProductsPage.tsx");
+  assert.ok(src.includes("mockupsDoneIds"), "clear optimiste session");
+  assert.ok(src.includes("stocké(s) et appliqué(s)"), "alerte succès complet");
+  assert.ok(src.includes("temporaire(s) Printful"), "alerte repli visible");
+  assert.ok(src.includes("await refetch()"), "refresh réel");
+  assert.ok(src.includes("animate-spin"), "feedback refresh");
+});
+
 test("ErrorMonitoringPage : dot critiques non résolues", () => {
   const src = read("src/admin/ErrorMonitoringPage.tsx");
   assert.ok(src.includes("Critique non résolue"));

@@ -101,6 +101,13 @@ export default function ProductsPage() {
   // Filtre "attention requise" : produits sans mockups générés complets
   // (même définition que MockupStudio/File, cf. needsMockups).
   const [onlyMissingMockups, setOnlyMissingMockups] = useState(false);
+  // Succès de génération confirmés complets PENDANT cette session, en avance
+  // sur le prochain refetch : le dot/badge s'éteint immédiatement (pas une
+  // notification à "dismiss" — le refetch serveur confirme et reprend la main
+  // dès qu'il arrive, cf. useEffect plus bas).
+  const [mockupsDoneIds, setMockupsDoneIds] = useState<Set<string>>(new Set());
+  // Feedback visuel du bouton Refresh (refetch réel, pas cosmétique).
+  const [refreshing, setRefreshing] = useState(false);
   // Ordre manuel (réorganisation visuelle uniquement, pas de persistance)
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -227,13 +234,20 @@ export default function ProductsPage() {
     return counts;
   }, [allProducts]);
 
+  // Toute donnée fraîche du serveur reprend la main sur le clear optimiste.
+  useEffect(() => {
+    setMockupsDoneIds(new Set());
+  }, [allProducts]);
+
   // ── Compteur "attention requise" (dot du filtre, comme les dots notifs).
   const missingMockupsCount = useMemo(
     () =>
-      (allProducts ?? []).filter((p) =>
-        needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      (allProducts ?? []).filter(
+        (p) =>
+          !mockupsDoneIds.has(p.id) &&
+          needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
       ).length,
-    [allProducts],
+    [allProducts, mockupsDoneIds],
   );
 
   // ── Filter & sort ──────────────────────────────────────────────────────
@@ -244,8 +258,10 @@ export default function ProductsPage() {
     if (hideInactive) list = list.filter((p) => p.isActive);
 
     if (onlyMissingMockups)
-      list = list.filter((p) =>
-        needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      list = list.filter(
+        (p) =>
+          !mockupsDoneIds.has(p.id) &&
+          needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
       );
 
     if (filters.search) {
@@ -284,7 +300,7 @@ export default function ProductsPage() {
       return 0;
     });
     return list;
-  }, [allProducts, filters, sortKey, sortDir, hideInactive, onlyMissingMockups]);
+  }, [allProducts, filters, sortKey, sortDir, hideInactive, onlyMissingMockups, mockupsDoneIds]);
 
   // Synchroniser l'ordre manuel avec la liste filtrée (IDs uniquement, sans boucle)
   useEffect(() => {
@@ -482,7 +498,9 @@ export default function ProductsPage() {
     try {
       const result = await podApi.generateMockups(productId);
       // Alerte véridique : `applied` = variants affichant réellement le
-      // visuel (vs fichiers générés). Ancienne edge sans ces champs : repli
+      // visuel, `stored` = sous-ensemble réellement STOCKÉ (seul à éteindre
+      // le dot : un repli temporaire Printful — upload storage échoué —
+      // s'affiche mais ne compte pas). Ancienne edge sans ces champs : repli
       // sur l'ancien message.
       const unmatched: string[] = [
         ...((result as any).unmatchedVids ?? []),
@@ -494,14 +512,38 @@ export default function ProductsPage() {
         ? (result as any).applied
         : result.mockupsGenerated;
       const totalColors = result.colors?.length ?? applied;
-      alert(
-        hasApplied
-          ? `${applied} mockup(s) appliqué(s) sur ${totalColors} couleur(s).` +
-              (unmatched.length > 0
-                ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
-                : "")
-          : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
-      );
+      const stored =
+        typeof (result as any).stored === "number"
+          ? (result as any).stored
+          : null;
+      const thumbFallback =
+        stored == null ? null : Math.max(0, applied - stored);
+      const fullSuccess =
+        hasApplied &&
+        stored != null &&
+        unmatched.length === 0 &&
+        applied > 0 &&
+        thumbFallback === 0;
+      if (fullSuccess) {
+        // Clear immédiat : succès complet confirmé, le refetch serveur
+        // qui suit confirme (et reprend la main dans tous les cas).
+        setMockupsDoneIds((prev) => new Set(prev).add(productId));
+        alert(`${stored} mockup(s) stocké(s) et appliqué(s).`);
+      } else {
+        alert(
+          hasApplied
+            ? `${applied} visuel(s) appliqué(s) sur ${totalColors} couleur(s)` +
+                (stored != null ? ` — ${stored} stocké(s)` : "") +
+                (thumbFallback != null && thumbFallback > 0
+                  ? `, ${thumbFallback} temporaire(s) Printful (upload storage échoué — régénérer pour éteindre le badge)`
+                  : "") +
+                "." +
+                (unmatched.length > 0
+                  ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
+                  : "")
+            : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
+        );
+      }
       await refetch();
     } catch (err: any) {
       alert(`Erreur mockups : ${err.message}`);
@@ -610,20 +652,34 @@ export default function ProductsPage() {
               Produits
             </h2>
             <button
-              onClick={() => refetch()}
-              title="Rafraîchir les produits"
+              onClick={async () => {
+                if (refreshing) return;
+                setRefreshing(true);
+                try {
+                  await refetch();
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+              title={refreshing ? "Actualisation…" : "Rafraîchir les produits"}
               style={{
                 background: "var(--color-surface2)",
                 border: "1px solid var(--color-border)",
                 borderRadius: 8,
                 padding: "4px 8px",
-                cursor: "pointer",
+                cursor: refreshing ? "wait" : "pointer",
                 color: "var(--color-ink2)",
                 display: "flex",
                 alignItems: "center",
+                opacity: refreshing ? 0.55 : 1,
               }}
             >
-              <RefreshCw size={14} strokeWidth={2} />
+              <RefreshCw
+                size={14}
+                strokeWidth={2}
+                className={refreshing ? "animate-spin" : undefined}
+              />
             </button>
           </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
@@ -1270,7 +1326,7 @@ export default function ProductsPage() {
                 p as unknown as { variants?: { image?: string }[] | null },
               );
               const missingMockups =
-                cov.total > 0 && cov.imaged < cov.total;
+                !mockupsDoneIds.has(p.id) && cov.total > 0 && cov.imaged < cov.total;
               const idxInManual = manualOrder.indexOf(p.id);
               const isFirst = idxInManual === 0;
               const isLast = idxInManual === manualOrder.length - 1;

@@ -29,6 +29,7 @@ import {
   preferStoredMain,
   applyStorageToVariants,
   isStorageMockupUrl,
+  countStoredApplications,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -1095,8 +1096,11 @@ async function finalizeMockupTask(
     storageUrls,
     // Vérité d'application (vs génération) : combien de variants affichent
     // réellement le visuel, et quoi est resté orphelin. L'alerte UI doit
-    // LIRE CES CHAMPS, pas mockupsGenerated.
+    // LIRE CES CHAMPS, pas mockupsGenerated. `stored` = sous-ensemble
+    // réellement STOCKÉ (seul à éteindre le dot admin) : `applied - stored`
+    // = replis temporaires Printful (upload storage échoué, à régénérer).
     applied: appliedRes.applied.length,
+    stored: countStoredApplications(appliedRes.applied),
     unmatchedVids: appliedRes.unmatchedVids,
     unmatchedHexes: appliedRes.unmatchedHexes,
     placements: [...new Set(
@@ -2682,6 +2686,7 @@ export default {
                       colors: fin.colors,
                       storageUrls: fin.storageUrls || {},
                       applied: fin.applied ?? null,
+                      stored: (fin as any).stored ?? null,
                       unmatchedVids: fin.unmatchedVids ?? [],
                       unmatchedHexes: fin.unmatchedHexes ?? [],
                       placements: opts.placements || ["front"],
@@ -2690,7 +2695,7 @@ export default {
                     updated_at: new Date().toISOString(),
                   }).eq("id", job.id);
                   done++;
-                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null });
+                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null, stored: (fin as any).stored ?? null });
                 } else {
                   await supabaseAdmin.from("mockup_jobs").update({
                     status: "failed",
@@ -2855,6 +2860,7 @@ export default {
             colors: fin.colors,
             storageUrls: fin.storageUrls,
             applied: fin.applied ?? null,
+            stored: (fin as any).stored ?? null,
             unmatchedVids: fin.unmatchedVids ?? [],
             unmatchedHexes: fin.unmatchedHexes ?? [],
             placements: requestedPl ?? [prep.placement!],
