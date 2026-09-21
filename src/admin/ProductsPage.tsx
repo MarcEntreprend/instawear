@@ -19,7 +19,9 @@ import {
   Images,
   Wrench,
 } from "lucide-react";
-import { useProducts, useReferenceLists } from "./adminHooks";
+import { useProducts, useReferenceLists, normalizeRefKey } from "./adminHooks";
+import { normalizeMaterialKey } from "../data/materials";
+import { DISCOUNT_EVENT_TYPE } from "../data/categories";
 import MockupStudio, { mockupCoverage, needsMockups } from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -216,10 +218,16 @@ export default function ProductsPage() {
     return counts;
   }, [allProducts]);
 
+  // Facettes normalisées (Vague B item 10) : legacy "coton" → slug
+  // "cotton" (normalizeMaterialKey), "Street" → "street" (normalizeRefKey).
+  // Fini les doubles lignes ; les valeurs non mappées restent visibles
+  // sous leur clé normalisée au lieu de disparaître.
   const countsByStyle = useMemo(() => {
     const counts: Record<string, number> = {};
     allProducts?.forEach((p) => {
-      counts[p.style] = (counts[p.style] || 0) + 1;
+      const key = normalizeRefKey(p.style);
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
   }, [allProducts]);
@@ -227,7 +235,7 @@ export default function ProductsPage() {
   const countsByMaterial = useMemo(() => {
     const counts: Record<string, number> = {};
     allProducts?.forEach((p) => {
-      const key = p.material || "";
+      const key = normalizeMaterialKey(p.material) ?? normalizeRefKey(p.material);
       if (!key) return;
       counts[key] = (counts[key] || 0) + 1;
     });
@@ -277,9 +285,14 @@ export default function ProductsPage() {
       list = list.filter((p) => p.category === filters.category);
     if (filters.eventType)
       list = list.filter((p) => p.eventType === filters.eventType);
-    if (filters.style) list = list.filter((p) => p.style === filters.style);
+    if (filters.style)
+      list = list.filter((p) => normalizeRefKey(p.style) === normalizeRefKey(filters.style));
     if (filters.material)
-      list = list.filter((p) => p.material === filters.material);
+      list = list.filter(
+        (p) =>
+          (normalizeMaterialKey(p.material) ?? normalizeRefKey(p.material)) ===
+          normalizeRefKey(filters.material),
+      );
     if (filters.priceMin > 0)
       list = list.filter((p) => p.price >= filters.priceMin);
     if (filters.priceMax < 200)
@@ -1044,7 +1057,7 @@ export default function ProductsPage() {
             {getByType("style").map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
-                {countsByStyle[o.value] ? ` (${countsByStyle[o.value]})` : ""}
+                {countsByStyle[normalizeRefKey(o.value)] ? ` (${countsByStyle[normalizeRefKey(o.value)]})` : ""}
               </option>
             ))}
           </select>
@@ -1062,8 +1075,8 @@ export default function ProductsPage() {
             {getByType("material").map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
-                {countsByMaterial[o.value]
-                  ? ` (${countsByMaterial[o.value]})`
+                {countsByMaterial[normalizeRefKey(o.value)]
+                  ? ` (${countsByMaterial[normalizeRefKey(o.value)]})`
                   : ""}
               </option>
             ))}
@@ -1531,7 +1544,7 @@ export default function ProductsPage() {
                           style={BADGE_STYLE.bestseller}
                         />
                       )}
-                      {p.eventType === "discount" && (
+                      {p.eventType === DISCOUNT_EVENT_TYPE && (
                         <Badge
                           label="Promotions"
                           style={BADGE_STYLE.discount}

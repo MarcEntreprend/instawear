@@ -9,6 +9,7 @@ import {
   pickAvailableVariant,
 } from "../hooks/useProductAvailability";
 import { formatAmount } from "../data/currency";
+import { DISCOUNT_EVENT_TYPE } from "../data/categories";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 import { imageKitUrl, imageKitSrcSet } from "../lib/imagekit";
 
@@ -154,7 +155,7 @@ export default function StoreProductCard({
               Limited
             </span>
           )}
-          {product.eventType === "discount" && (
+          {product.eventType === DISCOUNT_EVENT_TYPE && (
             <span
               className="badge"
               style={{

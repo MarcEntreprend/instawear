@@ -39,18 +39,24 @@ export default function HelpPage() {
             title: "Documentation",
             desc: "Guides complets pour configurer votre boutique.",
             btn: "Consulter",
+            href: "https://aide.instawear.com",
+            external: true,
           },
           {
             icon: <MessageCircle size={24} />,
-            title: "Support WhatsApp",
-            desc: "Discutez directement avec un agent.",
-            btn: "Ouvrir",
+            title: "Contacter le support",
+            desc: "Écrivez à notre équipe (réponse sous 24 h ouvrées).",
+            btn: "Écrire",
+            href: "mailto:bonjour@instawear.com",
+            external: false,
           },
           {
             icon: <ExternalLink size={24} />,
             title: "Centre d'aide",
             desc: "FAQ, tutoriels vidéo et articles.",
             btn: "Explorer",
+            href: "/#section-faq",
+            external: false,
           },
         ].map((item) => (
           <div key={item.title} style={cardStyle}>
@@ -77,9 +83,19 @@ export default function HelpPage() {
             >
               {item.desc}
             </p>
-            <button style={btnStyle}>
+            {/* Boutons câblés (Vague B item 13 : fini les boutons morts).
+                Cibles reprises du footer boutique : aide.instawear.com,
+                ancre FAQ #section-faq, email support. Aucun numéro de
+                messagerie configuré nulle part — pas d'URL inventée. */}
+            <a
+              href={item.href}
+              {...(item.external
+                ? { target: "_blank", rel: "noopener noreferrer" }
+                : {})}
+              style={{ ...btnStyle, textDecoration: "none", width: "fit-content" }}
+            >
               {item.btn} <ArrowRight size={13} />
-            </button>
+            </a>
           </div>
         ))}
       </div>

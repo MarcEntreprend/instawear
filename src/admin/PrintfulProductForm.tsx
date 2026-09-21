@@ -5,7 +5,7 @@ import { podApi } from "../api/supabaseApi";
 import { storageApi } from "../api/storageApi";
 import { Upload } from "lucide-react";
 import { AdminProduct } from "./adminTypes";
-import { useReferenceLists } from "./adminHooks";
+import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
 import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -70,6 +70,10 @@ export default function PrintfulProductForm({
   );
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isLimitedTime, setIsLimitedTime] = useState(false);
+  // Deal importé (Vague B item 11 : éditable dès l'import, plus hardcodé).
+  const [dealActive, setDealActive] = useState(false);
+  const [dealPrice, setDealPrice] = useState<number | undefined>(undefined);
+  const [dealEndsAt, setDealEndsAt] = useState<string | undefined>(undefined);
   // Image et galerie éditables (sélecteur visuel : on VOIT et on coche).
   const [mainImageUrl, setMainImageUrl] = useState<string>("");
   const [galleryPicks, setGalleryPicks] = useState<GalleryPickItem[]>([]);
@@ -535,6 +539,17 @@ export default function PrintfulProductForm({
         );
       }
 
+      // Garde deal (Vague B item 11) : actif exige prix > 0 et < prix retail.
+      if (dealActive) {
+        if (dealPrice == null || !(dealPrice > 0) || dealPrice >= price) {
+          setError(
+            "Deal invalide : le prix promo doit être supérieur à 0 et inférieur au prix retail.",
+          );
+          setImporting(false);
+          return;
+        }
+      }
+
       const newProduct: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
         isActive: true,
         title,
@@ -563,9 +578,9 @@ export default function PrintfulProductForm({
         tags: [],
         isBestSeller: isBestSeller,
         isLimitedTime: isLimitedTime,
-        dealActive: false,
-        dealEndsAt: undefined,
-        dealPrice: undefined,
+        dealActive: dealActive,
+        dealEndsAt: dealActive ? dealEndsAt : undefined,
+        dealPrice: dealActive ? dealPrice : undefined,
         affiliateMode: false,
         affiliateUrl: undefined,
         externalProductId: selectedProductId,
@@ -1316,7 +1331,7 @@ export default function PrintfulProductForm({
               onChange={(e) => setMaterial(e.target.value)}
               style={inputStyle}
             >
-              <option value="">— Non renseigné —</option>
+              <option value="">{EMPTY_MATERIAL_LABEL}</option>
               {getByType("material").map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
@@ -1357,6 +1372,61 @@ export default function PrintfulProductForm({
               onChange={(e) => setIsLimitedTime(e.target.checked)}
             />
             Offre limitée
+          </label>
+        </div>
+
+        {/* Deal / Promotion (Vague B item 11 : éditable dès l'import) */}
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            alignItems: "end",
+            flexWrap: "wrap",
+            marginTop: 12,
+          }}
+        >
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={dealActive}
+              onChange={(e) => setDealActive(e.target.checked)}
+            />
+            Deal actif (prix promo)
+          </label>
+          <label style={labelStyle}>
+            Prix promo
+            <input
+              type="number"
+              value={dealPrice ?? ""}
+              onChange={(e) =>
+                setDealPrice(e.target.value ? Number(e.target.value) : undefined)
+              }
+              style={inputStyle}
+              step="0.01"
+              min={0}
+            />
+          </label>
+          <label style={labelStyle}>
+            Fin du deal
+            <input
+              type="datetime-local"
+              value={dealEndsAt ? dealEndsAt.slice(0, 16) : ""}
+              onChange={(e) =>
+                setDealEndsAt(
+                  e.target.value
+                    ? new Date(e.target.value).toISOString()
+                    : undefined,
+                )
+              }
+              style={inputStyle}
+            />
           </label>
         </div>
 

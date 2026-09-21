@@ -6,7 +6,7 @@ import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
 import { podApi } from "../api/supabaseApi";
-import { useReferenceLists } from "./adminHooks";
+import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
 import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import { AdminProduct } from "./adminTypes";
 
@@ -43,6 +43,9 @@ const EMPTY_FORM: Omit<AdminProduct, "id" | "createdAt" | "updatedAt"> = {
   tags: [],
   isBestSeller: false,
   isLimitedTime: false,
+  dealActive: false,
+  dealPrice: undefined,
+  dealEndsAt: undefined,
   affiliateMode: false,
   affiliateUrl: undefined,
   externalProductId: undefined,
@@ -93,6 +96,9 @@ export default function ProductFormPanel({
         tags: product.tags,
         isBestSeller: product.isBestSeller || false,
         isLimitedTime: product.isLimitedTime || false,
+        dealActive: product.dealActive || false,
+        dealPrice: product.dealPrice ?? undefined,
+        dealEndsAt: product.dealEndsAt ?? undefined,
         affiliateMode: product.affiliateMode || false,
         affiliateUrl: product.affiliateUrl,
         externalProductId: product.externalProductId,
@@ -337,6 +343,19 @@ export default function ProductFormPanel({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Garde deal (Vague B item 11) : actif exige prix > 0 et < prix normal.
+    if (form.dealActive) {
+      if (
+        form.dealPrice == null ||
+        !(form.dealPrice > 0) ||
+        form.dealPrice >= form.price
+      ) {
+        alert(
+          "Deal invalide : le prix promo doit être supérieur à 0 et inférieur au prix normal.",
+        );
+        return;
+      }
+    }
     // Galerie = choix visuels du picker (cochées, sans placeholder) + méta
     // complète (mémoire kept:false persistée).
     const pickedGallery = galleryPicks
@@ -549,7 +568,7 @@ export default function ProductFormPanel({
               onChange={(e) => update("material", e.target.value)}
               style={inputStyle}
             >
-              <option value="">— Non renseigné (auto au prochain sync) —</option>
+              <option value="">{EMPTY_MATERIAL_LABEL}</option>
               {getByType("material").map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
@@ -1115,6 +1134,68 @@ export default function ProductFormPanel({
               onChange={(e) => update("showBought", e.target.checked)}
             />
             Afficher le nombre d'achats
+          </label>
+        </div>
+
+        {/* Promotion / Deal (Vague B item 11 : éditable côté produit) */}
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            alignItems: "end",
+            flexWrap: "wrap",
+            padding: "12px 14px",
+            borderRadius: 12,
+            background: "var(--color-surface2)",
+          }}
+        >
+          <label
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.dealActive || false}
+              onChange={(e) => update("dealActive", e.target.checked)}
+            />
+            Deal actif (prix promo)
+          </label>
+          <label style={labelStyle}>
+            Prix promo
+            <input
+              type="number"
+              value={form.dealPrice ?? ""}
+              onChange={(e) =>
+                update(
+                  "dealPrice",
+                  e.target.value ? Number(e.target.value) : undefined,
+                )
+              }
+              style={inputStyle}
+              step="0.01"
+              min={0}
+              placeholder={`< ${form.price.toFixed(2)}`}
+            />
+          </label>
+          <label style={labelStyle}>
+            Fin du deal
+            <input
+              type="datetime-local"
+              value={form.dealEndsAt ? form.dealEndsAt.slice(0, 16) : ""}
+              onChange={(e) =>
+                update(
+                  "dealEndsAt",
+                  e.target.value
+                    ? new Date(e.target.value).toISOString()
+                    : undefined,
+                )
+              }
+              style={inputStyle}
+            />
           </label>
         </div>
 

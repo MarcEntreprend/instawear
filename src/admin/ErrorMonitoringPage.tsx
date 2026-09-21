@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { errorMonitoringApi, type EdgeErrorRow } from "../api/supabaseApi";
 import { formatDateTimeFR } from "../utils/dates";
+import { useAdminHighlight } from "./useAdminHighlight";
 
 const SEVERITY_STYLE: Record<
   string,
@@ -28,11 +29,17 @@ const KNOWN_FUNCTIONS = [
   "printful-webhook",
   "stripe-checkout",
   "stripe-webhook",
+  "stripe-refund",
   "sync-printful",
+  "mockup-worker",
   "printful-reports",
   "approve-printful-design",
   "get-shipping-rates",
   "order-status-update",
+  "send-email",
+  "interaction-notify",
+  "refund-request",
+  "health",
 ];
 
 function fmtDate(iso: string): string {
@@ -120,6 +127,10 @@ export default function ErrorMonitoringPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
+  // Sources sœurs (Vague B item 13) : cette page couvre edge_errors ;
+  // mockups/syncs/emails vivent ailleurs — liens directs, pas de jointure.
+  const { navigateAndHighlight } = useAdminHighlight();
+
   const selectStyle: React.CSSProperties = {
     background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
@@ -186,6 +197,49 @@ export default function ErrorMonitoringPage() {
           />
           Actualiser
         </button>
+      </div>
+
+      {/* Sources sœurs : edge_errors ici, le reste en un clic */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+          fontSize: 12,
+          color: "var(--color-ink3)",
+          background: "var(--color-surface2)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 10,
+          padding: "8px 12px",
+        }}
+      >
+        <span>Erreurs edge ici. Voir aussi :</span>
+        {(
+          [
+            ["File mockups (Produits)", "products"],
+            ["Sync logs (Paramètres)", "settings"],
+            ["Campagnes email", "email-marketing"],
+          ] as const
+        ).map(([label, section]) => (
+          <button
+            key={section}
+            type="button"
+            onClick={() => navigateAndHighlight({ section })}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--color-accent)",
+              fontWeight: 700,
+              fontSize: 12,
+              padding: 0,
+              textDecoration: "underline",
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Stats 24h */}

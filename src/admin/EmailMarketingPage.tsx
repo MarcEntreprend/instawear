@@ -105,11 +105,14 @@ interface Campaign {
   recipient_count?: number;
   stats?: {
     delivered?: number;
+    failed?: number;
     opened?: number;
     clicked?: number;
     unsubscribed?: number;
     open_rate?: number;
     click_rate?: number;
+    // Vrai = taux estimés (moyennes secteur, aucun pixel/webhook Resend).
+    estimated?: boolean;
   };
   created_at: string;
   updated_at: string;
@@ -751,6 +754,11 @@ function DashboardSection({
                   </span>
                   {c.stats?.open_rate !== undefined && (
                     <span
+                      title={
+                        c.stats.estimated
+                          ? "Taux estimé (moyenne secteur, aucun tracking réel)"
+                          : undefined
+                      }
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
@@ -759,6 +767,7 @@ function DashboardSection({
                         textAlign: "right",
                       }}
                     >
+                      {c.stats.estimated ? "≈" : ""}
                       {c.stats.open_rate}% ouv.
                     </span>
                   )}
@@ -1057,15 +1066,18 @@ function CampaignsSection({
                       : ""}
                   </p>
                 </div>
-                {/* Stats (if sent) */}
+                {/* Stats (if sent) — taux estimés si flag (pas de tracking) */}
                 {c.status === "sent" && c.stats && (
                   <div style={{ display: "flex", gap: 20, flexShrink: 0 }}>
                     {[
                       {
                         label: "Ouvertures",
-                        value: `${c.stats.open_rate ?? 0}%`,
+                        value: `${c.stats.estimated ? "≈" : ""}${c.stats.open_rate ?? 0}%`,
                       },
-                      { label: "Clics", value: `${c.stats.click_rate ?? 0}%` },
+                      {
+                        label: "Clics",
+                        value: `${c.stats.estimated ? "≈" : ""}${c.stats.click_rate ?? 0}%`,
+                      },
                     ].map(({ label, value }) => (
                       <div key={label} style={{ textAlign: "center" }}>
                         <p
@@ -1084,8 +1096,14 @@ function CampaignsSection({
                             color: "var(--color-ink4)",
                             margin: 0,
                           }}
+                          title={
+                            c.stats?.estimated
+                              ? "Taux estimé (moyenne secteur, aucun tracking réel)"
+                              : undefined
+                          }
                         >
                           {label}
+                          {c.stats?.estimated ? " (estimé)" : ""}
                         </p>
                       </div>
                     ))}
@@ -1266,7 +1284,11 @@ function ComposeSection({
     }
 
     // Remplacer les variables dans le sujet (commun à tous les destinataires)
+    // Boucle séquentielle volontaire (Vague B item 13) : l'edge send-email
+    // est rate-limitée (~20-30/min) — le parallélisme déclencherait des 429.
+    // Chaque envoi est VÉRIFIÉ (res.ok) : fini le sent++ aveugle.
     let sent = 0;
+    let failed = 0;
     for (const email of emails) {
       if (!email?.includes("@")) continue;
 
@@ -1334,7 +1356,7 @@ function ComposeSection({
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token || "";
-        await fetch(
+        const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
           {
             method: "POST",
@@ -1349,12 +1371,14 @@ function ComposeSection({
             }),
           },
         );
-        sent++;
+        if (res.ok) sent++;
+        else failed++;
       } catch {
-        /* skip */
+        failed++;
       }
     }
-    // Enregistrer la campagne comme envoyée
+    // Enregistrer la campagne comme envoyée. Taux ouvertures/clics =
+    // ESTIMÉS (aucun tracking réel) : flag explicite, affichage "≈".
     const campaignPayload = {
       title,
       subject,
@@ -1366,10 +1390,12 @@ function ComposeSection({
       recipient_count: sent,
       stats: {
         delivered: sent,
+        failed,
         opened: Math.round(sent * 0.22),
         clicked: Math.round(sent * 0.04),
         open_rate: 22,
         click_rate: 4,
+        estimated: true,
       },
     };
     if (initial) {
@@ -1382,7 +1408,10 @@ function ComposeSection({
     }
 
     setSending(false);
-    toast(`Campagne envoyée à ${sent} destinataire${sent > 1 ? "s" : ""} ✓`);
+    toast(
+      `Campagne envoyée à ${sent} destinataire${sent > 1 ? "s" : ""} ✓` +
+        (failed > 0 ? ` (${failed} échec(s))` : ""),
+    );
     onSaved();
   };
 

@@ -26,7 +26,9 @@ import { productApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
-import ProductQuickViewModal from "./ProductQuickViewModal";
+import ProductQuickViewModal, {
+  type OrderPriceSnapshot,
+} from "./ProductQuickViewModal";
 import CartIcon from "../components/CartIcon";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 import {
@@ -163,6 +165,10 @@ export default function OrdersPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+  // Snapshot prix payé de la ligne cliquée (Vague B item 9 : le modal montre
+  // le live + rappelle le payé ; nourrit le fallback si produit disparu).
+  const [quickViewSnapshot, setQuickViewSnapshot] =
+    useState<OrderPriceSnapshot | null>(null);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     null,
   );
@@ -189,17 +195,20 @@ export default function OrdersPage() {
     productId: string,
     selectedColor?: string,
     selectedSize?: string,
+    snapshot?: OrderPriceSnapshot | null,
   ) => {
     setLoadingQuickView(true);
+    // Snapshot d'abord : le fallback archivé s'affiche même si le live
+    // est parti (produit supprimé → productApi.get renvoie null).
+    setQuickViewSnapshot(snapshot ?? null);
+    setQuickViewColor(selectedColor || null);
+    setQuickViewSize(selectedSize || null);
     try {
       const product = await productApi.get(productId);
-      if (product) {
-        setQuickViewProduct(product);
-        setQuickViewColor(selectedColor || null);
-        setQuickViewSize(selectedSize || null);
-      }
+      setQuickViewProduct(product);
     } catch (err) {
       console.error(err);
+      setQuickViewProduct(null);
     } finally {
       setLoadingQuickView(false);
     }
@@ -1575,6 +1584,12 @@ export default function OrdersPage() {
                                 item.productId,
                                 item.selectedColor,
                                 item.selectedSize,
+                                {
+                                  unitPrice: item.unitPrice,
+                                  quantity: item.quantity,
+                                  productTitle: item.productTitle,
+                                  productImage: item.productImage,
+                                },
                               )
                             }
                             style={{
@@ -1606,6 +1621,12 @@ export default function OrdersPage() {
                                 item.productId,
                                 item.selectedColor,
                                 item.selectedSize,
+                                {
+                                  unitPrice: item.unitPrice,
+                                  quantity: item.quantity,
+                                  productTitle: item.productTitle,
+                                  productImage: item.productImage,
+                                },
                               )
                             }
                             style={{
@@ -1741,11 +1762,13 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {quickViewProduct && (
+      {(quickViewProduct || quickViewSnapshot) && (
         <ProductQuickViewModal
           product={quickViewProduct}
+          orderSnapshot={quickViewSnapshot}
           onClose={() => {
             setQuickViewProduct(null);
+            setQuickViewSnapshot(null);
             setQuickViewColor(null);
             setQuickViewSize(null);
           }}

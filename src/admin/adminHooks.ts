@@ -412,6 +412,14 @@ export function useReferenceLists() {
   return { items: data ?? [], loading, error, refetch, getByType };
 }
 
+// Ré-exports de compat : les purs vivent dans referenceUtils.ts
+// (importable en node/tests, zéro dépendance).
+export {
+  referenceLabel,
+  normalizeRefKey,
+  EMPTY_MATERIAL_LABEL,
+} from "./referenceUtils";
+
 // ─── Store Settings ───────────────────────────────────────────────────────
 export function useStoreSettings() {
   const { data, loading, error, refetch } = useAsync<StoreSettings>(() =>

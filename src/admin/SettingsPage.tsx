@@ -25,7 +25,9 @@ import {
   apiConnectionsApi,
   referenceListApi,
   podApi,
+  productApi,
 } from "../api/supabaseApi";
+import { normalizeMaterialKey } from "../data/materials";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
@@ -310,11 +312,17 @@ export default function SettingsPage() {
   const handleSaveRef = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRef) return;
-    // Parser les mots-clés depuis l'input brut
-    const parsedKeywords = keywordsInput
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
+    // Mots-clés normalisés (Vague B item 12) : trim + minuscules + dédup —
+    // fini le CSV brut ("Coton, coton,  COTON" → ["coton"]). La détection
+    // matière compare déjà en minuscules : stockage cohérent garanti.
+    const parsedKeywords = [
+      ...new Set(
+        keywordsInput
+          .split(",")
+          .map((k) => k.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
     try {
       if (editingRef.id) {
         await referenceListApi.update(editingRef.id, {
@@ -335,11 +343,59 @@ export default function SettingsPage() {
       console.error(err);
     }
   };
+  // Champ produit correspondant à chaque type de liste (garde suppression).
+  const REF_PRODUCT_FIELD: Record<string, "category" | "eventType" | "style" | "material"> = {
+    category: "category",
+    event_type: "eventType",
+    style: "style",
+    material: "material",
+  };
+  const countRefUsage = async (
+    type: string,
+    value: string,
+  ): Promise<number> => {
+    const field = REF_PRODUCT_FIELD[type];
+    if (!field) return 0;
+    const products = await productApi.list();
+    const target = value.trim().toLowerCase();
+    return products.filter((p) => {
+      const raw = String((p as any)[field] ?? "");
+      if (!raw) return false;
+      if (raw === value || raw.trim().toLowerCase() === target) return true;
+      // Matière : comparer aussi via slugs (legacy "coton" = "cotton").
+      if (field === "material") {
+        const a = normalizeMaterialKey(raw) ?? raw.trim().toLowerCase();
+        const b = normalizeMaterialKey(value) ?? target;
+        return a === b;
+      }
+      return false;
+    }).length;
+  };
   const handleDeleteRef = async (id: string) => {
+    const item = referenceItems.find((r) => r.id === id);
+    const used = item ? await countRefUsage(item.type, item.value) : 0;
+    if (used > 0) {
+      alert(
+        `Suppression bloquée : « ${item?.label} » est utilisé par ${used} produit(s). Réassignez-les d'abord.`,
+      );
+      return;
+    }
     if (window.confirm("Supprimer cet élément ?")) {
       await referenceListApi.delete(id);
       refetchRefs();
     }
+  };
+  // Réordonne au sein d'un type (↑/↓ écrivent des sort_order explicites).
+  const handleMoveRef = async (item: (typeof referenceItems)[0], dir: -1 | 1) => {
+    const siblings = referenceItems
+      .filter((r) => r.type === item.type)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const idx = siblings.findIndex((r) => r.id === item.id);
+    const other = siblings[idx + dir];
+    if (!other) return;
+    await referenceListApi.update(item.id, { sortOrder: other.sortOrder ?? 0 });
+    await referenceListApi.update(other.id, { sortOrder: item.sortOrder ?? 0 });
+    refetchRefs();
   };
 
   const isPodConnected = podSettings?.isConnected ?? false;
@@ -1005,6 +1061,36 @@ export default function SettingsPage() {
                           }}
                         >
                           <span>{item.label}</span>
+                          <button
+                            onClick={() => handleMoveRef(item, -1)}
+                            title="Monter"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--color-ink4)",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => handleMoveRef(item, 1)}
+                            title="Descendre"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--color-ink4)",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ↓
+                          </button>
                           <button
                             onClick={() => handleEditRef(item)}
                             style={{

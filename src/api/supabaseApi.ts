@@ -2622,6 +2622,17 @@ export const referenceListApi = {
       "id" | "sortOrder" | "createdAt"
     >,
   ): Promise<import("../admin/adminTypes").ReferenceItem> {
+    // Tri (Vague B item 12) : nouvel élément EN FIN de son type
+    // (max sort_order + 1, fini le 0 forcé qui cassait tout tri).
+    const { data: siblings } = await supabase
+      .from("reference_lists")
+      .select("sort_order")
+      .eq("type", item.type);
+    const maxOrder = (siblings ?? []).reduce(
+      (m: number, r: any) =>
+        Math.max(m, typeof r.sort_order === "number" ? r.sort_order : 0),
+      0,
+    );
     const { data, error } = await supabase
       .from("reference_lists")
       .insert({
@@ -2630,7 +2641,7 @@ export const referenceListApi = {
         value: item.value,
         label: item.label,
         keywords: item.keywords,
-        sort_order: 0,
+        sort_order: maxOrder + 1,
       })
       .select()
       .maybeSingle();
