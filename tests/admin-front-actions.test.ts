@@ -14,9 +14,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const api = readFileSync(join(root, "src/api/supabaseApi.ts"), "utf-8");
 
-test("front api : aucun appel send-email / telegram / resend", () => {
+test("front api : aucun appel send-email / telegram / resend SAUF réponse client", () => {
+  // Règle : les notifs d'actions admin restent cloche seule (l'admin voit
+  // son écran). Seule exception sanctionnée : sendReplyEmail, qui écrit AU
+  // CLIENT (transactionnel, edge admin-gated + rate-limit), pas à l'admin.
   for (const needle of [
-    "functions/v1/send-email",
     "telegram",
     "Telegram",
     "resend",
@@ -26,6 +28,11 @@ test("front api : aucun appel send-email / telegram / resend", () => {
   ]) {
     assert.ok(!api.includes(needle), `fuite front : ${needle}`);
   }
+  const hits = [...api.matchAll(/functions\/v1\/send-email/g)];
+  assert.equal(hits.length, 1, "un seul point d'appel autorisé");
+  const idx = hits[0].index ?? -1;
+  const fnStart = api.lastIndexOf("async sendReplyEmail", idx);
+  assert.ok(fnStart > 0, "l'appel vit dans sendReplyEmail uniquement");
 });
 
 test("front api : les notifs d'actions restent notificationApi.create", () => {

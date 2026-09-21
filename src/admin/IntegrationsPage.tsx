@@ -39,6 +39,10 @@ export default function IntegrationsPage({
 }: IntegrationsPageProps) {
   const [apiConnections, setApiConnections] = useState<ApiConnection[]>([]);
   const [apiLoading, setApiLoading] = useState(true);
+  // Sync réel Printful (bouton "Sync" des connexions POD) : un seul à la
+  // fois, erreur visible, lastSyncAt = heure du VRAI succès uniquement.
+  const [syncingApiId, setSyncingApiId] = useState<string | null>(null);
+  const [syncApiError, setSyncApiError] = useState<string | null>(null);
 
   const [showApiModal, setShowApiModal] = useState(false);
   const [editingApi, setEditingApi] = useState<ApiConnection | null>(null);
@@ -155,12 +159,27 @@ export default function IntegrationsPage({
   };
 
   const handleSyncApi = async (id: string) => {
-    const updated = await apiConnectionsApi.update(id, {
-      lastSyncAt: new Date().toISOString(),
-    });
-    setApiConnections((prev) =>
-      prev.map((a) => (a.id === updated.id ? updated : a)),
-    );
+    // VRAI sync Printful (podApi.sync) — l'ancienne version tamponnait
+    // lastSyncAt sans rien synchroniser. Anti-double-clic (sync ~17 s).
+    if (syncingApiId) return;
+    setSyncingApiId(id);
+    setSyncApiError(null);
+    try {
+      const { podApi } = await import("../api/supabaseApi");
+      await podApi.sync();
+      const updated = await apiConnectionsApi.update(id, {
+        lastSyncAt: new Date().toISOString(),
+      });
+      setApiConnections((prev) =>
+        prev.map((a) => (a.id === updated.id ? updated : a)),
+      );
+    } catch (err) {
+      setSyncApiError(
+        err instanceof Error ? err.message : "Synchronisation impossible.",
+      );
+    } finally {
+      setSyncingApiId(null);
+    }
   };
 
   return (
@@ -265,6 +284,21 @@ export default function IntegrationsPage({
         </div>
 
         <div style={{ padding: "0 0 8px" }}>
+          {syncApiError && (
+            <p
+              style={{
+                fontSize: 13,
+                color: "#991b1b",
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: 10,
+                padding: "10px 14px",
+                margin: "0 0 12px",
+              }}
+            >
+              Sync Printful : {syncApiError}
+            </p>
+          )}
           {apiLoading ? (
             <div
               style={{ display: "flex", justifyContent: "center", padding: 40 }}
@@ -450,7 +484,12 @@ export default function IntegrationsPage({
                   {api.type === "pod" && api.enabled && (
                     <button
                       onClick={() => handleSyncApi(api.id)}
-                      title="Synchroniser"
+                      disabled={syncingApiId === api.id}
+                      title={
+                        syncingApiId === api.id
+                          ? "Synchronisation en cours…"
+                          : "Synchroniser (vrai sync Printful)"
+                      }
                       style={{
                         padding: "5px 10px",
                         borderRadius: 8,
@@ -459,14 +498,16 @@ export default function IntegrationsPage({
                         color: "var(--color-ink2)",
                         fontWeight: 600,
                         fontSize: 11,
-                        cursor: "pointer",
+                        cursor:
+                          syncingApiId === api.id ? "wait" : "pointer",
+                        opacity: syncingApiId === api.id ? 0.6 : 1,
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
                       }}
                     >
                       <RefreshCw size={11} strokeWidth={2} />
-                      Sync
+                      {syncingApiId === api.id ? "Sync…" : "Sync"}
                     </button>
                   )}
 

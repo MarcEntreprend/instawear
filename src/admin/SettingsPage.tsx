@@ -284,14 +284,11 @@ export default function SettingsPage() {
     );
   };
 
-  const handleSyncApi = async (id: string) => {
-    const updated = await apiConnectionsApi.update(id, {
-      lastSyncAt: new Date().toISOString(),
-    });
-    setApiConnections((prev) =>
-      prev.map((a) => (a.id === updated.id ? updated : a)),
-    );
-  };
+  // NOTE : pas de handleSyncApi ici — la liste des connexions n'est pas
+  // rendue dans cette page (voir IntegrationsPage, seul endroit qui affiche
+  // le bouton Sync, désormais branché sur le vrai sync Printful). Un faux
+  // "sync" qui tamponne la date sans rien synchroniser a déjà existé ici :
+  // ne pas le réintroduire.
 
   // Handlers pour les listes de référence
   const handleAddRef = (type: string) => {

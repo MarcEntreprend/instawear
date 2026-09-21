@@ -1,6 +1,7 @@
 // src/api/supabaseApi.ts
 
 import { supabase } from "../lib/supabaseClient";
+import { escapeHtml } from "../utils/format";
 import type {
   AdminProduct,
   Customer,
@@ -299,9 +300,9 @@ export const productApi = {
       .maybeSingle();
     if (error) throw error;
 
-    return mapProduct(data);
-
-    // NOTIFICATION - Nouveau produit créé
+    // NOTIFICATION - Nouveau produit créé (AVANT le return : le bloc
+    // précédent était inatteignable, la notif ne partait jamais).
+    // Best-effort : une panne notif ne doit jamais faire échouer la création.
     try {
       await notificationApi.create({
         title: "Nouveau produit créé",
@@ -319,6 +320,8 @@ export const productApi = {
     } catch (e) {
       console.warn("Échec création notification produit", e);
     }
+
+    return mapProduct(data);
   },
   async update(
     id: string,
@@ -381,6 +384,33 @@ export const productApi = {
       .select()
       .maybeSingle();
     if (error) throw error;
+
+    // NOTIFICATION - seulement sur changement significatif (titre, prix,
+    // activation, stock) : pas de spam à chaque sauvegarde triviale.
+    // Best-effort : ne bloque jamais la sauvegarde.
+    try {
+      const touched: string[] = [];
+      if (updates.title !== undefined) touched.push(`titre : ${updates.title}`);
+      if (updates.price !== undefined) touched.push(`prix : ${updates.price}`);
+      if (updates.isActive !== undefined)
+        touched.push(updates.isActive ? "activé" : "désactivé");
+      if (updates.inStock !== undefined)
+        touched.push(updates.inStock ? "en stock" : "rupture");
+      if (touched.length > 0) {
+        await notificationApi.create({
+          title: "Produit modifié",
+          description: `${updates.title ?? `Produit ${id}`} — ${touched.join(", ")}`,
+          category: "products",
+          priority: "low",
+          metadata: {
+            productId: id,
+            linkTo: "/admin/products",
+            source: "Système",
+          },
+          action_label: "Voir les produits",
+        });
+      }
+    } catch (_) {}
     return mapProduct(data);
   },
 
@@ -2975,6 +3005,36 @@ export const interactionApi = {
       .from("interactions")
       .update({ last_message: text, updated_at: new Date().toISOString() })
       .eq("id", interactionId);
+  },
+  /**
+   * Envoie la réponse admin PAR EMAIL au client (edge send-email, admin-only
+   * côté edge). Best-effort : l'appelant affiche le statut mais ne rollback
+   * jamais le message enregistré. Texte échappé (XSS stocké via email).
+   * Dormant sans domaine vérifié (le fournisseur ne livre qu'au propriétaire).
+   */
+  async sendReplyEmail(ticket: {
+    customerEmail?: string | null;
+    customerName?: string | null;
+    subject?: string | null;
+    replyText: string;
+  }): Promise<void> {
+    const to = (ticket.customerEmail || "").trim();
+    if (!to) throw new Error("Aucun email client sur ce ticket.");
+    const subject = `Re: ${ticket.subject || "votre message"} — InstaWear`;
+    const html =
+      `<p>Bonjour ${escapeHtml(ticket.customerName || "")},</p>` +
+      `<p>${escapeHtml(ticket.replyText).replace(/\n/g, "<br />")}</p>` +
+      `<p style="color:#888;font-size:12px;">— L'équipe InstaWear</p>`;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: await getPodAuthHeaders(),
+      body: JSON.stringify({ to, subject, html }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || "Envoi email impossible.");
+    }
   },
 };
 

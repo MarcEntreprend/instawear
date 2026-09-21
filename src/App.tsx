@@ -631,6 +631,16 @@ export default function App() {
         if (isAdminUser) {
           setIsAdmin(true);
           setIsUser(false);
+          // last_login_date admin (best-effort, jamais bloquant) : la page
+          // Administrateurs l'affiche au lieu de "Jamais".
+          supabase
+            .from("admin_users")
+            .update({ last_login_date: new Date().toISOString() })
+            .eq("email", session.user.email)
+            .then(
+              () => {},
+              () => {},
+            );
         } else {
           setIsUser(true);
           setIsAdmin(false);
@@ -654,6 +664,15 @@ export default function App() {
             if (isAdminUser) {
               setIsAdmin(true);
               setIsUser(false);
+              // last_login_date admin (best-effort, jamais bloquant).
+              supabase
+                .from("admin_users")
+                .update({ last_login_date: new Date().toISOString() })
+                .eq("email", session.user.email)
+                .then(
+                  () => {},
+                  () => {},
+                );
             } else {
               setIsUser(true);
               setIsAdmin(false);

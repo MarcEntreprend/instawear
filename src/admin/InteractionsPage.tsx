@@ -188,6 +188,11 @@ export default function InteractionsPage() {
   );
   const [messages, setMessages] = useState<InteractionMessage[]>([]);
   const [replyText, setReplyText] = useState("");
+  // Envoi réponse : anti-double-clic + statut email par message (le message
+  // est toujours enregistré ; l'email est best-effort).
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyNotice, setReplyNotice] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<Record<string, "sent" | "failed">>({});
   const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(
     null,
   );
@@ -285,23 +290,51 @@ export default function InteractionsPage() {
   };
 
   const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedTicket) return;
-    await interactionApi.addMessage(
-      selectedTicket.id,
-      "admin",
-      replyText.trim(),
-    );
-    const msgs = await interactionApi.getMessages(selectedTicket.id);
-    setMessages(
-      msgs.map((m: any) => ({
+    if (!replyText.trim() || !selectedTicket || sendingReply) return;
+    const text = replyText.trim();
+    setSendingReply(true);
+    setReplyNotice(null);
+    try {
+      await interactionApi.addMessage(selectedTicket.id, "admin", text);
+      const msgs = await interactionApi.getMessages(selectedTicket.id);
+      const mapped: InteractionMessage[] = msgs.map((m: any) => ({
         id: m.id,
         from: m.from_field,
         text: m.text,
         timestamp: m.timestamp,
-      })),
-    );
-    setReplyText("");
-    fetchInteractions();
+      }));
+      setMessages(mapped);
+      // Email client (best-effort) : le message reste enregistré en cas
+      // d'échec, seul le statut affiché change.
+      const mine = [...mapped]
+        .reverse()
+        .find((m) => m.from === "admin" && m.text === text);
+      try {
+        await interactionApi.sendReplyEmail({
+          customerEmail: selectedTicket.customerEmail,
+          customerName: selectedTicket.customerName,
+          subject: selectedTicket.subject,
+          replyText: text,
+        });
+        if (mine) {
+          setEmailStatus((prev) => ({ ...prev, [mine.id]: "sent" }));
+        } else {
+          setReplyNotice("Message enregistré, email envoyé au client.");
+        }
+      } catch {
+        if (mine) {
+          setEmailStatus((prev) => ({ ...prev, [mine.id]: "failed" }));
+        } else {
+          setReplyNotice("Message enregistré, mais l'email n'est pas parti.");
+        }
+      }
+      setReplyText("");
+      fetchInteractions();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSendingReply(false);
+    }
   };
 
   const handleChangeStatus = async (
@@ -391,6 +424,9 @@ export default function InteractionsPage() {
         replyText={replyText}
         setReplyText={setReplyText}
         onSendReply={handleSendReply}
+        sendingReply={sendingReply}
+        replyNotice={replyNotice}
+        emailStatus={emailStatus}
         onChangeStatus={(status) =>
           handleChangeStatus(selectedTicket.id, status)
         }
@@ -690,6 +726,9 @@ function TicketDetail({
   replyText,
   setReplyText,
   onSendReply,
+  sendingReply,
+  replyNotice,
+  emailStatus,
   onChangeStatus,
   onBack,
   onQuickViewOrder,
@@ -702,6 +741,9 @@ function TicketDetail({
   replyText: string;
   setReplyText: (v: string) => void;
   onSendReply: () => void;
+  sendingReply: boolean;
+  replyNotice: string | null;
+  emailStatus: Record<string, "sent" | "failed">;
   onChangeStatus: (status: InteractionStatus) => void;
   onBack: () => void;
   onQuickViewOrder: (orderId: string) => void;
@@ -900,6 +942,18 @@ function TicketDetail({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+              {msg.from === "admin" && emailStatus[msg.id] === "sent" && (
+                <span style={{ color: "var(--color-success)" }}>
+                  {" "}
+                  · ✉ envoyé
+                </span>
+              )}
+              {msg.from === "admin" && emailStatus[msg.id] === "failed" && (
+                <span style={{ color: "#991b1b" }}>
+                  {" "}
+                  · ⚠ email non parti
+                </span>
+              )}
             </span>
           </div>
         ))}
@@ -944,7 +998,7 @@ function TicketDetail({
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             onClick={onSendReply}
-            disabled={!replyText.trim()}
+            disabled={!replyText.trim() || sendingReply}
             style={{
               display: "flex",
               alignItems: "center",
@@ -957,13 +1011,25 @@ function TicketDetail({
               fontFamily: "var(--font-body)",
               fontWeight: 700,
               fontSize: 13.5,
-              cursor: "pointer",
-              opacity: replyText.trim() ? 1 : 0.5,
+              cursor: sendingReply ? "wait" : "pointer",
+              opacity: replyText.trim() && !sendingReply ? 1 : 0.5,
             }}
           >
-            <Send size={14} /> Envoyer
+            <Send size={14} /> {sendingReply ? "Envoi…" : "Envoyer"}
           </button>
         </div>
+        {replyNotice && (
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--color-ink2)",
+              textAlign: "right",
+              margin: 0,
+            }}
+          >
+            {replyNotice}
+          </p>
+        )}
         <p
           style={{
             fontSize: 10,
