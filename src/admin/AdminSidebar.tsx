@@ -13,7 +13,6 @@ import {
   X,
   HelpCircle,
   ChevronRight,
-  Zap,
   Bell,
   MessageSquare,
   Mail,
@@ -55,32 +54,73 @@ interface NavItem {
   icon: React.FC<any>;
 }
 
-const NAV_ITEMS: (NavItem | "separator")[] = [
-  { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { id: "orders", label: "Commandes", icon: CartIcon },
-  { id: "finances", label: "Finances", icon: Wallet },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "shipped", label: "Expédiées & Livrées", icon: Truck },
-  { id: "products", label: "Produits", icon: Package },
-  { id: "customers", label: "Clients", icon: Users },
-  { id: "interactions", label: "Interactions", icon: MessageSquare },
-  { id: "promotions", label: "Promotions & Deals", icon: Tag },
-  { id: "merchandising", label: "Merchandising", icon: Sparkles },
-  { id: "email-marketing", label: "Email Marketing", icon: Mail },
-  { id: "reports", label: "Rapports", icon: BarChart3 },
-  { id: "monitoring", label: "Monitoring", icon: Activity },
-  "separator",
-  { id: "integrations", label: "Intégrations", icon: Link2 },
-  { id: "settings", label: "Paramètres", icon: Settings },
-  { id: "admin-users", label: "Sécurité", icon: Shield },
+interface NavGroup {
+  id: string;
+  label: string;
+  items: NavItem[];
+}
+
+// ─── Navigation UNIQUE (Vague D) ───────────────────────────────────────────
+// UNE vérité d'ordre + libellés : groupes Pilotage / Catalogue & Clients /
+// Marketing / Système (audit item 17). Ordre logique métier : Commandes →
+// Expédiées → Finances (fini Finances entre Commandes et Notifications,
+// fini Expédiées loin des Commandes). Francisé (Emails, Supervision).
+// `help` intégrée au groupe Système (fini le bouton footer jamais actif).
+// AUCUNE route supprimée : AdminSection inchangé, que du réarrangement.
+// NAV_LABELS = source des titres (fil d'Ariane) : fini sidebar≠breadcrumb.
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "pilotage",
+    label: "Pilotage",
+    items: [
+      { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+      { id: "orders", label: "Commandes", icon: CartIcon },
+      { id: "shipped", label: "Expédiées & Livrées", icon: Truck },
+      { id: "finances", label: "Finances", icon: Wallet },
+      { id: "notifications", label: "Notifications", icon: Bell },
+    ],
+  },
+  {
+    id: "catalogue",
+    label: "Catalogue & Clients",
+    items: [
+      { id: "products", label: "Produits", icon: Package },
+      { id: "customers", label: "Clients", icon: Users },
+      { id: "interactions", label: "Interactions", icon: MessageSquare },
+    ],
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    items: [
+      { id: "promotions", label: "Promotions & Deals", icon: Tag },
+      { id: "merchandising", label: "Merchandising", icon: Sparkles },
+      { id: "email-marketing", label: "Emails", icon: Mail },
+      { id: "reports", label: "Rapports", icon: BarChart3 },
+    ],
+  },
+  {
+    id: "systeme",
+    label: "Système",
+    items: [
+      { id: "monitoring", label: "Supervision", icon: Activity },
+      { id: "integrations", label: "Intégrations", icon: Link2 },
+      { id: "settings", label: "Paramètres", icon: Settings },
+      { id: "admin-users", label: "Sécurité", icon: Shield },
+      { id: "help", label: "Aide & Support", icon: HelpCircle },
+    ],
+  },
 ];
+
+export const NAV_LABELS: Record<AdminSection, string> = Object.fromEntries(
+  NAV_GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.label])),
+) as Record<AdminSection, string>;
 
 interface AdminSidebarProps {
   active: AdminSection;
   onNavigate: (s: AdminSection) => void;
   onClose?: () => void;
   mobile?: boolean;
-  onReturnToStore?: () => void;
 }
 
 /** Pastille de comptage nav (même gabarit que la pastille notifs). */
@@ -116,7 +156,6 @@ export default function AdminSidebar({
   onNavigate,
   onClose,
   mobile,
-  onReturnToStore,
 }: AdminSidebarProps) {
   // Couleurs adaptatives selon le thème (clair / sombre)
   const bg = "var(--color-surface2)";
@@ -125,8 +164,6 @@ export default function AdminSidebar({
   const borderColor = "var(--color-border)";
   const activeBg = "var(--color-accent-soft)";
   const activeText = "var(--color-accent)";
-  const hoverBg = "var(--color-surface)";
-  const hoverText = "var(--color-ink)";
   // Compteurs partagés (un seul poller pour tout l'admin, cf.
   // useAdminBadges) : notifs + commandes en attente + mockups + critiques.
   const badges = useAdminBadges(true);
@@ -223,57 +260,10 @@ export default function AdminSidebar({
         )}
       </div>
 
-      {/* Live indicator */}
-      <button
-        onClick={() => {
-          onReturnToStore?.();
-          window.location.reload();
-        }}
-        style={{
-          padding: "10px 14px",
-          margin: "12px 12px 0",
-          borderRadius: 10,
-          background: "var(--color-accent-soft)",
-          border: "1px solid var(--color-accent-soft2)",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          width: "calc(100% - 24px)",
-          cursor: "pointer",
-          fontFamily: "inherit",
-        }}
-      >
-        <div
-          style={{
-            width: 7,
-            height: 7,
-            borderRadius: "50%",
-            background: "var(--color-accent)",
-            flexShrink: 0,
-            boxShadow: "0 0 0 3px rgba(255,92,53,0.25)",
-            animation: "pulse-ring 1.8s ease-out infinite",
-          }}
-        />
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "var(--color-accent)",
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-          }}
-        >
-          Boutique en ligne
-        </span>
-        <Zap
-          size={10}
-          style={{ color: "var(--color-accent)", marginLeft: "auto" }}
-          strokeWidth={2.5}
-        />
-      </button>
-
-      {/* Nav */}
+      {/* Nav — UN seul CTA boutique (barre supérieure, "Voir la boutique") :
+          ce bloc redondant (avec reload) est supprimé, Vague D. */}
       <nav
+        aria-label="Navigation principale"
         style={{
           flex: 1,
           padding: "12px 10px",
@@ -283,171 +273,168 @@ export default function AdminSidebar({
           overflowY: "auto",
         }}
       >
-        <p
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            color: textDim,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            padding: "6px 10px 4px",
-          }}
-        >
-          Navigation
-        </p>
-        {NAV_ITEMS.map((item, i) => {
-          if (item === "separator") {
-            return (
-              <div
-                key={`sep-${i}`}
-                style={{
-                  height: 1,
-                  background: borderColor,
-                  margin: "8px 10px",
-                }}
-              />
-            );
-          }
-          const isActive = active === item.id;
-          const Icon = item.icon;
-          const isNotif = item.id === "notifications";
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                onNavigate(item.id);
-                if (mobile && onClose) onClose();
-              }}
+        {NAV_GROUPS.map((group) => (
+          <div key={group.id}>
+            <p
               style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "9px 12px",
-                borderRadius: 10,
-                border: "none",
-                background: isActive ? activeBg : "transparent",
-                color: isActive ? activeText : textMuted,
-                cursor: "pointer",
-                fontFamily: "var(--font-body)",
-                fontWeight: isActive ? 700 : 500,
-                fontSize: 13.5,
-                textAlign: "left",
-                transition: "background 0.18s, color 0.18s",
-                position: "relative",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = hoverBg;
-                  e.currentTarget.style.color = hoverText;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = textMuted;
-                }
+                fontSize: 9,
+                fontWeight: 700,
+                color: textDim,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                padding: "10px 10px 4px",
+                margin: 0,
               }}
             >
-              {isActive && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: 3,
-                    height: 20,
-                    borderRadius: "0 2px 2px 0",
-                    background: "var(--color-accent)",
-                  }}
-                />
-              )}
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                <Icon
-                  size={16}
-                  strokeWidth={isActive ? 2.2 : 1.8}
-                  style={
-                    isNotif && urgentCount > 0
-                      ? {
-                          animation: "bell-shake 0.4s ease-in-out infinite",
-                          animationDelay: "2s",
-                          color: "var(--color-accent)",
-                        }
-                      : undefined
-                  }
-                />
-                {isNotif && urgentCount > 0 && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: -3,
-                      right: -6,
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: "var(--color-accent)",
-                      border: "1.5px solid var(--color-surface2)",
-                    }}
-                  />
-                )}
-              </span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {isNotif && unreadCount > 0 && (
-                <span
-                  title={
-                    urgentCount > 0
-                      ? `${urgentCount} urgente(s)`
-                      : `${unreadCount} non lue(s)`
-                  }
-                  style={{
-                    background:
-                      urgentCount > 0
-                        ? "var(--color-accent)"
-                        : "var(--color-ink3)",
-                    color: urgentCount > 0 ? "white" : "var(--color-bg)",
-                    borderRadius: 999,
-                    padding: "1px 7px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {unreadCount}
-                </span>
-              )}
-              {item.id === "orders" && badges.ordersPending > 0 && (
-                <NavCountBadge
-                  count={badges.ordersPending}
-                  title={`${badges.ordersPending} commande(s) en attente`}
-                />
-              )}
-              {item.id === "products" && badges.mockupsOpen > 0 && (
-                <NavCountBadge
-                  count={badges.mockupsOpen}
-                  title={`${badges.mockupsOpen} mockup(s) en file ou en cours`}
-                />
-              )}
-              {item.id === "monitoring" && badges.criticalErrors > 0 && (
-                <NavCountBadge
-                  count={badges.criticalErrors}
-                  title={`${badges.criticalErrors} erreur(s) critique(s) non résolue(s)`}
-                  alert
-                />
-              )}
-              {isActive && !isNotif && (
-                <ChevronRight
-                  size={13}
-                  strokeWidth={2}
-                  style={{ color: "var(--color-ink4)" }}
-                />
-              )}
-            </button>
-          );
-        })}
+              {group.label}
+            </p>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {group.items.map((item) => {
+                const isActive = active === item.id;
+                const Icon = item.icon;
+                const isNotif = item.id === "notifications";
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => {
+                        onNavigate(item.id);
+                        if (mobile && onClose) onClose();
+                      }}
+                      aria-current={isActive ? "page" : undefined}
+                      className={
+                        isActive ? "admin-nav-btn active" : "admin-nav-btn"
+                      }
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: "none",
+                        background: isActive ? activeBg : "transparent",
+                        color: isActive ? activeText : textMuted,
+                        cursor: "pointer",
+                        fontFamily: "var(--font-body)",
+                        fontWeight: isActive ? 700 : 500,
+                        fontSize: 13.5,
+                        textAlign: "left",
+                        transition: "background 0.18s, color 0.18s",
+                        position: "relative",
+                      }}
+                    >
+                      {isActive && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            width: 3,
+                            height: 20,
+                            borderRadius: "0 2px 2px 0",
+                            background: "var(--color-accent)",
+                          }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          position: "relative",
+                          display: "inline-flex",
+                        }}
+                      >
+                        <Icon
+                          size={16}
+                          strokeWidth={isActive ? 2.2 : 1.8}
+                          style={
+                            isNotif && urgentCount > 0
+                              ? {
+                                  animation:
+                                    "bell-shake 0.4s ease-in-out infinite",
+                                  animationDelay: "2s",
+                                  color: "var(--color-accent)",
+                                }
+                              : undefined
+                          }
+                        />
+                        {isNotif && urgentCount > 0 && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: -3,
+                              right: -6,
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--color-accent)",
+                              border: "1.5px solid var(--color-surface2)",
+                            }}
+                          />
+                        )}
+                      </span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {isNotif && unreadCount > 0 && (
+                        <span
+                          title={
+                            urgentCount > 0
+                              ? `${urgentCount} urgente(s)`
+                              : `${unreadCount} non lue(s)`
+                          }
+                          style={{
+                            background:
+                              urgentCount > 0
+                                ? "var(--color-accent)"
+                                : "var(--color-ink3)",
+                            color:
+                              urgentCount > 0 ? "white" : "var(--color-bg)",
+                            borderRadius: 999,
+                            padding: "1px 7px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {unreadCount}
+                        </span>
+                      )}
+                      {item.id === "orders" && badges.ordersPending > 0 && (
+                        <NavCountBadge
+                          count={badges.ordersPending}
+                          title={`${badges.ordersPending} commande(s) en attente`}
+                        />
+                      )}
+                      {item.id === "products" && badges.mockupsOpen > 0 && (
+                        <NavCountBadge
+                          count={badges.mockupsOpen}
+                          title={`${badges.mockupsOpen} mockup(s) en file ou en cours`}
+                        />
+                      )}
+                      {item.id === "monitoring" &&
+                        badges.criticalErrors > 0 && (
+                          <NavCountBadge
+                            count={badges.criticalErrors}
+                            title={`${badges.criticalErrors} erreur(s) critique(s) non résolue(s)`}
+                            alert
+                          />
+                        )}
+                      {isActive && !isNotif && (
+                        <ChevronRight
+                          size={13}
+                          strokeWidth={2}
+                          style={{ color: "var(--color-ink4)" }}
+                        />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      {/* Footer avec bouton Help */}
+      {/* Footer — help vit dans la nav (groupe Système, avec état actif) :
+          fini le bouton footer jamais actif. */}
       <div
         style={{
           padding: "10px 14px",
@@ -469,24 +456,6 @@ export default function AdminSidebar({
           InstaWear Admin v1.0
           <br />© 2026 — Tous droits réservés
         </p>
-        <button
-          onClick={() => onNavigate("help")}
-          title="Aide & Support"
-          style={{
-            background: "var(--color-surface)",
-            border: "none",
-            borderRadius: 8,
-            width: 28,
-            height: 28,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            color: textMuted,
-          }}
-        >
-          <HelpCircle size={16} strokeWidth={2} />
-        </button>
       </div>
     </aside>
   );
