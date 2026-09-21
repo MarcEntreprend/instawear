@@ -7,6 +7,11 @@ import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { storageApi } from "../api/storageApi";
 import { podApi } from "../api/supabaseApi";
 import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
+// Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
+import {
+  formInputStyle as inputStyle,
+  formLabelStyle as labelStyle,
+} from "./adminStyles";
 import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import { AdminProduct } from "./adminTypes";
 
@@ -422,26 +427,6 @@ export default function ProductFormPanel({
         })
         .catch(() => {});
     });
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid var(--color-border)",
-    background: "var(--color-surface2)",
-    fontSize: 13,
-    color: "var(--color-ink)",
-    fontFamily: "var(--font-body)",
-    outline: "none",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--color-ink2)",
-    display: "block",
-    marginBottom: 4,
   };
 
   return (

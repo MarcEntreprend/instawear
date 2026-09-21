@@ -14,6 +14,7 @@ import {
 import { errorMonitoringApi, type EdgeErrorRow } from "../api/supabaseApi";
 import { formatDateTimeFR } from "../utils/dates";
 import { useAdminHighlight } from "./useAdminHighlight";
+import { filterSelectStyle } from "./adminStyles";
 
 const SEVERITY_STYLE: Record<
   string,
@@ -131,14 +132,9 @@ export default function ErrorMonitoringPage() {
   // mockups/syncs/emails vivent ailleurs — liens directs, pas de jointure.
   const { navigateAndHighlight } = useAdminHighlight();
 
-  const selectStyle: React.CSSProperties = {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: 8,
-    padding: "6px 10px",
-    fontSize: 12,
-    color: "var(--color-ink2)",
-  };
+  // selectStyle canonique partagé (Vague C3 réduit : copie locale supprimée,
+  // normalisation 6px/radius 8 → 7px/radius 10).
+  const selectStyle = filterSelectStyle;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

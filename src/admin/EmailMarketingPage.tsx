@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import * as S from "./adminStyles";
 import AdminEmpty from "./ui/AdminEmpty";
+import { formInputStyle, formLabelStyle } from "./adminStyles";
 import { supabase } from "../lib/supabaseClient";
 import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
 import VariablesModal from "./emailMarketing/VariablesModal";
@@ -3509,26 +3510,11 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "var(--shadow-sm)",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 13px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 13.5,
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-sans)",
-  outline: "none",
-  boxSizing: "border-box",
-};
+// inputStyle/labelStyle : canoniques partagés (Vague C3 réduit —
+// normalisation 9px/13px/13.5/margin 6 → 8px/12px/13/margin 4).
+const inputStyle = formInputStyle;
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--color-ink2)",
-  marginBottom: 6,
-};
+const labelStyle = formLabelStyle;
 
 const sectionTitle: React.CSSProperties = {
   fontSize: 13,

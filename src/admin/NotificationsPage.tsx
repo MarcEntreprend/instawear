@@ -50,6 +50,8 @@ import type { AdminSection } from "./AdminSidebar";
 import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
 import AdminEmpty from "./ui/AdminEmpty";
+// selectStyle canonique (Vague C3 réduit).
+import { filterSelectStyle as selectStyle } from "./adminStyles";
 import CartIcon from "../components/CartIcon";
 
 // ─── Types ──────────────────────────────────────
@@ -2060,18 +2062,6 @@ const searchInputStyle: React.CSSProperties = {
   transition: "border-color 0.2s",
 };
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-  fontSize: 12.5,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
-  transition: "border-color 0.2s",
-};
 
 const pageBtn: React.CSSProperties = {
   width: 32,

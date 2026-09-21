@@ -31,6 +31,12 @@ import ProductQuickViewModal, {
 } from "./ProductQuickViewModal";
 import AdminButton from "./ui/AdminButton";
 import AdminEmpty from "./ui/AdminEmpty";
+// Styles recherche/filtres canoniques (Vague C3 réduit).
+import {
+  inputStyle,
+  clearBtnStyle,
+  filterSelectStyle,
+} from "./adminStyles";
 import CartIcon from "../components/CartIcon";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 import {
@@ -489,26 +495,12 @@ export default function OrdersPage() {
             placeholder="Rechercher (ID, client, produit)…"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            style={{
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              flex: 1,
-              fontSize: 13,
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-body)",
-            }}
+            style={inputStyle}
           />
           {filters.search && (
             <button
               onClick={() => setFilters({ ...filters, search: "" })}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--color-ink4)",
-                padding: 0,
-              }}
+              style={clearBtnStyle}
             >
               <X size={14} />
             </button>
@@ -518,16 +510,7 @@ export default function OrdersPage() {
         <select
           value={filters.status}
           onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          style={{
-            padding: "7px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--color-border)",
-            background: "var(--color-surface2)",
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--color-ink2)",
-            cursor: "pointer",
-          }}
+          style={filterSelectStyle}
         >
           <option value="">Tous les statuts</option>
           {Object.entries(ORDER_STATUS_LABEL).map(([key, val]) => (

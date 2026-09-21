@@ -6,6 +6,13 @@ import { storageApi } from "../api/storageApi";
 import { Upload } from "lucide-react";
 import { AdminProduct } from "./adminTypes";
 import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
+// Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
+// thStyle/tdStyle RESTENT locaux : grille dense des variantes, on ne touche
+// pas aux variants (contrainte C3 réduit).
+import {
+  formInputStyle as inputStyle,
+  formLabelStyle as labelStyle,
+} from "./adminStyles";
 import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
@@ -617,26 +624,6 @@ export default function PrintfulProductForm({
     } finally {
       setImporting(false);
     }
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 12px",
-    borderRadius: 10,
-    border: "1px solid var(--color-border)",
-    background: "var(--color-surface2)",
-    fontSize: 13,
-    color: "var(--color-ink)",
-    fontFamily: "var(--font-body)",
-    outline: "none",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--color-ink2)",
-    display: "block",
-    marginBottom: 4,
   };
 
   const cleanGallery = galleryImages.filter(

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+// Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
+import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { HERO_BG_FALLBACK } from "../components/HeroCarousel";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
@@ -944,25 +946,9 @@ const cardStyle: React.CSSProperties = {
   padding: 20,
 };
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--color-ink2)",
-  display: "block",
-  marginBottom: 4,
-};
+const labelStyle = formLabelStyle;
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 13,
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-body)",
-  outline: "none",
-};
+const inputStyle = formInputStyle;
 
 const primaryBtn: React.CSSProperties = {
   display: "flex",

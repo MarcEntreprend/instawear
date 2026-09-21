@@ -26,6 +26,15 @@ import { useHighlightListener } from "./useAdminHighlight";
 import CartIcon from "../components/CartIcon";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import AdminBadge from "./ui/AdminBadge";
+// Styles canoniques partagés (Vague C3 réduit : fini les copies locales).
+import {
+  filterSelectStyle as selectStyle,
+  tableWrapperStyle,
+  theadStyle,
+  thStyle,
+  tdStyle,
+  avatarStyle,
+} from "./adminStyles";
 import type { AdminProduct } from "./adminTypes";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -218,26 +227,32 @@ export default function InteractionsPage() {
     fetchInteractions();
   }, [fetchInteractions]);
 
-  // ── Polling messages du ticket ouvert ────────────────────────────
+  // ── Polling messages du ticket ouvert (UN seul : l'audit notait deux
+  // useEffect identiques → 2 requêtes/10s. Source unique + intervalle unique.)
+  const loadTicketMessages = useCallback(async (ticketId: string) => {
+    try {
+      const msgs = await interactionApi.getMessages(ticketId);
+      setMessages(
+        msgs.map((m: any) => ({
+          id: m.id,
+          from: m.from_field,
+          text: m.text,
+          timestamp: m.timestamp,
+        })),
+      );
+    } catch (e) {
+      /* silencieux */
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedTicket) return;
-    const interval = setInterval(async () => {
-      try {
-        const msgs = await interactionApi.getMessages(selectedTicket.id);
-        setMessages(
-          msgs.map((m: any) => ({
-            id: m.id,
-            from: m.from_field,
-            text: m.text,
-            timestamp: m.timestamp,
-          })),
-        );
-      } catch (e) {
-        /* silencieux */
-      }
-    }, 10000);
+    const interval = setInterval(
+      () => loadTicketMessages(selectedTicket.id),
+      10000,
+    );
     return () => clearInterval(interval);
-  }, [selectedTicket]);
+  }, [selectedTicket, loadTicketMessages]);
 
   // Highlight depuis les notifications
   useHighlightListener(
@@ -246,27 +261,6 @@ export default function InteractionsPage() {
     8000,
     'tr[data-interaction-id="{}"]',
   );
-
-  // Recharge les messages du ticket ouvert toutes les 10 secondes
-  useEffect(() => {
-    if (!selectedTicket) return;
-    const interval = setInterval(async () => {
-      try {
-        const msgs = await interactionApi.getMessages(selectedTicket.id);
-        setMessages(
-          msgs.map((m: any) => ({
-            id: m.id,
-            from: m.from_field,
-            text: m.text,
-            timestamp: m.timestamp,
-          })),
-        );
-      } catch (e) {
-        /* silencieux */
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [selectedTicket]);
 
   const openTicket = async (ticket: AdminInteraction) => {
     setSelectedTicket(ticket);
@@ -1171,6 +1165,8 @@ const clearBtnStyle: React.CSSProperties = {
   padding: 0,
 };
 
+// selectStyle/table/avatar : canoniques partagés (Vague C3 réduit —
+// copies locales supprimées, valeurs identiques ; import en tête de fichier).
 const clearFiltersBtnStyle: React.CSSProperties = {
   padding: "6px 14px",
   borderRadius: 10,
@@ -1180,56 +1176,6 @@ const clearFiltersBtnStyle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 12,
   cursor: "pointer",
-};
-
-const selectStyle: React.CSSProperties = {
-  padding: "7px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 12,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
-  borderRadius: 16,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-};
-
-const theadStyle: React.CSSProperties = {
-  background: "var(--color-surface2)",
-  fontWeight: 700,
-  color: "var(--color-ink2)",
-};
-
-const thStyle: React.CSSProperties = {
-  padding: "12px 14px",
-  textAlign: "left",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  verticalAlign: "middle",
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  background: "var(--color-accent)",
-  color: "white",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
-  fontSize: 13,
-  flexShrink: 0,
 };
 
 const iconBtn: React.CSSProperties = {

@@ -24,6 +24,12 @@ import { normalizeMaterialKey } from "../data/materials";
 import { DISCOUNT_EVENT_TYPE } from "../data/categories";
 import AdminBadge from "./ui/AdminBadge";
 import AdminEmpty from "./ui/AdminEmpty";
+// Styles recherche/filtres canoniques (Vague C2/C3 réduit).
+import {
+  filterSelectStyle as selectStyle,
+  inputStyle,
+  clearBtnStyle,
+} from "./adminStyles";
 import MockupStudio, { mockupCoverage, needsMockups } from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
@@ -969,26 +975,12 @@ export default function ProductsPage() {
             placeholder="Rechercher…"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            style={{
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              flex: 1,
-              fontSize: 13,
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-body)",
-            }}
+            style={inputStyle}
           />
           {filters.search && (
             <button
               onClick={() => setFilters({ ...filters, search: "" })}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--color-ink4)",
-                padding: 0,
-              }}
+              style={clearBtnStyle}
             >
               <X size={14} />
             </button>
@@ -1689,18 +1681,6 @@ const arrowBtn: React.CSSProperties = {
   cursor: "pointer",
   color: "var(--color-ink4)",
   display: "flex",
-};
-
-const selectStyle: React.CSSProperties = {
-  padding: "7px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 12,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
 };
 
 const actionBtnWhite: React.CSSProperties = {
