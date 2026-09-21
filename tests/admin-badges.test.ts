@@ -100,3 +100,19 @@ test("API : getStatusCounts / getUnreadBreakdown / getUnresolvedCriticalCount", 
   assert.ok(src.includes("async getUnreadBreakdown()"));
   assert.ok(src.includes("async getUnresolvedCriticalCount()"));
 });
+
+// ─── Dots d'attention lignes ────────────────────────────────────────────────
+
+test("ProductsPage : dot vignette + badge Mockups X/Y + filtre", () => {
+  const src = read("src/admin/ProductsPage.tsx");
+  assert.ok(src.includes("mockupCoverage("), "couverture réutilisée");
+  assert.ok(src.includes("missingMockups"), "dot + badge conditionnels");
+  assert.ok(src.includes("Mockups ${cov.imaged}/${cov.total}"));
+  assert.ok(src.includes("onlyMissingMockups"), "filtre attention");
+  assert.ok(src.includes("Sans mockups complets"));
+});
+
+test("ErrorMonitoringPage : dot critiques non résolues", () => {
+  const src = read("src/admin/ErrorMonitoringPage.tsx");
+  assert.ok(src.includes("Critique non résolue"));
+});

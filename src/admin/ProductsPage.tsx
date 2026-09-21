@@ -20,7 +20,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useProducts, useReferenceLists } from "./adminHooks";
-import MockupStudio from "./MockupStudio";
+import MockupStudio, { mockupCoverage, needsMockups } from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -37,6 +37,8 @@ const BADGE_STYLE: Record<string, React.CSSProperties> = {
   inactive: { background: "#f3f4f6", color: "#6b7280" },
   outofstock: { background: "#fff7ed", color: "#c2410c" },
   deal: { background: "#d1fae5", color: "#065f46" },
+  // Attention requise : même ambre que l'alerte dashboard (urgence douce).
+  mockups: { background: "#fef3c7", color: "#92400e" },
 };
 
 function Badge({
@@ -96,6 +98,9 @@ export default function ProductsPage() {
   });
   const [sortKey, setSortKey] = useState<keyof AdminProduct>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  // Filtre "attention requise" : produits sans mockups générés complets
+  // (même définition que MockupStudio/File, cf. needsMockups).
+  const [onlyMissingMockups, setOnlyMissingMockups] = useState(false);
   // Ordre manuel (réorganisation visuelle uniquement, pas de persistance)
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -222,12 +227,26 @@ export default function ProductsPage() {
     return counts;
   }, [allProducts]);
 
+  // ── Compteur "attention requise" (dot du filtre, comme les dots notifs).
+  const missingMockupsCount = useMemo(
+    () =>
+      (allProducts ?? []).filter((p) =>
+        needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      ).length,
+    [allProducts],
+  );
+
   // ── Filter & sort ──────────────────────────────────────────────────────
   const products = useMemo(() => {
     if (!allProducts) return [];
     let list = [...allProducts];
 
     if (hideInactive) list = list.filter((p) => p.isActive);
+
+    if (onlyMissingMockups)
+      list = list.filter((p) =>
+        needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      );
 
     if (filters.search) {
       const s = filters.search.toLowerCase();
@@ -265,7 +284,7 @@ export default function ProductsPage() {
       return 0;
     });
     return list;
-  }, [allProducts, filters, sortKey, sortDir, hideInactive]);
+  }, [allProducts, filters, sortKey, sortDir, hideInactive, onlyMissingMockups]);
 
   // Synchroniser l'ordre manuel avec la liste filtrée (IDs uniquement, sans boucle)
   useEffect(() => {
@@ -412,8 +431,9 @@ export default function ProductsPage() {
     if (filters.priceMax < 200) count++;
     if (filters.size) count++;
     if (filters.color) count++;
+    if (onlyMissingMockups) count++;
     return count;
-  }, [filters]);
+  }, [filters, onlyMissingMockups]);
 
   const resetFilters = () => {
     setFilters({
@@ -429,6 +449,7 @@ export default function ProductsPage() {
       color: null,
       showInactive: true,
     });
+    setOnlyMissingMockups(false);
   };
 
   const moveProduct = (id: string, direction: -1 | 1) => {
@@ -1014,6 +1035,50 @@ export default function ProductsPage() {
             />
             En stock uniquement
           </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--color-ink3)",
+              cursor: "pointer",
+            }}
+            title="Produits Printful sans mockups générés complets"
+          >
+            <input
+              type="checkbox"
+              checked={onlyMissingMockups}
+              onChange={(e) => setOnlyMissingMockups(e.target.checked)}
+              style={{ accentColor: "var(--color-accent)" }}
+            />
+            Sans mockups complets
+            {missingMockupsCount > 0 && (
+              <span
+                title={`${missingMockupsCount} produit(s) sans mockups complets`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--color-accent)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--color-accent)",
+                    display: "inline-block",
+                  }}
+                />
+                {missingMockupsCount}
+              </span>
+            )}
+          </label>
 
           {/* Réinitialiser */}
           {activeFilterCount > 0 && (
@@ -1199,6 +1264,13 @@ export default function ProductsPage() {
                 p.dealActive && p.dealPrice && p.dealPrice < p.price
                   ? Math.round(((p.price - p.dealPrice) / p.price) * 100)
                   : null;
+              // Couverture mockups (même définition que le studio) : dot +
+              // badge quand incomplet.
+              const cov = mockupCoverage(
+                p as unknown as { variants?: { image?: string }[] | null },
+              );
+              const missingMockups =
+                cov.total > 0 && cov.imaged < cov.total;
               const idxInManual = manualOrder.indexOf(p.id);
               const isFirst = idxInManual === 0;
               const isLast = idxInManual === manualOrder.length - 1;
@@ -1264,6 +1336,11 @@ export default function ProductsPage() {
                   <td style={{ padding: "10px 14px" }}>
                     <button
                       onClick={() => setQuickViewProduct(p)}
+                      title={
+                        missingMockups
+                          ? `Mockups ${cov.imaged}/${cov.total} — à compléter`
+                          : undefined
+                      }
                       style={{
                         width: 40,
                         height: 40,
@@ -1273,6 +1350,8 @@ export default function ProductsPage() {
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
+                        position: "relative",
+                        display: "block",
                       }}
                     >
                       <img
@@ -1285,6 +1364,21 @@ export default function ProductsPage() {
                           display: "block",
                         }}
                       />
+                      {missingMockups && (
+                        <span
+                          title={`Mockups ${cov.imaged}/${cov.total} — à compléter`}
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: 2,
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: "var(--color-accent)",
+                            border: "1.5px solid white",
+                          }}
+                        />
+                      )}
                     </button>
                   </td>
                   <td
@@ -1395,6 +1489,12 @@ export default function ProductsPage() {
                       )}
                       {p.dealActive && (
                         <Badge label="Deal" style={BADGE_STYLE.deal} />
+                      )}
+                      {missingMockups && (
+                        <Badge
+                          label={`Mockups ${cov.imaged}/${cov.total}`}
+                          style={BADGE_STYLE.mockups}
+                        />
                       )}
                       {!p.isActive && (
                         <Badge label="Inactif" style={BADGE_STYLE.inactive} />

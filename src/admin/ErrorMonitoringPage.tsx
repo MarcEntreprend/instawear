@@ -431,6 +431,20 @@ export default function ErrorMonitoringPage() {
                       <td
                         style={{ padding: "10px 12px", whiteSpace: "nowrap" }}
                       >
+                        {!r.resolved && r.severity === "critical" && (
+                          <span
+                            title="Critique non résolue — à traiter"
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--color-accent)",
+                              marginRight: 6,
+                              verticalAlign: "baseline",
+                            }}
+                          />
+                        )}
                         {fmtDate(r.created_at)}
                       </td>
                       <td style={{ padding: "10px 12px" }}>
