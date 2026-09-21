@@ -1,6 +1,6 @@
 // src/admin/AdminSidebar.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -22,7 +22,7 @@ import {
   Activity,
   Wallet,
 } from "lucide-react";
-import { notificationApi } from "../api/supabaseApi";
+import { useAdminBadges } from "./useAdminBadges";
 import {
   PLACEHOLDER_IMG,
   LOGO_URL,
@@ -83,6 +83,34 @@ interface AdminSidebarProps {
   onReturnToStore?: () => void;
 }
 
+/** Pastille de comptage nav (même gabarit que la pastille notifs). */
+function NavCountBadge({
+  count,
+  title,
+  alert = false,
+}: {
+  count: number;
+  title: string;
+  alert?: boolean;
+}) {
+  return (
+    <span
+      title={title}
+      style={{
+        background: alert ? "var(--color-accent)" : "var(--color-ink3)",
+        color: alert ? "white" : "var(--color-bg)",
+        borderRadius: 999,
+        padding: "1px 7px",
+        fontSize: 11,
+        fontWeight: 700,
+        lineHeight: 1.4,
+      }}
+    >
+      {count}
+    </span>
+  );
+}
+
 export default function AdminSidebar({
   active,
   onNavigate,
@@ -99,34 +127,11 @@ export default function AdminSidebar({
   const activeText = "var(--color-accent)";
   const hoverBg = "var(--color-surface)";
   const hoverText = "var(--color-ink)";
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [urgentCount, setUrgentCount] = useState(0);
-
-  useEffect(() => {
-    const fetch = () => {
-      notificationApi
-        .getUnreadCount()
-        .then(setUnreadCount)
-        .catch(() => {});
-      notificationApi
-        .list({ status: "unread", priority: "urgent", perPage: 1 })
-        .then(({ total }) => setUrgentCount(total))
-        .catch(() => {});
-    };
-    fetch();
-
-    // Polling toutes les 30 secondes
-    const interval = setInterval(fetch, 30000);
-
-    // Rafraîchissement immédiat quand une notification est créée
-    const handleNotifUpdate = () => fetch();
-    window.addEventListener("notifications-updated", handleNotifUpdate);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("notifications-updated", handleNotifUpdate);
-    };
-  }, []);
+  // Compteurs partagés (un seul poller pour tout l'admin, cf.
+  // useAdminBadges) : notifs + commandes en attente + mockups + critiques.
+  const badges = useAdminBadges(true);
+  const unreadCount = badges.unread;
+  const urgentCount = badges.urgent;
 
   return (
     <aside
@@ -390,6 +395,11 @@ export default function AdminSidebar({
               <span style={{ flex: 1 }}>{item.label}</span>
               {isNotif && unreadCount > 0 && (
                 <span
+                  title={
+                    urgentCount > 0
+                      ? `${urgentCount} urgente(s)`
+                      : `${unreadCount} non lue(s)`
+                  }
                   style={{
                     background:
                       urgentCount > 0
@@ -405,6 +415,25 @@ export default function AdminSidebar({
                 >
                   {unreadCount}
                 </span>
+              )}
+              {item.id === "orders" && badges.ordersPending > 0 && (
+                <NavCountBadge
+                  count={badges.ordersPending}
+                  title={`${badges.ordersPending} commande(s) en attente`}
+                />
+              )}
+              {item.id === "products" && badges.mockupsOpen > 0 && (
+                <NavCountBadge
+                  count={badges.mockupsOpen}
+                  title={`${badges.mockupsOpen} mockup(s) en file ou en cours`}
+                />
+              )}
+              {item.id === "monitoring" && badges.criticalErrors > 0 && (
+                <NavCountBadge
+                  count={badges.criticalErrors}
+                  title={`${badges.criticalErrors} erreur(s) critique(s) non résolue(s)`}
+                  alert
+                />
               )}
               {isActive && !isNotif && (
                 <ChevronRight

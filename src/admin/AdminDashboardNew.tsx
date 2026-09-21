@@ -32,6 +32,7 @@ import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useAdminBadges } from "./useAdminBadges";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import CopyID from "../components/CopyID";
 import CartIcon from "../components/CartIcon";
@@ -356,7 +357,11 @@ function DashboardHome({
 
   // Deltas réels (comparaison avec hier pour les commandes)
   const [yesterdayOrders, setYesterdayOrders] = useState<number | null>(null);
-  const [totalPending, setTotalPending] = useState<number | null>(null);
+  // Total "en attente" : source partagée (même chiffre que le badge
+  // Commandes, cf. useAdminBadges) — remplace le refetch conditionnel.
+  const sharedBadges = useAdminBadges(true);
+  const totalPending =
+    sharedBadges.ordersPending > 0 ? sharedBadges.ordersPending : null;
 
   useEffect(() => {
     import("../api/supabaseApi").then(({ dashboardApi }) => {
@@ -368,29 +373,6 @@ function DashboardHome({
       });
     });
   }, []);
-
-  useEffect(() => {
-    if (!stats) return;
-    const pendingCount = stats.recentOrders.filter(
-      (o) => o.status === "pending",
-    ).length;
-    if (pendingCount > 3) {
-      // S'il y a plus de 3 commandes en attente, on va chercher le total réel
-      import("../api/supabaseApi").then(({ orderApi }) => {
-        orderApi
-          .list()
-          .then((allOrders) => {
-            const count = allOrders.filter(
-              (o) => o.status === "pending",
-            ).length;
-            setTotalPending(count);
-          })
-          .catch(() => setTotalPending(pendingCount));
-      });
-    } else {
-      setTotalPending(null);
-    }
-  }, [stats]);
 
   if (loading || !stats) {
     return <SkeletonDashboard />;

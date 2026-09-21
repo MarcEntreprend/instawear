@@ -17,6 +17,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
+import { useAdminBadges } from "./useAdminBadges";
 import { useHighlightListener } from "./useAdminHighlight";
 import CopyID from "../components/CopyID";
 import { productApi } from "../api/supabaseApi";
@@ -204,6 +205,8 @@ export default function OrdersPage() {
   };
 
   // ── Filter & sort ────────────────────────────────────────────────────────
+  // "En attente" = total partagé (même chiffre que badge + dashboard).
+  const { ordersPending: pendingShared } = useAdminBadges(true);
   const filteredOrders = useMemo(() => {
     let list = [...allOrders];
 
@@ -388,7 +391,7 @@ export default function OrdersPage() {
             </button>
           </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            {filteredOrders.length} commande
+            {pendingShared} en attente · {filteredOrders.length} affichée
             {filteredOrders.length !== 1 ? "s" : ""}
           </p>
         </div>

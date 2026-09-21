@@ -189,6 +189,7 @@ export default function ShippedDeliveredPage() {
           >
             {shippedCount} expédiée(s) · {partialCount} partielle(s) ·{" "}
             {deliveredCount} livrée(s) — colis suivis par le webhook Printful.
+            Les partielles restent aussi visibles dans Commandes.
           </p>
         </div>
 

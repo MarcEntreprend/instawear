@@ -45,6 +45,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
+import { useAdminBadges } from "./useAdminBadges";
 import type { AdminSection } from "./AdminSidebar";
 import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
@@ -419,35 +420,22 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // ─── Compteurs (même logique légère que la sidebar, instantanée) ─────
+  // ─── Compteurs (source partagée useAdminBadges : un seul poller admin ;
+  // le listener local ne sert qu'au ping visuel du bouton Actualiser) ─────
 
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [urgentCount, setUrgentCount] = useState(0);
-
-  const fetchCounts = useCallback(() => {
-    notificationApi
-      .getUnreadCount()
-      .then(setUnreadCount)
-      .catch(() => {});
-    notificationApi
-      .list({ status: "unread", priority: "urgent", perPage: 1 })
-      .then(({ total }) => setUrgentCount(total))
-      .catch(() => {});
-  }, []);
+  const sharedBadges = useAdminBadges(true);
+  const unreadCount = sharedBadges.unread;
+  const urgentCount = sharedBadges.urgent;
 
   useEffect(() => {
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 30000);
     const handler = () => {
-      fetchCounts();
       setPendingNewNotifs(true); // déclenche l'effet ping sur le RefreshCw
     };
     window.addEventListener("notifications-updated", handler);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("notifications-updated", handler);
     };
-  }, [fetchCounts]);
+  }, []);
 
   // ─── Handlers (appels API réels) ───────────────────────────────────────
 
@@ -583,26 +571,30 @@ export default function NotificationsPage() {
     filterStatus !== "all",
   ].filter(Boolean).length;
 
-  // Compteurs non lues par catégorie (pour les dots sur les filtres)
-  const unreadByCategory = useMemo(() => {
-    const counts: Record<string, number> = {};
-    notifications
-      .filter((n) => n.status === "unread")
-      .forEach((n) => {
-        counts[n.category] = (counts[n.category] || 0) + 1;
-      });
-    return counts;
-  }, [notifications]);
-
-  const unreadByPriority = useMemo(() => {
-    const counts: Record<string, number> = {};
-    notifications
-      .filter((n) => n.status === "unread")
-      .forEach((n) => {
-        counts[n.priority] = (counts[n.priority] || 0) + 1;
-      });
-    return counts;
-  }, [notifications]);
+  // Compteurs non lues par catégorie/priorité : GLOBAUX (toutes les lignes,
+  // pas la page courante de 20 — les dots étaient faux au-delà d'une page).
+  // Rafraîchis quand le total global change (pas à chaque rendu de liste).
+  const [unreadByCategory, setUnreadByCategory] = useState<
+    Record<string, number>
+  >({});
+  const [unreadByPriority, setUnreadByPriority] = useState<
+    Record<string, number>
+  >({});
+  useEffect(() => {
+    let alive = true;
+    notificationApi
+      .getUnreadBreakdown()
+      .then(({ byCategory, byPriority }) => {
+        if (!alive) return;
+        setUnreadByCategory(byCategory);
+        setUnreadByPriority(byPriority);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedBadges.unread]);
 
   const totalUnreadForFilters = Object.values(unreadByCategory).reduce(
     (s, c) => s + c,

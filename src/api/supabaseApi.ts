@@ -916,6 +916,20 @@ export const customerApi = {
 };
 
 export const orderApi = {
+  /**
+   * Compteurs par statut (léger : colonne status seule, sans items).
+   * Source UNIQUE des badges "à traiter / à expédier" (cf. useAdminBadges).
+   */
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const { data, error } = await supabase.from("orders").select("status");
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const o of data ?? []) {
+      const s = String((o as any)?.status || "unknown");
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  },
   async list(): Promise<Order[]> {
     // 1. Charger toutes les commandes (1 requête)
     const { data: orders, error } = await supabase
@@ -2675,6 +2689,31 @@ export const notificationApi = {
     return count ?? 0;
   },
 
+  /**
+   * Non-lues par catégorie ET priorité, sur TOUTES les lignes (global, pas
+   * la page courante). Source UNIQUE des dots de filtres (cf. useAdminBadges).
+   */
+  async getUnreadBreakdown(): Promise<{
+    byCategory: Record<string, number>;
+    byPriority: Record<string, number>;
+  }> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("category,priority")
+      .eq("status", "unread")
+      .limit(2000);
+    if (error) throw error;
+    const byCategory: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    for (const n of data ?? []) {
+      const c = String((n as any)?.category || "other");
+      const p = String((n as any)?.priority || "medium");
+      byCategory[c] = (byCategory[c] || 0) + 1;
+      byPriority[p] = (byPriority[p] || 0) + 1;
+    }
+    return { byCategory, byPriority };
+  },
+
   async markAsRead(id: string): Promise<void> {
     const { error } = await supabase
       .from("notifications")
@@ -2898,6 +2937,20 @@ export const errorMonitoringApi = {
       .update({ resolved })
       .eq("id", id);
     if (error) throw error;
+  },
+
+  /**
+   * Critiques non résolues (léger : count seul). Source UNIQUE du badge
+   * Monitoring (cf. useAdminBadges).
+   */
+  async getUnresolvedCriticalCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from("edge_errors")
+      .select("*", { count: "exact", head: true })
+      .eq("resolved", false)
+      .eq("severity", "critical");
+    if (error) throw error;
+    return count ?? 0;
   },
 };
 
