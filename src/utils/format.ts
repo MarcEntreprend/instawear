@@ -16,6 +16,15 @@ export function formatCPFCNPJ(value: string): string {
   return digits
     .replace(/^(\d{2})(\d)/, "$1.$2")
     .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/\.(\d{3})(\d)/, ".$1-$2")
     .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+/** Échappe le HTML (contenu DB/verbatim vers email ou page). */
+export function escapeHtml(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

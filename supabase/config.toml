@@ -94,3 +94,7 @@ verify_jwt = false
 [functions.refund-request]
 enabled = true
 verify_jwt = false
+
+[functions.admin-invite]
+enabled = true
+verify_jwt = false

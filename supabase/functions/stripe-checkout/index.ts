@@ -6,6 +6,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  missingEnvOneOf,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { reportError } from "./_shared/opsUtils.ts";
 import {
@@ -349,6 +355,16 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeaders });
+    }
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    // Clé Stripe : TEST ou PROD (même fallback que le code plus bas).
+    {
+      const missing = [
+        ...missingEnv([...BASE_ENV]),
+        ...missingEnvOneOf(["STRIPE_SECRET_KEY_TEST", "STRIPE_SECRET_KEY"]),
+      ];
+      if (missing.length > 0) return envMissingResponse(missing);
     }
 
     try {

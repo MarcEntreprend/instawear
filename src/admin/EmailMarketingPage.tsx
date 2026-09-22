@@ -63,6 +63,8 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import * as S from "./adminStyles";
+import AdminEmpty from "./ui/AdminEmpty";
+import { formInputStyle, formLabelStyle } from "./adminStyles";
 import { supabase } from "../lib/supabaseClient";
 import { TEMPLATES, AUTOMATION_CONFIGS } from "./emailMarketing/emailTemplates";
 import VariablesModal from "./emailMarketing/VariablesModal";
@@ -105,11 +107,14 @@ interface Campaign {
   recipient_count?: number;
   stats?: {
     delivered?: number;
+    failed?: number;
     opened?: number;
     clicked?: number;
     unsubscribed?: number;
     open_rate?: number;
     click_rate?: number;
+    // Vrai = taux estimés (moyennes secteur, aucun pixel/webhook Resend).
+    estimated?: boolean;
   };
   created_at: string;
   updated_at: string;
@@ -692,7 +697,7 @@ function DashboardSection({
           </button>
         </div>
         {recentCampaigns.length === 0 ? (
-          <EmptyPlaceholder
+          <AdminEmpty
             icon={<Mail size={24} strokeWidth={1.5} />}
             title="Aucune campagne"
             sub="Créez votre première campagne email."
@@ -751,6 +756,11 @@ function DashboardSection({
                   </span>
                   {c.stats?.open_rate !== undefined && (
                     <span
+                      title={
+                        c.stats.estimated
+                          ? "Taux estimé (moyenne secteur, aucun tracking réel)"
+                          : undefined
+                      }
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
@@ -759,6 +769,7 @@ function DashboardSection({
                         textAlign: "right",
                       }}
                     >
+                      {c.stats.estimated ? "≈" : ""}
                       {c.stats.open_rate}% ouv.
                     </span>
                   )}
@@ -968,7 +979,7 @@ function CampaignsSection({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyPlaceholder
+        <AdminEmpty
           icon={<Mail size={24} strokeWidth={1.5} />}
           title="Aucune campagne"
           sub="Créez votre première campagne email."
@@ -1057,15 +1068,18 @@ function CampaignsSection({
                       : ""}
                   </p>
                 </div>
-                {/* Stats (if sent) */}
+                {/* Stats (if sent) — taux estimés si flag (pas de tracking) */}
                 {c.status === "sent" && c.stats && (
                   <div style={{ display: "flex", gap: 20, flexShrink: 0 }}>
                     {[
                       {
                         label: "Ouvertures",
-                        value: `${c.stats.open_rate ?? 0}%`,
+                        value: `${c.stats.estimated ? "≈" : ""}${c.stats.open_rate ?? 0}%`,
                       },
-                      { label: "Clics", value: `${c.stats.click_rate ?? 0}%` },
+                      {
+                        label: "Clics",
+                        value: `${c.stats.estimated ? "≈" : ""}${c.stats.click_rate ?? 0}%`,
+                      },
                     ].map(({ label, value }) => (
                       <div key={label} style={{ textAlign: "center" }}>
                         <p
@@ -1084,8 +1098,14 @@ function CampaignsSection({
                             color: "var(--color-ink4)",
                             margin: 0,
                           }}
+                          title={
+                            c.stats?.estimated
+                              ? "Taux estimé (moyenne secteur, aucun tracking réel)"
+                              : undefined
+                          }
                         >
                           {label}
+                          {c.stats?.estimated ? " (estimé)" : ""}
                         </p>
                       </div>
                     ))}
@@ -1266,7 +1286,11 @@ function ComposeSection({
     }
 
     // Remplacer les variables dans le sujet (commun à tous les destinataires)
+    // Boucle séquentielle volontaire (Vague B item 13) : l'edge send-email
+    // est rate-limitée (~20-30/min) — le parallélisme déclencherait des 429.
+    // Chaque envoi est VÉRIFIÉ (res.ok) : fini le sent++ aveugle.
     let sent = 0;
+    let failed = 0;
     for (const email of emails) {
       if (!email?.includes("@")) continue;
 
@@ -1334,7 +1358,7 @@ function ComposeSection({
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token || "";
-        await fetch(
+        const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
           {
             method: "POST",
@@ -1349,12 +1373,14 @@ function ComposeSection({
             }),
           },
         );
-        sent++;
+        if (res.ok) sent++;
+        else failed++;
       } catch {
-        /* skip */
+        failed++;
       }
     }
-    // Enregistrer la campagne comme envoyée
+    // Enregistrer la campagne comme envoyée. Taux ouvertures/clics =
+    // ESTIMÉS (aucun tracking réel) : flag explicite, affichage "≈".
     const campaignPayload = {
       title,
       subject,
@@ -1366,10 +1392,12 @@ function ComposeSection({
       recipient_count: sent,
       stats: {
         delivered: sent,
+        failed,
         opened: Math.round(sent * 0.22),
         clicked: Math.round(sent * 0.04),
         open_rate: 22,
         click_rate: 4,
+        estimated: true,
       },
     };
     if (initial) {
@@ -1382,7 +1410,10 @@ function ComposeSection({
     }
 
     setSending(false);
-    toast(`Campagne envoyée à ${sent} destinataire${sent > 1 ? "s" : ""} ✓`);
+    toast(
+      `Campagne envoyée à ${sent} destinataire${sent > 1 ? "s" : ""} ✓` +
+        (failed > 0 ? ` (${failed} échec(s))` : ""),
+    );
     onSaved();
   };
 
@@ -3155,10 +3186,10 @@ function SubscribersSection({
       {loading ? (
         <SkeletonSection />
       ) : filtered.length === 0 ? (
-        <EmptyPlaceholder
+        <AdminEmpty
           icon={<Users size={24} strokeWidth={1.5} />}
-          title="No subscribers found"
-          sub="Add subscribers manually or import a CSV file."
+          title="Aucun abonné"
+          sub="Ajoutez des abonnés manuellement ou importez un fichier CSV."
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3455,68 +3486,6 @@ function InputField({
   );
 }
 
-function EmptyPlaceholder({
-  icon,
-  title,
-  sub,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  sub: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        padding: "48px 24px",
-        borderRadius: 16,
-        border: "1px dashed var(--color-border)",
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          background: "var(--color-surface2)",
-          color: "var(--color-ink4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <p
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--color-ink2)",
-            margin: "0 0 3px",
-          }}
-        >
-          {title}
-        </p>
-        <p style={{ fontSize: 12.5, color: "var(--color-ink4)", margin: 0 }}>
-          {sub}
-        </p>
-      </div>
-      {action && (
-        <button onClick={action.onClick} style={accentBtn}>
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function SkeletonSection() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -3541,26 +3510,11 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "var(--shadow-sm)",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 13px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 13.5,
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-sans)",
-  outline: "none",
-  boxSizing: "border-box",
-};
+// inputStyle/labelStyle : canoniques partagés (Vague C3 réduit —
+// normalisation 9px/13px/13.5/margin 6 → 8px/12px/13/margin 4).
+const inputStyle = formInputStyle;
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--color-ink2)",
-  marginBottom: 6,
-};
+const labelStyle = formLabelStyle;
 
 const sectionTitle: React.CSSProperties = {
   fontSize: 13,

@@ -11,6 +11,7 @@ import {
   mergeGalleries,
   preferStoredMain,
   applyStorageToVariants,
+  countStoredApplications,
 } from "../supabase/functions/sync-printful/_shared/productImages.ts";
 
 const ST = (hex: string) =>
@@ -155,4 +156,16 @@ test("applyStorageToVariants: entrées hostiles", () => {
   assert.equal(out.applied.length, 0);
   const out2 = applyStorageToVariants("x", "y", () => null, null as any);
   assert.deepEqual(out2.variants, []);
+});
+
+test("countStoredApplications: seul le storage compte (repli thumb exclu)", () => {
+  assert.equal(
+    countStoredApplications([
+      { color: "#aaaaaa", url: ST("aa") },
+      { color: "#bbbbbb", url: PREV },
+    ]),
+    1,
+  );
+  assert.equal(countStoredApplications([]), 0);
+  assert.equal(countStoredApplications(null as any), 0);
 });

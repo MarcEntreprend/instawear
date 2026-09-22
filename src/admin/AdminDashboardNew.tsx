@@ -15,7 +15,7 @@ import {
   RefreshCw,
   AlertTriangle,
 } from "lucide-react";
-import AdminSidebar, { AdminSection } from "./AdminSidebar";
+import AdminSidebar, { AdminSection, NAV_LABELS } from "./AdminSidebar";
 import EmailMarketingPage from "./EmailMarketingPage";
 import ProductsPage from "./ProductsPage.tsx";
 import CustomersPage from "./CustomersPage";
@@ -32,6 +32,7 @@ import HelpPage from "./HelpPage";
 import SettingsPage from "./SettingsPage";
 import AdminUsersPage from "./AdminUsersPage";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useAdminBadges } from "./useAdminBadges";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import CopyID from "../components/CopyID";
 import CartIcon from "../components/CartIcon";
@@ -39,7 +40,8 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
-import { OrderStatusBadge } from "./orderStatusLabels";
+import { OrderStatusBadge, isPendingOrder } from "./orderStatusLabels";
+import AdminEmpty from "./ui/AdminEmpty";
 
 interface AdminDashboardProps {
   onReturnToStore: () => void;
@@ -356,7 +358,11 @@ function DashboardHome({
 
   // Deltas réels (comparaison avec hier pour les commandes)
   const [yesterdayOrders, setYesterdayOrders] = useState<number | null>(null);
-  const [totalPending, setTotalPending] = useState<number | null>(null);
+  // Total "en attente" : source partagée (même chiffre que le badge
+  // Commandes, cf. useAdminBadges) — remplace le refetch conditionnel.
+  const sharedBadges = useAdminBadges(true);
+  const totalPending =
+    sharedBadges.ordersPending > 0 ? sharedBadges.ordersPending : null;
 
   useEffect(() => {
     import("../api/supabaseApi").then(({ dashboardApi }) => {
@@ -368,29 +374,6 @@ function DashboardHome({
       });
     });
   }, []);
-
-  useEffect(() => {
-    if (!stats) return;
-    const pendingCount = stats.recentOrders.filter(
-      (o) => o.status === "pending",
-    ).length;
-    if (pendingCount > 3) {
-      // S'il y a plus de 3 commandes en attente, on va chercher le total réel
-      import("../api/supabaseApi").then(({ orderApi }) => {
-        orderApi
-          .list()
-          .then((allOrders) => {
-            const count = allOrders.filter(
-              (o) => o.status === "pending",
-            ).length;
-            setTotalPending(count);
-          })
-          .catch(() => setTotalPending(pendingCount));
-      });
-    } else {
-      setTotalPending(null);
-    }
-  }, [stats]);
 
   if (loading || !stats) {
     return <SkeletonDashboard />;
@@ -511,10 +494,10 @@ function DashboardHome({
         </div>
       </div>
 
-      {/* Commandes en attente (alerte) */}
+      {/* Commandes en attente (alerte) — règle canonique isPendingOrder */}
       {(() => {
-        const pendingOrders = stats.recentOrders.filter(
-          (o) => o.status === "pending",
+        const pendingOrders = stats.recentOrders.filter((o) =>
+          isPendingOrder(o.status),
         );
         if (pendingOrders.length === 0) return null;
         const visibleOrders = pendingOrders.slice(0, 3);
@@ -709,9 +692,9 @@ function DashboardHome({
         />
         <StatCard
           icon={<TrendingUp size={20} strokeWidth={2} />}
-          label="CA estimé"
+          label="CA net"
           value={`${stats.revenueEstimate.toFixed(0)} ${currencySymbol}`}
-          sub="toutes commandes"
+          sub="encaissé · partiels inclus · même règle que Rapports"
         />
         <StatCard
           icon={
@@ -858,16 +841,9 @@ function DashboardHome({
               </div>
             ))}
             {stats.recentOrders.length === 0 && (
-              <p
-                style={{
-                  padding: "20px",
-                  fontSize: 13,
-                  color: "var(--color-ink4)",
-                  textAlign: "center",
-                }}
-              >
-                Aucune commande pour l'instant.
-              </p>
+              <div style={{ padding: 12 }}>
+                <AdminEmpty title="Aucune commande pour l'instant." />
+              </div>
             )}
           </div>
         </div>
@@ -1018,6 +994,51 @@ export default function AdminDashboard({
   const [navStack, setNavStack] = useState<AdminSection[]>(["dashboard"]);
   const section = navStack[navStack.length - 1];
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Tiroir mobile accessible (Vague D) : Escape ferme, scroll-lock du fond,
+  // focus piégé dans le tiroir (Tab cyclé sur les éléments focusables).
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileNavOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const drawer = document.getElementById("admin-mobile-drawer");
+      if (!drawer) return;
+      const focusables = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Focus initial : premier bouton du tiroir (fermeture).
+    const t = setTimeout(() => {
+      document
+        .getElementById("admin-mobile-drawer")
+        ?.querySelector<HTMLElement>("button")
+        ?.focus();
+    }, 50);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+      clearTimeout(t);
+    };
+  }, [mobileNavOpen]);
   const [financesOrderId, setFinancesOrderId] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
@@ -1036,25 +1057,9 @@ export default function AdminDashboard({
     setNavStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
-  const SECTION_TITLES: Record<AdminSection, string> = {
-    dashboard: "Tableau de bord",
-    orders: "Commandes",
-    finances: "Finances",
-    products: "Produits",
-    notifications: "Notifications",
-    shipped: "Expédiées & Livrées",
-    customers: "Clients",
-    promotions: "Promotions & Deals",
-    merchandising: "Merchandising",
-    "email-marketing": "Email Marketing",
-    reports: "Rapports",
-    monitoring: "Monitoring",
-    integrations: "Intégrations",
-    settings: "Paramètres",
-    "admin-users": "Sécurité",
-    help: "Aide & Support",
-    interactions: "Interactions clients",
-  };
+  // Titres = libellés de la nav UNIQUE (Vague D : fini sidebar≠breadcrumb).
+  // NAV_LABELS dérive de NAV_GROUPS (AdminSidebar) : un seul endroit.
+  const SECTION_TITLES = NAV_LABELS;
 
   // Écouter l’événement de navigation
   useEffect(() => {
@@ -1093,15 +1098,15 @@ export default function AdminDashboard({
       }}
     >
       <div className="admin-sidebar-desktop">
-        <AdminSidebar
-          active={section}
-          onNavigate={navigate}
-          onReturnToStore={onReturnToStore}
-        />
+        <AdminSidebar active={section} onNavigate={navigate} />
       </div>
 
       {mobileNavOpen && (
         <div
+          id="admin-mobile-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation"
           style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex" }}
         >
           <div
@@ -1127,7 +1132,6 @@ export default function AdminDashboard({
               onNavigate={navigate}
               onClose={() => setMobileNavOpen(false)}
               mobile
-              onReturnToStore={onReturnToStore}
             />
           </div>
         </div>
@@ -1156,6 +1160,8 @@ export default function AdminDashboard({
           <button
             className="admin-hamburger"
             onClick={() => setMobileNavOpen(true)}
+            aria-label="Ouvrir la navigation"
+            aria-expanded={mobileNavOpen}
             style={{
               background: "var(--color-surface2)",
               border: "1px solid var(--color-border)",
@@ -1177,6 +1183,7 @@ export default function AdminDashboard({
             {navStack.length > 1 && (
               <button
                 onClick={goBack}
+                aria-label="Retour à la page précédente"
                 style={{
                   background: "var(--color-surface2)",
                   border: "1px solid var(--color-border)",
@@ -1192,7 +1199,11 @@ export default function AdminDashboard({
                 <ArrowLeft size={14} strokeWidth={2} />
               </button>
             )}
-            <div
+            {/* Fil d'Ariane honnête (Vague D) : nav + liste ordonnée +
+                page courante marquée (la nav est plate : 2 niveaux max,
+                assumé, pas simulé). Titres = NAV_LABELS (mêmes que sidebar). */}
+            <nav
+              aria-label="Fil d'Ariane"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -1200,56 +1211,80 @@ export default function AdminDashboard({
                 fontSize: 13,
                 color: "var(--color-ink3)",
                 flexWrap: "wrap",
+                flex: 1,
               }}
             >
-              {navStack.map((s, i) => (
-                <React.Fragment key={`${s}-${i}`}>
-                  {i > 0 && (
-                    <ChevronRight
-                      size={12}
-                      strokeWidth={2}
-                      style={{ color: "var(--color-ink4)", flexShrink: 0 }}
-                    />
-                  )}
-                  {i === navStack.length - 1 ? (
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        color: "var(--color-ink)",
-                        fontSize: 15,
-                      }}
-                    >
-                      {SECTION_TITLES[s]}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        setNavStack((prev) => prev.slice(0, i + 1))
-                      }
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-ink3)",
-                        fontWeight: 500,
-                        fontSize: 13,
-                        textDecoration: "underline",
-                        textUnderlineOffset: 3,
-                        padding: 0,
-                      }}
-                    >
-                      {SECTION_TITLES[s]}
-                    </button>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
+              <ol
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                }}
+              >
+                {navStack.map((s, i) => (
+                  <li
+                    key={`${s}-${i}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {i > 0 && (
+                      <ChevronRight
+                        size={12}
+                        strokeWidth={2}
+                        style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {i === navStack.length - 1 ? (
+                      <span
+                        aria-current="page"
+                        style={{
+                          fontWeight: 700,
+                          color: "var(--color-ink)",
+                          fontSize: 15,
+                        }}
+                      >
+                        {SECTION_TITLES[s]}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setNavStack((prev) => prev.slice(0, i + 1))
+                        }
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--color-ink3)",
+                          fontWeight: 500,
+                          fontSize: 13,
+                          textDecoration: "underline",
+                          textUnderlineOffset: 3,
+                          padding: 0,
+                        }}
+                      >
+                        {SECTION_TITLES[s]}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </nav>
           </div>
 
+          {/* CTA boutique UNIQUE (Vague D : le bloc sidebar redondant est
+              supprimé) — et SANS reload : onReturnToStore bascule la vue,
+              l'état boutique est conservé. */}
           <button
             onClick={() => {
               onReturnToStore();
-              window.location.reload();
             }}
             style={{
               display: "flex",

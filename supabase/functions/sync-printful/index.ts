@@ -5,6 +5,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { fetchWithRetry, reportError, parseRetryAfterBody } from "./_shared/opsUtils.ts";
 import {
@@ -29,6 +34,7 @@ import {
   preferStoredMain,
   applyStorageToVariants,
   isStorageMockupUrl,
+  countStoredApplications,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -1095,8 +1101,11 @@ async function finalizeMockupTask(
     storageUrls,
     // Vérité d'application (vs génération) : combien de variants affichent
     // réellement le visuel, et quoi est resté orphelin. L'alerte UI doit
-    // LIRE CES CHAMPS, pas mockupsGenerated.
+    // LIRE CES CHAMPS, pas mockupsGenerated. `stored` = sous-ensemble
+    // réellement STOCKÉ (seul à éteindre le dot admin) : `applied - stored`
+    // = replis temporaires Printful (upload storage échoué, à régénérer).
     applied: appliedRes.applied.length,
+    stored: countStoredApplications(appliedRes.applied),
     unmatchedVids: appliedRes.unmatchedVids,
     unmatchedHexes: appliedRes.unmatchedHexes,
     placements: [...new Set(
@@ -1112,6 +1121,13 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeaders });
+    }
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    // Clé Printful via pod_settings (vérifiée à l'usage, erreur explicite).
+    {
+      const missing = missingEnv([...BASE_ENV]);
+      if (missing.length > 0) return envMissingResponse(missing);
     }
 
     if (await isRateLimited(req, rateLimitKey(req, "sync-printful"))) {
@@ -2682,6 +2698,7 @@ export default {
                       colors: fin.colors,
                       storageUrls: fin.storageUrls || {},
                       applied: fin.applied ?? null,
+                      stored: (fin as any).stored ?? null,
                       unmatchedVids: fin.unmatchedVids ?? [],
                       unmatchedHexes: fin.unmatchedHexes ?? [],
                       placements: opts.placements || ["front"],
@@ -2690,7 +2707,7 @@ export default {
                     updated_at: new Date().toISOString(),
                   }).eq("id", job.id);
                   done++;
-                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null });
+                  details.push({ jobId: job.id, productId: job.product_id, status: "done", mockupsGenerated: fin.mockupsGenerated, applied: fin.applied ?? null, stored: (fin as any).stored ?? null });
                 } else {
                   await supabaseAdmin.from("mockup_jobs").update({
                     status: "failed",
@@ -2855,6 +2872,7 @@ export default {
             colors: fin.colors,
             storageUrls: fin.storageUrls,
             applied: fin.applied ?? null,
+            stored: (fin as any).stored ?? null,
             unmatchedVids: fin.unmatchedVids ?? [],
             unmatchedHexes: fin.unmatchedHexes ?? [],
             placements: requestedPl ?? [prep.placement!],

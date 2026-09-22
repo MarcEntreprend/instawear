@@ -45,9 +45,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { notificationApi } from "../api/supabaseApi";
+import { useAdminBadges } from "./useAdminBadges";
 import type { AdminSection } from "./AdminSidebar";
 import CopyID from "../components/CopyID";
 import { useAdminHighlight } from "./useAdminHighlight";
+import AdminEmpty from "./ui/AdminEmpty";
+// selectStyle canonique (Vague C3 réduit).
+import { filterSelectStyle as selectStyle } from "./adminStyles";
 import CartIcon from "../components/CartIcon";
 
 // ─── Types ──────────────────────────────────────
@@ -419,35 +423,22 @@ export default function NotificationsPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // ─── Compteurs (même logique légère que la sidebar, instantanée) ─────
+  // ─── Compteurs (source partagée useAdminBadges : un seul poller admin ;
+  // le listener local ne sert qu'au ping visuel du bouton Actualiser) ─────
 
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [urgentCount, setUrgentCount] = useState(0);
-
-  const fetchCounts = useCallback(() => {
-    notificationApi
-      .getUnreadCount()
-      .then(setUnreadCount)
-      .catch(() => {});
-    notificationApi
-      .list({ status: "unread", priority: "urgent", perPage: 1 })
-      .then(({ total }) => setUrgentCount(total))
-      .catch(() => {});
-  }, []);
+  const sharedBadges = useAdminBadges(true);
+  const unreadCount = sharedBadges.unread;
+  const urgentCount = sharedBadges.urgent;
 
   useEffect(() => {
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 30000);
     const handler = () => {
-      fetchCounts();
       setPendingNewNotifs(true); // déclenche l'effet ping sur le RefreshCw
     };
     window.addEventListener("notifications-updated", handler);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("notifications-updated", handler);
     };
-  }, [fetchCounts]);
+  }, []);
 
   // ─── Handlers (appels API réels) ───────────────────────────────────────
 
@@ -583,26 +574,30 @@ export default function NotificationsPage() {
     filterStatus !== "all",
   ].filter(Boolean).length;
 
-  // Compteurs non lues par catégorie (pour les dots sur les filtres)
-  const unreadByCategory = useMemo(() => {
-    const counts: Record<string, number> = {};
-    notifications
-      .filter((n) => n.status === "unread")
-      .forEach((n) => {
-        counts[n.category] = (counts[n.category] || 0) + 1;
-      });
-    return counts;
-  }, [notifications]);
-
-  const unreadByPriority = useMemo(() => {
-    const counts: Record<string, number> = {};
-    notifications
-      .filter((n) => n.status === "unread")
-      .forEach((n) => {
-        counts[n.priority] = (counts[n.priority] || 0) + 1;
-      });
-    return counts;
-  }, [notifications]);
+  // Compteurs non lues par catégorie/priorité : GLOBAUX (toutes les lignes,
+  // pas la page courante de 20 — les dots étaient faux au-delà d'une page).
+  // Rafraîchis quand le total global change (pas à chaque rendu de liste).
+  const [unreadByCategory, setUnreadByCategory] = useState<
+    Record<string, number>
+  >({});
+  const [unreadByPriority, setUnreadByPriority] = useState<
+    Record<string, number>
+  >({});
+  useEffect(() => {
+    let alive = true;
+    notificationApi
+      .getUnreadBreakdown()
+      .then(({ byCategory, byPriority }) => {
+        if (!alive) return;
+        setUnreadByCategory(byCategory);
+        setUnreadByPriority(byPriority);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedBadges.unread]);
 
   const totalUnreadForFilters = Object.values(unreadByCategory).reduce(
     (s, c) => s + c,
@@ -1288,9 +1283,26 @@ export default function NotificationsPage() {
           ))}
         </div>
       ) : notifications.length === 0 ? (
-        <EmptyState
-          hasFilters={activeFilterCount > 0 || !!searchTerm}
-          onReset={resetFilters}
+        <AdminEmpty
+          icon={<Inbox size={22} strokeWidth={1.5} />}
+          title={
+            activeFilterCount > 0 || !!searchTerm
+              ? "Aucune notification ne correspond"
+              : "Aucune notification"
+          }
+          sub={
+            activeFilterCount > 0 || !!searchTerm
+              ? "Essayez d'ajuster vos filtres ou votre recherche."
+              : "Les nouveaux événements de la boutique apparaîtront ici."
+          }
+          action={
+            activeFilterCount > 0 || !!searchTerm
+              ? {
+                  label: "Réinitialiser les filtres",
+                  onClick: resetFilters,
+                }
+              : undefined
+          }
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1677,63 +1689,6 @@ function FilterSelect({
   );
 }
 
-function EmptyState({
-  hasFilters,
-  onReset,
-}: {
-  hasFilters: boolean;
-  onReset: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        padding: 64,
-        borderRadius: 16,
-        border: "1px dashed var(--color-border)",
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--color-surface2)",
-          color: "var(--color-ink4)",
-        }}
-      >
-        <Inbox size={22} strokeWidth={1.5} />
-      </div>
-      <div>
-        <p
-          style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink2)" }}
-        >
-          {hasFilters
-            ? "Aucune notification ne correspond"
-            : "Aucune notification"}
-        </p>
-        <p style={{ fontSize: 12.5, color: "var(--color-ink4)", marginTop: 2 }}>
-          {hasFilters
-            ? "Essayez d'ajuster vos filtres ou votre recherche."
-            : "Les nouveaux événements de la boutique apparaîtront ici."}
-        </p>
-      </div>
-      {hasFilters && (
-        <button onClick={onReset} style={{ ...secondaryBtn, marginTop: 4 }}>
-          Réinitialiser les filtres
-        </button>
-      )}
-    </div>
-  );
-}
-
 function NotificationCard({
   notification,
   compact,
@@ -2107,18 +2062,6 @@ const searchInputStyle: React.CSSProperties = {
   transition: "border-color 0.2s",
 };
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-  fontSize: 12.5,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
-  transition: "border-color 0.2s",
-};
 
 const pageBtn: React.CSSProperties = {
   width: 32,

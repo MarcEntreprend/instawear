@@ -25,7 +25,11 @@ import {
   apiConnectionsApi,
   referenceListApi,
   podApi,
+  productApi,
 } from "../api/supabaseApi";
+import { normalizeMaterialKey } from "../data/materials";
+import AdminModal from "./ui/AdminModal";
+import AdminButton from "./ui/AdminButton";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatCurrency = (value: number) =>
@@ -284,14 +288,11 @@ export default function SettingsPage() {
     );
   };
 
-  const handleSyncApi = async (id: string) => {
-    const updated = await apiConnectionsApi.update(id, {
-      lastSyncAt: new Date().toISOString(),
-    });
-    setApiConnections((prev) =>
-      prev.map((a) => (a.id === updated.id ? updated : a)),
-    );
-  };
+  // NOTE : pas de handleSyncApi ici — la liste des connexions n'est pas
+  // rendue dans cette page (voir IntegrationsPage, seul endroit qui affiche
+  // le bouton Sync, désormais branché sur le vrai sync Printful). Un faux
+  // "sync" qui tamponne la date sans rien synchroniser a déjà existé ici :
+  // ne pas le réintroduire.
 
   // Handlers pour les listes de référence
   const handleAddRef = (type: string) => {
@@ -313,11 +314,17 @@ export default function SettingsPage() {
   const handleSaveRef = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRef) return;
-    // Parser les mots-clés depuis l'input brut
-    const parsedKeywords = keywordsInput
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
+    // Mots-clés normalisés (Vague B item 12) : trim + minuscules + dédup —
+    // fini le CSV brut ("Coton, coton,  COTON" → ["coton"]). La détection
+    // matière compare déjà en minuscules : stockage cohérent garanti.
+    const parsedKeywords = [
+      ...new Set(
+        keywordsInput
+          .split(",")
+          .map((k) => k.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
     try {
       if (editingRef.id) {
         await referenceListApi.update(editingRef.id, {
@@ -338,11 +345,59 @@ export default function SettingsPage() {
       console.error(err);
     }
   };
+  // Champ produit correspondant à chaque type de liste (garde suppression).
+  const REF_PRODUCT_FIELD: Record<string, "category" | "eventType" | "style" | "material"> = {
+    category: "category",
+    event_type: "eventType",
+    style: "style",
+    material: "material",
+  };
+  const countRefUsage = async (
+    type: string,
+    value: string,
+  ): Promise<number> => {
+    const field = REF_PRODUCT_FIELD[type];
+    if (!field) return 0;
+    const products = await productApi.list();
+    const target = value.trim().toLowerCase();
+    return products.filter((p) => {
+      const raw = String((p as any)[field] ?? "");
+      if (!raw) return false;
+      if (raw === value || raw.trim().toLowerCase() === target) return true;
+      // Matière : comparer aussi via slugs (legacy "coton" = "cotton").
+      if (field === "material") {
+        const a = normalizeMaterialKey(raw) ?? raw.trim().toLowerCase();
+        const b = normalizeMaterialKey(value) ?? target;
+        return a === b;
+      }
+      return false;
+    }).length;
+  };
   const handleDeleteRef = async (id: string) => {
+    const item = referenceItems.find((r) => r.id === id);
+    const used = item ? await countRefUsage(item.type, item.value) : 0;
+    if (used > 0) {
+      alert(
+        `Suppression bloquée : « ${item?.label} » est utilisé par ${used} produit(s). Réassignez-les d'abord.`,
+      );
+      return;
+    }
     if (window.confirm("Supprimer cet élément ?")) {
       await referenceListApi.delete(id);
       refetchRefs();
     }
+  };
+  // Réordonne au sein d'un type (↑/↓ écrivent des sort_order explicites).
+  const handleMoveRef = async (item: (typeof referenceItems)[0], dir: -1 | 1) => {
+    const siblings = referenceItems
+      .filter((r) => r.type === item.type)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const idx = siblings.findIndex((r) => r.id === item.id);
+    const other = siblings[idx + dir];
+    if (!other) return;
+    await referenceListApi.update(item.id, { sortOrder: other.sortOrder ?? 0 });
+    await referenceListApi.update(other.id, { sortOrder: item.sortOrder ?? 0 });
+    refetchRefs();
   };
 
   const isPodConnected = podSettings?.isConnected ?? false;
@@ -1009,6 +1064,36 @@ export default function SettingsPage() {
                         >
                           <span>{item.label}</span>
                           <button
+                            onClick={() => handleMoveRef(item, -1)}
+                            title="Monter"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--color-ink4)",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => handleMoveRef(item, 1)}
+                            title="Descendre"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--color-ink4)",
+                              fontSize: 12,
+                              padding: 0,
+                              lineHeight: 1,
+                            }}
+                          >
+                            ↓
+                          </button>
+                          <button
                             onClick={() => handleEditRef(item)}
                             style={{
                               background: "none",
@@ -1049,41 +1134,15 @@ export default function SettingsPage() {
 
       {/* Modale pour ajouter/modifier un élément de référence */}
       {showRefModal && editingRef && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+        <AdminModal
+          title={editingRef.id ? "Modifier l'élément" : "Ajouter un élément"}
+          onClose={() => setShowRefModal(false)}
+          size="sm"
         >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(26,20,10,0.5)",
-              backdropFilter: "blur(4px)",
-            }}
-            onClick={() => setShowRefModal(false)}
-          />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 201,
-              background: "var(--color-surface)",
-              borderRadius: 20,
-              maxWidth: 500,
-              width: "90%",
-              padding: "28px",
-              boxShadow: "var(--shadow-xl)",
-            }}
+          <form
+            onSubmit={handleSaveRef}
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
           >
-            <form
-              onSubmit={handleSaveRef}
-              style={{ display: "flex", flexDirection: "column", gap: 16 }}
-            >
               <div>
                 <label
                   style={{
@@ -1162,47 +1221,20 @@ export default function SettingsPage() {
                   marginTop: 8,
                 }}
               >
-                <button
+                <AdminButton
                   type="button"
+                  variant="secondary"
                   onClick={() => setShowRefModal(false)}
-                  style={{
-                    padding: "10px 18px",
-                    borderRadius: 12,
-                    border: "1.5px solid var(--color-border2)",
-                    background: "var(--color-surface)",
-                    color: "var(--color-ink2)",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
                 >
                   Annuler
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 22px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "var(--color-accent)",
-                    color: "white",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    cursor: "pointer",
-                  }}
-                >
+                </AdminButton>
+                <AdminButton type="submit" variant="primary">
                   <Save size={15} strokeWidth={2} />
                   {editingRef.id ? "Mettre à jour" : "Ajouter"}
-                </button>
+                </AdminButton>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
 
       {/* ─── Section 2 : Connexion Printful ──────────────────────────────── */}

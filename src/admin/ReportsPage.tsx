@@ -26,6 +26,8 @@ import {
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import type { Order, AdminProduct, Customer } from "./adminTypes";
+import { isRevenueOrder, sumRevenue } from "./orderStatusLabels";
+import AdminEmpty from "./ui/AdminEmpty";
 import ReportInfoModal from "./ReportInfoModal";
 import { useReferenceLists } from "./adminHooks";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -218,21 +220,6 @@ function StatCard({
 }
 
 // ─── Section vide ──────────────────────────────────────────────────────────
-function EmptySection({ message }: { message: string }) {
-  return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: 24,
-        color: "var(--color-ink4)",
-        fontSize: 13,
-      }}
-    >
-      {message}
-    </div>
-  );
-}
-
 // ─── Helpers de date ──────────────────────────────────────────────────────
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -310,9 +297,12 @@ export default function ReportsPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      // Bypass cache : le rapport recalcule tout sur du frais, puis le
+      // recache pour le reste de l'admin (Vague B item 6).
+      orderApi.invalidateOrdersCache();
       const [s, orders, products, customers] = await Promise.all([
         dashboardApi.getStats(),
-        orderApi.list(),
+        orderApi.listCached(),
         productApi.list(),
         customerApi.list(),
       ]);
@@ -426,29 +416,26 @@ export default function ReportsPage() {
   }, [allOrders, effectiveStart, effectiveEnd]);
 
   // ─── KPIs ──────────────────────────────────────────────────────────────
-  // CA NET : paniers en attente, annulées, remboursées et retournées exclus
-  // (ni encaissé ni conservé). Les statuts payants restants (paid,
-  // in_production, partial, shipped, delivered, on_hold) comptent plein.
+  // CA NET (règle canonique orderStatusLabels : paniers en attente,
+  // annulées, remboursées et retournées exclus ; paid, in_production,
+  // partial, shipped, delivered, on_hold comptent plein — même chiffre que
+  // la carte dashboard, Vague B item 8).
   // Les volumes (Commandes) restent bruts ; le panier moyen = CA net ÷
   // commandes nettes (panier des clients qui paient vraiment).
-  const NON_REVENUE_STATUSES = useMemo(
-    () => new Set(["pending", "cancelled", "refunded", "returned"]),
-    [],
-  );
   const currentNetOrders = useMemo(
-    () => currentOrders.filter((o) => !NON_REVENUE_STATUSES.has(o.status)),
-    [currentOrders, NON_REVENUE_STATUSES],
+    () => currentOrders.filter((o) => isRevenueOrder(o.status)),
+    [currentOrders],
   );
   const previousNetOrders = useMemo(
-    () => previousOrders.filter((o) => !NON_REVENUE_STATUSES.has(o.status)),
-    [previousOrders, NON_REVENUE_STATUSES],
+    () => previousOrders.filter((o) => isRevenueOrder(o.status)),
+    [previousOrders],
   );
   const currentRevenue = useMemo(
-    () => currentNetOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    () => sumRevenue(currentNetOrders),
     [currentNetOrders],
   );
   const previousRevenue = useMemo(
-    () => previousNetOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    () => sumRevenue(previousNetOrders),
     [previousNetOrders],
   );
   const currentOrderCount = currentOrders.length;
@@ -1589,7 +1576,7 @@ export default function ReportsPage() {
               </div>
             ))
           ) : (
-            <EmptySection message="Aucune vente sur cette période." />
+            <AdminEmpty title="Aucune vente sur cette période." />
           )}
         </div>
 
@@ -1718,7 +1705,7 @@ export default function ReportsPage() {
               ))}
             </div>
           ) : (
-            <EmptySection message="Aucun produit vendu pour le moment." />
+            <AdminEmpty title="Aucun produit vendu pour le moment." />
           )}
         </div>
       </div>
@@ -1783,7 +1770,7 @@ export default function ReportsPage() {
               </button>
             </div>
             {topProducts.length === 0 ? (
-              <EmptySection message="Aucun produit vendu pour le moment." />
+            <AdminEmpty title="Aucun produit vendu pour le moment." />
             ) : (
               topProducts.map((product, index) => (
                 <div
@@ -1945,7 +1932,7 @@ export default function ReportsPage() {
               </button>
             </div>
             {categorySales.length === 0 && (
-              <EmptySection message="Aucune vente sur cette période." />
+            <AdminEmpty title="Aucune vente sur cette période." />
             )}
             {categorySales.map((item, idx) => (
               <div

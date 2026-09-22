@@ -54,27 +54,13 @@ import {
 import { customerApi, interactionApi } from "../api/supabaseApi";
 import CartIcon from "../components/CartIcon";
 import { OrderStatusBadge } from "./orderStatusLabels";
-
-// ─── Format date ──────────────────────────────────────────────────────────
-function formatDate(iso?: string) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(iso?: string) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import AdminEmpty from "./ui/AdminEmpty";
+// Dates FR canoniques partagées (Vague B item 7) — mêmes noms qu'avant,
+// format unifié JJ/MM/AAAA (+ HH:MM).
+import {
+  formatDateFR as formatDate,
+  formatDateTimeFR as formatDateTime,
+} from "../utils/dates";
 
 // ─── Main component ───────────────────────────────────────────────────────
 export default function CustomersPage({
@@ -375,15 +361,8 @@ export default function CustomersPage({
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 32,
-              color: "var(--color-ink4)",
-            }}
-          >
-            <Users size={28} style={{ margin: "0 auto 10px", opacity: 0.5 }} />
-            Aucun client trouvé.
+          <div style={{ padding: 16 }}>
+            <AdminEmpty icon={<Users size={28} />} title="Aucun client trouvé." />
           </div>
         )}
       </div>
@@ -677,7 +656,7 @@ function FavouritesList({
 }) {
   const currencySymbol = useCurrencySymbol();
   if (items.length === 0)
-    return <EmptyState icon={<Heart size={28} />} text="Aucun favori." />;
+    return <AdminEmpty icon={<Heart size={28} />} title="Aucun favori." />;
   return (
     <div style={cardStyle}>
       <table
@@ -779,7 +758,7 @@ function CartList({
   const currencySymbol = useCurrencySymbol();
 
   if (items.length === 0)
-    return <EmptyState icon={<CartIcon size={28} />} text="Panier vide." />;
+    return <AdminEmpty icon={<CartIcon size={28} />} title="Panier vide." />;
   const total = items.reduce(
     (sum, i) => sum + (i.unitPrice ?? i.product?.price ?? 0) * i.quantity,
     0,
@@ -911,7 +890,7 @@ function OrdersList({
   const currencySymbol = useCurrencySymbol();
 
   if (orders.length === 0)
-    return <EmptyState icon={<Package size={28} />} text="Aucune commande." />;
+    return <AdminEmpty icon={<Package size={28} />} title="Aucune commande." />;
   return (
     <div style={cardStyle}>
       <table
@@ -1017,9 +996,9 @@ function InteractionsTab({
   }
   if (interactions.length === 0)
     return (
-      <EmptyState
+      <AdminEmpty
         icon={<MessageSquare size={28} />}
-        text="Aucune interaction avec ce client."
+        title="Aucune interaction avec ce client."
       />
     );
   return (
@@ -1138,14 +1117,3 @@ function InteractionsTab({
   );
 }
 
-// ─── Tiny reusable ────────────────────────────────────────────────────────
-function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div
-      style={{ textAlign: "center", padding: 40, color: "var(--color-ink4)" }}
-    >
-      <div style={{ marginBottom: 8, opacity: 0.5 }}>{icon}</div>
-      <p style={{ fontSize: 13 }}>{text}</p>
-    </div>
-  );
-}

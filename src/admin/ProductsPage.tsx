@@ -19,8 +19,18 @@ import {
   Images,
   Wrench,
 } from "lucide-react";
-import { useProducts, useReferenceLists } from "./adminHooks";
-import MockupStudio from "./MockupStudio";
+import { useProducts, useReferenceLists, normalizeRefKey } from "./adminHooks";
+import { normalizeMaterialKey } from "../data/materials";
+import { DISCOUNT_EVENT_TYPE } from "../data/categories";
+import AdminBadge from "./ui/AdminBadge";
+import AdminEmpty from "./ui/AdminEmpty";
+// Styles recherche/filtres canoniques (Vague C2/C3 réduit).
+import {
+  filterSelectStyle as selectStyle,
+  inputStyle,
+  clearBtnStyle,
+} from "./adminStyles";
+import MockupStudio, { mockupCoverage, needsMockups } from "./MockupStudio";
 import { AdminProduct, ProductFilterState } from "./adminTypes";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -37,30 +47,32 @@ const BADGE_STYLE: Record<string, React.CSSProperties> = {
   inactive: { background: "#f3f4f6", color: "#6b7280" },
   outofstock: { background: "#fff7ed", color: "#c2410c" },
   deal: { background: "#d1fae5", color: "#065f46" },
+  // Attention requise : même ambre que l'alerte dashboard (urgence douce).
+  mockups: { background: "#fef3c7", color: "#92400e" },
 };
 
 function Badge({
   label,
   style,
+  title,
 }: {
   label: string;
   style: React.CSSProperties;
+  title?: string;
 }) {
+  // Géométrie via AdminBadge sm (Vague C2 : pastille unique) ; les couleurs
+  // restent du domaine (BADGE_STYLE).
+  const { background, color } = style as { background?: string; color?: string };
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "2px 8px",
-        borderRadius: 999,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        ...style,
-      }}
+    <AdminBadge
+      size="sm"
+      uppercase
+      title={title}
+      color={typeof color === "string" ? color : "#555"}
+      bg={typeof background === "string" ? background : "#f3f4f6"}
     >
       {label}
-    </span>
+    </AdminBadge>
   );
 }
 
@@ -96,6 +108,16 @@ export default function ProductsPage() {
   });
   const [sortKey, setSortKey] = useState<keyof AdminProduct>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  // Filtre "attention requise" : produits sans mockups générés complets
+  // (même définition que MockupStudio/File, cf. needsMockups).
+  const [onlyMissingMockups, setOnlyMissingMockups] = useState(false);
+  // Succès de génération confirmés complets PENDANT cette session, en avance
+  // sur le prochain refetch : le dot/badge s'éteint immédiatement (pas une
+  // notification à "dismiss" — le refetch serveur confirme et reprend la main
+  // dès qu'il arrive, cf. useEffect plus bas).
+  const [mockupsDoneIds, setMockupsDoneIds] = useState<Set<string>>(new Set());
+  // Feedback visuel du bouton Refresh (refetch réel, pas cosmétique).
+  const [refreshing, setRefreshing] = useState(false);
   // Ordre manuel (réorganisation visuelle uniquement, pas de persistance)
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -204,10 +226,16 @@ export default function ProductsPage() {
     return counts;
   }, [allProducts]);
 
+  // Facettes normalisées (Vague B item 10) : legacy "coton" → slug
+  // "cotton" (normalizeMaterialKey), "Street" → "street" (normalizeRefKey).
+  // Fini les doubles lignes ; les valeurs non mappées restent visibles
+  // sous leur clé normalisée au lieu de disparaître.
   const countsByStyle = useMemo(() => {
     const counts: Record<string, number> = {};
     allProducts?.forEach((p) => {
-      counts[p.style] = (counts[p.style] || 0) + 1;
+      const key = normalizeRefKey(p.style);
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
   }, [allProducts]);
@@ -215,12 +243,28 @@ export default function ProductsPage() {
   const countsByMaterial = useMemo(() => {
     const counts: Record<string, number> = {};
     allProducts?.forEach((p) => {
-      const key = p.material || "";
+      const key = normalizeMaterialKey(p.material) ?? normalizeRefKey(p.material);
       if (!key) return;
       counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
   }, [allProducts]);
+
+  // Toute donnée fraîche du serveur reprend la main sur le clear optimiste.
+  useEffect(() => {
+    setMockupsDoneIds(new Set());
+  }, [allProducts]);
+
+  // ── Compteur "attention requise" (dot du filtre, comme les dots notifs).
+  const missingMockupsCount = useMemo(
+    () =>
+      (allProducts ?? []).filter(
+        (p) =>
+          !mockupsDoneIds.has(p.id) &&
+          needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      ).length,
+    [allProducts, mockupsDoneIds],
+  );
 
   // ── Filter & sort ──────────────────────────────────────────────────────
   const products = useMemo(() => {
@@ -228,6 +272,13 @@ export default function ProductsPage() {
     let list = [...allProducts];
 
     if (hideInactive) list = list.filter((p) => p.isActive);
+
+    if (onlyMissingMockups)
+      list = list.filter(
+        (p) =>
+          !mockupsDoneIds.has(p.id) &&
+          needsMockups(p as { externalProductId?: string | null; variants?: { image?: string }[] | null }),
+      );
 
     if (filters.search) {
       const s = filters.search.toLowerCase();
@@ -242,9 +293,14 @@ export default function ProductsPage() {
       list = list.filter((p) => p.category === filters.category);
     if (filters.eventType)
       list = list.filter((p) => p.eventType === filters.eventType);
-    if (filters.style) list = list.filter((p) => p.style === filters.style);
+    if (filters.style)
+      list = list.filter((p) => normalizeRefKey(p.style) === normalizeRefKey(filters.style));
     if (filters.material)
-      list = list.filter((p) => p.material === filters.material);
+      list = list.filter(
+        (p) =>
+          (normalizeMaterialKey(p.material) ?? normalizeRefKey(p.material)) ===
+          normalizeRefKey(filters.material),
+      );
     if (filters.priceMin > 0)
       list = list.filter((p) => p.price >= filters.priceMin);
     if (filters.priceMax < 200)
@@ -265,7 +321,7 @@ export default function ProductsPage() {
       return 0;
     });
     return list;
-  }, [allProducts, filters, sortKey, sortDir, hideInactive]);
+  }, [allProducts, filters, sortKey, sortDir, hideInactive, onlyMissingMockups, mockupsDoneIds]);
 
   // Synchroniser l'ordre manuel avec la liste filtrée (IDs uniquement, sans boucle)
   useEffect(() => {
@@ -412,8 +468,9 @@ export default function ProductsPage() {
     if (filters.priceMax < 200) count++;
     if (filters.size) count++;
     if (filters.color) count++;
+    if (onlyMissingMockups) count++;
     return count;
-  }, [filters]);
+  }, [filters, onlyMissingMockups]);
 
   const resetFilters = () => {
     setFilters({
@@ -429,6 +486,7 @@ export default function ProductsPage() {
       color: null,
       showInactive: true,
     });
+    setOnlyMissingMockups(false);
   };
 
   const moveProduct = (id: string, direction: -1 | 1) => {
@@ -461,7 +519,9 @@ export default function ProductsPage() {
     try {
       const result = await podApi.generateMockups(productId);
       // Alerte véridique : `applied` = variants affichant réellement le
-      // visuel (vs fichiers générés). Ancienne edge sans ces champs : repli
+      // visuel, `stored` = sous-ensemble réellement STOCKÉ (seul à éteindre
+      // le dot : un repli temporaire Printful — upload storage échoué —
+      // s'affiche mais ne compte pas). Ancienne edge sans ces champs : repli
       // sur l'ancien message.
       const unmatched: string[] = [
         ...((result as any).unmatchedVids ?? []),
@@ -473,14 +533,38 @@ export default function ProductsPage() {
         ? (result as any).applied
         : result.mockupsGenerated;
       const totalColors = result.colors?.length ?? applied;
-      alert(
-        hasApplied
-          ? `${applied} mockup(s) appliqué(s) sur ${totalColors} couleur(s).` +
-              (unmatched.length > 0
-                ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
-                : "")
-          : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
-      );
+      const stored =
+        typeof (result as any).stored === "number"
+          ? (result as any).stored
+          : null;
+      const thumbFallback =
+        stored == null ? null : Math.max(0, applied - stored);
+      const fullSuccess =
+        hasApplied &&
+        stored != null &&
+        unmatched.length === 0 &&
+        applied > 0 &&
+        thumbFallback === 0;
+      if (fullSuccess) {
+        // Clear immédiat : succès complet confirmé, le refetch serveur
+        // qui suit confirme (et reprend la main dans tous les cas).
+        setMockupsDoneIds((prev) => new Set(prev).add(productId));
+        alert(`${stored} mockup(s) stocké(s) et appliqué(s).`);
+      } else {
+        alert(
+          hasApplied
+            ? `${applied} visuel(s) appliqué(s) sur ${totalColors} couleur(s)` +
+                (stored != null ? ` — ${stored} stocké(s)` : "") +
+                (thumbFallback != null && thumbFallback > 0
+                  ? `, ${thumbFallback} temporaire(s) Printful (upload storage échoué — régénérer pour éteindre le badge)`
+                  : "") +
+                "." +
+                (unmatched.length > 0
+                  ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
+                  : "")
+            : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
+        );
+      }
       await refetch();
     } catch (err: any) {
       alert(`Erreur mockups : ${err.message}`);
@@ -589,20 +673,34 @@ export default function ProductsPage() {
               Produits
             </h2>
             <button
-              onClick={() => refetch()}
-              title="Rafraîchir les produits"
+              onClick={async () => {
+                if (refreshing) return;
+                setRefreshing(true);
+                try {
+                  await refetch();
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+              title={refreshing ? "Actualisation…" : "Rafraîchir les produits"}
               style={{
                 background: "var(--color-surface2)",
                 border: "1px solid var(--color-border)",
                 borderRadius: 8,
                 padding: "4px 8px",
-                cursor: "pointer",
+                cursor: refreshing ? "wait" : "pointer",
                 color: "var(--color-ink2)",
                 display: "flex",
                 alignItems: "center",
+                opacity: refreshing ? 0.55 : 1,
               }}
             >
-              <RefreshCw size={14} strokeWidth={2} />
+              <RefreshCw
+                size={14}
+                strokeWidth={2}
+                className={refreshing ? "animate-spin" : undefined}
+              />
             </button>
           </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
@@ -877,26 +975,12 @@ export default function ProductsPage() {
             placeholder="Rechercher…"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            style={{
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              flex: 1,
-              fontSize: 13,
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-body)",
-            }}
+            style={inputStyle}
           />
           {filters.search && (
             <button
               onClick={() => setFilters({ ...filters, search: "" })}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--color-ink4)",
-                padding: 0,
-              }}
+              style={clearBtnStyle}
             >
               <X size={14} />
             </button>
@@ -967,7 +1051,7 @@ export default function ProductsPage() {
             {getByType("style").map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
-                {countsByStyle[o.value] ? ` (${countsByStyle[o.value]})` : ""}
+                {countsByStyle[normalizeRefKey(o.value)] ? ` (${countsByStyle[normalizeRefKey(o.value)]})` : ""}
               </option>
             ))}
           </select>
@@ -985,8 +1069,8 @@ export default function ProductsPage() {
             {getByType("material").map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
-                {countsByMaterial[o.value]
-                  ? ` (${countsByMaterial[o.value]})`
+                {countsByMaterial[normalizeRefKey(o.value)]
+                  ? ` (${countsByMaterial[normalizeRefKey(o.value)]})`
                   : ""}
               </option>
             ))}
@@ -1013,6 +1097,50 @@ export default function ProductsPage() {
               style={{ accentColor: "var(--color-accent)" }}
             />
             En stock uniquement
+          </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--color-ink3)",
+              cursor: "pointer",
+            }}
+            title="Produits Printful sans mockups générés complets"
+          >
+            <input
+              type="checkbox"
+              checked={onlyMissingMockups}
+              onChange={(e) => setOnlyMissingMockups(e.target.checked)}
+              style={{ accentColor: "var(--color-accent)" }}
+            />
+            Sans mockups complets
+            {missingMockupsCount > 0 && (
+              <span
+                title={`${missingMockupsCount} produit(s) sans mockups complets`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--color-accent)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--color-accent)",
+                    display: "inline-block",
+                  }}
+                />
+                {missingMockupsCount}
+              </span>
+            )}
           </label>
 
           {/* Réinitialiser */}
@@ -1199,6 +1327,13 @@ export default function ProductsPage() {
                 p.dealActive && p.dealPrice && p.dealPrice < p.price
                   ? Math.round(((p.price - p.dealPrice) / p.price) * 100)
                   : null;
+              // Couverture mockups (même définition que le studio) : dot +
+              // badge quand incomplet.
+              const cov = mockupCoverage(
+                p as unknown as { variants?: { image?: string }[] | null },
+              );
+              const missingMockups =
+                !mockupsDoneIds.has(p.id) && cov.total > 0 && cov.imaged < cov.total;
               const idxInManual = manualOrder.indexOf(p.id);
               const isFirst = idxInManual === 0;
               const isLast = idxInManual === manualOrder.length - 1;
@@ -1264,6 +1399,11 @@ export default function ProductsPage() {
                   <td style={{ padding: "10px 14px" }}>
                     <button
                       onClick={() => setQuickViewProduct(p)}
+                      title={
+                        missingMockups
+                          ? `Mockups ${cov.imaged}/${cov.total} — à compléter`
+                          : undefined
+                      }
                       style={{
                         width: 40,
                         height: 40,
@@ -1273,6 +1413,8 @@ export default function ProductsPage() {
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
+                        position: "relative",
+                        display: "block",
                       }}
                     >
                       <img
@@ -1285,6 +1427,21 @@ export default function ProductsPage() {
                           display: "block",
                         }}
                       />
+                      {missingMockups && (
+                        <span
+                          title={`Mockups ${cov.imaged}/${cov.total} — à compléter`}
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: 2,
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: "var(--color-accent)",
+                            border: "1.5px solid white",
+                          }}
+                        />
+                      )}
                     </button>
                   </td>
                   <td
@@ -1381,7 +1538,7 @@ export default function ProductsPage() {
                           style={BADGE_STYLE.bestseller}
                         />
                       )}
-                      {p.eventType === "discount" && (
+                      {p.eventType === DISCOUNT_EVENT_TYPE && (
                         <Badge
                           label="Promotions"
                           style={BADGE_STYLE.discount}
@@ -1395,6 +1552,13 @@ export default function ProductsPage() {
                       )}
                       {p.dealActive && (
                         <Badge label="Deal" style={BADGE_STYLE.deal} />
+                      )}
+                      {missingMockups && (
+                        <Badge
+                          label={`Mockups ${cov.imaged}/${cov.total}`}
+                          style={BADGE_STYLE.mockups}
+                          title={`Mockups ${cov.imaged}/${cov.total} — à compléter`}
+                        />
                       )}
                       {!p.isActive && (
                         <Badge label="Inactif" style={BADGE_STYLE.inactive} />
@@ -1469,18 +1633,11 @@ export default function ProductsPage() {
           </tbody>
         </table>
         {orderedProducts.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 32,
-              color: "var(--color-ink4)",
-            }}
-          >
-            <Package
-              size={28}
-              style={{ margin: "0 auto 10px", opacity: 0.5 }}
+          <div style={{ padding: 16 }}>
+            <AdminEmpty
+              icon={<Package size={28} />}
+              title="Aucun produit trouvé."
             />
-            Aucun produit trouvé.
           </div>
         )}
       </div>
@@ -1524,18 +1681,6 @@ const arrowBtn: React.CSSProperties = {
   cursor: "pointer",
   color: "var(--color-ink4)",
   display: "flex",
-};
-
-const selectStyle: React.CSSProperties = {
-  padding: "7px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 12,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
 };
 
 const actionBtnWhite: React.CSSProperties = {

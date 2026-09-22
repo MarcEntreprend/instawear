@@ -25,6 +25,16 @@ import CopyID from "../components/CopyID";
 import { useHighlightListener } from "./useAdminHighlight";
 import CartIcon from "../components/CartIcon";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import AdminBadge from "./ui/AdminBadge";
+// Styles canoniques partagés (Vague C3 réduit : fini les copies locales).
+import {
+  filterSelectStyle as selectStyle,
+  tableWrapperStyle,
+  theadStyle,
+  thStyle,
+  tdStyle,
+  avatarStyle,
+} from "./adminStyles";
 import type { AdminProduct } from "./adminTypes";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -153,21 +163,11 @@ function formatMessageText(
 
 function StatusBadge({ status }: { status: InteractionStatus }) {
   const s = STATUS_META[status];
+  // Géométrie via AdminBadge (Vague C2 : pastille unique).
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "3px 10px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        color: s.color,
-        background: s.bg,
-        whiteSpace: "nowrap",
-      }}
-    >
+    <AdminBadge color={s.color} bg={s.bg}>
       {s.label}
-    </span>
+    </AdminBadge>
   );
 }
 
@@ -188,6 +188,16 @@ export default function InteractionsPage() {
   );
   const [messages, setMessages] = useState<InteractionMessage[]>([]);
   const [replyText, setReplyText] = useState("");
+  // Envoi réponse : anti-double-clic + statut email par message (le message
+  // est toujours enregistré ; l'email est best-effort).
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyNotice, setReplyNotice] = useState<string | null>(null);
+  // Statut email par message : la raison d'échec est conservée pour
+  // l'affichage, et un clic sur la pastille relance l'envoi.
+  const [emailStatus, setEmailStatus] = useState<
+    Record<string, { state: "sent" } | { state: "failed"; reason: string }>
+  >({});
+  const [retryingEmailId, setRetryingEmailId] = useState<string | null>(null);
   const [highlightedTicketId, setHighlightedTicketId] = useState<string | null>(
     null,
   );
@@ -217,26 +227,32 @@ export default function InteractionsPage() {
     fetchInteractions();
   }, [fetchInteractions]);
 
-  // ── Polling messages du ticket ouvert ────────────────────────────
+  // ── Polling messages du ticket ouvert (UN seul : l'audit notait deux
+  // useEffect identiques → 2 requêtes/10s. Source unique + intervalle unique.)
+  const loadTicketMessages = useCallback(async (ticketId: string) => {
+    try {
+      const msgs = await interactionApi.getMessages(ticketId);
+      setMessages(
+        msgs.map((m: any) => ({
+          id: m.id,
+          from: m.from_field,
+          text: m.text,
+          timestamp: m.timestamp,
+        })),
+      );
+    } catch (e) {
+      /* silencieux */
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedTicket) return;
-    const interval = setInterval(async () => {
-      try {
-        const msgs = await interactionApi.getMessages(selectedTicket.id);
-        setMessages(
-          msgs.map((m: any) => ({
-            id: m.id,
-            from: m.from_field,
-            text: m.text,
-            timestamp: m.timestamp,
-          })),
-        );
-      } catch (e) {
-        /* silencieux */
-      }
-    }, 10000);
+    const interval = setInterval(
+      () => loadTicketMessages(selectedTicket.id),
+      10000,
+    );
     return () => clearInterval(interval);
-  }, [selectedTicket]);
+  }, [selectedTicket, loadTicketMessages]);
 
   // Highlight depuis les notifications
   useHighlightListener(
@@ -245,27 +261,6 @@ export default function InteractionsPage() {
     8000,
     'tr[data-interaction-id="{}"]',
   );
-
-  // Recharge les messages du ticket ouvert toutes les 10 secondes
-  useEffect(() => {
-    if (!selectedTicket) return;
-    const interval = setInterval(async () => {
-      try {
-        const msgs = await interactionApi.getMessages(selectedTicket.id);
-        setMessages(
-          msgs.map((m: any) => ({
-            id: m.id,
-            from: m.from_field,
-            text: m.text,
-            timestamp: m.timestamp,
-          })),
-        );
-      } catch (e) {
-        /* silencieux */
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [selectedTicket]);
 
   const openTicket = async (ticket: AdminInteraction) => {
     setSelectedTicket(ticket);
@@ -285,23 +280,83 @@ export default function InteractionsPage() {
   };
 
   const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedTicket) return;
-    await interactionApi.addMessage(
-      selectedTicket.id,
-      "admin",
-      replyText.trim(),
-    );
-    const msgs = await interactionApi.getMessages(selectedTicket.id);
-    setMessages(
-      msgs.map((m: any) => ({
+    if (!replyText.trim() || !selectedTicket || sendingReply) return;
+    const text = replyText.trim();
+    setSendingReply(true);
+    setReplyNotice(null);
+    try {
+      await interactionApi.addMessage(selectedTicket.id, "admin", text);
+      const msgs = await interactionApi.getMessages(selectedTicket.id);
+      const mapped: InteractionMessage[] = msgs.map((m: any) => ({
         id: m.id,
         from: m.from_field,
         text: m.text,
         timestamp: m.timestamp,
-      })),
-    );
-    setReplyText("");
-    fetchInteractions();
+      }));
+      setMessages(mapped);
+      // Email client (best-effort) : le message reste enregistré en cas
+      // d'échec, seul le statut affiché change (avec la raison).
+      const mine = [...mapped]
+        .reverse()
+        .find((m) => m.from === "admin" && m.text === text);
+      try {
+        await interactionApi.sendReplyEmail({
+          customerEmail: selectedTicket.customerEmail,
+          customerName: selectedTicket.customerName,
+          subject: selectedTicket.subject,
+          replyText: text,
+        });
+        if (mine) {
+          setEmailStatus((prev) => ({ ...prev, [mine.id]: { state: "sent" } }));
+        } else {
+          setReplyNotice("Message enregistré, email envoyé au client.");
+        }
+      } catch (e) {
+        const reason =
+          e instanceof Error ? e.message : "Envoi email impossible.";
+        if (mine) {
+          setEmailStatus((prev) => ({
+            ...prev,
+            [mine.id]: { state: "failed", reason },
+          }));
+        } else {
+          setReplyNotice(`Message enregistré, mais l'email n'est pas parti (${reason})`);
+        }
+      }
+      setReplyText("");
+      fetchInteractions();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  // Relance l'email d'une réponse (clic sur la pastille d'échec).
+  const handleRetryEmail = async (messageId: string) => {
+    if (!selectedTicket || retryingEmailId) return;
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg || msg.from !== "admin") return;
+    setRetryingEmailId(messageId);
+    try {
+      await interactionApi.sendReplyEmail({
+        customerEmail: selectedTicket.customerEmail,
+        customerName: selectedTicket.customerName,
+        subject: selectedTicket.subject,
+        replyText: msg.text,
+      });
+      setEmailStatus((prev) => ({ ...prev, [messageId]: { state: "sent" } }));
+    } catch (e) {
+      setEmailStatus((prev) => ({
+        ...prev,
+        [messageId]: {
+          state: "failed",
+          reason: e instanceof Error ? e.message : "Envoi email impossible.",
+        },
+      }));
+    } finally {
+      setRetryingEmailId(null);
+    }
   };
 
   const handleChangeStatus = async (
@@ -391,6 +446,11 @@ export default function InteractionsPage() {
         replyText={replyText}
         setReplyText={setReplyText}
         onSendReply={handleSendReply}
+        sendingReply={sendingReply}
+        replyNotice={replyNotice}
+        emailStatus={emailStatus}
+        onRetryEmail={handleRetryEmail}
+        retryingEmailId={retryingEmailId}
         onChangeStatus={(status) =>
           handleChangeStatus(selectedTicket.id, status)
         }
@@ -690,6 +750,11 @@ function TicketDetail({
   replyText,
   setReplyText,
   onSendReply,
+  sendingReply,
+  replyNotice,
+  emailStatus,
+  onRetryEmail,
+  retryingEmailId,
   onChangeStatus,
   onBack,
   onQuickViewOrder,
@@ -702,6 +767,11 @@ function TicketDetail({
   replyText: string;
   setReplyText: (v: string) => void;
   onSendReply: () => void;
+  sendingReply: boolean;
+  replyNotice: string | null;
+  emailStatus: Record<string, { state: "sent" } | { state: "failed"; reason: string }>;
+  onRetryEmail: (messageId: string) => void;
+  retryingEmailId: string | null;
   onChangeStatus: (status: InteractionStatus) => void;
   onBack: () => void;
   onQuickViewOrder: (orderId: string) => void;
@@ -900,6 +970,35 @@ function TicketDetail({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+              {msg.from === "admin" && emailStatus[msg.id]?.state === "sent" && (
+                <span style={{ color: "var(--color-success)" }}>
+                  {" "}
+                  · ✉ envoyé
+                </span>
+              )}
+              {msg.from === "admin" &&
+                emailStatus[msg.id]?.state === "failed" && (
+                  <button
+                    type="button"
+                    onClick={() => onRetryEmail(msg.id)}
+                    disabled={retryingEmailId === msg.id}
+                    title={`${(emailStatus[msg.id] as { reason: string }).reason} — cliquer pour réessayer`}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 10,
+                      color: "#991b1b",
+                      cursor:
+                        retryingEmailId === msg.id ? "wait" : "pointer",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {" "}
+                    · ⚠ email non parti
+                    {retryingEmailId === msg.id ? " (…)" : " — réessayer"}
+                  </button>
+                )}
             </span>
           </div>
         ))}
@@ -944,7 +1043,7 @@ function TicketDetail({
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             onClick={onSendReply}
-            disabled={!replyText.trim()}
+            disabled={!replyText.trim() || sendingReply}
             style={{
               display: "flex",
               alignItems: "center",
@@ -957,13 +1056,25 @@ function TicketDetail({
               fontFamily: "var(--font-body)",
               fontWeight: 700,
               fontSize: 13.5,
-              cursor: "pointer",
-              opacity: replyText.trim() ? 1 : 0.5,
+              cursor: sendingReply ? "wait" : "pointer",
+              opacity: replyText.trim() && !sendingReply ? 1 : 0.5,
             }}
           >
-            <Send size={14} /> Envoyer
+            <Send size={14} /> {sendingReply ? "Envoi…" : "Envoyer"}
           </button>
         </div>
+        {replyNotice && (
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--color-ink2)",
+              textAlign: "right",
+              margin: 0,
+            }}
+          >
+            {replyNotice}
+          </p>
+        )}
         <p
           style={{
             fontSize: 10,
@@ -1054,6 +1165,8 @@ const clearBtnStyle: React.CSSProperties = {
   padding: 0,
 };
 
+// selectStyle/table/avatar : canoniques partagés (Vague C3 réduit —
+// copies locales supprimées, valeurs identiques ; import en tête de fichier).
 const clearFiltersBtnStyle: React.CSSProperties = {
   padding: "6px 14px",
   borderRadius: 10,
@@ -1063,56 +1176,6 @@ const clearFiltersBtnStyle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 12,
   cursor: "pointer",
-};
-
-const selectStyle: React.CSSProperties = {
-  padding: "7px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 12,
-  fontWeight: 500,
-  color: "var(--color-ink2)",
-  cursor: "pointer",
-  outline: "none",
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
-  borderRadius: 16,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-};
-
-const theadStyle: React.CSSProperties = {
-  background: "var(--color-surface2)",
-  fontWeight: 700,
-  color: "var(--color-ink2)",
-};
-
-const thStyle: React.CSSProperties = {
-  padding: "12px 14px",
-  textAlign: "left",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  verticalAlign: "middle",
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  background: "var(--color-accent)",
-  color: "white",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 700,
-  fontSize: 13,
-  flexShrink: 0,
 };
 
 const iconBtn: React.CSSProperties = {

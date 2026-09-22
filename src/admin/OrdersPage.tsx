@@ -17,13 +17,26 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useOrders } from "./adminHooks";
+import { useAdminBadges } from "./useAdminBadges";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { formatDateTimeFR } from "../utils/dates";
 import { useHighlightListener } from "./useAdminHighlight";
 import CopyID from "../components/CopyID";
 import { productApi } from "../api/supabaseApi";
 import { supabase } from "../lib/supabaseClient";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
 import { Order, OrderFilters, AdminProduct } from "./adminTypes";
-import ProductQuickViewModal from "./ProductQuickViewModal";
+import ProductQuickViewModal, {
+  type OrderPriceSnapshot,
+} from "./ProductQuickViewModal";
+import AdminButton from "./ui/AdminButton";
+import AdminEmpty from "./ui/AdminEmpty";
+// Styles recherche/filtres canoniques (Vague C3 réduit).
+import {
+  inputStyle,
+  clearBtnStyle,
+  filterSelectStyle,
+} from "./adminStyles";
 import CartIcon from "../components/CartIcon";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
 import {
@@ -60,9 +73,10 @@ const iconBtn: React.CSSProperties = {
   alignItems: "center",
 };
 
-// ─── Format currency ───────────────────────────────────────────────────────
-const formatCurrency = (value: number) =>
-  value.toFixed(2).replace(".", ",") + " $";
+// ─── Format currency : devise du store (Vague B item 7, fini le "$" en dur).
+// Défini dans le composant (a besoin du hook). Les coûts Printful gardent
+// leur propre devise (donnée Printful, USD) dans PrintfulCostsBlock.
+
 
 // ─── Coûts Printful (ADMIN uniquement) ──────────────────────────────────────
 // Affiche le snapshot estimé persisté à la création (costs/retail_costs).
@@ -126,9 +140,7 @@ function PrintfulCostsBlock({
       ))}
       <p style={{ fontSize: 10, color: "var(--color-ink3)", marginTop: 4 }}>
         Estimé à la création
-        {costs.estimated_at
-          ? ` le ${new Date(costs.estimated_at).toLocaleString("fr-FR")}`
-          : ""}
+        {costs.estimated_at ? ` le ${formatDateTimeFR(costs.estimated_at)}` : ""}
         . Le calcul final Printful peut différer.
       </p>
     </div>
@@ -161,6 +173,10 @@ export default function OrdersPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<AdminProduct | null>(
     null,
   );
+  // Snapshot prix payé de la ligne cliquée (Vague B item 9 : le modal montre
+  // le live + rappelle le payé ; nourrit le fallback si produit disparu).
+  const [quickViewSnapshot, setQuickViewSnapshot] =
+    useState<OrderPriceSnapshot | null>(null);
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
     null,
   );
@@ -187,23 +203,32 @@ export default function OrdersPage() {
     productId: string,
     selectedColor?: string,
     selectedSize?: string,
+    snapshot?: OrderPriceSnapshot | null,
   ) => {
     setLoadingQuickView(true);
+    // Snapshot d'abord : le fallback archivé s'affiche même si le live
+    // est parti (produit supprimé → productApi.get renvoie null).
+    setQuickViewSnapshot(snapshot ?? null);
+    setQuickViewColor(selectedColor || null);
+    setQuickViewSize(selectedSize || null);
     try {
       const product = await productApi.get(productId);
-      if (product) {
-        setQuickViewProduct(product);
-        setQuickViewColor(selectedColor || null);
-        setQuickViewSize(selectedSize || null);
-      }
+      setQuickViewProduct(product);
     } catch (err) {
       console.error(err);
+      setQuickViewProduct(null);
     } finally {
       setLoadingQuickView(false);
     }
   };
 
   // ── Filter & sort ────────────────────────────────────────────────────────
+  // "En attente" = total partagé (même chiffre que badge + dashboard).
+  const { ordersPending: pendingShared } = useAdminBadges(true);
+  // Devise du store (Vague B item 7).
+  const currencySymbol = useCurrencySymbol();
+  const formatCurrency = (value: number) =>
+    `${value.toFixed(2).replace(".", ",")} ${currencySymbol}`;
   const filteredOrders = useMemo(() => {
     let list = [...allOrders];
 
@@ -388,7 +413,7 @@ export default function OrdersPage() {
             </button>
           </div>
           <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            {filteredOrders.length} commande
+            {pendingShared} en attente · {filteredOrders.length} affichée
             {filteredOrders.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -470,26 +495,12 @@ export default function OrdersPage() {
             placeholder="Rechercher (ID, client, produit)…"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            style={{
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              flex: 1,
-              fontSize: 13,
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-body)",
-            }}
+            style={inputStyle}
           />
           {filters.search && (
             <button
               onClick={() => setFilters({ ...filters, search: "" })}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--color-ink4)",
-                padding: 0,
-              }}
+              style={clearBtnStyle}
             >
               <X size={14} />
             </button>
@@ -499,16 +510,7 @@ export default function OrdersPage() {
         <select
           value={filters.status}
           onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          style={{
-            padding: "7px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--color-border)",
-            background: "var(--color-surface2)",
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--color-ink2)",
-            cursor: "pointer",
-          }}
+          style={filterSelectStyle}
         >
           <option value="">Tous les statuts</option>
           {Object.entries(ORDER_STATUS_LABEL).map(([key, val]) => (
@@ -658,19 +660,11 @@ export default function OrdersPage() {
           <tbody>
             {filteredOrders.length === 0 && (
               <tr>
-                <td
-                  colSpan={7}
-                  style={{
-                    textAlign: "center",
-                    padding: 32,
-                    color: "var(--color-ink4)",
-                  }}
-                >
-                  <Package
-                    size={28}
-                    style={{ margin: "0 auto 10px", opacity: 0.5 }}
+                <td colSpan={7} style={{ padding: 16 }}>
+                  <AdminEmpty
+                    icon={<Package size={28} />}
+                    title="Aucune commande trouvée."
                   />
-                  Aucune commande trouvée.
                 </td>
               </tr>
             )}
@@ -1061,7 +1055,8 @@ export default function OrdersPage() {
                     selectedOrder.status,
                   ) && (
                     <div style={{ marginTop: 10 }}>
-                      <button
+                      <AdminButton
+                        variant="danger"
                         onClick={async () => {
                           if (
                             !window.confirm(
@@ -1088,20 +1083,7 @@ export default function OrdersPage() {
                           }
                         }}
                         disabled={cancellingPrintful}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: 8,
-                          border: "1px solid #991b1b",
-                          background: cancellingPrintful ? "var(--color-surface2)" : "#991b1b",
-                          color: cancellingPrintful ? "var(--color-ink3)" : "white",
-                          fontWeight: 700,
-                          fontSize: 12,
-                          cursor: cancellingPrintful ? "not-allowed" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          opacity: cancellingPrintful ? 0.7 : 1,
-                        }}
+                        style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8 }}
                       >
                         {cancellingPrintful ? (
                           <RefreshCw size={14} strokeWidth={2} className="animate-spin" />
@@ -1109,7 +1091,7 @@ export default function OrdersPage() {
                           <X size={14} strokeWidth={2} />
                         )}
                         {cancellingPrintful ? "Annulation en cours…" : "Annuler chez Printful"}
-                      </button>
+                      </AdminButton>
                     </div>
                   )}
                 {/* P4 POD: commandes partielles / on_hold avec bloqués -> choix admin */}
@@ -1567,6 +1549,12 @@ export default function OrdersPage() {
                                 item.productId,
                                 item.selectedColor,
                                 item.selectedSize,
+                                {
+                                  unitPrice: item.unitPrice,
+                                  quantity: item.quantity,
+                                  productTitle: item.productTitle,
+                                  productImage: item.productImage,
+                                },
                               )
                             }
                             style={{
@@ -1598,6 +1586,12 @@ export default function OrdersPage() {
                                 item.productId,
                                 item.selectedColor,
                                 item.selectedSize,
+                                {
+                                  unitPrice: item.unitPrice,
+                                  quantity: item.quantity,
+                                  productTitle: item.productTitle,
+                                  productImage: item.productImage,
+                                },
                               )
                             }
                             style={{
@@ -1733,11 +1727,13 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {quickViewProduct && (
+      {(quickViewProduct || quickViewSnapshot) && (
         <ProductQuickViewModal
           product={quickViewProduct}
+          orderSnapshot={quickViewSnapshot}
           onClose={() => {
             setQuickViewProduct(null);
+            setQuickViewSnapshot(null);
             setQuickViewColor(null);
             setQuickViewSize(null);
           }}

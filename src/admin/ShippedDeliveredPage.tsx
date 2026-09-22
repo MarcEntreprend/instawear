@@ -20,23 +20,10 @@ import { orderApi } from "../api/supabaseApi";
 import type { Order } from "./adminTypes";
 import CopyID from "../components/CopyID";
 import ShipmentTrackingBlock from "../components/ShipmentTrackingBlock";
-import { OrderStatusBadge } from "./orderStatusLabels";
-
-const SHIPPED_STATUSES = new Set(["shipped", "partial", "delivered"]);
-
-const formatCurrency = (value: number) =>
-  value.toFixed(2).replace(".", ",") + " $";
-
-const formatDate = (iso?: string) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+import { OrderStatusBadge, SHIPPED_VIEW_STATUSES } from "./orderStatusLabels";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+// Dates FR canoniques partagées (Vague B item 7) — même nom qu'avant.
+import { formatDateTimeFR as formatDate } from "../utils/dates";
 
 export default function ShippedDeliveredPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
@@ -47,13 +34,19 @@ export default function ShippedDeliveredPage() {
     "all" | "shipped" | "partial" | "delivered"
   >("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Devise du store (Vague B item 7 : fini le "$" en dur).
+  const currencySymbol = useCurrencySymbol();
+  const formatCurrency = (value: number) =>
+    `${value.toFixed(2).replace(".", ",")} ${currencySymbol}`;
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const all = await orderApi.list();
-      setOrders(all.filter((o) => SHIPPED_STATUSES.has(o.status)));
+      // Refresh manuel = bypass cache (Vague B item 6 : frais + recache).
+      orderApi.invalidateOrdersCache();
+      const all = await orderApi.listCached();
+      setOrders(all.filter((o) => SHIPPED_VIEW_STATUSES.includes(o.status)));
     } catch (e: any) {
       setError(e?.message || "Erreur de chargement");
     } finally {
@@ -189,6 +182,7 @@ export default function ShippedDeliveredPage() {
           >
             {shippedCount} expédiée(s) · {partialCount} partielle(s) ·{" "}
             {deliveredCount} livrée(s) — colis suivis par le webhook Printful.
+            Les partielles restent aussi visibles dans Commandes.
           </p>
         </div>
 

@@ -73,6 +73,45 @@ export const clearBtnStyle: React.CSSProperties = {
   padding: 0,
 };
 
+// ─── Formulaire (Vague C3 réduit) ─────────────────────────────────────────
+// inputStyle/labelStyle recodés à l'identique dans 3 formulaires
+// (ProductFormPanel, PrintfulProductForm, PromotionsPage) — une seule copie.
+// EmailMarketingPage rejoint aussi (normalisation 9px/6px → 8px/4px).
+export const formInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface2)",
+  fontSize: 13,
+  color: "var(--color-ink)",
+  fontFamily: "var(--font-body)",
+  outline: "none",
+};
+
+export const formLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: "var(--color-ink2)",
+  display: "block",
+  marginBottom: 4,
+};
+
+// ─── Filtres (Vague C3 réduit) ────────────────────────────────────────────
+// selectStyle recodé à l'identique (ProductsPage, InteractionsPage) —
+// Notifications/ErrorMonitoring rejoignent (normalisation 8px/6px → 7px).
+export const filterSelectStyle: React.CSSProperties = {
+  padding: "7px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface2)",
+  fontSize: 12,
+  fontWeight: 500,
+  color: "var(--color-ink2)",
+  cursor: "pointer",
+  outline: "none",
+};
+
 // ─── Tableau ────────────────────────────────────────────────────────────
 export const tableWrapperStyle: React.CSSProperties = {
   overflowX: "auto",

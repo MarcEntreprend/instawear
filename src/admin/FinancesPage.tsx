@@ -13,8 +13,10 @@ import { Wallet, Check, X, RefreshCw, Search, AlertCircle } from "lucide-react";
 import { orderApi, refundApi } from "../api/supabaseApi";
 import type { OrderRefund, RefundRequest } from "../api/supabaseApi";
 import type { Order } from "./adminTypes";
-import { ORDER_STATUS_LABEL } from "./orderStatusLabels";
+import { OrderStatusBadge } from "./orderStatusLabels";
+import AdminButton from "./ui/AdminButton";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { formatDateFR } from "../utils/dates";
 import CopyID from "../components/CopyID";
 
 interface FinancesPageProps {
@@ -46,8 +48,9 @@ export default function FinancesPage({
     initialOrderId || null,
   );
   const [amountInput, setAmountInput] = useState("");
-  const [reasonInput, setReasonInput] =
-    useState<string>("requested_by_customer");
+  const [reasonInput, setReasonInput] = useState<string>(
+    "requested_by_customer",
+  );
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<{
     text: string;
@@ -63,8 +66,10 @@ export default function FinancesPage({
     setLoading(true);
     setError("");
     try {
+      // Refresh manuel = bypass cache (Vague B item 6 : frais + recache).
+      orderApi.invalidateOrdersCache();
       const [o, r, f] = await Promise.all([
-        orderApi.list(),
+        orderApi.listCached(),
         refundApi.listRequests(),
         refundApi.listRefunds(),
       ]);
@@ -225,11 +230,11 @@ export default function FinancesPage({
             gap: 8,
           }}
         >
-          <Wallet size={20} strokeWidth={2} /> Finances
+          Finances
         </h2>
         <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-          Remboursements réels Stripe + demandes clients. Chaque euro qui
-          bouge est tracé (id `re_…`, montant, motif, auteur).
+          Remboursements réels Stripe + demandes clients. Chaque euro qui bouge
+          est tracé (id `re_…`, montant, motif, auteur).
         </p>
       </div>
 
@@ -341,7 +346,7 @@ export default function FinancesPage({
                       ? `${(r.amountCents / 100).toFixed(2)} ${currencySymbol} souhaités`
                       : "montant total souhaité"}
                     {r.reason ? ` · « ${r.reason} »` : ""} ·{" "}
-                    {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                    {formatDateFR(r.createdAt)}
                   </p>
                 </div>
                 {r.status === "pending" ? (
@@ -409,8 +414,7 @@ export default function FinancesPage({
                       borderRadius: 999,
                       background:
                         r.status === "approved" ? "#dcfce7" : "#f3f4f6",
-                      color:
-                        r.status === "approved" ? "#166534" : "#6b7280",
+                      color: r.status === "approved" ? "#166534" : "#6b7280",
                     }}
                   >
                     {r.status === "approved" ? "Approuvée" : "Rejetée"}
@@ -507,26 +511,19 @@ export default function FinancesPage({
             }}
           >
             <div
-              style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
             >
               <strong style={{ fontFamily: "monospace", fontSize: 14 }}>
                 {selected.id}
               </strong>
               <CopyID id={selected.id} size={12} />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "2px 10px",
-                  borderRadius: 999,
-                  background:
-                    ORDER_STATUS_LABEL[selected.status]?.bg || "#f3f4f6",
-                  color:
-                    ORDER_STATUS_LABEL[selected.status]?.color || "#555",
-                }}
-              >
-                {ORDER_STATUS_LABEL[selected.status]?.label || selected.status}
-              </span>
+              {/* Badge canonique (Vague B item 8 : fini le span recodé). */}
+              <OrderStatusBadge status={selected.status} />
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "var(--color-ink2)" }}>
               {selected.clientName || selected.clientEmail || "—"} · Total{" "}
@@ -540,7 +537,7 @@ export default function FinancesPage({
                   <div key={r.id}>
                     • {(r.amountCents / 100).toFixed(2)} {r.currency} —{" "}
                     {r.stripeRefundId || r.status} —{" "}
-                    {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                    {formatDateFR(r.createdAt)}
                   </div>
                 ))}
               </div>
@@ -594,25 +591,15 @@ export default function FinancesPage({
                   ))}
                 </select>
               </label>
-              <button
+              <AdminButton
                 type="button"
+                variant="danger"
                 disabled={working || suggestedCents <= 0}
                 onClick={() => {
                   const pending = pendingRequests.find(
                     (r) => r.orderId === selected.id,
                   );
                   doRefund(selected.id, pending?.id);
-                }}
-                style={{
-                  padding: "10px 18px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: "#991b1b",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: working ? "not-allowed" : "pointer",
-                  opacity: working || suggestedCents <= 0 ? 0.6 : 1,
                 }}
               >
                 {working ? (
@@ -627,7 +614,7 @@ export default function FinancesPage({
                 ) : (
                   "Rembourser (Stripe réel)"
                 )}
-              </button>
+              </AdminButton>
             </div>
             {suggestedCents <= 0 && (
               <p
@@ -685,7 +672,7 @@ export default function FinancesPage({
                 </span>
                 <span style={{ color: "var(--color-ink3)" }}>
                   {r.stripeRefundId || r.status} · {r.reason || "—"} ·{" "}
-                  {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                  {formatDateFR(r.createdAt)}
                 </span>
               </div>
             ))}

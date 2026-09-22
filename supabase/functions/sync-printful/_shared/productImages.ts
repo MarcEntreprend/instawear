@@ -127,6 +127,23 @@ export interface MockupResultItem {
   mockup_url?: unknown;
 }
 
+/**
+ * Compte les applications réellement STOCKÉES (vs repli temporaire Printful).
+ * `applied[].url` est l'URL storage BRUTE au stade finalize (avant
+ * displayImageUrl) : seules celles reconnues par isStorageMockupUrl
+ * éteindront le dot "mockups manquants" côté admin. Un repli thumb
+ * (upload storage échoué) s'affiche mais ne compte pas comme stocké —
+ * l'alerte UI doit lire ce champ, pas `applied` seul.
+ */
+export function countStoredApplications(
+  applied: Array<{ color: string; url: string }>,
+): number {
+  if (!Array.isArray(applied)) return 0;
+  return applied.filter(
+    (a) => a && typeof a.url === "string" && isStorageMockupUrl(a.url),
+  ).length;
+}
+
 export interface StorageApplication {
   /** Copies des variants : `image` = URL storage BRUTE là où apparié. */
   variants: any[];

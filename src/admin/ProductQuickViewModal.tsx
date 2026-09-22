@@ -6,12 +6,27 @@ import type { AdminProduct } from "./adminTypes";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { materialLabel } from "../data/materials";
+import { useReferenceLists, referenceLabel } from "./adminHooks";
+import AdminModal from "./ui/AdminModal";
+
+/**
+ * Snapshot prix payé (ligne de commande — Vague B item 9) : le modal affiche
+ * le produit LIVE, mais rappelle ce que le client a payé. Si le produit a
+ * disparu (archivé/supprimé), le snapshot seul nourrit le fallback.
+ */
+export interface OrderPriceSnapshot {
+  unitPrice: number;
+  quantity?: number;
+  productTitle?: string;
+  productImage?: string;
+}
 
 interface ProductQuickViewModalProps {
   product: AdminProduct | null;
   onClose: () => void;
   initialColor?: string;
   initialSize?: string;
+  orderSnapshot?: OrderPriceSnapshot | null;
 }
 
 export default function ProductQuickViewModal({
@@ -19,16 +34,17 @@ export default function ProductQuickViewModal({
   onClose,
   initialColor,
   initialSize,
+  orderSnapshot,
 }: ProductQuickViewModalProps) {
-  if (!product) return null;
-
-  // state pour suivre l'image active, et rendre les miniatures cliquables.
+  // Hooks d'abord (le fallback archivé rend sans produit — pas de
+  // return précoce avant les hooks).
   const [activeImage, setActiveImage] = React.useState(0);
 
-  const hasVariants = product.variants && product.variants.length > 0;
-  const dispColors = hasVariants
-    ? product.variants!.map((v) => v.color)
-    : product.colors;
+  const hasVariants =
+    !!product && !!product.variants && product.variants.length > 0;
+  const dispColors: string[] = hasVariants
+    ? product!.variants!.map((v) => v.color)
+    : (product?.colors ?? []);
 
   // Initialiser la couleur si fournie
   const initialColorIdx = React.useMemo(() => {
@@ -41,11 +57,50 @@ export default function ProductQuickViewModal({
     initialColorIdx ?? (dispColors.length > 0 ? 0 : null),
   );
 
-  const dispColorNames = hasVariants
-    ? product.variants!.map((v) => v.color_name)
-    : product.colorNames;
+  const dispColorNames: Array<string | undefined> = hasVariants
+    ? product!.variants!.map((v) => v.color_name)
+    : (product?.colorNames ?? []);
 
   const currencySymbol = useCurrencySymbol();
+  // Libellés FR des slugs (Vague B item 10 : fini les slugs bruts).
+  const { getByType } = useReferenceLists();
+  const categoryLabel = product
+    ? referenceLabel(getByType("category"), product.category)
+    : "—";
+  const eventLabel = product
+    ? referenceLabel(getByType("event_type"), product.eventType)
+    : "—";
+  const styleLabel = product
+    ? referenceLabel(getByType("style"), product.style)
+    : "—";
+
+  // Produit disparu (archivé/supprimé) : fallback sur le snapshot de
+  // commande — prix payé affiché, fiche live déclarée indisponible.
+  if (!product) {
+    if (!orderSnapshot) return null;
+    const qty = orderSnapshot.quantity ?? 1;
+    return (
+      <AdminModal title="Produit archivé ou supprimé" onClose={onClose} size="sm">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <img
+            src={orderSnapshot.productImage || PLACEHOLDER_IMG}
+            alt={orderSnapshot.productTitle ?? ""}
+            style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 12 }}
+          />
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-ink)" }}>
+            {orderSnapshot.productTitle || "Produit sans nom"}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--color-ink2)" }}>
+            Payé :{" "}
+            <strong>
+              {orderSnapshot.unitPrice.toFixed(2)} {currencySymbol}
+            </strong>
+            {qty > 1 && ` × ${qty}`} — fiche live indisponible.
+          </div>
+        </div>
+      </AdminModal>
+    );
+  }
 
   const variantImages: string[] = hasVariants
     ? product.variants!.map((v) => v.image || "")
@@ -367,6 +422,43 @@ export default function ProductQuickViewModal({
                 </span>
               )}
             </div>
+            {/* Snapshot commande vs prix live (Vague B item 9) */}
+            {orderSnapshot && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-ink2)",
+                  background: "var(--color-surface2)",
+                  border: "1px dashed var(--color-border)",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                }}
+              >
+                Payé :{" "}
+                <strong>
+                  {orderSnapshot.unitPrice.toFixed(2)} {currencySymbol}
+                </strong>
+                {(orderSnapshot.quantity ?? 1) > 1 &&
+                  ` × ${orderSnapshot.quantity}`}
+                {" · "}Prix actuel :{" "}
+                <strong>
+                  {product.price.toFixed(2)} {currencySymbol}
+                </strong>
+                {Math.abs(product.price - orderSnapshot.unitPrice) < 0.005 ? (
+                  " — inchangé depuis la commande."
+                ) : product.price > orderSnapshot.unitPrice ? (
+                  <span style={{ color: "#b45309" }}>
+                    {" "}
+                    — a augmenté depuis la commande.
+                  </span>
+                ) : (
+                  <span style={{ color: "var(--color-success)" }}>
+                    {" "}
+                    — a baissé depuis la commande.
+                  </span>
+                )}
+              </div>
+            )}
             <div
               style={{
                 display: "flex",
@@ -503,7 +595,7 @@ export default function ProductQuickViewModal({
                   border: "1px solid var(--color-border)",
                 }}
               >
-                <Tag size={10} /> {product.category}
+                <Tag size={10} /> {categoryLabel}
               </span>
               <span
                 className="badge"
@@ -513,7 +605,7 @@ export default function ProductQuickViewModal({
                   border: "1px solid var(--color-border)",
                 }}
               >
-                {product.eventType}
+                {eventLabel}
               </span>
               <span
                 className="badge"
@@ -523,7 +615,7 @@ export default function ProductQuickViewModal({
                   border: "1px solid var(--color-border)",
                 }}
               >
-                {product.style}
+                {styleLabel}
               </span>
               {product.material && (
                 <span

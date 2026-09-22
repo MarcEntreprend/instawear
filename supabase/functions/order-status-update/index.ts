@@ -27,6 +27,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 import { isPayloadTooLarge } from "./_shared/validators.ts";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import {
@@ -162,6 +167,12 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    {
+      const missing = missingEnv([...BASE_ENV]);
+      if (missing.length > 0) return envMissingResponse(missing);
+    }
 
     try {
       if (await isRateLimited(req, rateLimitKey(req, "order-status-update"))) {

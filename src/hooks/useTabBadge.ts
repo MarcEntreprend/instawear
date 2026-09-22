@@ -1,7 +1,7 @@
 // src/hooks/useTabBadge.ts
 
 import { useEffect, useRef } from "react";
-import { notificationApi } from "../api/supabaseApi";
+import { useAdminBadges } from "../admin/useAdminBadges";
 import type { CartItem } from "../types";
 
 /**
@@ -16,16 +16,13 @@ export function useTabBadge(cart: CartItem[], isAdmin: boolean) {
   const notifCountRef = useRef(0);
   const cartCountRef = useRef(0);
   const originalTitle = useRef(document.title);
+  // Compteur partagé (un seul poller admin, cf. useAdminBadges) au lieu
+  // d'un polling dédié. Côté storefront (isAdmin=false) : aucune requête
+  // admin, seul le panier compte.
+  const { unread } = useAdminBadges(isAdmin);
 
   const update = async () => {
-    let notifCount = 0;
-    if (isAdmin) {
-      try {
-        notifCount = await notificationApi.getUnreadCount();
-      } catch {
-        // silencieux
-      }
-    }
+    const notifCount = isAdmin ? unread : 0;
 
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -41,14 +38,15 @@ export function useTabBadge(cart: CartItem[], isAdmin: boolean) {
 
   useEffect(() => {
     update();
-    const interval = setInterval(update, 30000);
+    // Pas d'intervalle ici : le rafraîchissement vient du poller partagé
+    // (useAdminBadges) + de l'event notifications-updated.
     const handler = () => update();
     window.addEventListener("notifications-updated", handler);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("notifications-updated", handler);
     };
-  }, [isAdmin, cart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, cart, unread]);
 }
 
 function updateDocument(

@@ -1,6 +1,10 @@
 // src/api/supabaseApi.ts
 
 import { supabase } from "../lib/supabaseClient";
+import { escapeHtml } from "../utils/format";
+// Règle CA net canonique (Vague B item 8) : orderStatusLabels n'importe
+// que React — pas de cycle api ↔ admin.
+import { sumRevenue } from "../admin/orderStatusLabels";
 import type {
   AdminProduct,
   Customer,
@@ -299,9 +303,9 @@ export const productApi = {
       .maybeSingle();
     if (error) throw error;
 
-    return mapProduct(data);
-
-    // NOTIFICATION - Nouveau produit créé
+    // NOTIFICATION - Nouveau produit créé (AVANT le return : le bloc
+    // précédent était inatteignable, la notif ne partait jamais).
+    // Best-effort : une panne notif ne doit jamais faire échouer la création.
     try {
       await notificationApi.create({
         title: "Nouveau produit créé",
@@ -319,6 +323,8 @@ export const productApi = {
     } catch (e) {
       console.warn("Échec création notification produit", e);
     }
+
+    return mapProduct(data);
   },
   async update(
     id: string,
@@ -381,6 +387,33 @@ export const productApi = {
       .select()
       .maybeSingle();
     if (error) throw error;
+
+    // NOTIFICATION - seulement sur changement significatif (titre, prix,
+    // activation, stock) : pas de spam à chaque sauvegarde triviale.
+    // Best-effort : ne bloque jamais la sauvegarde.
+    try {
+      const touched: string[] = [];
+      if (updates.title !== undefined) touched.push(`titre : ${updates.title}`);
+      if (updates.price !== undefined) touched.push(`prix : ${updates.price}`);
+      if (updates.isActive !== undefined)
+        touched.push(updates.isActive ? "activé" : "désactivé");
+      if (updates.inStock !== undefined)
+        touched.push(updates.inStock ? "en stock" : "rupture");
+      if (touched.length > 0) {
+        await notificationApi.create({
+          title: "Produit modifié",
+          description: `${updates.title ?? `Produit ${id}`} — ${touched.join(", ")}`,
+          category: "products",
+          priority: "low",
+          metadata: {
+            productId: id,
+            linkTo: "/admin/products",
+            source: "Système",
+          },
+          action_label: "Voir les produits",
+        });
+      }
+    } catch (_) {}
     return mapProduct(data);
   },
 
@@ -885,7 +918,46 @@ export const customerApi = {
   },
 };
 
+let ordersCache: { data: Order[] | null; ts: number } = {
+  data: null,
+  ts: 0,
+};
+
 export const orderApi = {
+  /**
+   * Compteurs par statut (léger : colonne status seule, sans items).
+   * Source UNIQUE des badges "à traiter / à expédier" (cf. useAdminBadges).
+   */
+  async getStatusCounts(): Promise<Record<string, number>> {
+    const { data, error } = await supabase.from("orders").select("status");
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const o of data ?? []) {
+      const s = String((o as any)?.status || "unknown");
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
+  },
+  /**
+   * Cache partagé des commandes (Vague B item 6 : fini les N× list()
+   * indépendants — Orders, Expéditions, Finances, Rapports, Dashboard
+   * partagent UNE requête par fenêtre de 30 s). Invalidé à chaque
+   * changement de statut (updateStatusViaEdge) ; les statuts/chiffres
+   * restent définis UNE fois dans orderStatusLabels.ts.
+   */
+  async listCached(ttlMs = 30000): Promise<Order[]> {
+    const now = Date.now();
+    if (ordersCache.data && now - ordersCache.ts < ttlMs) {
+      return ordersCache.data;
+    }
+    const fresh = await this.list();
+    ordersCache = { data: fresh, ts: now };
+    return fresh;
+  },
+  /** À appeler après toute mutation de commandes (statut, remboursement). */
+  invalidateOrdersCache(): void {
+    ordersCache = { data: null, ts: 0 };
+  },
   async list(): Promise<Order[]> {
     // 1. Charger toutes les commandes (1 requête)
     const { data: orders, error } = await supabase
@@ -1162,6 +1234,8 @@ export const orderApi = {
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    // Le statut a changé côté serveur : le cache partagé est périmé.
+    orderApi.invalidateOrdersCache();
     return {
       emailed: !!data.emailed,
       status: data.status || status,
@@ -2148,7 +2222,7 @@ export const dashboardApi = {
     const [products, customers, orders, pod] = await Promise.all([
       productApi.list(),
       customerApi.list(),
-      orderApi.list(),
+      orderApi.listCached(),
       podApi.getSettings(),
     ]);
     const today = new Date().toDateString();
@@ -2160,7 +2234,9 @@ export const dashboardApi = {
       productsOffline: products.filter((p) => !p.isActive).length,
       totalCustomers: customers.length,
       ordersToday: ordersToday.length,
-      revenueEstimate: orders.reduce((acc, o) => acc + o.totalAmount, 0),
+      // CA NET (règle canonique sumRevenue, même chiffre que Rapports —
+      // Vague B item 8 : fini les deux CA incompatibles).
+      revenueEstimate: sumRevenue(orders),
       podConnected: pod.isConnected,
       recentOrders: orders.slice(0, 5),
       recentProducts: products.slice(0, 4),
@@ -2252,6 +2328,103 @@ export const adminUserApi = {
   },
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from("admin_users").delete().eq("id", id);
+    if (error) throw error;
+  },
+  /**
+   * Mon rôle admin ({email, role}) ou null. Fail-closed : toute erreur
+   * (pas de ligne, pas de session) => null => UI en lecture seule.
+   * Lecture couverte par la policy select admin (tout admin peut lire).
+   */
+  async getMyRole(): Promise<{ email: string; role: string } | null> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const email = user?.email || "";
+      if (!email) return null;
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("email, role")
+        .ilike("email", email)
+        .maybeSingle();
+      if (error || !data) return null;
+      return { email: data.email, role: data.role };
+    } catch {
+      return null;
+    }
+  },
+  /**
+   * Invitation via l'edge admin-invite (super_admin uniquement, vérifié
+   * côté edge). La edge crée la ligne ET envoie l'invitation Auth.
+   * Retourne invited=false + warning si seul le mail a échoué.
+   */
+  async invite(
+    email: string,
+    role: "super_admin" | "editor",
+  ): Promise<{
+    ok: boolean;
+    adminId: string;
+    invited: boolean;
+    warning?: string;
+    role: string;
+  }> {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-invite`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: await getPodAuthHeaders(),
+      body: JSON.stringify({ email, role }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) {
+      throw new Error(body?.error || "Invitation impossible.");
+    }
+    return {
+      ok: true,
+      adminId: body.adminId,
+      invited: body.invited !== false,
+      warning: body.warning,
+      role: body.role,
+    };
+  },
+};
+
+// ─── Admin Audit Log (vague A) ────────────────────────────────────────────
+export const adminAuditApi = {
+  async list(limit = 50): Promise<import("../admin/adminTypes").AdminAuditEntry[]> {
+    const { data, error } = await supabase
+      .from("admin_audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 200)));
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      actorEmail: r.actor_email,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      before: r.before_data ?? {},
+      after: r.after_data ?? {},
+      createdAt: r.created_at,
+    }));
+  },
+  /** Best-effort : l'appelant ignore l'échec (le journal ne bloque jamais). */
+  async create(entry: {
+    actorEmail: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  }): Promise<void> {
+    const { error } = await supabase.from("admin_audit_log").insert({
+      actor_email: entry.actorEmail,
+      action: entry.action,
+      target_type: entry.targetType ?? "",
+      target_id: entry.targetId ?? "",
+      before_data: entry.before ?? {},
+      after_data: entry.after ?? {},
+    });
     if (error) throw error;
   },
 };
@@ -2449,6 +2622,17 @@ export const referenceListApi = {
       "id" | "sortOrder" | "createdAt"
     >,
   ): Promise<import("../admin/adminTypes").ReferenceItem> {
+    // Tri (Vague B item 12) : nouvel élément EN FIN de son type
+    // (max sort_order + 1, fini le 0 forcé qui cassait tout tri).
+    const { data: siblings } = await supabase
+      .from("reference_lists")
+      .select("sort_order")
+      .eq("type", item.type);
+    const maxOrder = (siblings ?? []).reduce(
+      (m: number, r: any) =>
+        Math.max(m, typeof r.sort_order === "number" ? r.sort_order : 0),
+      0,
+    );
     const { data, error } = await supabase
       .from("reference_lists")
       .insert({
@@ -2457,7 +2641,7 @@ export const referenceListApi = {
         value: item.value,
         label: item.label,
         keywords: item.keywords,
-        sort_order: 0,
+        sort_order: maxOrder + 1,
       })
       .select()
       .maybeSingle();
@@ -2546,6 +2730,31 @@ export const notificationApi = {
       .eq("status", "unread");
     if (error) throw error;
     return count ?? 0;
+  },
+
+  /**
+   * Non-lues par catégorie ET priorité, sur TOUTES les lignes (global, pas
+   * la page courante). Source UNIQUE des dots de filtres (cf. useAdminBadges).
+   */
+  async getUnreadBreakdown(): Promise<{
+    byCategory: Record<string, number>;
+    byPriority: Record<string, number>;
+  }> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("category,priority")
+      .eq("status", "unread")
+      .limit(2000);
+    if (error) throw error;
+    const byCategory: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    for (const n of data ?? []) {
+      const c = String((n as any)?.category || "other");
+      const p = String((n as any)?.priority || "medium");
+      byCategory[c] = (byCategory[c] || 0) + 1;
+      byPriority[p] = (byPriority[p] || 0) + 1;
+    }
+    return { byCategory, byPriority };
   },
 
   async markAsRead(id: string): Promise<void> {
@@ -2772,6 +2981,20 @@ export const errorMonitoringApi = {
       .eq("id", id);
     if (error) throw error;
   },
+
+  /**
+   * Critiques non résolues (léger : count seul). Source UNIQUE du badge
+   * Monitoring (cf. useAdminBadges).
+   */
+  async getUnresolvedCriticalCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from("edge_errors")
+      .select("*", { count: "exact", head: true })
+      .eq("resolved", false)
+      .eq("severity", "critical");
+    if (error) throw error;
+    return count ?? 0;
+  },
 };
 
 export const interactionApi = {
@@ -2878,6 +3101,36 @@ export const interactionApi = {
       .from("interactions")
       .update({ last_message: text, updated_at: new Date().toISOString() })
       .eq("id", interactionId);
+  },
+  /**
+   * Envoie la réponse admin PAR EMAIL au client (edge send-email, admin-only
+   * côté edge). Best-effort : l'appelant affiche le statut mais ne rollback
+   * jamais le message enregistré. Texte échappé (XSS stocké via email).
+   * Dormant sans domaine vérifié (le fournisseur ne livre qu'au propriétaire).
+   */
+  async sendReplyEmail(ticket: {
+    customerEmail?: string | null;
+    customerName?: string | null;
+    subject?: string | null;
+    replyText: string;
+  }): Promise<void> {
+    const to = (ticket.customerEmail || "").trim();
+    if (!to) throw new Error("Aucun email client sur ce ticket.");
+    const subject = `Re: ${ticket.subject || "votre message"} — InstaWear`;
+    const html =
+      `<p>Bonjour ${escapeHtml(ticket.customerName || "")},</p>` +
+      `<p>${escapeHtml(ticket.replyText).replace(/\n/g, "<br />")}</p>` +
+      `<p style="color:#888;font-size:12px;">— L'équipe InstaWear</p>`;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: await getPodAuthHeaders(),
+      body: JSON.stringify({ to, subject, html }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || "Envoi email impossible.");
+    }
   },
 };
 

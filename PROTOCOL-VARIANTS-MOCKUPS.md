@@ -107,7 +107,7 @@ Champ brut stocké en interne (`rawPreview`, jamais persisté). Galerie = union 
 
 - **Déclencheurs** : bouton ligne "Générer mockups" (icône Sparkles, `ProductsPage`) = `generate-mockups` **synchrone** (prépare → crée → attend → finalise → alerte) ; file `queueMockups` + `mockup-worker` = **manuel uniquement** (vue Studio neutralisée).
 - **Cible** : 1 id catalogue par couleur (`uniqueVariantIds`, couleurs vues une fois) ; placements (défaut `front`, ≤5) ; dimensions zone via `printfiles` (repli 1800×2400).
-- **Finalize** : ledger **d'abord**, produit ensuite ; échec produit → `ok:false` explicite (jamais de succès mensonger) ; réponse/worker/alerte exposent **`applied`** (variants affichant le visuel) + `unmatchedVids/unmatchedHexes` — **lire `applied`, pas les fichiers générés**.
+- **Finalize** : ledger **d'abord**, produit ensuite ; échec produit → `ok:false` explicite (jamais de succès mensonger) ; réponse/worker/alerte exposent **`applied`** (variants affichant le visuel) + **`stored`** (sous-ensemble réellement stocké — seul à éteindre le dot admin ; `applied − stored` = replis temporaires Printful, upload storage échoué, à régénérer) + `unmatchedVids/unmatchedHexes` — **lire `stored`, pas `applied` seul ni les fichiers générés**.
 - **Appariement** (`_shared/productImages.ts`) : IDs stables normalisés String des deux côtés, repli hex exact, orphelins listés (capés), best-effort total.
 - **Après génération** : resyncs préservent (storage gagne) ; refaire un sync complet n'efface plus le travail.
 
@@ -124,7 +124,7 @@ Printful `material[]` → `_shared/materials.ts` (slug canonique, qualifiers par
 | Fichier | DOIT | NE DOIT JAMAIS |
 |---|---|---|
 | `supabase/.../index.ts` (sync) | `extractCatalogVariants` partout ; préservation storage ; fill-if-empty matière ; warnings+compteurs ; `signImagekitDeep` | lire `result.product.variants` ; écraser un edit admin ; nouvel appel sans retry/garde ; retourner `ok:true` sur écriture non vérifiée |
-| `_shared/{catalog,materials,productImages,variantPricing,imagekit,safeUrl,opsUtils,rateLimit,logSafe}.ts` | purs, totaux (jamais d'exception), testés (`tests/*.test.ts`) | I/O, secrets, état global |
+| `_shared/{catalog,materials,productImages,variantPricing,imagekit,safeUrl,opsUtils,rateLimit,logSafe,env}.ts` | purs, totaux (jamais d'exception), testés (`tests/*.test.ts`) — `env.ts` = validation secrets (503 fail-closed, noms seuls) | I/O, secrets, état global |
 | `finalizeMockupTask` + worker + `generate-mockups` | ledger avant produit ; `applied/unmatched` exposés ; jobs `failed` tracés avec erreur | succès sans application ; file sans déclencheur documenté |
 | `src/lib/imagekit.ts` | passthrough distant ; whitelist + kill-switch | construire une URL (401 garanti) |
 | `CatalogSection.tsx` | facettes depuis données ; matching slugs normalisés ; portails hors `cv-auto` ; labels/URL compatibles legacy | listes en dur ; overlay `fixed` sous `cv-auto` ; fetch taxonomies côté storefront |

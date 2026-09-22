@@ -12,6 +12,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { errorMonitoringApi, type EdgeErrorRow } from "../api/supabaseApi";
+import { formatDateTimeFR } from "../utils/dates";
+import { useAdminHighlight } from "./useAdminHighlight";
+import { filterSelectStyle } from "./adminStyles";
 
 const SEVERITY_STYLE: Record<
   string,
@@ -27,24 +30,21 @@ const KNOWN_FUNCTIONS = [
   "printful-webhook",
   "stripe-checkout",
   "stripe-webhook",
+  "stripe-refund",
   "sync-printful",
+  "mockup-worker",
   "printful-reports",
   "approve-printful-design",
   "get-shipping-rates",
   "order-status-update",
+  "send-email",
+  "interaction-notify",
+  "refund-request",
+  "health",
 ];
 
 function fmtDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateTimeFR(iso);
 }
 
 export default function ErrorMonitoringPage() {
@@ -128,14 +128,13 @@ export default function ErrorMonitoringPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
-  const selectStyle: React.CSSProperties = {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: 8,
-    padding: "6px 10px",
-    fontSize: 12,
-    color: "var(--color-ink2)",
-  };
+  // Sources sœurs (Vague B item 13) : cette page couvre edge_errors ;
+  // mockups/syncs/emails vivent ailleurs — liens directs, pas de jointure.
+  const { navigateAndHighlight } = useAdminHighlight();
+
+  // selectStyle canonique partagé (Vague C3 réduit : copie locale supprimée,
+  // normalisation 6px/radius 8 → 7px/radius 10).
+  const selectStyle = filterSelectStyle;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -194,6 +193,49 @@ export default function ErrorMonitoringPage() {
           />
           Actualiser
         </button>
+      </div>
+
+      {/* Sources sœurs : edge_errors ici, le reste en un clic */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+          fontSize: 12,
+          color: "var(--color-ink3)",
+          background: "var(--color-surface2)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 10,
+          padding: "8px 12px",
+        }}
+      >
+        <span>Erreurs edge ici. Voir aussi :</span>
+        {(
+          [
+            ["File mockups (Produits)", "products"],
+            ["Sync logs (Paramètres)", "settings"],
+            ["Campagnes email", "email-marketing"],
+          ] as const
+        ).map(([label, section]) => (
+          <button
+            key={section}
+            type="button"
+            onClick={() => navigateAndHighlight({ section })}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--color-accent)",
+              fontWeight: 700,
+              fontSize: 12,
+              padding: 0,
+              textDecoration: "underline",
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Stats 24h */}
@@ -431,6 +473,20 @@ export default function ErrorMonitoringPage() {
                       <td
                         style={{ padding: "10px 12px", whiteSpace: "nowrap" }}
                       >
+                        {!r.resolved && r.severity === "critical" && (
+                          <span
+                            title="Critique non résolue — à traiter"
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--color-accent)",
+                              marginRight: 6,
+                              verticalAlign: "baseline",
+                            }}
+                          />
+                        )}
                         {fmtDate(r.created_at)}
                       </td>
                       <td style={{ padding: "10px 12px" }}>

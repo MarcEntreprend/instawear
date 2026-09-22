@@ -13,6 +13,11 @@
 import { Resend } from "npm:resend@3";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSafe } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -78,6 +83,12 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS")
       return new Response("ok", { headers: corsHeaders });
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    {
+      const missing = missingEnv([...BASE_ENV, "RESEND_API_KEY"]);
+      if (missing.length > 0) return envMissingResponse(missing);
+    }
 
     if (rateLimited(req)) {
       return new Response(JSON.stringify({ error: "Trop de requêtes." }), {

@@ -22,4 +22,10 @@ export const SORT_OPTIONS = [
   { value: "price-desc", label: "Price: High to Low" },
   { value: "rating", label: "Top Rated" },
 ] as const;
+
+/**
+ * eventType réservé aux promos/deals (Vague B item 10 : fini le "discount"
+ * en dur dispersé — ProductsPage, StoreProductCard, sync promo).
+ */
+export const DISCOUNT_EVENT_TYPE = "discount";
 export type SortValue = (typeof SORT_OPTIONS)[number]["value"];

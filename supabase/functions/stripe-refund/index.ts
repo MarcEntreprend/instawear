@@ -33,6 +33,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13";
 import { logSafe } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  missingEnvOneOf,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 import { isRateLimited, rateLimitKey } from "./_shared/rateLimit.ts";
 import { notifyAdmin } from "./_shared/notifyAdmin.ts";
 import { sendTelegramStatus } from "./_shared/telegramNotify.ts";
@@ -219,6 +225,16 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    // Clé Stripe : TEST ou PROD (même fallback que le code plus bas).
+    {
+      const missing = [
+        ...missingEnv([...BASE_ENV]),
+        ...missingEnvOneOf(["STRIPE_SECRET_KEY_TEST", "STRIPE_SECRET_KEY"]),
+      ];
+      if (missing.length > 0) return envMissingResponse(missing);
+    }
 
     try {
       if (await isRateLimited(req, rateLimitKey(req, "stripe-refund"))) {

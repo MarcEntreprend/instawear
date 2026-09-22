@@ -15,11 +15,16 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
+import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+// Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
+import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { HERO_BG_FALLBACK } from "../components/HeroCarousel";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 export default function PromotionsPage() {
+  // Devise du store (Vague B item 7/11 : fini le "$" en dur).
+  const currencySymbol = useCurrencySymbol();
   const [promotions, setPromotions] = useState<HeroPromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState<AdminProduct[]>([]);
@@ -34,9 +39,9 @@ export default function PromotionsPage() {
     title: "",
     headline: "",
     sub: "",
-    cta: "Shop Now",
+    cta: "Voir",
     bgGradient: HERO_BG_FALLBACK,
-    tag: "⚡ PROMOTION",
+    tag: "Promotion",
     order: 0,
     isActive: true,
     showTag: true,
@@ -77,6 +82,23 @@ export default function PromotionsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.productId) return;
+    // Garde prix promo (Vague B item 11) : un deal actif exige un prix
+    // valide (< prix normal), sinon la promo est sans effet en boutique.
+    const formDealActive = (form as any).dealActive ?? false;
+    const formDealPrice = (form as any).dealPrice;
+    if (formDealActive) {
+      const normalPrice = getProductById(form.productId!)?.price;
+      if (
+        formDealPrice == null ||
+        !(formDealPrice > 0) ||
+        (normalPrice != null && formDealPrice >= normalPrice)
+      ) {
+        alert(
+          "Prix promo invalide : il doit être supérieur à 0 et inférieur au prix normal du produit.",
+        );
+        return;
+      }
+    }
 
     try {
       if (editingId) {
@@ -195,9 +217,9 @@ export default function PromotionsPage() {
       title: "",
       headline: "",
       sub: "",
-      cta: "Shop Now",
+      cta: "Voir",
       bgGradient: HERO_BG_FALLBACK,
-      tag: "⚡ PROMOTION",
+      tag: "Promotion",
       order: promotions.length,
       isActive: true,
       showTag: true,
@@ -209,7 +231,10 @@ export default function PromotionsPage() {
 
   const getProductById = (id: string) => allProducts.find((p) => p.id === id);
 
-  // Synchronise dealActive sur le produit
+  // Synchronise dealActive sur le produit (Vague B item 11) :
+  // - isLimitedTime suit TOUJOURS active (fini le jamais-remis-à-false) ;
+  // - null explicites pour effacer (undefined = ignoré par l'API) ;
+  // - jamais de deal actif sans prix (garde dans les appelants).
   const syncProductDeal = async (
     productId: string,
     active: boolean,
@@ -219,9 +244,9 @@ export default function PromotionsPage() {
     try {
       await productApi.update(productId, {
         dealActive: active,
-        isLimitedTime: active || undefined,
-        dealPrice: active ? dealPrice : undefined,
-        dealEndsAt: active ? dealEndsAt : undefined,
+        isLimitedTime: active,
+        dealPrice: active ? (dealPrice ?? null) : null,
+        dealEndsAt: active ? (dealEndsAt ?? null) : null,
       } as any);
 
       window.dispatchEvent(new Event("storefront:invalidate"));
@@ -313,9 +338,9 @@ export default function PromotionsPage() {
               title: "",
               headline: "",
               sub: "",
-              cta: "Shop Now",
+              cta: "Voir",
               bgGradient: HERO_BG_FALLBACK,
-              tag: "⚡ PROMOTION",
+              tag: "Promotion",
               order: promotions.length,
               showTag: true,
               showTitle: true,
@@ -389,7 +414,7 @@ export default function PromotionsPage() {
                   value={form.tag || ""}
                   onChange={(e) => setForm({ ...form, tag: e.target.value })}
                   style={inputStyle}
-                  placeholder="⚡ PROMOTION"
+                  placeholder="Promotion"
                 />
               </div>
               <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
@@ -563,7 +588,7 @@ export default function PromotionsPage() {
                   value={form.cta || ""}
                   onChange={(e) => setForm({ ...form, cta: e.target.value })}
                   style={inputStyle}
-                  placeholder="Shop Now"
+                  placeholder="Voir"
                 />
               </div>
               <div>
@@ -622,7 +647,7 @@ export default function PromotionsPage() {
                       </label>
                       <input
                         type="text"
-                        value={`${(getProductById(form.productId!) as any)?.price?.toFixed(2) ?? "—"} $`}
+                        value={`${(getProductById(form.productId!) as any)?.price?.toFixed(2) ?? "—"} ${currencySymbol}`}
                         readOnly
                         style={{
                           ...inputStyle,
@@ -633,7 +658,8 @@ export default function PromotionsPage() {
                     </div>
                     <div>
                       <label style={labelStyle}>
-                        Prix Promo (doit être inférieur au prix normal) ($)
+                        Prix promo (doit être inférieur au prix normal, en{" "}
+                        {currencySymbol})
                       </label>
                       <input
                         type="number"
@@ -841,9 +867,31 @@ export default function PromotionsPage() {
                           await heroPromotionsApi.update(promo.id, {
                             isActive: newActive,
                           } as any);
-                          // Synchroniser dealActive
+                          // Synchroniser dealActive — jamais sans prix
+                          // (Vague B item 11 : un deal actif sans prix
+                          // promo est sans effet côté boutique).
                           if (newActive) {
-                            await syncProductDeal(promo.productId, true);
+                            const dp = product.dealPrice;
+                            if (
+                              dp == null ||
+                              !(dp > 0) ||
+                              dp >= product.price
+                            ) {
+                              await heroPromotionsApi.update(promo.id, {
+                                isActive: false,
+                              } as any);
+                              alert(
+                                "Activation annulée : le produit n'a pas de prix promo valide (doit être > 0 et < prix normal). Ouvrez « Modifier » pour le renseigner.",
+                              );
+                              await refresh();
+                              return;
+                            }
+                            await syncProductDeal(
+                              promo.productId,
+                              true,
+                              dp,
+                              product.dealEndsAt ?? undefined,
+                            );
                           } else if (
                             !hasOtherActivePromo(promo.productId, promo.id)
                           ) {
@@ -898,25 +946,9 @@ const cardStyle: React.CSSProperties = {
   padding: 20,
 };
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--color-ink2)",
-  display: "block",
-  marginBottom: 4,
-};
+const labelStyle = formLabelStyle;
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface2)",
-  fontSize: 13,
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-body)",
-  outline: "none",
-};
+const inputStyle = formInputStyle;
 
 const primaryBtn: React.CSSProperties = {
   display: "flex",
