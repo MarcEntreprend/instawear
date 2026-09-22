@@ -678,7 +678,7 @@ export default function CatalogSection({
                           style: f.style === s.value ? null : s.value,
                         }))
                       }
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                       style={{
                         background:
                           filters.style === s.value
@@ -709,7 +709,7 @@ export default function CatalogSection({
                           material: f.material === m.value ? null : m.value,
                         }))
                       }
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                       style={{
                         background:
                           filters.material === m.value
@@ -739,7 +739,7 @@ export default function CatalogSection({
                         size: f.size === size ? null : size,
                       }))
                     }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                     style={{
                       background:
                         filters.size === size
@@ -1182,6 +1182,7 @@ export default function CatalogSection({
                 <button
                   aria-label="Close"
                   onClick={() => requestCloseFilters()}
+                  className="flex items-center justify-center min-w-[24px] min-h-[24px] p-1 -m-1"
                 >
                   <X size={20} style={{ color: "var(--color-ink2)" }} />
                 </button>
@@ -1349,7 +1350,7 @@ export default function CatalogSection({
                                 style: f.style === s.value ? null : s.value,
                               }))
                             }
-                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                             style={{
                               background:
                                 filters.style === s.value
@@ -1382,7 +1383,7 @@ export default function CatalogSection({
                                   f.material === m.value ? null : m.value,
                               }))
                             }
-                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                             style={{
                               background:
                                 filters.material === m.value
@@ -1474,15 +1475,17 @@ export default function CatalogSection({
                 </div>
               </div>
 
-              {/* Bouton sticky en bas - centré verticalement */}
+              {/* Bouton sticky en bas - centré verticalement.
+                  paddingBottom fusionné avec safe-area (l'inline écrasait la
+                  classe safe-bottom, annulant la marge home-indicator). */}
               <div
-                className="sticky bottom-0 px-5 safe-bottom flex items-center justify-center shrink-0"
+                className="sticky bottom-0 px-5 flex items-center justify-center shrink-0"
                 style={{
                   background: "var(--color-bg)",
                   borderTop: "1px solid var(--color-border)",
                   minHeight: "64px",
                   paddingTop: "10px",
-                  paddingBottom: "10px",
+                  paddingBottom: "calc(10px + env(safe-area-inset-bottom))",
                 }}
               >
                 <button
@@ -1611,13 +1614,16 @@ function ColorPicker({
               style={{ width: 24, height: 24 }}
               title={`+${extraCount} colors`}
             />
-            <span
-              className="text-[11px] font-semibold cursor-pointer hover:underline"
-              style={{ color: "var(--color-ink4)" }}
+            {/* Compteur texte : vrai bouton 24px + clavier (fini le span
+                onClick ~14px inaccessible au tactile comme au clavier). */}
+            <button
               onClick={toggleOpen}
+              aria-label={`+${extraCount} colors`}
+              className="text-[11px] font-semibold hover:underline flex items-center"
+              style={{ color: "var(--color-ink4)", minHeight: 24, padding: "2px 4px" }}
             >
               +{extraCount}
-            </span>
+            </button>
           </>
         )}
       </div>

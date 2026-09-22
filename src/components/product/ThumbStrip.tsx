@@ -211,7 +211,7 @@ export default function ThumbStrip({
         <button
           type="button"
           onClick={() => step(1)}
-          className="absolute z-10 flex items-center gap-0.5 rounded-full shadow pl-1.5 pr-2 py-0.5 text-[10px] font-black"
+          className="absolute z-10 flex items-center gap-0.5 rounded-full shadow pl-1.5 pr-2 py-0.5 text-[10px] font-black min-h-[24px]"
           style={
             vertical
               ? {

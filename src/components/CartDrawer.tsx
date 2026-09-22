@@ -444,10 +444,13 @@ export default function CartDrawer({
               })}
             </div>
 
-            {/* Footer */}
+            {/* Footer — marge home-indicator iOS (0 sur desktop) */}
             <div
               className="p-5 flex flex-col gap-4"
-              style={{ borderTop: "1px solid var(--color-border)" }}
+              style={{
+                borderTop: "1px solid var(--color-border)",
+                paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+              }}
             >
               {blockedCount > 0 && hasFulfillable && (
                 <p

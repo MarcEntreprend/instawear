@@ -680,7 +680,11 @@ export default function AuthModal({
       />
       <div
         className="absolute inset-x-0 bottom-0 sm:inset-0 sm:m-auto sm:max-w-md w-full max-h-[92vh] overflow-y-auto rounded-t-4xl sm:rounded-4xl animate-fade-up"
-        style={{ background: "var(--color-bg)", boxShadow: "var(--shadow-xl)" }}
+        style={{
+          background: "var(--color-bg)",
+          boxShadow: "var(--shadow-xl)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
       >
         <div
           className="flex items-center justify-between px-6 h-16 shrink-0"

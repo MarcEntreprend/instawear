@@ -674,6 +674,11 @@ export default function ProductPage({
                       ? (product.variants as any[])[i].image
                       : null;
                   const label = dispColorNames?.[i] || c;
+                  const blockedReason = !blocked
+                    ? null
+                    : avail === "discontinued"
+                      ? "Removed by supplier"
+                      : "Temporarily out of stock";
                   return (
                     <button
                       key={c + i}
@@ -685,10 +690,12 @@ export default function ProductPage({
                         }
                       }}
                       disabled={blocked}
-                      aria-label={label}
+                      aria-label={
+                        blockedReason ? `${label} — ${blockedReason}` : label
+                      }
                       title={
                         blocked
-                          ? `${label} — ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
+                          ? `${label} — ${blockedReason}`
                           : label
                       }
                       className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
@@ -725,6 +732,32 @@ export default function ProductPage({
                   );
                 })}
               </div>
+              {/* Motif de rupture lisible au tactile (P3 mobile) : le title
+                  seul est invisible sans souris ; liste compacte (EN, langue
+                  du storefront). */}
+              {(() => {
+                const blockedOnes = dispColors
+                  .map((c: string, i: number) => {
+                    const a = getVariantAvailability(product, c, pickedSize);
+                    if (a !== "discontinued" && a !== "out_of_stock")
+                      return null;
+                    return `${dispColorNames?.[i] || c} — ${
+                      a === "discontinued"
+                        ? "Removed by supplier"
+                        : "Temporarily out of stock"
+                    }`;
+                  })
+                  .filter(Boolean) as string[];
+                if (blockedOnes.length === 0) return null;
+                return (
+                  <p
+                    className="text-[11px] mt-2"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    {blockedOnes.join(" · ")}
+                  </p>
+                );
+              })()}
             </div>
 
             <div className="mt-6">

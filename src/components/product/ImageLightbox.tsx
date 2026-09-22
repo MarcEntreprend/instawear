@@ -70,7 +70,7 @@ export default function ImageLightbox({
         </span>
         <button
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label="Close"
           className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: "rgba(255,255,255,.1)" }}
         >
@@ -108,7 +108,7 @@ export default function ImageLightbox({
             <button
               onClick={() => goStep(-1)}
               disabled={atStart}
-              aria-label="Image précédente"
+              aria-label="Previous image"
               className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center disabled:cursor-default"
               style={{
                 background: "rgba(255,255,255,.1)",
@@ -120,7 +120,7 @@ export default function ImageLightbox({
             <button
               onClick={() => goStep(1)}
               disabled={atEnd}
-              aria-label="Image suivante"
+              aria-label="Next image"
               className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center disabled:cursor-default"
               style={{
                 background: "rgba(255,255,255,.1)",

@@ -1063,13 +1063,14 @@ export default function AccountPage({
         </main>
       </div>
 
-      {/* ── Bottom nav (mobile) ─────────────────────────────────── */}
+      {/* ── Bottom nav (mobile) — marge home-indicator iOS (0 desktop) ── */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-10 flex sm:hidden"
         style={{
           background: "var(--color-surface)",
           borderTop: "1px solid var(--color-border)",
           boxShadow: "var(--shadow-lg)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         {NAV.map(({ key, label, icon, badge }) => (

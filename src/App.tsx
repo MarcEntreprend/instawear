@@ -1723,7 +1723,7 @@ export default function App() {
       {/* Client Customer Main Storefront View */}
       {activeTab === "store" && !stripeConfirmOrderId && !orderSuccessId && (
         <main
-          className="flex-1 flex flex-col gap-8 pb-16"
+          className="flex-1 flex flex-col gap-8 pb-[calc(68px+env(safe-area-inset-bottom))] lg:pb-16"
           id="view-customer-storefront"
         >
           <SitewideCountdownBanner />
