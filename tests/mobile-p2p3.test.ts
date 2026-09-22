@@ -101,3 +101,13 @@ test("P3 : pas de srcSet factice (protocole anti-401)", () => {
   const hero = read("src/components/HeroCarousel.tsx");
   assert.ok(!hero.includes("srcSet"), "hero sans srcSet factice");
 });
+
+test("Puces By product type : pattern scroll mobile éprouvé + desktop intact", () => {
+  const src = read("src/components/DealsSection.tsx");
+  assert.ok(src.includes("-mx-4 px-4 sm:mx-0 sm:px-0"), "bleed mobile + reset desktop");
+  assert.ok(src.includes("max-w-[100vw]"), "pas de clamp à la section");
+  assert.ok(src.includes("w-[calc(100%+2rem)] sm:w-full"), "largeur bleed");
+  assert.ok(src.includes('touchAction: "pan-x pan-y"'), "geste explicite");
+  assert.ok(src.includes("overflow-x-auto"), "scroll gardé");
+  assert.ok(src.includes("cv-auto"), "perf section conservée");
+});
