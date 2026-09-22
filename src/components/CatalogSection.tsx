@@ -307,7 +307,9 @@ export default function CatalogSection({
       next.forEach((v, k) => current.set(k, v));
     }
     const str = current.toString();
-    const url = str ? `/?${str}` : "/";
+    // Préserve le hash (ex. #filters des overlays) : le replaceState
+    // l'effacerait sinon, cassant la fermeture au bouton retour.
+    const url = (str ? `/?${str}` : "/") + window.location.hash;
     const curUrl = window.location.pathname + window.location.search;
     if (curUrl !== url) {
       window.history.replaceState(window.history.state, "", url);
@@ -317,6 +319,35 @@ export default function CatalogSection({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Tiroir filtres : entrée d'historique (retour = fermer, pas quitter).
+  // Marqueur neutre en hash, jamais de PII ni de filtre sérialisé.
+  const pushFiltersHistory = () => {
+    try {
+      if (window.location.hash !== "#filters")
+        history.pushState({ overlay: "filters" }, "", "#filters");
+    } catch {}
+  };
+  const closeFiltersHistory = () => {
+    setIsFilterDrawerOpen(false);
+  };
+  // Fermeture via UI : si l'entrée #filters est au sommet, reculer dedans
+  // (le popstate referme) ; sinon fermer directement (entrée déjà consommée).
+  const requestCloseFilters = () => {
+    try {
+      if (window.location.hash === "#filters") history.back();
+      else setIsFilterDrawerOpen(false);
+    } catch {
+      setIsFilterDrawerOpen(false);
+    }
+  };
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.hash !== "#filters") setIsFilterDrawerOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // Mobile drawer: lock body scroll sans casser le sticky header (clip déjà géré en CSS)
   useEffect(() => {
@@ -770,7 +801,10 @@ export default function CatalogSection({
           <div className="flex items-center justify-between gap-3">
             {useIsMobile() && (
               <button
-                onClick={() => setIsFilterDrawerOpen(true)}
+                onClick={() => {
+                  setIsFilterDrawerOpen(true);
+                  pushFiltersHistory();
+                }}
                 className="btn btn-secondary flex items-center gap-2"
               >
                 <SlidersHorizontal size={15} /> Filters{" "}
@@ -1120,7 +1154,7 @@ export default function CatalogSection({
             <div
               className="absolute inset-0 animate-fade-in"
               style={{ background: "rgba(15,13,10,.5)" }}
-              onClick={() => setIsFilterDrawerOpen(false)}
+              onClick={() => requestCloseFilters()}
             />
             <div
               className="relative flex flex-col max-h-[85vh] rounded-t-4xl animate-fade-up"
@@ -1147,7 +1181,7 @@ export default function CatalogSection({
                 </span>
                 <button
                   aria-label="Close"
-                  onClick={() => setIsFilterDrawerOpen(false)}
+                  onClick={() => requestCloseFilters()}
                 >
                   <X size={20} style={{ color: "var(--color-ink2)" }} />
                 </button>
@@ -1452,7 +1486,7 @@ export default function CatalogSection({
                 }}
               >
                 <button
-                  onClick={() => setIsFilterDrawerOpen(false)}
+                  onClick={() => requestCloseFilters()}
                   className="btn btn-accent w-full max-w-md"
                 >
                   View {extraFiltered.length} items

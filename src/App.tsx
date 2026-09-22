@@ -36,7 +36,7 @@ const SearchResultsPage = lazy(() => import("./pages/SearchResultsPage"));
 const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage"));
 const OrderSuccessPage = lazy(() => import("./pages/OrderSuccessPage"));
 import { useRecentlyViewed } from "./hooks/useRecentlyViewed";
-import MobileTabBar from "./components/MobileTabBar";
+import MobileTabBar, { type MobileTab } from "./components/MobileTabBar";
 import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 // Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
@@ -221,6 +221,18 @@ export default function App() {
       if (path === "/suivi")
         setTrackingPageCode(new URLSearchParams(search).get("code") || "");
       else setTrackingPageCode(null);
+      // P1 : referme les overlays dont le marqueur n'est plus au sommet.
+      // (Inchangé pour le reste : la logique par pathname ci-dessus est intacte.)
+      const h = window.location.hash;
+      if (h !== "#cart") setCartOpen(false);
+      if (h !== "#checkout") setCheckoutOpen(false);
+      if (h !== "#tracking") setTrackingOpen(false);
+      if (h !== "#auth") setShowAuthModal(false);
+      if (h !== "#profile") setShowProfileModal(false);
+      if (h !== "#account") {
+        setShowAccountPage(false);
+        setPendingAccountOrderId(null);
+      }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -290,6 +302,37 @@ export default function App() {
 
   // Cart Drawer State
   const [cartOpen, setCartOpen] = useState(false);
+
+  // ── Navigation mobile P0/P1 ─────────────────────────────────────────────
+  // P0 : dernier onglet intentionnel (home/catalog). Les overlays compte et
+  // suivi priment par-dessus (état réel, pas une supposition) : l'indicateur
+  // reflète toujours la vue, jamais "home" par défaut. Cosmétique pur :
+  // aucune décision sécu/prix/statut ne lit cet état.
+  const [mobileTabHint, setMobileTabHint] = useState<"home" | "catalog">(
+    "home",
+  );
+  // P1 : overlays empilés dans l'historique (retour = fermer, pas quitter).
+  // Marqueurs neutres en hash (#cart…), JAMAIS de PII, d'id commande, de
+  // token ni de montant (sécu : rien de sensible dans l'URL).
+  const pushOverlay = (name: string) => {
+    try {
+      if (window.location.hash !== `#${name}`)
+        history.pushState({ overlay: name }, "", `#${name}`);
+    } catch {}
+  };
+  const replaceOverlay = (name: string) => {
+    try {
+      history.replaceState({ overlay: name }, "", `#${name}`);
+    } catch {}
+  };
+  const closeOverlay = (name: string, close: () => void) => {
+    try {
+      if (window.location.hash === `#${name}`) history.back();
+      else close();
+    } catch {
+      close();
+    }
+  };
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [stripeConfirmOrderId, setStripeConfirmOrderId] = useState<
@@ -549,6 +592,7 @@ export default function App() {
     ) {
       setAuthInitialMode("resetPassword");
       setShowAuthModal(true);
+      pushOverlay("auth");
     }
   }, []);
 
@@ -814,7 +858,10 @@ export default function App() {
 
   const viewCartAction = () => ({
     label: "View cart",
-    onClick: () => setCartOpen(true),
+    onClick: () => {
+      setCartOpen(true);
+      pushOverlay("cart");
+    },
   });
 
   const removeToast = (id: number) => {
@@ -1249,6 +1296,7 @@ export default function App() {
     if (trackId) {
       setTrackingInitialCode(trackId.trim());
       setTrackingOpen(true);
+      pushOverlay("tracking");
       const url = new URL(window.location.href);
       url.searchParams.delete("track");
       window.history.replaceState({}, "", url.toString());
@@ -1273,14 +1321,17 @@ export default function App() {
         if (session?.user?.email) {
           setPendingAccountOrderId(code);
           setShowAccountPage(true);
+          pushOverlay("account");
         } else {
           setTrackingInitialCode(code);
           setTrackingOpen(true);
+          pushOverlay("tracking");
         }
       })
       .catch(() => {
         setTrackingInitialCode(code);
         setTrackingOpen(true);
+        pushOverlay("tracking");
       });
   }, []);
 
@@ -1595,7 +1646,10 @@ export default function App() {
         cart={cart}
         detectedCountry={detectedCountry}
         favoriteCount={favorites.length}
-        onOpenCart={() => setCartOpen(true)}
+        onOpenCart={() => {
+          setCartOpen(true);
+          pushOverlay("cart");
+        }}
         onOpenFavorites={handleOpenFavorites}
         onSearch={(term) => {
           setSearchTerm(term);
@@ -1618,13 +1672,19 @@ export default function App() {
         }}
         currentEventType={selectedEventType}
         currentCategory={selectedCategory}
-        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenAuth={() => {
+          setShowAuthModal(true);
+          pushOverlay("auth");
+        }}
         isAdminLoggedIn={isAdmin}
         isUserLoggedIn={isUser}
         userName={userName}
         userEmail={userEmail}
         onOpenProfile={() => {
-          if (activeTab === "store") setShowProfileModal(true);
+          if (activeTab === "store") {
+            setShowProfileModal(true);
+            pushOverlay("profile");
+          }
         }}
         onLogout={async () => {
           await supabase.auth.signOut();
@@ -1639,10 +1699,16 @@ export default function App() {
           setShowFavoritesOnly(false);
           setActiveTab("store");
         }}
-        onOpenAccount={() => setShowAccountPage(true)}
+        onOpenAccount={() => {
+          setShowAccountPage(true);
+          pushOverlay("account");
+        }}
         onScrollToSection={scrollToSection}
         onSelectProduct={(p) => openProduct(p)}
-        onOpenTracking={() => setTrackingOpen(true)}
+        onOpenTracking={() => {
+          setTrackingOpen(true);
+          pushOverlay("tracking");
+        }}
         searchSuggestions={productTitles}
         products={products}
         networkError={networkError}
@@ -1810,10 +1876,10 @@ export default function App() {
           onAddMany={addManyToCart}
           onBuyNow={(p: Product, c: string, s: string) => {
             addToCart(p, c, s);
+            // P1 : la PDP reste montée derrière le checkout (fini le
+            // pushState("/") destructeur) : retour = checkout fermé, PDP intacte.
             setCheckoutOpen(true);
-            history.pushState({}, "", "/");
-            setSelectedProduct(null);
-            setHeroSuspendedForBoot(false);
+            pushOverlay("checkout");
           }}
           onSelectProduct={(p: Product) => openProduct(p)}
           getDeliverEstimateString={getDeliverEstimateString}
@@ -1909,12 +1975,15 @@ export default function App() {
       {cartOpen && (
         <CartDrawer
           cart={cart}
-          onClose={() => setCartOpen(false)}
+          onClose={() => closeOverlay("cart", () => setCartOpen(false))}
           onUpdateQty={updateCartQty}
           onRemove={removeFromCart}
           onCheckout={() => {
             setCartOpen(false);
             setCheckoutOpen(true);
+            // Remplace (pas d'empilement) : retour = checkout fermé, panier
+            // resté fermé — pas de réouverture fantôme.
+            replaceOverlay("checkout");
           }}
           onSelectProduct={(productId: string) => {
             const product = products.find((p) => p.id === productId);
@@ -1937,6 +2006,7 @@ export default function App() {
         onOpenTracking={() => {
           setTrackingOpen(true);
           setTrackingInitialCode(null);
+          pushOverlay("tracking");
         }}
         onOpenPromotions={openPromotionsPage}
         onManageCookies={cookieConsent.resetConsent}
@@ -1946,7 +2016,7 @@ export default function App() {
         <AuthModal
           initialMode={authInitialMode}
           onOpenLegal={openLegal}
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => closeOverlay("auth", () => setShowAuthModal(false))}
           onLoginSuccess={(isAdminLogin, name) => {
             if (isAdminLogin) {
               setIsAdmin(true);
@@ -1972,7 +2042,7 @@ export default function App() {
           isAdmin={isAdmin}
           userName={userName}
           allCustomers={allCustomers}
-          onClose={() => setShowProfileModal(false)}
+          onClose={() => closeOverlay("profile", () => setShowProfileModal(false))}
           onLogout={async () => {
             await supabase.auth.signOut();
             setIsAdmin(false);
@@ -1993,10 +2063,12 @@ export default function App() {
         <Suspense fallback={<LazyFallback />}>
           <AccountPage
             initialOrderId={pendingAccountOrderId}
-            onClose={() => {
-              setShowAccountPage(false);
-              setPendingAccountOrderId(null);
-            }}
+            onClose={() =>
+              closeOverlay("account", () => {
+                setShowAccountPage(false);
+                setPendingAccountOrderId(null);
+              })
+            }
             onViewProduct={(productId, initialColor, initialSize) => {
               const product = products.find((p) => p.id === productId);
               if (product) {
@@ -2026,7 +2098,7 @@ export default function App() {
             detectedCountry={detectedCountry}
             onUpdateQty={updateCartQty}
             onRemoveItem={removeFromCart}
-            onClose={() => setCheckoutOpen(false)}
+            onClose={() => closeOverlay("checkout", () => setCheckoutOpen(false))}
             onSuccess={() => {
               setCart([]);
               clearGuestCart();
@@ -2080,7 +2152,7 @@ export default function App() {
       {/* Order Tracking Modal */}
       {trackingOpen && (
         <OrderTrackingModal
-          onClose={() => setTrackingOpen(false)}
+          onClose={() => closeOverlay("tracking", () => setTrackingOpen(false))}
           initialCode={trackingInitialCode || undefined}
           onSelectProduct={(productId, initialColor, initialSize) => {
             const product = products.find((p) => p.id === productId);
@@ -2113,13 +2185,28 @@ export default function App() {
       {/* V2: Mobile tab bar (store view only) */}
       {activeTab === "store" && !showNewAdmin && !selectedProduct && (
         <MobileTabBar
+          // P0 : l'indicateur suit la vue réelle (overlays compte/suivi
+          // priment, sinon dernier onglet intentionnel). Fini le "home" figé.
+          active={
+            showAccountPage || showProfileModal || showAuthModal
+              ? "account"
+              : trackingOpen
+                ? "order"
+                : mobileTabHint
+          }
           cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
+          onOrderClick={() => {
+            setTrackingOpen(true);
+            pushOverlay("tracking");
+          }}
           onTabChange={(tab) => {
             if (tab === "home") {
+              setMobileTabHint("home");
               setActiveTab("store");
               setShowFavoritesOnly(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             } else if (tab === "catalog") {
+              setMobileTabHint("catalog");
               setActiveTab("store");
               setShowFavoritesOnly(false);
               document
@@ -2127,10 +2214,18 @@ export default function App() {
                 ?.scrollIntoView({ behavior: "smooth" });
             } else if (tab === "order") {
               setTrackingOpen(true);
+              pushOverlay("tracking");
             } else if (tab === "account") {
-              if (isUser) setShowAccountPage(true);
-              else if (isAdmin) setShowProfileModal(true);
-              else setShowAuthModal(true);
+              if (isUser) {
+                setShowAccountPage(true);
+                pushOverlay("account");
+              } else if (isAdmin) {
+                setShowProfileModal(true);
+                pushOverlay("profile");
+              } else {
+                setShowAuthModal(true);
+                pushOverlay("auth");
+              }
             }
           }}
         />

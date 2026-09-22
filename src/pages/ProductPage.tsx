@@ -66,6 +66,31 @@ export default function ProductPage({
 }: any) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // Lightbox : entrée d'historique (retour = fermer, pas quitter).
+  // Marqueur neutre en hash, jamais de PII.
+  const openLightboxHistory = () => {
+    setIsLightboxOpen(true);
+    try {
+      if (window.location.hash !== "#lightbox")
+        history.pushState({ overlay: "lightbox" }, "", "#lightbox");
+    } catch {}
+  };
+  const requestCloseLightbox = () => {
+    try {
+      if (window.location.hash === "#lightbox") history.back();
+      else setIsLightboxOpen(false);
+    } catch {
+      setIsLightboxOpen(false);
+    }
+  };
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.hash !== "#lightbox") setIsLightboxOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre,
   // sans interférence (null = suivre la sélection courante).
   const [frameOverride, setFrameOverride] = useState<string | null>(null);
@@ -531,7 +556,7 @@ export default function ProductPage({
               <ZoomImage
                 src={displayImage}
                 alt={product.title}
-                onRequestLightbox={() => setIsLightboxOpen(true)}
+                onRequestLightbox={() => openLightboxHistory()}
               />
               <div className="sm:hidden mt-3 overflow-x-auto no-scrollbar">
                 <ThumbStrip
@@ -921,7 +946,7 @@ export default function ProductPage({
           images={gallery}
           initialIndex={activeGalleryIndex}
           alt={product.title}
-          onClose={() => setIsLightboxOpen(false)}
+          onClose={() => requestCloseLightbox()}
         />
       )}
       <SizeGuideModal
