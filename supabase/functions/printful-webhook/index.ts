@@ -12,6 +12,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@13";
 import { safeFetch } from "./_shared/safeUrl.ts";
 import { logSafe, safeTruncate } from "./_shared/logSafe.ts";
+import {
+  missingEnv,
+  envMissingResponse,
+  BASE_ENV,
+} from "../_shared/env.ts";
 import { isRateLimited, rateLimitKey, quotaFor } from "./_shared/rateLimit.ts";
 import { fetchWithRetry, reportError } from "./_shared/opsUtils.ts";
 // Moule unique des emails client (canonique : supabase/functions/_shared/
@@ -728,6 +733,19 @@ export default {
   async fetch(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: getCorsHeaders(req) });
+    }
+
+    // Secrets requis au démarrage (item 15) : 503 explicite, jamais cryptique.
+    // PRINTFUL_WEBHOOK_SECRET exigé (fail-closed : sans lui la comparaison
+    // d'auth serait contournée en silence).
+    {
+      const missing = missingEnv([...BASE_ENV, "PRINTFUL_WEBHOOK_SECRET"]);
+      if (missing.length > 0) {
+        return envMissingResponse(
+          missing,
+          "Ajoutez-le puis redéployez (ex. `supabase secrets set PRINTFUL_WEBHOOK_SECRET=<64 hex>`).",
+        );
+      }
     }
 
     try {

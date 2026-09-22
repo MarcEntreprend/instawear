@@ -124,7 +124,7 @@ Printful `material[]` → `_shared/materials.ts` (slug canonique, qualifiers par
 | Fichier | DOIT | NE DOIT JAMAIS |
 |---|---|---|
 | `supabase/.../index.ts` (sync) | `extractCatalogVariants` partout ; préservation storage ; fill-if-empty matière ; warnings+compteurs ; `signImagekitDeep` | lire `result.product.variants` ; écraser un edit admin ; nouvel appel sans retry/garde ; retourner `ok:true` sur écriture non vérifiée |
-| `_shared/{catalog,materials,productImages,variantPricing,imagekit,safeUrl,opsUtils,rateLimit,logSafe}.ts` | purs, totaux (jamais d'exception), testés (`tests/*.test.ts`) | I/O, secrets, état global |
+| `_shared/{catalog,materials,productImages,variantPricing,imagekit,safeUrl,opsUtils,rateLimit,logSafe,env}.ts` | purs, totaux (jamais d'exception), testés (`tests/*.test.ts`) — `env.ts` = validation secrets (503 fail-closed, noms seuls) | I/O, secrets, état global |
 | `finalizeMockupTask` + worker + `generate-mockups` | ledger avant produit ; `applied/unmatched` exposés ; jobs `failed` tracés avec erreur | succès sans application ; file sans déclencheur documenté |
 | `src/lib/imagekit.ts` | passthrough distant ; whitelist + kill-switch | construire une URL (401 garanti) |
 | `CatalogSection.tsx` | facettes depuis données ; matching slugs normalisés ; portails hors `cv-auto` ; labels/URL compatibles legacy | listes en dur ; overlay `fixed` sous `cv-auto` ; fetch taxonomies côté storefront |
