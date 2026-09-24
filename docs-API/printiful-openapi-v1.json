@@ -103,7 +103,7 @@
     },
     {
       "name": "Common",
-      "description": "# Options\nOptions allow for additional modification of how product will look.\n\n<details>\n    <summary>List of currently available thread color options</summary>\n\n| <div style=\"width:320px\">Option</div> | <div style=\"width:250px\">Placement</div> | Description                                               |\n|---------------------------------------|------------------------------------------|-----------------------------------------------------------|\n| `thread_colors`                       | `embroidery_front`                       | Thread colors for embroidery front placement              |\n| `thread_colors_back`                  | `embroidery_back`                        | Thread colors for embroidery back placement               |\n| `thread_colors_right`                 | `embroidery_right`                       | Thread colors for embroidery right placement              |\n| `thread_colors_left`                  | `embroidery_left`                        | Thread colors for embroidery left placement               |\n| `thread_colors_apparel`               | `embroidery_apparel_front`               | Thread colors for embroidery apparel front placement      |\n| `thread_colors_apparel_back`          | `embroidery_apparel_back`                | Thread colors for embroidery apparel back placement       |\n| `thread_colors_chest_center`          | `embroidery_chest_center`                | Thread colors for embroidery chest center placement       |\n| `thread_colors_large_center`          | `embroidery_large_center`                | Thread colors for embroidery large center placement       |\n| `thread_colors_large_corner_right`    | `embroidery_large_corner_right`          | Thread colors for embroidery large corner right placement |\n| `thread_colors_chest_left`            | `embroidery_chest_left`                  | Thread colors for embroidery chest left placement         |\n| `thread_colors_corner_left`           | `embroidery_corner_left`                 | Thread colors for embroidery corner left placement        |\n| `thread_colors_chest_top_left`        | `embroidery_chest_top_left`              | Thread colors for embroidery chest top left placement     |\n| `thread_colors_corner_right`          | `embroidery_corner_right`                | Thread colors for embroidery corner right placement       |\n| `thread_colors_outside_left`          | `embroidery_outside_left`                | Thread colors for embroidery outside left placement       |\n| `thread_colors_outside_right`         | `embroidery_outside_right`               | Thread colors for embroidery outside right placement      |\n| `thread_colors_inside_left`           | `embroidery_inside_left`                 | Thread colors for embroidery inside left placement        |\n| `thread_colors_inside_right`          | `embroidery_inside_right`                | Thread colors for embroidery inside right placement       |\n| `thread_colors_patch_front`           | `embroidery_patch_front`                 | Thread colors for embroidery patch front placement        |\n| `thread_colors_sleeve_left_top`       | `embroidery_sleeve_left_top`             | Thread colors for embroidery sleeve left top placement    |\n| `thread_colors_sleeve_right_top`      | `embroidery_sleeve_right_top`            | Thread colors for embroidery sleeve right top placement   |\n| `thread_colors_wrist_left`            | `embroidery_wrist_left`                  | Thread colors for embroidery wrist left placement         |\n| `thread_colors_wrist_right`           | `embroidery_wrist_right`                 | Thread colors for embroidery wrist right placement        |\n| `thread_colors_outline`               | Not applicable (Embroidery patches)      | Thread colors for embroidery patch outline                |\n\n</details>\n\n<details>\n    <summary>List of currently available Text thread color options</summary>\n\n| <div style=\"width:320px\">Option</div>   | <div style=\"width:250px\">Placement</div> | Description                                                    |\n|-----------------------------------------|------------------------------------------|----------------------------------------------------------------|\n| `text_thread_colors`                    | `embroidery_front`                       | Text thread colors for embroidery front placement              |\n| `text_thread_colors_back`               | `embroidery_back`                        | Text thread colors for embroidery back placement               |\n| `text_thread_colors_right`              | `embroidery_right`                       | Text thread colors for embroidery right placement              |\n| `text_thread_colors_left`               | `embroidery_left`                        | Text thread colors for embroidery left placement               |\n| `text_thread_colors_apparel`            | `embroidery_apparel_front`               | Text thread colors for embroidery apparel front placement      |\n| `text_thread_colors_apparel_back`       | `embroidery_apparel_back`                | Text thread colors for embroidery apparel back placement       |\n| `text_thread_colors_chest_center`       | `embroidery_chest_center`                | Text thread colors for embroidery chest center placement       |\n| `text_thread_colors_large_center`       | `embroidery_large_center`                | Text thread colors for embroidery large center placement       |\n| `text_thread_colors_large_corner_right` | `embroidery_large_corner_right`          | Text thread colors for embroidery large corner right placement |\n| `text_thread_colors_chest_left`         | `embroidery_chest_left`                  | Text thread colors for embroidery chest left placement         |\n| `text_thread_colors_corner_left`        | `embroidery_corner_left`                 | Text thread colors for embroidery corner left placement        |\n| `text_thread_colors_chest_top_left`     | `embroidery_chest_top_left`              | Text thread colors for embroidery chest top left placement     |\n| `text_thread_colors_corner_right`       | `embroidery_corner_right`                | Text thread colors for embroidery corner right placement       |\n| `text_thread_colors_outside_left`       | `embroidery_outside_left`                | Text thread colors for embroidery outside left placement       |\n| `text_thread_colors_outside_right`      | `embroidery_outside_right`               | Text thread colors for embroidery outside right placement      |\n| `text_thread_colors_inside_left`        | `embroidery_inside_left`                 | Text thread colors for embroidery inside left placement        |\n| `text_thread_colors_inside_right`       | `embroidery_inside_right`                | Text thread colors for embroidery inside right placement       |\n| `text_thread_colors_patch_front`        | `embroidery_patch_front`                 | Text thread colors for embroidery patch front placement        |\n| `text_thread_colors_sleeve_left_top`    | `embroidery_sleeve_left_top`             | Text thread colors for embroidery sleeve left top placement    |\n| `text_thread_colors_sleeve_right_top`   | `embroidery_sleeve_right_top`            | Text thread colors for embroidery sleeve right top placement   |\n| `text_thread_colors_wrist_left`         | `embroidery_wrist_left`                  | Text thread colors for embroidery wrist left placement         |\n| `text_thread_colors_wrist_right`        | `embroidery_wrist_right`                 | Text thread colors for embroidery wrist right placement        |\n\n</details>\n\n<details>\n    <summary>List of currently available other options</summary>\n\n| <div style=\"width:150px\">Option</div> | <div style=\"width:150px\">Placement</div> | Description                                                                                                                                                                                                                                                                                                              |\n|---------------------------------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| `thread_colors_3d`                    | Not applicable                           | 3D Puff thread colors                                                                                                                                                                                                                                                                                                    |\n| `embroidery_type`                     | Not applicable                           | Type of embroidery technique (flat, 3d, both)                                                                                                                                                                                                                                                                            |\n| `notes`                               | Not applicable                           | This box is for you to enter specific instructions about your print files or to warn us that the graphic may not perfectly match the mock-up. If you would like our graphics department to edit anything you can also notate those details in this box and someone from our team will contact you with an editing quote. |\n| `stitch_color`                        | Not applicable                           | Zipper & Stitch color                                                                                                                                                                                                                                                                                                    |\n| `inside_pocket`                       | Not applicable                           | Should inside pocket be added                                                                                                                                                                                                                                                                                            |\n| `lifelike`                            | Not applicable                           | Adds \"washed out\" effect to the generated mockups                                                                                                                                                                                                                                                                        |\n\n</details>\n\n<details>\n    <summary>List of currently available file options</summary>\n\n| <div style=\"width:150px\">Option</div> | <div style=\"width:150px\">Placement</div> | Description                                                                                |\n|---------------------------------------|------------------------------------------|--------------------------------------------------------------------------------------------|\n| `full_color`                          | Not applicable                           | Allows you to embroider multi-color, gradient, or simple designs with no color limitations |\n| `auto_thread_color`                   | Not applicable                           | Automatically match available thread colors to provided image                              | \n\n</details>\n\n# Placements\n\n<details>\n    <summary>Complete list of every placement</summary>\n\n| <div style=\"width:150px\">Placement</div> | Description                                                                                                             |\n|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|\n| `default`                                | Default placement is different for every product. For example for T-SHIRT with id `71` the default placement is `front` |\n| `front`                                  | Front placement                                                                                                         |\n| `back`                                   | Front placement                                                                                                         |\n| `sleeve_left`                            | Sleeve left placement                                                                                                   |\n| `sleeve_right`                           | Sleeve right placement                                                                                                  |\n| `embroidery_chest_left`                  | Placement on left side of the chest made in `embroidery` technique                                                      |\n| `embroidery_chest_center`                | Placement on the center of the chest made in `embroidery` technique                                                     |\n| `label_outside`                          | Label outside placement                                                                                                 |\n| `embroidery_large_center`                | Large placement in center made in `embroidery` technique                                                                |\n| `label_inside`                           | Label inside placement                                                                                                  |\n| `front_large`                            | Large front placement                                                                                                   |\n| `embroidery_front`                       | Front placement made in `embroidery` technique                                                                          |\n| `embroidery_back`                        | Back placement made in `embroidery` technique                                                                           |\n| `embroidery_right`                       | Right side placement made in `embroidery` technique                                                                     |\n| `embroidery_left`                        | Left side placement made in `embroidery` technique                                                                      |\n| `belt_front`                             | Front of the belt                                                                                                       |\n| `belt_back`                              | Back of the belt                                                                                                        |\n| `top`                                    | Top placement                                                                                                           |\n| `pocket`                                 | Pocket placement                                                                                                        |\n| `bottom`                                 | Bottom placement                                                                                                        |\n| `embroidery_apparel_front`               | Apparel front placement made in `embroidery` technique                                                                  |\n| `belt`                                   | Belt placement                                                                                                          |\n| `top_front`                              | Top front placement                                                                                                     |\n| `top_back`                               | Top back placement                                                                                                      |\n| `leg_right`                              | Right leg placement                                                                                                     |\n| `leg_left`                               | Left leg placement                                                                                                      |\n| `embroidery_sleeve_left_top`             | Placement on left top side of sleeve made in `embroidery` technique                                                     |\n| `embroidery_sleeve_right_top`            | Placement on right top side of sleeve made in `embroidery` technique                                                    |\n| `embroidery_wrist_left`                  | Placement on wrist area of left sleeve made in `embroidery` technique                                                   |\n| `embroidery_wrist_right`                 | Placement on wrist area of right sleeve made in `embroidery` technique                                                  |\n| `hood`                                   | Hood placement                                                                                                          |\n| `details`                                | Details placement                                                                                                       |\n| `leg_front_left`                         | Placement on front left leg                                                                                             |\n| `leg_front_right`                        | Placement on front right leg                                                                                            |\n| `leg_back_left`                          | Placement on back left leg                                                                                              |\n| `leg_back_right`                         | Placement on back right leg                                                                                             |\n| `ear_left`                               | Left ear placement                                                                                                      |\n| `ear_right`                              | Right ear placement                                                                                                     |\n| `embroidery_apparel_back`                | Apparel back placement made in `embroidery` technique                                                                   |\n| `embroidery_chest_top_left`              | Top left chest placement made in `embroidery` technique                                                                 |\n| `embroidery_corner_right`                | Right corner placement made in `embroidery` technique                                                                   |\n| `sides`                                  | Sides placement                                                                                                         |\n| `bottom_front`                           | Bottom front placement                                                                                                  |\n| `bottom_back`                            | Bottom back placement                                                                                                   |\n| `lining_top`                             | Lining top placement                                                                                                    |\n| `lining_bottom`                          | Lining bottom placement                                                                                                 |\n| `embroidery_corner_left`                 | Left corner placement made in `embroidery` technique                                                                    |\n| `embroidery_outside_left`                | Outside left placement made in `embroidery` technique                                                                   |\n| `embroidery_outside_right`               | Outside right placement made in `embroidery` technique                                                                  |\n| `embroidery_inside_left`                 | Inside left placement made in `embroidery` technique                                                                    |\n| `embroidery_inside_right`                | Inside right placement made in `embroidery` technique                                                                   |\n| `background`                             | Background placement                                                                                                    |\n| `shoe_quarters_left`                     | Quarters left placement of shoe                                                                                         |\n| `shoe_quarters_right`                    | Quarters right placement of shoe                                                                                        |\n| `shoe_tongue_left`                       | Shoe left tongue placement                                                                                              |\n| `shoe_tongue_right`                      | Shoe right tongue placement                                                                                             |\n| `embroidery_patch_front`                 | Front patch placement made in `embroidery` technique                                                                    |\n| `embroidery_large_corner_right`          | Large right corner placement made in `embroidery` technique                                                             |\n| `inside1`                                | Inside placement                                                                                                        |\n| `inside2`                                | Inside placement                                                                                                        |\n| `shoe_left`                              | Left shoe placement                                                                                                     |\n| `shoe_right`                             | Right shoe placement                                                                                                    |\n| `side_right`                             | Right side placement                                                                                                    |\n| `side_left`                              | Left side placement                                                                                                     |\n\n</details>\n\n# Embroidery\n\n## Manually defining thread colors\nWhenever the embroidery placement is used it's also necessary to specify thread colors which should be used.\nThread color option must be matched with [appropriate placement](#tag/Common/Options).\n<br />\nTo determine what thread colors could be used you can use [thread color suggestion endpoint](#tag/Examples/File-Library-API-examples/Suggest-thread-colors) and then adjust thread colors manually according to your taste.\n<br />\n<b>Note that you can specify max 6 thread colors</b>\n```\n\"files\": [\n    {\n        \"type\": \"embroidery_outside_left\",\n        \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\"\n    }\n],\n\"options\": [\n    {\n        \"id\": \"thread_colors_outside_left\",\n        \"value\": [\"#FFFFFF\", \"#000000\", \"#96A1A8\", \"#A67843\", \"#FFCC00\", \"#E25C27\"]\n    }\n]\n```\n\n## Automatic thread color\nInstead of providing thread colors manually you can also use the `auto_thread_color` which will match available thread colors to provided image.\n\n```\n\"files\": [\n    {\n        \"type\": \"embroidery_outside_left\",\n        \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\",\n        \"options\": [\n            {\n                \"id\": \"auto_thread_color\",\n                \"value\": true\n            }\n        ]\n    }\n]\n```\n\n## Unlimited color\nWhen using the embroidery technique you are limited to a range of predefined thread colors. If you would like to use an unlimited range of thread colors please use <b>Unlimited Color</b> (additional cost will be added). To use <b>Unlimited Color</b> add for each file object an extra parameter in options with id: `full_color`.\nWhile using <b>Unlimited Color</b> you don’t need to specify thread colors. The `full_color` option can be used in Orders, Products, Mockup Generator and Ecommerce Platform Sync API.\n\n```\n\"items\": [\n    {\n        \"variant_id\": 4468,\n        \"quantity\": 1,\n        \"files\": [\n            {\n                \"type\": \"embroidery_back\",\n                \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\",\n                \"options\": [\n                    {\n                        \"id\": \"full_color\",\n                        \"value\": true\n                    }\n                ]\n            }\n        ]\n    }\n]\n```\n\n<div class=\"alert alert-info\">\n    Unlimited color is available for selected products.\n    To distinguish products with unlimited color option and pricing please \n    see catalog <a href=\"#tag/Examples/Catalog-API-examples/Product-containing-Unlimited-Color-option\">example</a> \n    response for a product with this option available.\n</div>\n\n[Example order](#tag/Examples/Orders-API-examples/Using-full-color-option)\n\n| Mockup without Unlimited Color                               | Mockup with Unlimited Color                               |\n|--------------------------------------------------------------|-----------------------------------------------------------|\n| ![Image](images/unlimited-color/without-unlimited-color.png) | ![Image](images/unlimited-color/with-unlimited-color.png) |\n"
+      "description": "# Options\nOptions allow for additional modification of how product will look.\n\n<details>\n    <summary>List of currently available thread color options</summary>\n\n| <div style=\"width:320px\">Option</div> | <div style=\"width:250px\">Placement</div> | Description                                               |\n|---------------------------------------|------------------------------------------|-----------------------------------------------------------|\n| `thread_colors`                       | `embroidery_front`                       | Thread colors for embroidery front placement              |\n| `thread_colors_back`                  | `embroidery_back`                        | Thread colors for embroidery back placement               |\n| `thread_colors_right`                 | `embroidery_right`                       | Thread colors for embroidery right placement              |\n| `thread_colors_left`                  | `embroidery_left`                        | Thread colors for embroidery left placement               |\n| `thread_colors_apparel`               | `embroidery_apparel_front`               | Thread colors for embroidery apparel front placement      |\n| `thread_colors_apparel_back`          | `embroidery_apparel_back`                | Thread colors for embroidery apparel back placement       |\n| `thread_colors_chest_center`          | `embroidery_chest_center`                | Thread colors for embroidery chest center placement       |\n| `thread_colors_large_center`          | `embroidery_large_center`                | Thread colors for embroidery large center placement       |\n| `thread_colors_large_corner_right`    | `embroidery_large_corner_right`          | Thread colors for embroidery large corner right placement |\n| `thread_colors_chest_left`            | `embroidery_chest_left`                  | Thread colors for embroidery chest left placement         |\n| `thread_colors_corner_left`           | `embroidery_corner_left`                 | Thread colors for embroidery corner left placement        |\n| `thread_colors_chest_top_left`        | `embroidery_chest_top_left`              | Thread colors for embroidery chest top left placement     |\n| `thread_colors_corner_right`          | `embroidery_corner_right`                | Thread colors for embroidery corner right placement       |\n| `thread_colors_outside_left`          | `embroidery_outside_left`                | Thread colors for embroidery outside left placement       |\n| `thread_colors_outside_right`         | `embroidery_outside_right`               | Thread colors for embroidery outside right placement      |\n| `thread_colors_inside_left`           | `embroidery_inside_left`                 | Thread colors for embroidery inside left placement        |\n| `thread_colors_inside_right`          | `embroidery_inside_right`                | Thread colors for embroidery inside right placement       |\n| `thread_colors_patch_front`           | `embroidery_patch_front`                 | Thread colors for embroidery patch front placement        |\n| `thread_colors_sleeve_left_top`       | `embroidery_sleeve_left_top`             | Thread colors for embroidery sleeve left top placement    |\n| `thread_colors_sleeve_right_top`      | `embroidery_sleeve_right_top`            | Thread colors for embroidery sleeve right top placement   |\n| `thread_colors_wrist_left`            | `embroidery_wrist_left`                  | Thread colors for embroidery wrist left placement         |\n| `thread_colors_wrist_right`           | `embroidery_wrist_right`                 | Thread colors for embroidery wrist right placement        |\n| `thread_colors_outline`               | Not applicable (Embroidery patches)      | Thread colors for embroidery patch outline                |\n\n</details>\n\n<details>\n    <summary>List of currently available Text thread color options</summary>\n\n| <div style=\"width:320px\">Option</div>   | <div style=\"width:250px\">Placement</div> | Description                                                    |\n|-----------------------------------------|------------------------------------------|----------------------------------------------------------------|\n| `text_thread_colors`                    | `embroidery_front`                       | Text thread colors for embroidery front placement              |\n| `text_thread_colors_back`               | `embroidery_back`                        | Text thread colors for embroidery back placement               |\n| `text_thread_colors_right`              | `embroidery_right`                       | Text thread colors for embroidery right placement              |\n| `text_thread_colors_left`               | `embroidery_left`                        | Text thread colors for embroidery left placement               |\n| `text_thread_colors_apparel`            | `embroidery_apparel_front`               | Text thread colors for embroidery apparel front placement      |\n| `text_thread_colors_apparel_back`       | `embroidery_apparel_back`                | Text thread colors for embroidery apparel back placement       |\n| `text_thread_colors_chest_center`       | `embroidery_chest_center`                | Text thread colors for embroidery chest center placement       |\n| `text_thread_colors_large_center`       | `embroidery_large_center`                | Text thread colors for embroidery large center placement       |\n| `text_thread_colors_large_corner_right` | `embroidery_large_corner_right`          | Text thread colors for embroidery large corner right placement |\n| `text_thread_colors_chest_left`         | `embroidery_chest_left`                  | Text thread colors for embroidery chest left placement         |\n| `text_thread_colors_corner_left`        | `embroidery_corner_left`                 | Text thread colors for embroidery corner left placement        |\n| `text_thread_colors_chest_top_left`     | `embroidery_chest_top_left`              | Text thread colors for embroidery chest top left placement     |\n| `text_thread_colors_corner_right`       | `embroidery_corner_right`                | Text thread colors for embroidery corner right placement       |\n| `text_thread_colors_outside_left`       | `embroidery_outside_left`                | Text thread colors for embroidery outside left placement       |\n| `text_thread_colors_outside_right`      | `embroidery_outside_right`               | Text thread colors for embroidery outside right placement      |\n| `text_thread_colors_inside_left`        | `embroidery_inside_left`                 | Text thread colors for embroidery inside left placement        |\n| `text_thread_colors_inside_right`       | `embroidery_inside_right`                | Text thread colors for embroidery inside right placement       |\n| `text_thread_colors_patch_front`        | `embroidery_patch_front`                 | Text thread colors for embroidery patch front placement        |\n| `text_thread_colors_sleeve_left_top`    | `embroidery_sleeve_left_top`             | Text thread colors for embroidery sleeve left top placement    |\n| `text_thread_colors_sleeve_right_top`   | `embroidery_sleeve_right_top`            | Text thread colors for embroidery sleeve right top placement   |\n| `text_thread_colors_wrist_left`         | `embroidery_wrist_left`                  | Text thread colors for embroidery wrist left placement         |\n| `text_thread_colors_wrist_right`        | `embroidery_wrist_right`                 | Text thread colors for embroidery wrist right placement        |\n\n</details>\n\n<details>\n    <summary>List of currently available other options</summary>\n\n| <div style=\"width:150px\">Option</div> | <div style=\"width:150px\">Placement</div> | Description                                                                                                                                                                                                                                                                                                              |\n|---------------------------------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| `thread_colors_3d`                    | Not applicable                           | 3D Puff thread colors                                                                                                                                                                                                                                                                                                    |\n| `embroidery_type`                     | Not applicable                           | Type of embroidery technique (flat, 3d, both)                                                                                                                                                                                                                                                                            |\n| `notes`                               | Not applicable                           | This box is for you to enter specific instructions about your print files or to warn us that the graphic may not perfectly match the mock-up. If you would like our graphics department to edit anything you can also notate those details in this box and someone from our team will contact you with an editing quote. |\n| `stitch_color`                        | Not applicable                           | Zipper & Stitch color                                                                                                                                                                                                                                                                                                    |\n| `inside_pocket`                       | Not applicable                           | Should inside pocket be added                                                                                                                                                                                                                                                                                            |\n| `lifelike`                            | Not applicable                           | Adds \"washed out\" effect to the generated mockups                                                                                                                                                                                                                                                                        |\n| `license_type`                        | Not applicable                           | License types associated with the product design. Accepts an array of one or more values, see [License type](#tag/Common/License-type)                                                                                                                                                                                   |\n\n</details>\n\n<details>\n    <summary>List of currently available file options</summary>\n\n| <div style=\"width:150px\">Option</div> | <div style=\"width:150px\">Placement</div> | Description                                                                                |\n|---------------------------------------|------------------------------------------|--------------------------------------------------------------------------------------------|\n| `full_color`                          | Not applicable                           | Allows you to embroider multi-color, gradient, or simple designs with no color limitations |\n| `auto_thread_color`                   | Not applicable                           | Automatically match available thread colors to provided image                              | \n\n</details>\n\n# License type\n\nThe `license_type` option specifies which licensing programs the product design is associated with.\nIt accepts an array, so a design covered by several programs can list all of them.\n\n| <div style=\"width:150px\">Value</div> | Description                  |\n|--------------------------------------|------------------------------|\n| `CLC`                                | Collegiate Licensing Company |\n| `AFFINITY`                           | Affinity                     |\n| `BR`                                 | BR                           |\n| `EX`                                 | EX                           |\n| `NCAA`                               | NCAA                         |\n| `FAN`                                | Fan                          |\n| `BCOMPLY`                            | BrandComply                  |\n| `TAG`                                | Tag                          |\n| `DLH`                                | DLH                          |\n| `CORE81`                             | Core81                       |\n\n```\n\"options\": [\n    {\n        \"id\": \"license_type\",\n        \"value\": [\"CLC\", \"NCAA\"]\n    }\n]\n```\n\n# Placements\n\n<details>\n    <summary>Complete list of every placement</summary>\n\n| <div style=\"width:150px\">Placement</div> | Description                                                                                                             |\n|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|\n| `default`                                | Default placement is different for every product. For example for T-SHIRT with id `71` the default placement is `front` |\n| `front`                                  | Front placement                                                                                                         |\n| `back`                                   | Front placement                                                                                                         |\n| `sleeve_left`                            | Sleeve left placement                                                                                                   |\n| `sleeve_right`                           | Sleeve right placement                                                                                                  |\n| `embroidery_chest_left`                  | Placement on left side of the chest made in `embroidery` technique                                                      |\n| `embroidery_chest_center`                | Placement on the center of the chest made in `embroidery` technique                                                     |\n| `label_outside`                          | Label outside placement                                                                                                 |\n| `embroidery_large_center`                | Large placement in center made in `embroidery` technique                                                                |\n| `label_inside`                           | Label inside placement                                                                                                  |\n| `front_large`                            | Large front placement                                                                                                   |\n| `embroidery_front`                       | Front placement made in `embroidery` technique                                                                          |\n| `embroidery_back`                        | Back placement made in `embroidery` technique                                                                           |\n| `embroidery_right`                       | Right side placement made in `embroidery` technique                                                                     |\n| `embroidery_left`                        | Left side placement made in `embroidery` technique                                                                      |\n| `belt_front`                             | Front of the belt                                                                                                       |\n| `belt_back`                              | Back of the belt                                                                                                        |\n| `top`                                    | Top placement                                                                                                           |\n| `pocket`                                 | Pocket placement                                                                                                        |\n| `bottom`                                 | Bottom placement                                                                                                        |\n| `embroidery_apparel_front`               | Apparel front placement made in `embroidery` technique                                                                  |\n| `belt`                                   | Belt placement                                                                                                          |\n| `top_front`                              | Top front placement                                                                                                     |\n| `top_back`                               | Top back placement                                                                                                      |\n| `leg_right`                              | Right leg placement                                                                                                     |\n| `leg_left`                               | Left leg placement                                                                                                      |\n| `embroidery_sleeve_left_top`             | Placement on left top side of sleeve made in `embroidery` technique                                                     |\n| `embroidery_sleeve_right_top`            | Placement on right top side of sleeve made in `embroidery` technique                                                    |\n| `embroidery_wrist_left`                  | Placement on wrist area of left sleeve made in `embroidery` technique                                                   |\n| `embroidery_wrist_right`                 | Placement on wrist area of right sleeve made in `embroidery` technique                                                  |\n| `hood`                                   | Hood placement                                                                                                          |\n| `details`                                | Details placement                                                                                                       |\n| `leg_front_left`                         | Placement on front left leg                                                                                             |\n| `leg_front_right`                        | Placement on front right leg                                                                                            |\n| `leg_back_left`                          | Placement on back left leg                                                                                              |\n| `leg_back_right`                         | Placement on back right leg                                                                                             |\n| `ear_left`                               | Left ear placement                                                                                                      |\n| `ear_right`                              | Right ear placement                                                                                                     |\n| `embroidery_apparel_back`                | Apparel back placement made in `embroidery` technique                                                                   |\n| `embroidery_chest_top_left`              | Top left chest placement made in `embroidery` technique                                                                 |\n| `embroidery_corner_right`                | Right corner placement made in `embroidery` technique                                                                   |\n| `sides`                                  | Sides placement                                                                                                         |\n| `bottom_front`                           | Bottom front placement                                                                                                  |\n| `bottom_back`                            | Bottom back placement                                                                                                   |\n| `lining_top`                             | Lining top placement                                                                                                    |\n| `lining_bottom`                          | Lining bottom placement                                                                                                 |\n| `embroidery_corner_left`                 | Left corner placement made in `embroidery` technique                                                                    |\n| `embroidery_outside_left`                | Outside left placement made in `embroidery` technique                                                                   |\n| `embroidery_outside_right`               | Outside right placement made in `embroidery` technique                                                                  |\n| `embroidery_inside_left`                 | Inside left placement made in `embroidery` technique                                                                    |\n| `embroidery_inside_right`                | Inside right placement made in `embroidery` technique                                                                   |\n| `background`                             | Background placement                                                                                                    |\n| `shoe_quarters_left`                     | Quarters left placement of shoe                                                                                         |\n| `shoe_quarters_right`                    | Quarters right placement of shoe                                                                                        |\n| `shoe_tongue_left`                       | Shoe left tongue placement                                                                                              |\n| `shoe_tongue_right`                      | Shoe right tongue placement                                                                                             |\n| `embroidery_patch_front`                 | Front patch placement made in `embroidery` technique                                                                    |\n| `embroidery_large_corner_right`          | Large right corner placement made in `embroidery` technique                                                             |\n| `inside1`                                | Inside placement                                                                                                        |\n| `inside2`                                | Inside placement                                                                                                        |\n| `shoe_left`                              | Left shoe placement                                                                                                     |\n| `shoe_right`                             | Right shoe placement                                                                                                    |\n| `side_right`                             | Right side placement                                                                                                    |\n| `side_left`                              | Left side placement                                                                                                     |\n\n</details>\n\n# Embroidery\n\n## Manually defining thread colors\nWhenever the embroidery placement is used it's also necessary to specify thread colors which should be used.\nThread color option must be matched with [appropriate placement](#tag/Common/Options).\n<br />\nTo determine what thread colors could be used you can use [thread color suggestion endpoint](#tag/Examples/File-Library-API-examples/Suggest-thread-colors) and then adjust thread colors manually according to your taste.\n<br />\n<b>Note that you can specify max 6 thread colors</b>\n```\n\"files\": [\n    {\n        \"type\": \"embroidery_outside_left\",\n        \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\"\n    }\n],\n\"options\": [\n    {\n        \"id\": \"thread_colors_outside_left\",\n        \"value\": [\"#FFFFFF\", \"#000000\", \"#96A1A8\", \"#A67843\", \"#FFCC00\", \"#E25C27\"]\n    }\n]\n```\n\n## Automatic thread color\nInstead of providing thread colors manually you can also use the `auto_thread_color` which will match available thread colors to provided image.\n\n```\n\"files\": [\n    {\n        \"type\": \"embroidery_outside_left\",\n        \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\",\n        \"options\": [\n            {\n                \"id\": \"auto_thread_color\",\n                \"value\": true\n            }\n        ]\n    }\n]\n```\n\n## Unlimited color\nWhen using the embroidery technique you are limited to a range of predefined thread colors. If you would like to use an unlimited range of thread colors please use <b>Unlimited Color</b> (additional cost will be added). To use <b>Unlimited Color</b> add for each file object an extra parameter in options with id: `full_color`.\nWhile using <b>Unlimited Color</b> you don’t need to specify thread colors. The `full_color` option can be used in Orders, Products, Mockup Generator and Ecommerce Platform Sync API.\n\n```\n\"items\": [\n    {\n        \"variant_id\": 4468,\n        \"quantity\": 1,\n        \"files\": [\n            {\n                \"type\": \"embroidery_back\",\n                \"url\": \"https://www.printful.com/static/images/layout/printful-logo.png\",\n                \"options\": [\n                    {\n                        \"id\": \"full_color\",\n                        \"value\": true\n                    }\n                ]\n            }\n        ]\n    }\n]\n```\n\n<div class=\"alert alert-info\">\n    Unlimited color is available for selected products.\n    To distinguish products with unlimited color option and pricing please \n    see catalog <a href=\"#tag/Examples/Catalog-API-examples/Product-containing-Unlimited-Color-option\">example</a> \n    response for a product with this option available.\n</div>\n\n[Example order](#tag/Examples/Orders-API-examples/Using-full-color-option)\n\n| Mockup without Unlimited Color                               | Mockup with Unlimited Color                               |\n|--------------------------------------------------------------|-----------------------------------------------------------|\n| ![Image](images/unlimited-color/without-unlimited-color.png) | ![Image](images/unlimited-color/with-unlimited-color.png) |\n"
     },
     {
       "name": "Other resources",
@@ -129,9 +129,7 @@
   "paths": {
     "/products": {
       "get": {
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "summary": "Get Products",
         "description": "Returns list of Products available in the Printful",
         "operationId": "getProducts",
@@ -161,9 +159,7 @@
         "summary": "Get Variant",
         "description": "Returns information about a specific Variant and its Product",
         "operationId": "getVariantById",
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/VariantId"
@@ -190,9 +186,7 @@
         "summary": "Get Product",
         "description": "Returns information about a specific product and a list of variants for this product.",
         "operationId": "getProductById",
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/ProductId"
@@ -219,9 +213,7 @@
         "summary": "Get Product Size Guide",
         "description": "Returns information about the size guide for a specific product.",
         "operationId": "getProductSizeGuideById",
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/ProductId"
@@ -248,9 +240,7 @@
     },
     "/categories": {
       "get": {
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "summary": "Get Categories",
         "description": "Returns list of Catalog Categories available in the Printful",
         "operationId": "getCategories",
@@ -275,9 +265,7 @@
         "summary": "Get Category",
         "description": "Returns information about a specific category.",
         "operationId": "getCategoryById",
-        "tags": [
-          "Catalog API"
-        ],
+        "tags": ["Catalog API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/CategoryId"
@@ -306,14 +294,10 @@
         "operationId": "getSyncProducts",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -346,14 +330,10 @@
         "operationId": "createSyncProduct",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -388,14 +368,10 @@
         "operationId": "getSyncProductById",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -428,14 +404,10 @@
         "operationId": "deleteSyncProduct",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -468,14 +440,10 @@
         "operationId": "updateSyncProduct",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -510,14 +478,10 @@
         "operationId": "getSyncVariantById",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -544,14 +508,10 @@
         "operationId": "deleteSyncVariant",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -584,14 +544,10 @@
         "operationId": "updateSyncVariant",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -632,14 +588,10 @@
         "operationId": "createSyncVariant",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Products API"
-        ],
+        "tags": ["Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -680,14 +632,10 @@
         "operationId": "getProductTemplates",
         "security": [
           {
-            "OAuth": [
-              "product_templates/read"
-            ]
+            "OAuth": ["product_templates/read"]
           }
         ],
-        "tags": [
-          "Product Templates API"
-        ],
+        "tags": ["Product Templates API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/Offset"
@@ -719,14 +667,10 @@
         "operationId": "getProductTemplateById",
         "security": [
           {
-            "OAuth": [
-              "product_templates/read"
-            ]
+            "OAuth": ["product_templates/read"]
           }
         ],
-        "tags": [
-          "Product Templates API"
-        ],
+        "tags": ["Product Templates API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/TemplateById"
@@ -753,14 +697,10 @@
         "operationId": "deleteProductTemplate",
         "security": [
           {
-            "OAuth": [
-              "product_templates"
-            ]
+            "OAuth": ["product_templates"]
           }
         ],
-        "tags": [
-          "Product Templates API"
-        ],
+        "tags": ["Product Templates API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/TemplateById"
@@ -789,14 +729,10 @@
         "operationId": "getOrders",
         "security": [
           {
-            "OAuth": [
-              "orders/read"
-            ]
+            "OAuth": ["orders/read"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/Status"
@@ -829,14 +765,10 @@
         "operationId": "createOrder",
         "security": [
           {
-            "OAuth": [
-              "orders"
-            ]
+            "OAuth": ["orders"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/Confirm"
@@ -871,14 +803,10 @@
         "operationId": "getOrderById",
         "security": [
           {
-            "OAuth": [
-              "orders/read"
-            ]
+            "OAuth": ["orders/read"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/OrderId"
@@ -911,14 +839,10 @@
         "operationId": "cancelOrderById",
         "security": [
           {
-            "OAuth": [
-              "orders"
-            ]
+            "OAuth": ["orders"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/OrderId"
@@ -951,14 +875,10 @@
         "operationId": "updateOrderById",
         "security": [
           {
-            "OAuth": [
-              "orders"
-            ]
+            "OAuth": ["orders"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/OrderId"
@@ -996,14 +916,10 @@
         "operationId": "confirmOrderById",
         "security": [
           {
-            "OAuth": [
-              "orders"
-            ]
+            "OAuth": ["orders"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/OrderId"
@@ -1038,14 +954,10 @@
         "operationId": "estimateOrderCosts",
         "security": [
           {
-            "OAuth": [
-              "orders/read"
-            ]
+            "OAuth": ["orders/read"]
           }
         ],
-        "tags": [
-          "Orders API"
-        ],
+        "tags": ["Orders API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -1080,14 +992,10 @@
         "operationId": "addFile",
         "security": [
           {
-            "OAuth": [
-              "file_library"
-            ]
+            "OAuth": ["file_library"]
           }
         ],
-        "tags": [
-          "File Library API"
-        ],
+        "tags": ["File Library API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -1122,14 +1030,10 @@
         "operationId": "getFile",
         "security": [
           {
-            "OAuth": [
-              "file_library/read"
-            ]
+            "OAuth": ["file_library/read"]
           }
         ],
-        "tags": [
-          "File Library API"
-        ],
+        "tags": ["File Library API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/FileId"
@@ -1162,9 +1066,7 @@
         "summary": "Return available thread colors from provided image URL",
         "description": "Returns colors in hexadecimal format.\n\nReturned thread colors are matched as closely as possible to provided image colors.\n\n[See examples](#tag/Examples/File-Library-API-examples/Suggest-thread-colors)\n",
         "operationId": "threadColors",
-        "tags": [
-          "File Library API"
-        ],
+        "tags": ["File Library API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/ThreadColors"
         },
@@ -1194,14 +1096,10 @@
         "operationId": "getStoreSyncProducts",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/Search"
@@ -1242,14 +1140,10 @@
         "operationId": "getStoreSyncProductById",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -1282,14 +1176,10 @@
         "operationId": "deleteStoreSyncProduct",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncProductId"
@@ -1324,14 +1214,10 @@
         "operationId": "getStoreSyncVariantById",
         "security": [
           {
-            "OAuth": [
-              "sync_products/read"
-            ]
+            "OAuth": ["sync_products/read"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -1364,14 +1250,10 @@
         "operationId": "updateStoreSyncVariant",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -1410,14 +1292,10 @@
         "operationId": "deleteStoreSyncVariant",
         "security": [
           {
-            "OAuth": [
-              "sync_products"
-            ]
+            "OAuth": ["sync_products"]
           }
         ],
-        "tags": [
-          "Ecommerce Platform Sync API"
-        ],
+        "tags": ["Ecommerce Platform Sync API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/SyncVariantId"
@@ -1455,9 +1333,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Shipping Rate API"
-        ],
+        "tags": ["Shipping Rate API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -1493,9 +1369,7 @@
         "summary": "Retrieve country list",
         "description": "Returns list of countries and states that are accepted by the Printful.",
         "operationId": "getCountries",
-        "tags": [
-          "Country/State Code API"
-        ],
+        "tags": ["Country/State Code API"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/GetCountries"
@@ -1517,9 +1391,7 @@
         "summary": "Get a list of countries for tax calculation",
         "description": "Retrieve state list that requires sales tax calculation",
         "operationId": "getTaxCountries",
-        "tags": [
-          "Tax Rate API"
-        ],
+        "tags": ["Tax Rate API"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/TaxCountries"
@@ -1545,9 +1417,7 @@
         "description": "Calculates sales tax rate for given address if required.\n\n<div class=\"alert alert-info\">\n  ⚠️ <strong>Important – <tt>/tax/rates</tt> endpoint sunset</strong>\n  <p>Since May 2023, the POST <tt>/tax/rates</tt> endpoint is no longer maintained and may return inaccurate results.</p>\n  <p>On <strong>July 29, 2025</strong>, we started the sunset process. The rate limit is being reduced by 10 RPM each week (starting with 60) until it reaches 0 on <strong>September 8, 2025</strong>, at which point the endpoint will be removed entirely.</p>\n  <p>There is no replacement endpoint in the Printful API for retrieving standalone tax rates. For accurate tax information, please use official government sources or external tax calculation providers.</p>\n  <p>If you require the total order cost including taxes, use the order creation or estimation endpoints.</p>\n</div>\n",
         "operationId": "calculateTaxRates",
         "deprecated": true,
-        "tags": [
-          "Tax Rate API"
-        ],
+        "tags": ["Tax Rate API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/CalculateTaxRates"
         },
@@ -1574,14 +1444,10 @@
         "operationId": "changePackingSlip",
         "security": [
           {
-            "OAuth": [
-              "stores_list"
-            ]
+            "OAuth": ["stores_list"]
           }
         ],
-        "tags": [
-          "Store Information API"
-        ],
+        "tags": ["Store Information API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -1616,14 +1482,10 @@
         "operationId": "getStores",
         "security": [
           {
-            "OAuth": [
-              "stores_list"
-            ]
+            "OAuth": ["stores_list"]
           }
         ],
-        "tags": [
-          "Store Information API"
-        ],
+        "tags": ["Store Information API"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/Stores"
@@ -1647,14 +1509,10 @@
         "operationId": "getStore",
         "security": [
           {
-            "OAuth": [
-              "stores_list"
-            ]
+            "OAuth": ["stores_list"]
           }
         ],
-        "tags": [
-          "Store Information API"
-        ],
+        "tags": ["Store Information API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreInformationId"
@@ -1686,9 +1544,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Mockup Generator API"
-        ],
+        "tags": ["Mockup Generator API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/ProductId"
@@ -1732,9 +1588,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Mockup Generator API"
-        ],
+        "tags": ["Mockup Generator API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/ProductId"
@@ -1778,9 +1632,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Mockup Generator API"
-        ],
+        "tags": ["Mockup Generator API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/TaskKey"
@@ -1818,9 +1670,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Mockup Generator API"
-        ],
+        "tags": ["Mockup Generator API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/ProductId"
@@ -1864,9 +1714,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Warehouse Products API"
-        ],
+        "tags": ["Warehouse Products API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/Query"
@@ -1910,9 +1758,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Warehouse Products API"
-        ],
+        "tags": ["Warehouse Products API"],
         "parameters": [
           {
             "in": "path",
@@ -1958,12 +1804,13 @@
         "summary": "Retrieve a list of approval sheets",
         "description": "Retrieve a list of approval sheets confirming suggested changes to files of on hold orders.",
         "operationId": "getApprovalSheets",
-        "tags": [
-          "Approval Sheets API"
-        ],
+        "tags": ["Approval Sheets API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
+          },
+          {
+            "$ref": "#/components/parameters/GroupHash"
           }
         ],
         "responses": {
@@ -1982,15 +1829,16 @@
         "summary": "Approve a design",
         "description": "Uses the confirm hash of an approval sheet to approve a design and remove the hold on an order",
         "operationId": "approveDesign",
-        "tags": [
-          "Approval Sheets API"
-        ],
+        "tags": ["Approval Sheets API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
           },
           {
             "$ref": "#/components/parameters/ConfirmHash"
+          },
+          {
+            "$ref": "#/components/parameters/GroupHash"
           }
         ],
         "requestBody": {
@@ -2017,9 +1865,7 @@
         "summary": "Submit changes to an approval sheet",
         "description": "Use this to submit alternative changes to a design that has an approval sheet",
         "operationId": "submitApprovalSheetChanges",
-        "tags": [
-          "Approval Sheets API"
-        ],
+        "tags": ["Approval Sheets API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -2044,6 +1890,41 @@
         }
       }
     },
+    "/approval-sheets/bulk-changes": {
+      "post": {
+        "security": [
+          {
+            "OAuth": []
+          }
+        ],
+        "summary": "Submit changes to an approval sheets in bulk",
+        "description": "Use this to submit alternative changes in bulk to a design that has an approval sheet via `group_hash`",
+        "operationId": "submitApprovalSheetBulkChanges",
+        "tags": ["Approval Sheets API"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StoreId"
+          },
+          {
+            "$ref": "#/components/parameters/GroupHash"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ApprovalSheetsChangeDesign"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ApprovalSheetsResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/webhooks": {
       "get": {
         "summary": "Get webhook configuration",
@@ -2051,14 +1932,10 @@
         "operationId": "getWebhooks",
         "security": [
           {
-            "OAuth": [
-              "webhooks"
-            ]
+            "OAuth": ["webhooks"]
           }
         ],
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -2085,14 +1962,10 @@
         "operationId": "createWebhook",
         "security": [
           {
-            "OAuth": [
-              "webhooks"
-            ]
+            "OAuth": ["webhooks"]
           }
         ],
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -2125,14 +1998,10 @@
         "operationId": "disableWebhook",
         "security": [
           {
-            "OAuth": [
-              "webhooks"
-            ]
+            "OAuth": ["webhooks"]
           }
         ],
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -2164,9 +2033,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "OAuth API"
-        ],
+        "tags": ["OAuth API"],
         "responses": {
           "200": {
             "$ref": "#/components/responses/Scopes"
@@ -2196,9 +2063,7 @@
             "OAuth": []
           }
         ],
-        "tags": [
-          "Reports API"
-        ],
+        "tags": ["Reports API"],
         "parameters": [
           {
             "$ref": "#/components/parameters/StoreId"
@@ -2245,9 +2110,7 @@
         "summary": "Package shipped",
         "operationId": "packageShipped",
         "description": "Is called when a shipment with all or part of the ordered items is shipped.\n\n If the order is shipped in multiple shipments, this event will be called for every shipment sent.\n\n If some items are reshipped, a shipping notification will be sent again for the same items.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/PackageShipped"
         },
@@ -2263,9 +2126,7 @@
         "summary": "Package returned",
         "operationId": "packageReturned",
         "description": " Is called when a shipment is processed as returned to the fulfillment facility. To learn more about the reasons why a shipment might be returned, take a look at [Printful's Return Policy](https://www.printful.com/policies/returns) ",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/PackageReturned"
         },
@@ -2281,9 +2142,7 @@
         "summary": "Order created",
         "operationId": "orderCreated",
         "description": "Is called when the order is first created.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderCreated"
         },
@@ -2299,9 +2158,7 @@
         "summary": "Order updated",
         "operationId": "orderUpdated",
         "description": "Is called when an existing order gets updated for any reason - including things that are covered with other webhooks like `order_canceled`.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderUpdated"
         },
@@ -2317,9 +2174,7 @@
         "summary": "Order failed",
         "operationId": "orderFailed",
         "description": "Is called when a confirmed order changes its status to `failed`.\n\n It can happen, for example, if printfiles can not be downloaded, are not valid image files or when there is a payment failure.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderFailed"
         },
@@ -2335,9 +2190,7 @@
         "summary": "Order canceled",
         "operationId": "orderCanceled",
         "description": "Is called when a confirmed order changes its status to `canceled`.\n\n It can happen when a submitted order is canceled from the dashboard or through the API or when the order is canceled by the Printful staff.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderCanceled"
         },
@@ -2353,9 +2206,7 @@
         "summary": "Product synced",
         "operationId": "productSynced",
         "description": "Is called when a new product or variant is imported from the store's ecommerce integration.\n\n See [Ecommerce Platform Sync API](#tag/Ecommerce-Platform-Sync-API)",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/ProductSynced"
         },
@@ -2371,9 +2222,7 @@
         "summary": "Product updated",
         "operationId": "productUpdated",
         "description": "Is called when a new product or variant is created or updated in any way.\n\n See [Ecommerce Platform Sync API](#tag/Ecommerce-Platform-Sync-API)",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/ProductUpdated"
         },
@@ -2389,9 +2238,7 @@
         "summary": "Product deleted",
         "operationId": "productDeleted",
         "description": "Is called when a new product or variant is deleted.\n\n See [Ecommerce Platform Sync API](#tag/Ecommerce-Platform-Sync-API)",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/ProductDeleted"
         },
@@ -2407,9 +2254,7 @@
         "summary": "Stock updated",
         "operationId": "stockUpdated",
         "description": "Is called when stock is updated for some of a product's variants.\n\n Contains product id and ids of it's discontinued variants and variants that are out of stock. Variant ids that are not present should be considered as active and in stock.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/StockUpdated"
         },
@@ -2425,9 +2270,7 @@
         "summary": "Order put hold",
         "operationId": "orderPutHold",
         "description": "Is called when order is put on hold.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderPutHold"
         },
@@ -2443,9 +2286,7 @@
         "summary": "Order put hold approval",
         "operationId": "orderPutHoldApproval",
         "description": "Is called when order is put on hold and there are changes that must be approved by the customer before fulfillment. Will contain a confirm hash that can be used to approve changes with the Approval Sheets Api.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderHoldApproval"
         },
@@ -2461,9 +2302,7 @@
         "summary": "Order remove hold",
         "operationId": "orderRemoveHold",
         "description": "Is called when order is removed from hold.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderRemoveHold"
         },
@@ -2479,9 +2318,7 @@
         "summary": "Order refunded",
         "operationId": "orderRefunded",
         "description": "Is called when a confirmed order has been refunded.",
-        "tags": [
-          "Webhook API"
-        ],
+        "tags": ["Webhook API"],
         "requestBody": {
           "$ref": "#/components/requestBodies/OrderRefunded"
         },
@@ -2734,10 +2571,7 @@
         "schema": {
           "type": "string",
           "description": "Optional orientation for wall art product printfiles. Allowed values: horizontal, vertical",
-          "enum": [
-            "horizontal",
-            "vertical"
-          ]
+          "enum": ["horizontal", "vertical"]
         }
       },
       "Technique": {
@@ -2781,6 +2615,15 @@
         },
         "required": false,
         "description": "Whether the pagination behavior should be forced. The response will be paginated if the value is `true` or `1`."
+      },
+      "GroupHash": {
+        "in": "query",
+        "name": "group_hash",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Filters results by the group hash common to all approval sheets that relate to the same design.",
+        "example": "5d41402abc4b2a76b9719d911017c592"
       },
       "ConfirmHash": {
         "in": "query",
@@ -3197,9 +3040,7 @@
         "type": "object",
         "title": "MeasurementValue",
         "description": "The measurement value for a specific size",
-        "required": [
-          "size"
-        ],
+        "required": ["size"],
         "properties": {
           "size": {
             "description": "The size with which the value is associated",
@@ -3227,10 +3068,7 @@
         "type": "object",
         "title": "Measurement",
         "description": "The information about a single size table measurement",
-        "required": [
-          "type",
-          "values"
-        ],
+        "required": ["type", "values"],
         "properties": {
           "type_label": {
             "description": "Measurement type",
@@ -3255,27 +3093,17 @@
         "type": "object",
         "title": "SizeTable",
         "description": "Size table for the Product",
-        "required": [
-          "type",
-          "measurements"
-        ],
+        "required": ["type", "measurements"],
         "properties": {
           "type": {
             "description": "Size table type",
             "type": "string",
-            "enum": [
-              "measure_yourself",
-              "product_measure",
-              "international"
-            ]
+            "enum": ["measure_yourself", "product_measure", "international"]
           },
           "unit": {
             "description": "The unit the size table values are in",
             "type": "string",
-            "enum": [
-              "inches",
-              "cm"
-            ]
+            "enum": ["inches", "cm"]
           },
           "description": {
             "description": "The size table description (HTML)",
@@ -3302,11 +3130,7 @@
         "type": "object",
         "title": "ProductSizeGuide",
         "description": "Size Guide information for the Product",
-        "required": [
-          "product_id",
-          "available_sizes",
-          "size_tables"
-        ],
+        "required": ["product_id", "available_sizes", "size_tables"],
         "properties": {
           "product_id": {
             "description": "Product ID",
@@ -3319,11 +3143,7 @@
             "items": {
               "type": "string"
             },
-            "example": [
-              "S",
-              "M",
-              "L"
-            ]
+            "example": ["S", "M", "L"]
           },
           "size_tables": {
             "description": "Size tables for the product",
@@ -3609,11 +3429,7 @@
           "size": {
             "description": "The size of the category image",
             "type": "string",
-            "enum": [
-              "small",
-              "medium",
-              "large"
-            ]
+            "enum": ["small", "medium", "large"]
           },
           "title": {
             "description": "Category title",
@@ -3626,11 +3442,7 @@
         "type": "object",
         "title": "Paging",
         "description": "Paging information",
-        "required": [
-          "total",
-          "offset",
-          "limit"
-        ],
+        "required": ["total", "offset", "limit"],
         "properties": {
           "total": {
             "type": "integer",
@@ -3668,9 +3480,7 @@
         "type": "object",
         "title": "SyncProduct",
         "description": "Information about the SyncProduct",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "properties": {
           "id": {
             "description": "SyncProduct ID",
@@ -3750,10 +3560,7 @@
         "type": "object",
         "title": "FileOption",
         "description": "File option",
-        "required": [
-          "id",
-          "value"
-        ],
+        "required": ["id", "value"],
         "properties": {
           "id": {
             "type": "string",
@@ -3771,9 +3578,7 @@
         "type": "object",
         "title": "File",
         "description": "Information about the File",
-        "required": [
-          "url"
-        ],
+        "required": ["url"],
         "properties": {
           "type": {
             "type": "string",
@@ -3898,10 +3703,7 @@
         "type": "object",
         "title": "SyncVariantOption",
         "description": "Additional options for the configured product/variant",
-        "required": [
-          "id",
-          "value"
-        ],
+        "required": ["id", "value"],
         "properties": {
           "id": {
             "type": "string",
@@ -4437,51 +4239,31 @@
         },
         "anyOf": [
           {
-            "required": [
-              "variant_id"
-            ]
+            "required": ["variant_id"]
           },
           {
-            "required": [
-              "sync_variant_id"
-            ]
+            "required": ["sync_variant_id"]
           },
           {
-            "required": [
-              "external_variant_id"
-            ]
+            "required": ["external_variant_id"]
           },
           {
-            "required": [
-              "warehouse_product_variant_id"
-            ]
+            "required": ["warehouse_product_variant_id"]
           },
           {
-            "required": [
-              "variant_id",
-              "product_template_id"
-            ]
+            "required": ["variant_id", "product_template_id"]
           },
           {
-            "required": [
-              "variant_id",
-              "external_product_id"
-            ]
+            "required": ["variant_id", "external_product_id"]
           }
         ],
         "not": {
           "anyOf": [
             {
-              "required": [
-                "product_template_id",
-                "sync_variant_id"
-              ]
+              "required": ["product_template_id", "sync_variant_id"]
             },
             {
-              "required": [
-                "product_template_id",
-                "external_variant_id"
-              ]
+              "required": ["product_template_id", "external_variant_id"]
             },
             {
               "required": [
@@ -4490,34 +4272,19 @@
               ]
             },
             {
-              "required": [
-                "product_template_id",
-                "files"
-              ]
+              "required": ["product_template_id", "files"]
             },
             {
-              "required": [
-                "product_template_id",
-                "options"
-              ]
+              "required": ["product_template_id", "options"]
             },
             {
-              "required": [
-                "product_template_id",
-                "external_product_id"
-              ]
+              "required": ["product_template_id", "external_product_id"]
             },
             {
-              "required": [
-                "external_product_id",
-                "sync_variant_id"
-              ]
+              "required": ["external_product_id", "sync_variant_id"]
             },
             {
-              "required": [
-                "external_product_id",
-                "external_variant_id"
-              ]
+              "required": ["external_product_id", "external_variant_id"]
             },
             {
               "required": [
@@ -4526,22 +4293,13 @@
               ]
             },
             {
-              "required": [
-                "external_product_id",
-                "files"
-              ]
+              "required": ["external_product_id", "files"]
             },
             {
-              "required": [
-                "external_product_id",
-                "options"
-              ]
+              "required": ["external_product_id", "options"]
             },
             {
-              "required": [
-                "external_product_id",
-                "product_template_id"
-              ]
+              "required": ["external_product_id", "product_template_id"]
             }
           ]
         }
@@ -4734,19 +4492,13 @@
           },
           "picked": {
             "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
+            "enum": [0, 1],
             "description": "A boolean indicating that the pickup stage of this item's fulfillment has been completed",
             "example": 1
           },
           "printed": {
             "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
+            "enum": [0, 1],
             "description": "A boolean indicting that the item has been printed, sublimated or sewed.",
             "example": 1
           }
@@ -4836,24 +4588,16 @@
         "description": "Custom packing slip for this order. Example of a packing slip with explained fields can be found [here](#packing-slip).",
         "anyOf": [
           {
-            "required": [
-              "email"
-            ]
+            "required": ["email"]
           },
           {
-            "required": [
-              "phone"
-            ]
+            "required": ["phone"]
           },
           {
-            "required": [
-              "message"
-            ]
+            "required": ["message"]
           },
           {
-            "required": [
-              "custom_order_id"
-            ]
+            "required": ["custom_order_id"]
           }
         ],
         "properties": {
@@ -4893,10 +4637,7 @@
         "type": "object",
         "title": "Order",
         "description": "Information about the Order",
-        "required": [
-          "recipient",
-          "items"
-        ],
+        "required": ["recipient", "items"],
         "properties": {
           "id": {
             "description": "Order ID",
@@ -5119,9 +4860,7 @@
         "type": "object",
         "title": "ShippingRatesAddress",
         "description": "Recipient address information for shipping rate calculation.\n\n**Required fields:**\n- `country_code`: Always required\n\n**Conditionally required fields:**\n- `state_code`: Required for United States (US), Australia (AU), and Canada (CA)\n\n**Optional fields:**\n- All other fields are optional but providing more information may produce more precise results and more shipping options.\n",
-        "required": [
-          "country_code"
-        ],
+        "required": ["country_code"],
         "properties": {
           "address1": {
             "description": "Address line 1",
@@ -5168,9 +4907,7 @@
         "type": "object",
         "title": "ItemInfo",
         "description": "Order item information",
-        "required": [
-          "quantity"
-        ],
+        "required": ["quantity"],
         "properties": {
           "variant_id": {
             "type": "string",
@@ -5293,12 +5030,7 @@
         "type": "object",
         "title": "TaxAddressInfo",
         "description": "Recipient address information",
-        "required": [
-          "country_code",
-          "state_code",
-          "city",
-          "zip"
-        ],
+        "required": ["country_code", "state_code", "city", "zip"],
         "properties": {
           "country_code": {
             "type": "string",
@@ -5457,11 +5189,7 @@
             "items": {
               "type": "integer"
             },
-            "example": [
-              4011,
-              4012,
-              4013
-            ]
+            "example": [4011, 4012, 4013]
           },
           "extra": {
             "type": "array",
@@ -5483,14 +5211,7 @@
             "items": {
               "type": "integer"
             },
-            "example": [
-              4012,
-              4013,
-              4014,
-              4017,
-              4018,
-              4019
-            ]
+            "example": [4012, 4013, 4014, 4017, 4018, 4019]
           },
           "placement": {
             "type": "string",
@@ -5517,11 +5238,7 @@
           "status": {
             "type": "string",
             "description": "Status of the generation task.",
-            "enum": [
-              "pending",
-              "completed",
-              "failed"
-            ],
+            "enum": ["pending", "completed", "failed"],
             "example": "completed"
           },
           "error": {
@@ -5572,10 +5289,7 @@
           "fill_mode": {
             "type": "string",
             "description": "Indicates if printfile will be used in cover or fit mode. Cover mode can produce cropping if side ratio does not match printfile.",
-            "enum": [
-              "cover",
-              "fit"
-            ],
+            "enum": ["cover", "fit"],
             "example": "fit"
           },
           "can_rotate": {
@@ -5755,11 +5469,7 @@
           "orientation": {
             "type": "string",
             "description": "Wall art product orientation. Possible values: horizontal, vertical, any",
-            "enum": [
-              "horizontal",
-              "vertical",
-              "any"
-            ],
+            "enum": ["horizontal", "vertical", "any"],
             "example": "any"
           }
         }
@@ -5780,10 +5490,7 @@
             "items": {
               "type": "string"
             },
-            "example": [
-              "back",
-              "label_inside"
-            ]
+            "example": ["back", "label_inside"]
           }
         }
       },
@@ -5933,13 +5640,7 @@
           "status": {
             "type": "string",
             "description": "Product status:\n\n **created** - product request created,\n\n **active** - product request approved\n\n **suspended** - product suspended\n\n **declined** - product request declined\n\n **draft** - product created as a draft",
-            "enum": [
-              "created",
-              "active",
-              "suspended",
-              "declined",
-              "draft"
-            ],
+            "enum": ["created", "active", "suspended", "declined", "draft"],
             "example": "draft"
           },
           "currency": {
@@ -5966,6 +5667,11 @@
           }
         }
       },
+      "ApprovalSheetStatuses": {
+        "type": "string",
+        "description": "Approval sheet status:<br />\n**waiting_for_action** - Approval sheet requires user action e.g. `Approval` or `Request changes`.<br />\n**approval_pending** - Intermediate status between `waiting_for_action` and `approved`. Happens when user has approved the approval sheet but the approval was not yet processed.<br />\n**approved** - The approval sheet has been approved.<br />\n**changes_requested** - User has requested minor changes to the approval sheet.<br />\n**files_changed** - Happens when the original design file was replaced e.g. user has changed the design. In that case the approval sheet is no longer relevant.<br />\n**withdrawn** - The order hold status has been lifted and the corresponding approval sheet got removed.<br />\n**replaced** - The approval sheet got replaced with the new suggestions.<br />\n**refused** - The changes to the approval sheet from the user got rejected by the customer support. Such case requires a complete design change by the user.<br />\n",
+        "example": "waiting_for_action"
+      },
       "ApprovalSheet": {
         "type": "object",
         "title": "ApprovalSheet",
@@ -5976,28 +5682,222 @@
             "example": 2
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "waiting_for_action",
-              "approved"
-            ],
-            "example": "waiting_for_action"
+            "$ref": "#/components/schemas/ApprovalSheetStatuses"
           },
           "confirm_hash": {
             "type": "string",
             "example": "a14e51714be01f98487fcf5131727d31"
           },
+          "group_hash": {
+            "type": "string",
+            "description": "Common identifier used to group all approval sheets that relate to the same design.",
+            "example": "5d41402abc4b2a76b9719d911017c592"
+          },
           "submitted_design": {
             "type": "string",
+            "nullable": true,
             "example": "https://s3.staging.printful.com/upload/approval-design/ae/ae7b3d3e965c238b3e5c1a4e15696f07_l"
           },
           "recommended_design": {
             "type": "string",
+            "nullable": true,
             "example": "https://s3.staging.printful.com/upload/approval-design/aa/aaf9e1c6b32cb7a2c04d2746108d4124_l"
           },
           "approval_sheet": {
             "type": "string",
             "example": "https://www.printful.test/dashboard/order/download-approval-sheet-pdf?confirmationHash=13aa35854bfc67a85b7ce231aef2ae8"
+          },
+          "placement": {
+            "description": "Placement of the design on the product.",
+            "type": "string",
+            "example": "embroidery_chest_left"
+          },
+          "placement_label": {
+            "description": "Human readable label of the placement.",
+            "type": "string",
+            "example": "Left chest"
+          },
+          "product_name": {
+            "description": "Name of the product the design is placed on, including the variant.",
+            "type": "string",
+            "example": "Unisex Staple T-Shirt | Bella + Canvas 3001 (White / M)"
+          },
+          "product_image_url": {
+            "description": "URL to an image of the product.",
+            "type": "string",
+            "example": "https://s3-printful.stage.printful.dev/products/71/4011_1752236284.jpg"
+          },
+          "variant_color": {
+            "description": "Name of the product variant's color.",
+            "type": "string",
+            "example": "White"
+          },
+          "variant_color_code": {
+            "description": "Hex code of the product variant's color.",
+            "type": "string",
+            "example": "#ffffff"
+          },
+          "original_artwork_url": {
+            "description": "URL to the original artwork submitted by the customer.",
+            "type": "string",
+            "example": "https://s3-printful.stage.printful.dev/files/d82/d827a70449bfc968564db9404259cb63_preview.png"
+          },
+          "thread_colors": {
+            "description": "Thread colors recommended for the design, grouped by placement-specific thread color option.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "Object keyed by a placement-specific thread color option (e.g. \"thread_colors_chest_left\"), mapping to an array of hex color codes.",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "example": [
+              {
+                "thread_colors_chest_left": ["#FFFFFF"]
+              }
+            ]
+          },
+          "recommended_design_rotation": {
+            "description": "Recommended rotation, in degrees, to apply to the design.",
+            "type": "string",
+            "example": ""
+          },
+          "advanced_embroidery_details": {
+            "description": "Additional details for advanced embroidery placements. Null if not applicable.",
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "digitiser_comment": {
+                "description": "Comment left by the digitiser.",
+                "type": "string",
+                "example": "Some parts of the design were simplified to make them embroiderable."
+              },
+              "additional_design_urls": {
+                "description": "URLs to additional design files.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "https://s3-printful.stage.printful.dev/files/d82/d827a70449bfc968564db9404258cb63_preview.png"
+                ]
+              },
+              "is_unlimited_color": {
+                "description": "Whether the design uses unlimited thread colors.",
+                "type": "boolean",
+                "example": false
+              }
+            }
+          },
+          "related_pending_approval_sheet_count": {
+            "description": "Number of other approval sheets for the same design that are still waiting for action.",
+            "type": "integer",
+            "example": 0
+          },
+          "created_at": {
+            "description": "Date and time when the approval sheet was created.",
+            "type": "string",
+            "example": "2021-01-25T10:40:19+00:00"
+          },
+          "updated_at": {
+            "description": "Date and time when the approval sheet was last updated.",
+            "type": "string",
+            "example": "2021-01-25T10:40:19+00:00"
+          },
+          "issues": {
+            "description": "List of issues detected with the submitted design.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "description": "Issue code.",
+                  "type": "integer",
+                  "example": 1
+                },
+                "topic": {
+                  "description": "Topic the issue relates to.",
+                  "type": "string",
+                  "example": "Thread color changes"
+                },
+                "description": {
+                  "description": "Description of the issue.",
+                  "type": "string",
+                  "example": "Some embroidery thread colors changed from the graphic you submitted. Too many thread colors were chosen for the graphic, and/or some of the colors can't be traced for embroidery."
+                }
+              }
+            },
+            "example": []
+          },
+          "recommended_options": {
+            "description": "Recommended option changes for the item. May be returned as null when there are no recommended changes.",
+            "type": "object",
+            "properties": {
+              "thread_colors": {
+                "description": "Recommended thread colors.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": ["#FFFFFF", "#CC3333"]
+              },
+              "embroidery_type": {
+                "description": "Recommended embroidery type.",
+                "type": "string",
+                "example": "flat"
+              }
+            },
+            "additionalProperties": true
+          },
+          "item_options": {
+            "description": "Options selected for the order item, such as thread colors used for embroidery. Additional placement-specific thread color options (e.g. \"thread_colors_<placement>\", \"text_thread_colors_<placement>\") may be present depending on the product's placements.",
+            "type": "object",
+            "properties": {
+              "lifelike": {
+                "description": "Whether lifelike embroidery is enabled.",
+                "type": "boolean",
+                "example": false
+              },
+              "embroidery_type": {
+                "description": "Type of embroidery selected.",
+                "type": "string",
+                "example": "flat"
+              },
+              "thread_colors": {
+                "description": "Thread colors selected for the design.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": []
+              },
+              "text_thread_colors": {
+                "description": "Thread colors selected for embroidered text.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": []
+              },
+              "thread_colors_3d": {
+                "description": "Thread colors selected for 3D puff embroidery.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": []
+              }
+            },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       },
@@ -6015,20 +5915,14 @@
             "items": {
               "type": "string"
             },
-            "example": [
-              "package_shipped",
-              "stock_updated"
-            ]
+            "example": ["package_shipped", "stock_updated"]
           },
           "params": {
             "type": "object",
             "additionalProperties": true,
             "example": {
               "stock_updated": {
-                "product_ids": [
-                  5,
-                  12
-                ]
+                "product_ids": [5, 12]
               }
             }
           }
@@ -6409,9 +6303,7 @@
         "type": "object",
         "title": "SyncProduct",
         "description": "Information about the SyncProduct",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "properties": {
           "id": {
             "description": "SyncProduct ID",
@@ -6462,11 +6354,7 @@
         "type": "object",
         "title": "SyncProductDeleted",
         "description": "Information about the SyncProductDeleted",
-        "required": [
-          "id",
-          "external_id",
-          "name"
-        ],
+        "required": ["id", "external_id", "name"],
         "properties": {
           "id": {
             "description": "SyncProduct ID",
@@ -7493,6 +7381,10 @@
                         "message": {
                           "type": "string",
                           "example": "Design approval submitted successfully"
+                        },
+                        "approval_sheet_count": {
+                          "type": "integer",
+                          "example": "Quantity of affected approval sheets"
                         }
                       }
                     }
@@ -7615,10 +7507,7 @@
               "type": "object",
               "title": "Product",
               "description": "Information about the Sync Product",
-              "required": [
-                "sync_product",
-                "sync_variants"
-              ],
+              "required": ["sync_product", "sync_variants"],
               "properties": {
                 "sync_product": {
                   "$ref": "#/components/schemas/SyncProduct"
@@ -7629,10 +7518,7 @@
                   "items": {
                     "allOf": [
                       {
-                        "required": [
-                          "files",
-                          "variant_id"
-                        ]
+                        "required": ["files", "variant_id"]
                       },
                       {
                         "$ref": "#/components/schemas/SyncVariant"
@@ -7666,15 +7552,10 @@
                       {
                         "anyOf": [
                           {
-                            "required": [
-                              "files",
-                              "variant_id"
-                            ]
+                            "required": ["files", "variant_id"]
                           },
                           {
-                            "required": [
-                              "id"
-                            ]
+                            "required": ["id"]
                           }
                         ],
                         "properties": {
@@ -7731,10 +7612,7 @@
             "schema": {
               "allOf": [
                 {
-                  "required": [
-                    "files",
-                    "variant_id"
-                  ]
+                  "required": ["files", "variant_id"]
                 },
                 {
                   "$ref": "#/components/schemas/SyncVariant"
@@ -7848,10 +7726,7 @@
               "type": "object",
               "title": "CalculateShippingRates",
               "description": "Order information",
-              "required": [
-                "recipient",
-                "items"
-              ],
+              "required": ["recipient", "items"],
               "properties": {
                 "recipient": {
                   "$ref": "#/components/schemas/ShippingRatesAddress"
@@ -7887,9 +7762,7 @@
               "type": "object",
               "title": "TaxRequest",
               "description": "Tax address information",
-              "required": [
-                "recipient"
-              ],
+              "required": ["recipient"],
               "properties": {
                 "recipient": {
                   "$ref": "#/components/schemas/TaxAddressInfo"
@@ -7926,22 +7799,12 @@
                   "items": {
                     "type": "integer"
                   },
-                  "example": [
-                    4012,
-                    4013,
-                    4014,
-                    4017,
-                    4018,
-                    4019
-                  ]
+                  "example": [4012, 4013, 4014, 4017, 4018, 4019]
                 },
                 "format": {
                   "type": "string",
                   "description": "Generated file format. PNG will have a transparent background, JPG will have a smaller file size.",
-                  "enum": [
-                    "jpg",
-                    "png"
-                  ],
+                  "enum": ["jpg", "png"],
                   "example": "jpg"
                 },
                 "width": {
@@ -7993,16 +7856,12 @@
               "type": "object",
               "title": "Approval Sheet",
               "description": "Change the status of the approval sheet",
-              "required": [
-                "status"
-              ],
+              "required": ["status"],
               "properties": {
                 "status": {
                   "type": "string",
                   "example": "approved",
-                  "enum": [
-                    "approved"
-                  ]
+                  "enum": ["approved"]
                 }
               }
             }
@@ -8018,10 +7877,7 @@
               "type": "object",
               "title": "Approval Sheet Changes",
               "description": "Changes to a design in an Approval sheet",
-              "required": [
-                "message",
-                "files"
-              ],
+              "required": ["message", "files"],
               "properties": {
                 "message": {
                   "type": "string",
@@ -8033,9 +7889,7 @@
                   "description": "An array of images to help describe the requested changes. Consider using the mockup generator to generate these images. The array is required but can be empty if you do not want to email any images.",
                   "items": {
                     "type": "object",
-                    "required": [
-                      "url"
-                    ],
+                    "required": ["url"],
                     "properties": {
                       "url": {
                         "type": "string",
@@ -8061,10 +7915,7 @@
                   "$ref": "#/components/schemas/WebhookInfo"
                 },
                 {
-                  "required": [
-                    "url",
-                    "types"
-                  ]
+                  "required": ["url", "types"]
                 }
               ]
             }
