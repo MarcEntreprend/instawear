@@ -634,7 +634,9 @@ export default function ProductPage({
               <span
                 className="text-2xl font-extrabold"
                 style={{
-                  color: dealLive ? "var(--color-accent-ink)" : "var(--color-ink)",
+                  color: dealLive
+                    ? "var(--color-accent-ink)"
+                    : "var(--color-ink)",
                 }}
               >
                 {formatAmount(unitPrice, currencySymbol)}
@@ -656,6 +658,8 @@ export default function ProductPage({
                 <DealCountdown endsAt={product.dealEndsAt} />
               </div>
             )}
+
+            {/* Pastille couleur = actuellement   variant image (avec design) */}
 
             <div className="mt-6">
               <p
@@ -693,11 +697,7 @@ export default function ProductPage({
                       aria-label={
                         blockedReason ? `${label} — ${blockedReason}` : label
                       }
-                      title={
-                        blocked
-                          ? `${label} — ${blockedReason}`
-                          : label
-                      }
+                      title={blocked ? `${label} — ${blockedReason}` : label}
                       className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
                       style={{
                         background: thumb ? undefined : "#e5e0d8",
