@@ -188,11 +188,19 @@ export function countStoredApplications(
   ).length;
 }
 
+export interface MockupResultItem {
+  variant_ids?: unknown;
+  mockup_url?: unknown;
+  placement?: unknown;
+}
+
 export interface StorageApplication {
   /** Copies des variants : `image` = URL storage BRUTE là où apparié. */
   variants: any[];
-  /** Couleurs appariées (ordre variants) : { color, url }. */
-  applied: Array<{ color: string; url: string }>;
+  /** Couleurs appariées : { color, url, stored }. `stored=false` = repli
+   *  brut (pas de storage pour ce hex) : visible mais non compté (dot) et
+   *  pourrissant (tmp/) — à régénérer, jamais à considérer comme acquis. */
+  applied: Array<{ color: string; url: string; stored: boolean }>;
   /** Ids résultat sans variante DB (forensique, capés). */
   unmatchedVids: string[];
   /** Hexes génération sans variante DB (forensique, capés). */
@@ -249,18 +257,54 @@ export function applyStorageToVariants(
     }
   });
 
-  // URL storage par vid résultat (premier gagne).
-  const vidToStorage = new Map<string, string>();
+  // URL par vid résultat : STORAGE d'abord (hexOfVid + hexToStorage),
+  // repli brut tracé (stored:false) si pas de storage pour ce hex.
+  // Préférence front (décision : les variantes n'affichent QUE du front) :
+  // une vue back ne coiffe jamais un slot tant qu'une vue front existe
+  // pour ce vid (repli documenté sinon). Premier arrivé sinon.
+  const isFrontPlacement = (p: unknown): boolean =>
+    typeof p === "string" && p.trim().toLowerCase() === "front";
+  const vidToStorage = new Map<
+    string,
+    { url: string; stored: boolean; front: boolean }
+  >();
   for (const m of items) {
     if (m == null || typeof m !== "object") continue;
-    const url = (m as Record<string, unknown>).mockup_url;
+    const rec = m as Record<string, unknown>;
+    const url = rec.mockup_url;
     if (typeof url !== "string" || url.length === 0) continue;
-    const vids = (m as Record<string, unknown>).variant_ids;
+    const front = isFrontPlacement(rec.placement);
+    const vids = rec.variant_ids;
     if (!Array.isArray(vids)) continue;
     for (const rawVid of vids) {
       if (rawVid == null || rawVid === "") continue;
       const k = String(rawVid);
-      if (!vidToStorage.has(k)) vidToStorage.set(k, url);
+      const cur = vidToStorage.get(k);
+      let hex: string | null = null;
+      try {
+        hex = hexOfVid(k);
+      } catch {
+        hex = null;
+      }
+      const storedUrl =
+        typeof hex === "string" && hex.length > 0
+          ? (hexToStorage as Record<string, string>)[hex]
+          : undefined;
+      const cand =
+        typeof storedUrl === "string" && storedUrl.length > 0
+          ? { url: storedUrl, stored: true, front }
+          : { url, stored: false, front };
+      if (!cur) {
+        vidToStorage.set(k, cand);
+        continue;
+      }
+      if (cand.stored && !cur.stored) {
+        vidToStorage.set(k, cand);
+        continue;
+      }
+      if (cand.stored === cur.stored && cand.front && !cur.front) {
+        vidToStorage.set(k, cand);
+      }
     }
   }
 
@@ -272,7 +316,7 @@ export function applyStorageToVariants(
   });
 
   // Passe 1 : IDs stables.
-  for (const [vid, url] of vidToStorage) {
+  for (const [vid, entry] of vidToStorage) {
     const idx = byVid.get(vid);
     if (idx == null) {
       if (out.unmatchedVids.length < 20) out.unmatchedVids.push(vid);
@@ -282,8 +326,12 @@ export function applyStorageToVariants(
     if (assigned.has(idx)) continue;
     assigned.add(idx);
     const rec = variants[idx] as Record<string, unknown>;
-    rec.image = url;
-    out.applied.push({ color: String(rec.color ?? ""), url });
+    rec.image = entry.url;
+    out.applied.push({
+      color: String(rec.color ?? ""),
+      url: entry.url,
+      stored: entry.stored,
+    });
   }
 
   // Passe 2 : repli hex exact (historique) pour les non-appariées.
@@ -298,7 +346,7 @@ export function applyStorageToVariants(
     assigned.add(i);
     consumedHexes.add(String(rec.color ?? ""));
     rec.image = url;
-    out.applied.push({ color: String(rec.color ?? ""), url });
+    out.applied.push({ color: String(rec.color ?? ""), url, stored: true });
   });
   for (const h of Object.keys(hexToStorage || {})) {
     if (!consumedHexes.has(h) && out.unmatchedHexes.length < 20) {

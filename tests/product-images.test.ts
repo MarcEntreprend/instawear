@@ -160,6 +160,78 @@ test("applyStorageToVariants: entrées hostiles", () => {
   assert.deepEqual(out2.variants, []);
 });
 
+test("applyStorageToVariants Passe 1 : storage avant brut (vid connu)", () => {
+  const RAW = "https://printful-upload/tmp/front-1.jpg";
+  const STORED = ST("aa");
+  const existing = [
+    {
+      color: "#1a1a1a",
+      image: BLANK,
+      sizes: { S: { catalog_variant_id: 49804 } },
+    },
+  ];
+  const out = applyStorageToVariants(
+    existing,
+    [{ variant_ids: [49804], mockup_url: RAW, placement: "front" }],
+    () => "#1a1a1a",
+    { "#1a1a1a": STORED },
+  );
+  assert.equal(out.variants[0].image, STORED);
+  assert.equal(out.applied.length, 1);
+  assert.equal(out.applied[0].stored, true);
+});
+
+test("applyStorageToVariants Passe 1 : repli brut tracé sans storage", () => {
+  const RAW = "https://printful-upload/tmp/front-1.jpg";
+  const existing = [
+    {
+      color: "#1a1a1a",
+      image: BLANK,
+      sizes: { S: { catalog_variant_id: 49804 } },
+    },
+  ];
+  const out = applyStorageToVariants(
+    existing,
+    [{ variant_ids: [49804], mockup_url: RAW, placement: "front" }],
+    () => null,
+    {},
+  );
+  assert.equal(out.variants[0].image, RAW);
+  assert.equal(out.applied[0].stored, false);
+});
+
+test("applyStorageToVariants : front coiffe back, jamais l'inverse", () => {
+  const FRONT = "https://printful-upload/tmp/front-1.jpg";
+  const BACK = "https://printful-upload/tmp/back-1.jpg";
+  const mk = (color: string, id: number) => ({
+    color,
+    image: BLANK,
+    sizes: { S: { catalog_variant_id: id } },
+  });
+  // Back arrivé premier, front second : front gagne quand même.
+  const out = applyStorageToVariants(
+    [mk("#1a1a1a", 1)],
+    [
+      { variant_ids: [1], mockup_url: BACK, placement: "back" },
+      { variant_ids: [1], mockup_url: FRONT, placement: "front" },
+    ],
+    () => null,
+    {},
+  );
+  assert.equal(out.variants[0].image, FRONT);
+  // Front seul d'abord, back ensuite : front gardé.
+  const out2 = applyStorageToVariants(
+    [mk("#1a1a1a", 1)],
+    [
+      { variant_ids: [1], mockup_url: FRONT, placement: "front" },
+      { variant_ids: [1], mockup_url: BACK, placement: "back" },
+    ],
+    () => null,
+    {},
+  );
+  assert.equal(out2.variants[0].image, FRONT);
+});
+
 test("countStoredApplications: seul le storage compte (repli thumb exclu)", () => {
   assert.equal(
     countStoredApplications([

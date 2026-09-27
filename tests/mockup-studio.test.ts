@@ -390,6 +390,31 @@ test("generate-mockups accepte placements (validés, max 5, défaut front)", () 
   assert.ok(syncSource.includes("requestedPl"));
 });
 
+test("variantes : image = storage, front-only (jamais brut, jamais back)", () => {
+  // Passe 1 résout storage via hexOfVid (plus de mockup_url brut direct).
+  const piSource = readFileSync(
+    join(root, "supabase/functions/sync-printful/_shared/productImages.ts"),
+    "utf-8",
+  );
+  assert.ok(piSource.includes("hexOfVid(k)"), "résolution storage par vid");
+  assert.ok(piSource.includes("stored: true"), "flag stocké");
+  assert.ok(piSource.includes("stored: false"), "repli brut tracé");
+  // Back ne coiffe jamais un slot variante tant qu'un front existe.
+  assert.ok(piSource.includes("isFrontPlacement"), "préférence front");
+  assert.ok(
+    piSource.includes("cand.front && !cur.front"),
+    "front remplace back",
+  );
+});
+
+test("galerie : URLs storées, jamais de tmp/ pourrissant", () => {
+  assert.ok(syncSource.includes("rawToStorage"), "mapping brut→storage");
+  assert.ok(
+    syncSource.includes("rawToStorage.get(e.url) ?? e.url"),
+    "candidats réécrits",
+  );
+});
+
 test("styles lifestyle : option_groups intersectés, legacy sinon", () => {
   assert.ok(syncSource.includes("selectMockupStyles("), "sélection pure");
   assert.ok(syncSource.includes("prep.optionGroups"), "groupes printfiles");

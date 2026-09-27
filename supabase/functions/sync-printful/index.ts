@@ -1030,6 +1030,21 @@ async function finalizeMockupTask(
   // blanks fantômes, jamais de brut, choix admin persistés (kept).
   // Legacy `appendGallery` : absorbé (la méta EST la mémoire : customs
   // conservés, retirés jamais ré-ajoutés) — paramètre conservé pour compat.
+  // Brut → storage : les candidats galerie sont réécrits vers l'URL storée
+  // quand elle existe (jamais de tmp/ pourrissant en galerie ; repli brut
+  // conservé si upload raté pour cette vue).
+  const rawToStorage = new Map<string, string>();
+  for (const ins of mockupInserts) {
+    if (
+      typeof ins?.mockup_url === "string" &&
+      typeof ins?.storage_url === "string" &&
+      ins.mockup_url.length > 0 &&
+      ins.storage_url.length > 0 &&
+      !rawToStorage.has(ins.mockup_url)
+    ) {
+      rawToStorage.set(ins.mockup_url, ins.storage_url);
+    }
+  }
   const galleryCandidates: Array<{
     url: string;
     color?: string | null;
@@ -1039,7 +1054,7 @@ async function finalizeMockupTask(
   for (const [hex, entries] of colorMockups) {
     for (const e of entries) {
       galleryCandidates.push({
-        url: e.url,
+        url: rawToStorage.get(e.url) ?? e.url,
         color: hex,
         placement: e.placement,
         source: "generated",
@@ -1053,7 +1068,7 @@ async function finalizeMockupTask(
     for (const e of (Array.isArray((m as any).extra) ? (m as any).extra : [])) {
       const u = (e as any)?.url;
       if (typeof u === "string" && u) {
-        galleryCandidates.push({ url: u, color: null, placement, source: "generated" });
+        galleryCandidates.push({ url: rawToStorage.get(u) ?? u, color: null, placement, source: "generated" });
       }
     }
   }
