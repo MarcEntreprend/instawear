@@ -172,6 +172,30 @@ export function selectMockupStyles(
 }
 
 /**
+ * Placements "front" (seule vue autorisée en section couleur).
+ * Normalisé : casse/espaces ignorées.
+ */
+export function isFrontPlacement(p: unknown): boolean {
+  return typeof p === "string" && p.trim().toLowerCase() === "front";
+}
+
+/**
+ * URL temporaire Printful (pourrissante : `.../tmp/...`, aucune garantie
+ * de durée). Ne doit JAMAIS rester en galerie ni en variante — le storage
+ * est la seule forme persistante.
+ */
+export function isPrintfulTmpUrl(u: unknown): boolean {
+  if (typeof u !== "string" || u.length === 0) return false;
+  let path = "";
+  try {
+    path = new URL(u).pathname;
+  } catch {
+    return false;
+  }
+  return path.includes("/tmp/");
+}
+
+/**
  * Compte les applications réellement STOCKÉES (vs repli temporaire Printful).
  * `applied[].url` est l'URL storage BRUTE au stade finalize (avant
  * displayImageUrl) : seules celles reconnues par isStorageMockupUrl
@@ -259,11 +283,10 @@ export function applyStorageToVariants(
 
   // URL par vid résultat : STORAGE d'abord (hexOfVid + hexToStorage),
   // repli brut tracé (stored:false) si pas de storage pour ce hex.
-  // Préférence front (décision : les variantes n'affichent QUE du front) :
-  // une vue back ne coiffe jamais un slot tant qu'une vue front existe
-  // pour ce vid (repli documenté sinon). Premier arrivé sinon.
-  const isFrontPlacement = (p: unknown): boolean =>
-    typeof p === "string" && p.trim().toLowerCase() === "front";
+  // FRONT-ONLY (décision) : seules les vues front alimentent les slots
+  // variantes — les autres placements (back…) vont en galerie uniquement,
+  // jamais en section couleur. Sans front pour ce vid : slot non pourvu
+  // (ancienne image gardée, shortfall visible dans applied/stored).
   const vidToStorage = new Map<
     string,
     { url: string; stored: boolean; front: boolean }
@@ -273,12 +296,17 @@ export function applyStorageToVariants(
     const rec = m as Record<string, unknown>;
     const url = rec.mockup_url;
     if (typeof url !== "string" || url.length === 0) continue;
-    const front = isFrontPlacement(rec.placement);
+    // Placement absent = front (même défaut que colorMockups : les vieux
+    // résultats sans champ nourrissent toujours les slots, pas de régression).
+    const front =
+      rec.placement == null || isFrontPlacement(rec.placement);
     const vids = rec.variant_ids;
     if (!Array.isArray(vids)) continue;
     for (const rawVid of vids) {
       if (rawVid == null || rawVid === "") continue;
       const k = String(rawVid);
+      // Front-only strict : les vues non-front ne nourrissent aucun slot.
+      if (!front) continue;
       const cur = vidToStorage.get(k);
       let hex: string | null = null;
       try {

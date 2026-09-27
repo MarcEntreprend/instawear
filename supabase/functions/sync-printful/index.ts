@@ -890,6 +890,17 @@ async function finalizeMockupTask(
     };
   }
 
+  // Ordre déterministe par couleur : FRONT d'abord (l'ordre brut du
+  // résultat ne décide plus de rien — c'est lui qui avait mis un back en
+  // `{hex}.jpg`). Tri stable : le reste garde l'ordre Printful.
+  for (const list of colorMockups.values()) {
+    list.sort((a, b) => {
+      const fa = typeof a?.placement === "string" && a.placement.trim().toLowerCase() === "front" ? 0 : 1;
+      const fb = typeof b?.placement === "string" && b.placement.trim().toLowerCase() === "front" ? 0 : 1;
+      return fa - fb;
+    });
+  }
+
   try {
     await supabaseAdmin.storage.createBucket("product-mockups", {
       public: true,
