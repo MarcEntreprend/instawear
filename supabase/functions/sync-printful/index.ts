@@ -35,6 +35,7 @@ import {
   applyStorageToVariants,
   isStorageMockupUrl,
   countStoredApplications,
+  selectMockupStyles,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -484,6 +485,9 @@ interface MockupPrepare {
   variantIdToColor?: Map<number, string>;
   /** Entrées printfiles brutes (géométrie par placement, Phase 3). */
   printfiles?: any[];
+  /** Styles de mockups dispos (option_groups printfiles : Flat, Flat
+   *  Lifestyle, Men's… ; vide = endpoint muet → legacy). */
+  optionGroups?: string[];
 }
 
 // Étapes 1-7 du flux legacy : produit DB, détail store, catalogue,
@@ -580,6 +584,7 @@ async function prepareMockupTask(
   let printAreaHeight = 2400;
   let placement = "front";
   let printfiles: any[] = [];
+  let optionGroups: string[] = [];
   try {
     const pfHeaders: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
@@ -598,6 +603,11 @@ async function prepareMockupTask(
       const placementKeys = Object.keys(availablePlacements);
       if (placementKeys.length > 0) placement = placementKeys[0];
       printfiles = result.printfiles ?? [];
+      if (Array.isArray(result.option_groups)) {
+        optionGroups = result.option_groups.filter(
+          (g: unknown) => typeof g === "string" && (g as string).trim().length > 0,
+        );
+      }
       if (printfiles.length > 0) {
         const firstPf = printfiles[0];
         if (firstPf.width) printAreaWidth = firstPf.width;
@@ -620,6 +630,7 @@ async function prepareMockupTask(
     printAreaHeight,
     variantIdToColor,
     printfiles,
+    optionGroups,
   };
 }
 
@@ -671,6 +682,9 @@ export interface MockupTaskOverrides {
   width?: number;
   files?: { placement: string; image_url: string; position: Record<string, number> }[];
   productTemplateId?: number;
+  /** Styles demandés (option_groups Printful : Flat, Flat Lifestyle…).
+   *  Vide/absent = legacy (aucun option_groups envoyé). */
+  styles?: string[];
 }
 
 // Étape 8 : crée la tâche Printful (rapide, sans poll).
@@ -699,6 +713,12 @@ async function createMockupTask(
     format: overrides?.format || "jpg",
     ...(overrides?.width ? { width: overrides.width } : {}),
     product_options: { lifelike: true },
+    // Styles (doc "Choosing mockup styles") : sans option_groups Printful
+    // ne génère que le premier mockup (flat front) — d'où des galeries sans
+    // vues portées. Vide = legacy exact.
+    ...(overrides?.styles && overrides.styles.length > 0
+      ? { option_groups: overrides.styles }
+      : {}),
     ...(overrides?.productTemplateId
       ? { product_template_id: overrides.productTemplateId }
       : {
@@ -885,6 +905,10 @@ async function finalizeMockupTask(
   const extraGalleryUrls: string[] = [];
 
   for (const [hex, entries] of colorMockups) {
+    // Compteur par (couleur, placement) : 2 styles × même placement
+    // (flat + lifestyle front) partageraient sinon le même chemin et
+    // s'écraseraient (upsert). Legacy préservé pour la 1re entrée.
+    const seenPerPlacement = new Map<string, number>();
     for (const { url: mockupUrl, placement } of entries) {
       try {
         const imgRes = await safeFetch(mockupUrl, { headers: { Accept: "image/*" } });
@@ -895,11 +919,18 @@ async function finalizeMockupTask(
         const imgBuffer = await imgRes.arrayBuffer();
         const safeHex = hex.replace("#", "");
         // Chemin stable legacy pour front (URLs existantes préservées) ;
-        // suffixé par placement sinon (front+back cohabitent, pas d'écrasement).
+        // suffixé par placement sinon (front+back cohabitent, pas d'écrasement) ;
+        // suffixé -2, -3… pour les vues suivantes même (couleur, placement)
+        // (multi-styles : flat + lifestyle front cohabitent, déterministe à
+        // ordre de résultat stable).
+        const n = (seenPerPlacement.get(placement) ?? 0) + 1;
+        seenPerPlacement.set(placement, n);
         const storagePath =
-          placement === "front"
-            ? `${productId}/${safeHex}.jpg`
-            : `${productId}/${safeHex}-${placement}.jpg`;
+          n === 1
+            ? placement === "front"
+              ? `${productId}/${safeHex}.jpg`
+              : `${productId}/${safeHex}-${placement}.jpg`
+            : `${productId}/${safeHex}-${placement}-${n}.jpg`;
 
         const { error: uploadErr } = await supabaseAdmin.storage
           .from("product-mockups")
@@ -1046,7 +1077,10 @@ async function finalizeMockupTask(
     galleryFromMeta.length > 0
       ? galleryFromMeta
       : [...new Set(newGallery)].slice(0, 20);
-  const firstMockupUrl = Object.values(storageUrls)[0] || "";
+  // Image principale : JAMAIS touchée auto (décision produit : le main =
+  // choix d'import/edit, il persiste aux générations ; avant, le premier
+  // mockup l'écrasait). `keepMainImage` accepté en opt (compat, no-op).
+  void opts?.keepMainImage;
 
   const updatePayload: Record<string, any> = {
     variants: updatedVariants,
@@ -1055,10 +1089,6 @@ async function finalizeMockupTask(
   };
   if (newColorImages.length > 0) {
     updatePayload.color_images = newColorImages;
-  }
-  // Legacy : image principale = premier mockup. Opt-in keepMainImage.
-  if (firstMockupUrl && !opts?.keepMainImage) {
-    updatePayload.image = displayImageUrl(firstMockupUrl);
   }
 
   // Ledger d'abord : même si l'écriture produit échoue, la preuve de
@@ -2293,7 +2323,8 @@ export default {
       // body.options (Phase 3, tout optionnel, validé ci-dessous) :
       // placements (front/back...), format (jpg/png), width (50-2000),
       // colors (clés variantes), product_template_id, appendGallery,
-      // keepMainImage.
+      // keepMainImage, styles (option_groups : Flat, Flat Lifestyle… ;
+      // défaut Flat + Flat Lifestyle intersectés au cas par cas).
       if (body.action === "queue-mockups") {
         const { data: prodSettings, error: podErr } = await supabaseAdmin
           .from("pod_settings")
@@ -2353,6 +2384,15 @@ export default {
         }
         const optAppendGallery = rawOpts.appendGallery === true;
         const optKeepMain = rawOpts.keepMainImage === true;
+        // Styles explicites (option_groups) : validés comme chaînes, capés ;
+        // l'intersection avec les groupes réels se fait par produit (prep).
+        const optStylesRaw: string[] | undefined = Array.isArray(rawOpts.styles)
+          ? [...new Set(
+              rawOpts.styles
+                .filter((x: any) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= 40)
+                .map((x: string) => x.trim()),
+            )].slice(0, 4)
+          : undefined;
         const hasOverrides =
           optPlacements !== undefined ||
           optFormat !== undefined ||
@@ -2443,16 +2483,23 @@ export default {
                   height: prep.printAreaHeight!,
                 })
               : undefined;
+            // Styles : défaut Flat + Flat Lifestyle intersectés aux groupes
+            // réels du blank (legacy si aucun match) ; explicites si fournis.
+            const jobStyles = selectMockupStyles(
+              optStylesRaw ?? undefined,
+              prep.optionGroups ?? [],
+            );
             const created = await createMockupTask(
               supabaseAdmin, apiKey, storeId,
               prep.catalogProductId!, vids, prep.printFileUrl!,
               prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
-              hasOverrides
+              hasOverrides || jobStyles.length > 0
                 ? {
                     ...(optFormat ? { format: optFormat } : {}),
                     ...(optWidth ? { width: optWidth } : {}),
                     ...(files ? { files } : {}),
                     ...(optTemplateId ? { productTemplateId: optTemplateId } : {}),
+                    ...(jobStyles.length > 0 ? { styles: jobStyles } : {}),
                   }
                 : undefined,
             );
@@ -2502,6 +2549,7 @@ export default {
                   ...(optTemplateId ? { product_template_id: optTemplateId } : {}),
                   ...(optAppendGallery ? { appendGallery: true } : {}),
                   ...(optKeepMain ? { keepMainImage: true } : {}),
+                  ...(jobStyles.length > 0 ? { styles: jobStyles } : {}),
                 },
                 attempts: 0,
               })
@@ -2813,24 +2861,43 @@ export default {
           ].slice(0, 5);
           if (clean.length > 0) requestedPl = clean;
         }
+        // Styles demandés (défaut Flat + Flat Lifestyle) : intersectés avec
+        // les option_groups réels du blank (legacy si aucun match : tâche
+        // strictement identique à avant). Sans UI dédiée pour l'instant :
+        // l'appelant passe ?styles=[...] pour forcer.
+        let requestedStyles: string[] = [];
+        if (body.styles !== undefined) {
+          if (!Array.isArray(body.styles)) {
+            return new Response(
+              JSON.stringify({ error: "styles invalide (tableau de chaînes)" }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+            );
+          }
+          requestedStyles = selectMockupStyles(body.styles, prep.optionGroups);
+        } else {
+          requestedStyles = selectMockupStyles(undefined, prep.optionGroups);
+        }
         const created = await createMockupTask(
           supabaseAdmin, apiKey, storeId,
           prep.catalogProductId!, prep.uniqueVariantIds!, prep.printFileUrl!,
           prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
-          requestedPl
-            ? {
-                files: buildMockupFiles(
-                  prep.printFileUrl!,
-                  requestedPl,
-                  prep.printfiles || [],
-                  {
-                    placement: prep.placement!,
-                    width: prep.printAreaWidth!,
-                    height: prep.printAreaHeight!,
-                  },
-                ),
-              }
-            : undefined,
+          {
+            ...(requestedPl
+              ? {
+                  files: buildMockupFiles(
+                    prep.printFileUrl!,
+                    requestedPl,
+                    prep.printfiles || [],
+                    {
+                      placement: prep.placement!,
+                      width: prep.printAreaWidth!,
+                      height: prep.printAreaHeight!,
+                    },
+                  ),
+                }
+              : {}),
+            ...(requestedStyles.length > 0 ? { styles: requestedStyles } : {}),
+          },
         );
         if (!created.ok) {
           return new Response(
@@ -2876,6 +2943,7 @@ export default {
             unmatchedVids: fin.unmatchedVids ?? [],
             unmatchedHexes: fin.unmatchedHexes ?? [],
             placements: requestedPl ?? [prep.placement!],
+            styles: requestedStyles,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );

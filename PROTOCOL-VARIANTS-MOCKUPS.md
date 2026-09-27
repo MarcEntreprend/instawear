@@ -88,7 +88,7 @@
 3. **Aperçu brut** (artwork seul) — dernier recours, appelé à disparaître au fil des générations.
 4. **Placeholder local** (`missing-item.svg`, `onError` + garde anti-boucle partout).
 
-Champ brut stocké en interne (`rawPreview`, jamais persisté). Galerie = union (frais d'abord, storage manquants ensuite, cap 20 ; repair cap 12) **sans jamais la vider** ; principale = premier mockup sauf opt-out. Carte produit : image principale, variante active si filtre couleur. Page produit : cadre suit la variante (`variantFrameImage`), galerie = `[image, ...variantMockups, ...gallery]`, swatches = `variant.image`.
+Champ brut stocké en interne (`rawPreview`, jamais persisté). Galerie = union (frais d'abord, storage manquants ensuite, cap 20 ; repair cap 12) **sans jamais la vider**, **sans dédupliquer les visuels avec design** (doublons curatés affichés, retrait via `kept` ; seuls les blanks sont dédupliqués) ; principale = choix import/edit (jamais auto) sauf opt-out. Carte produit : image principale, variante active si filtre couleur. Page produit : cadre suit la variante (`variantFrameImage`), galerie = `[image, ...variantMockups, ...gallery]`, swatches = `variant.image`.
 
 ---
 
@@ -108,6 +108,8 @@ Champ brut stocké en interne (`rawPreview`, jamais persisté). Galerie = union 
 - **Déclencheurs** : bouton ligne "Générer mockups" (icône Sparkles, `ProductsPage`) = `generate-mockups` **synchrone** (prépare → crée → attend → finalise → alerte) ; file `queueMockups` + `mockup-worker` = **manuel uniquement** (vue Studio neutralisée).
 - **Cible** : 1 id catalogue par couleur (`uniqueVariantIds`, couleurs vues une fois) ; placements (défaut `front`, ≤5) ; dimensions zone via `printfiles` (repli 1800×2400).
 - **Finalize** : ledger **d'abord**, produit ensuite ; échec produit → `ok:false` explicite (jamais de succès mensonger) ; réponse/worker/alerte exposent **`applied`** (variants affichant le visuel) + **`stored`** (sous-ensemble réellement stocké — seul à éteindre le dot admin ; `applied − stored` = replis temporaires Printful, upload storage échoué, à régénérer) + `unmatchedVids/unmatchedHexes` — **lire `stored`, pas `applied` seul ni les fichiers générés**.
+- **Image principale (`image`) : JAMAIS touchée auto** (décision : choix d'import = `thumbnail_url` Printful d'abord — le vrai main vu côté Printful — puis edit ; les générations ne l'écrasent plus, `keepMainImage` = no-op compat).
+- **Styles (vues portées)** : `create-task` accepte `option_groups` (`Flat`, `Flat Lifestyle`…) — sans eux Printful ne génère que le premier mockup (flat front). `generate-mockups`/`queue-mockups` demandent par défaut Flat + Flat Lifestyle **intersectés** aux `option_groups` réels du blank (legacy strict si aucun match) ; vues suivantes même (couleur, placement) stockées `-2`, `-3`… (legacy `{hex}.jpg` intact) et versées en galerie (`kept:true` par défaut, retrait admin via picker).
 - **Appariement** (`_shared/productImages.ts`) : IDs stables normalisés String des deux côtés, repli hex exact, orphelins listés (capés), best-effort total.
 - **Après génération** : resyncs préservent (storage gagne) ; refaire un sync complet n'efface plus le travail.
 

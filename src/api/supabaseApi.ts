@@ -1368,6 +1368,8 @@ export interface MockupQueueOptions {
   product_template_id?: number;
   appendGallery?: boolean;
   keepMainImage?: boolean;
+  /** Styles explicites (option_groups) : défaut Flat + Flat Lifestyle. */
+  styles?: string[];
 }
 
 export interface MockupTemplatePlacement {
@@ -1886,6 +1888,7 @@ export const podApi = {
   async generateMockups(
     productId: string,
     placements?: string[],
+    styles?: string[],
   ): Promise<{
     success: boolean;
     taskKey: string;
@@ -1896,6 +1899,7 @@ export const podApi = {
     unmatchedVids?: string[];
     unmatchedHexes?: string[];
     placements?: string[];
+    styles?: string[];
     gallery?: string[];
   }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
@@ -1907,6 +1911,7 @@ export const podApi = {
         action: "generate-mockups",
         productId,
         ...(placements && placements.length > 0 ? { placements } : {}),
+        ...(styles && styles.length > 0 ? { styles } : {}),
       }),
     });
     if (!res.ok) {

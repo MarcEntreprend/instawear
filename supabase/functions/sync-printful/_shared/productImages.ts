@@ -128,6 +128,50 @@ export interface MockupResultItem {
 }
 
 /**
+ * Styles de mockups par défaut (vues demandées à Printful quand l'appelant
+ * n'en précise pas) : flat (plat, stable = image variante) + lifestyle
+ * (modèle porté). Doc : sans `option_groups`, Printful ne génère que le
+ * premier mockup dispo (flat front) — d'où des galeries sans vues portées.
+ */
+export const DEFAULT_MOCKUP_STYLES: readonly string[] = [
+  "Flat",
+  "Flat Lifestyle",
+];
+
+/**
+ * Intersection demandés ∩ dispo (insensible à la casse, casse d'origine
+ * Printful conservée pour la requête). Vide = legacy (aucun option_groups
+ * envoyé, comportement strictement identique à avant). Capé à 4 (temps de
+ * tâche + rate limits Printful).
+ */
+export function selectMockupStyles(
+  desired: unknown,
+  available: unknown,
+): string[] {
+  const wantSrc = Array.isArray(desired) ? desired : [...DEFAULT_MOCKUP_STYLES];
+  const want = wantSrc
+    .filter(
+      (s): s is string =>
+        typeof s === "string" && s.trim().length > 0 && s.trim().length <= 40,
+    )
+    .map((s) => s.trim());
+  if (!Array.isArray(available) || available.length === 0) return [];
+  const byLower = new Map<string, string>();
+  for (const a of available) {
+    if (typeof a !== "string" || a.trim().length === 0) continue;
+    const k = a.trim().toLowerCase();
+    if (!byLower.has(k)) byLower.set(k, a.trim());
+  }
+  const out: string[] = [];
+  for (const w of want) {
+    const hit = byLower.get(w.toLowerCase());
+    if (hit && !out.includes(hit)) out.push(hit);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+/**
  * Compte les applications réellement STOCKÉES (vs repli temporaire Printful).
  * `applied[].url` est l'URL storage BRUTE au stade finalize (avant
  * displayImageUrl) : seules celles reconnues par isStorageMockupUrl

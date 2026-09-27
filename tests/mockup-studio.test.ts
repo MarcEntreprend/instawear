@@ -168,10 +168,13 @@ test("worker : limite respectée", () => {
 
 // ─── Non-régression finalize (contrat d'écriture legacy) ────────────────────
 
-test("finalize écrit variants[].image + color_images + gallery + image", () => {
+test("finalize écrit variants[].image + color_images + gallery (main intacte)", () => {
   assert.ok(syncSource.includes("return { ...v, image: displayUrl }"));
   assert.ok(syncSource.includes("updatePayload.color_images = newColorImages"));
-  assert.ok(syncSource.includes("updatePayload.image = displayImageUrl(firstMockupUrl)"));
+  assert.ok(
+    !syncSource.includes("updatePayload.image ="),
+    "main jamais écrasée (décision)",
+  );
   assert.ok(syncSource.includes(".from(\"product_mockups\").insert(mockupInserts)"));
   assert.ok(syncSource.includes("newGallery.push(displayUrl)"));
 });
@@ -385,4 +388,14 @@ test("réponses exposent applied/unmatched/placements/gallery", () => {
 test("generate-mockups accepte placements (validés, max 5, défaut front)", () => {
   assert.ok(syncSource.includes("body.placements"));
   assert.ok(syncSource.includes("requestedPl"));
+});
+
+test("styles lifestyle : option_groups intersectés, legacy sinon", () => {
+  assert.ok(syncSource.includes("selectMockupStyles("), "sélection pure");
+  assert.ok(syncSource.includes("prep.optionGroups"), "groupes printfiles");
+  assert.ok(syncSource.includes("option_groups: overrides.styles"), "create-task");
+  assert.ok(syncSource.includes("styles: requestedStyles"), "réponse");
+  // Anti-collision storage : 2 styles × même placement = chemins distincts.
+  assert.ok(syncSource.includes("seenPerPlacement"), "compteur par placement");
+  assert.ok(syncSource.includes("-${n}.jpg"), "suffixe -2, -3…");
 });

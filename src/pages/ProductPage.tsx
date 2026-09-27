@@ -23,6 +23,7 @@ import { usePageMeta } from "../hooks/usePageMeta";
 import { formatAmount } from "../data/currency";
 import { materialLabel } from "../data/materials";
 import { useCurrencyCode } from "../hooks/useCurrencySymbol";
+import { dedupeGallery } from "../utils/gallery";
 import ZoomImage from "../components/product/ZoomImage";
 import ThumbStrip from "../components/product/ThumbStrip";
 import ImageLightbox from "../components/product/ImageLightbox";
@@ -253,22 +254,22 @@ export default function ProductPage({
   // Les visuels avec design vivent sur les miniatures de variantes à droite.
   // Ordre : principale, mockups des variantes (données resync), galerie
   // (mockups depuis le resync — mixte avant resync, dédupliquée ici).
-  const variantMockups =
+  // Déduplication : blanks (mockup_image) seuls (anti-spam) ; les visuels
+  // AVEC design ne sont JAMAIS dédupliqués auto (décision : chaque doublon
+  // curaté s'affiche, l'admin retire via kept). Voir utils/gallery.
+  const variantMockups: string[] =
     hasVariants && product.variants
       ? product.variants
           .map((v: any) => v.mockup_image)
           .filter((u: string) => u && u.trim().length > 0)
       : [];
-  const allImages = [
-    product.image,
-    ...variantMockups,
-    ...(product.gallery || []),
-  ].filter(
-    (u: string, idx: number, arr: string[]) =>
-      u &&
-      u.trim().length > 0 &&
-      u !== PLACEHOLDER_IMG &&
-      arr.indexOf(u) === idx,
+  const blankUrls = new Set(
+    variantMockups.map((u: string) => u.trim()),
+  );
+  const allImages = dedupeGallery(
+    [product.image, ...variantMockups, ...(product.gallery || [])],
+    blankUrls,
+    PLACEHOLDER_IMG,
   );
   // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
   // mockups. L'index galerie est réinitialisé au changement de couleur.

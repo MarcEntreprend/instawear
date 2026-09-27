@@ -202,7 +202,9 @@ export default function PrintfulProductForm({
           // Pré-remplir les images depuis les données enrichies.
           // Le picker affiche les candidats calculés serveur (avec `kept`) ;
           // repli legacy si l'edge ne les fournit pas (tout coché, comme avant).
-          setMainImageUrl(data.color_images?.[0] || data.thumbnail_url || "");
+          // Main = thumbnail Printful d'abord (le vrai visuel principal vu
+          // côté Printful), color_images[0] en repli. Modifiable via le champ.
+          setMainImageUrl(data.thumbnail_url || data.color_images?.[0] || "");
 
           const serverCands: unknown = (data as any).gallery_candidates;
           if (Array.isArray(serverCands) && serverCands.length > 0) {
