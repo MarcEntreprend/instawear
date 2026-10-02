@@ -307,7 +307,9 @@ export default function CatalogSection({
       next.forEach((v, k) => current.set(k, v));
     }
     const str = current.toString();
-    const url = str ? `/?${str}` : "/";
+    // Préserve le hash (ex. #filters des overlays) : le replaceState
+    // l'effacerait sinon, cassant la fermeture au bouton retour.
+    const url = (str ? `/?${str}` : "/") + window.location.hash;
     const curUrl = window.location.pathname + window.location.search;
     if (curUrl !== url) {
       window.history.replaceState(window.history.state, "", url);
@@ -317,6 +319,35 @@ export default function CatalogSection({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Tiroir filtres : entrée d'historique (retour = fermer, pas quitter).
+  // Marqueur neutre en hash, jamais de PII ni de filtre sérialisé.
+  const pushFiltersHistory = () => {
+    try {
+      if (window.location.hash !== "#filters")
+        history.pushState({ overlay: "filters" }, "", "#filters");
+    } catch {}
+  };
+  const closeFiltersHistory = () => {
+    setIsFilterDrawerOpen(false);
+  };
+  // Fermeture via UI : si l'entrée #filters est au sommet, reculer dedans
+  // (le popstate referme) ; sinon fermer directement (entrée déjà consommée).
+  const requestCloseFilters = () => {
+    try {
+      if (window.location.hash === "#filters") history.back();
+      else setIsFilterDrawerOpen(false);
+    } catch {
+      setIsFilterDrawerOpen(false);
+    }
+  };
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.hash !== "#filters") setIsFilterDrawerOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // Mobile drawer: lock body scroll sans casser le sticky header (clip déjà géré en CSS)
   useEffect(() => {
@@ -647,7 +678,7 @@ export default function CatalogSection({
                           style: f.style === s.value ? null : s.value,
                         }))
                       }
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                       style={{
                         background:
                           filters.style === s.value
@@ -678,7 +709,7 @@ export default function CatalogSection({
                           material: f.material === m.value ? null : m.value,
                         }))
                       }
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                       style={{
                         background:
                           filters.material === m.value
@@ -708,7 +739,7 @@ export default function CatalogSection({
                         size: f.size === size ? null : size,
                       }))
                     }
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                     style={{
                       background:
                         filters.size === size
@@ -770,7 +801,10 @@ export default function CatalogSection({
           <div className="flex items-center justify-between gap-3">
             {useIsMobile() && (
               <button
-                onClick={() => setIsFilterDrawerOpen(true)}
+                onClick={() => {
+                  setIsFilterDrawerOpen(true);
+                  pushFiltersHistory();
+                }}
                 className="btn btn-secondary flex items-center gap-2"
               >
                 <SlidersHorizontal size={15} /> Filters{" "}
@@ -1120,7 +1154,7 @@ export default function CatalogSection({
             <div
               className="absolute inset-0 animate-fade-in"
               style={{ background: "rgba(15,13,10,.5)" }}
-              onClick={() => setIsFilterDrawerOpen(false)}
+              onClick={() => requestCloseFilters()}
             />
             <div
               className="relative flex flex-col max-h-[85vh] rounded-t-4xl animate-fade-up"
@@ -1147,7 +1181,8 @@ export default function CatalogSection({
                 </span>
                 <button
                   aria-label="Close"
-                  onClick={() => setIsFilterDrawerOpen(false)}
+                  onClick={() => requestCloseFilters()}
+                  className="flex items-center justify-center min-w-[24px] min-h-[24px] p-1 -m-1"
                 >
                   <X size={20} style={{ color: "var(--color-ink2)" }} />
                 </button>
@@ -1315,7 +1350,7 @@ export default function CatalogSection({
                                 style: f.style === s.value ? null : s.value,
                               }))
                             }
-                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                             style={{
                               background:
                                 filters.style === s.value
@@ -1348,7 +1383,7 @@ export default function CatalogSection({
                                   f.material === m.value ? null : m.value,
                               }))
                             }
-                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors"
+                            className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors min-h-[24px] inline-flex items-center"
                             style={{
                               background:
                                 filters.material === m.value
@@ -1440,19 +1475,21 @@ export default function CatalogSection({
                 </div>
               </div>
 
-              {/* Bouton sticky en bas - centré verticalement */}
+              {/* Bouton sticky en bas - centré verticalement.
+                  paddingBottom fusionné avec safe-area (l'inline écrasait la
+                  classe safe-bottom, annulant la marge home-indicator). */}
               <div
-                className="sticky bottom-0 px-5 safe-bottom flex items-center justify-center shrink-0"
+                className="sticky bottom-0 px-5 flex items-center justify-center shrink-0"
                 style={{
                   background: "var(--color-bg)",
                   borderTop: "1px solid var(--color-border)",
                   minHeight: "64px",
                   paddingTop: "10px",
-                  paddingBottom: "10px",
+                  paddingBottom: "calc(10px + env(safe-area-inset-bottom))",
                 }}
               >
                 <button
-                  onClick={() => setIsFilterDrawerOpen(false)}
+                  onClick={() => requestCloseFilters()}
                   className="btn btn-accent w-full max-w-md"
                 >
                   View {extraFiltered.length} items
@@ -1577,13 +1614,16 @@ function ColorPicker({
               style={{ width: 24, height: 24 }}
               title={`+${extraCount} colors`}
             />
-            <span
-              className="text-[11px] font-semibold cursor-pointer hover:underline"
-              style={{ color: "var(--color-ink4)" }}
+            {/* Compteur texte : vrai bouton 24px + clavier (fini le span
+                onClick ~14px inaccessible au tactile comme au clavier). */}
+            <button
               onClick={toggleOpen}
+              aria-label={`+${extraCount} colors`}
+              className="text-[11px] font-semibold hover:underline flex items-center"
+              style={{ color: "var(--color-ink4)", minHeight: 24, padding: "2px 4px" }}
             >
               +{extraCount}
-            </span>
+            </button>
           </>
         )}
       </div>

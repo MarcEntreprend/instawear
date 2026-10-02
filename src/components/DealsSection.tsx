@@ -297,7 +297,14 @@ export default function DealsSection({
         <div className="flex items-end justify-between mb-8">
           <span className="eyebrow">By product type</span>
         </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar min-w-0 max-w-full w-full pb-1">
+        {/* Rangée scrollable mobile : même pattern que les tuiles promo
+            (:150) et ForYou — bleed -mx-4/px-4 (peek = affordance de swipe,
+            la puce coupée au bord invite au geste), touch-action explicite.
+            Desktop inchangé (reset sm:). Section cv-auto conservée (perf). */}
+        <div
+          className="flex gap-3 overflow-x-auto no-scrollbar min-w-0 max-w-[100vw] sm:max-w-full w-[calc(100%+2rem)] sm:w-full -mx-4 px-4 sm:mx-0 sm:px-0 pb-1"
+          style={{ touchAction: "pan-x pan-y" }}
+        >
           {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
             <button
               key={value}

@@ -66,6 +66,31 @@ export default function ProductPage({
 }: any) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // Lightbox : entrée d'historique (retour = fermer, pas quitter).
+  // Marqueur neutre en hash, jamais de PII.
+  const openLightboxHistory = () => {
+    setIsLightboxOpen(true);
+    try {
+      if (window.location.hash !== "#lightbox")
+        history.pushState({ overlay: "lightbox" }, "", "#lightbox");
+    } catch {}
+  };
+  const requestCloseLightbox = () => {
+    try {
+      if (window.location.hash === "#lightbox") history.back();
+      else setIsLightboxOpen(false);
+    } catch {
+      setIsLightboxOpen(false);
+    }
+  };
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.hash !== "#lightbox") setIsLightboxOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   // Dernier-clic-gagne : miniature mockup OU couleur pilotent le cadre,
   // sans interférence (null = suivre la sélection courante).
   const [frameOverride, setFrameOverride] = useState<string | null>(null);
@@ -531,7 +556,7 @@ export default function ProductPage({
               <ZoomImage
                 src={displayImage}
                 alt={product.title}
-                onRequestLightbox={() => setIsLightboxOpen(true)}
+                onRequestLightbox={() => openLightboxHistory()}
               />
               <div className="sm:hidden mt-3 overflow-x-auto no-scrollbar">
                 <ThumbStrip
@@ -649,6 +674,11 @@ export default function ProductPage({
                       ? (product.variants as any[])[i].image
                       : null;
                   const label = dispColorNames?.[i] || c;
+                  const blockedReason = !blocked
+                    ? null
+                    : avail === "discontinued"
+                      ? "Removed by supplier"
+                      : "Temporarily out of stock";
                   return (
                     <button
                       key={c + i}
@@ -660,10 +690,12 @@ export default function ProductPage({
                         }
                       }}
                       disabled={blocked}
-                      aria-label={label}
+                      aria-label={
+                        blockedReason ? `${label} — ${blockedReason}` : label
+                      }
                       title={
                         blocked
-                          ? `${label} — ${avail === "discontinued" ? "Removed by supplier" : "Temporarily out of stock"}`
+                          ? `${label} — ${blockedReason}`
                           : label
                       }
                       className="w-11 h-11 aspect-square shrink-0 rounded-lg overflow-hidden transition-all p-0"
@@ -700,6 +732,32 @@ export default function ProductPage({
                   );
                 })}
               </div>
+              {/* Motif de rupture lisible au tactile (P3 mobile) : le title
+                  seul est invisible sans souris ; liste compacte (EN, langue
+                  du storefront). */}
+              {(() => {
+                const blockedOnes = dispColors
+                  .map((c: string, i: number) => {
+                    const a = getVariantAvailability(product, c, pickedSize);
+                    if (a !== "discontinued" && a !== "out_of_stock")
+                      return null;
+                    return `${dispColorNames?.[i] || c} — ${
+                      a === "discontinued"
+                        ? "Removed by supplier"
+                        : "Temporarily out of stock"
+                    }`;
+                  })
+                  .filter(Boolean) as string[];
+                if (blockedOnes.length === 0) return null;
+                return (
+                  <p
+                    className="text-[11px] mt-2"
+                    style={{ color: "var(--color-ink3)" }}
+                  >
+                    {blockedOnes.join(" · ")}
+                  </p>
+                );
+              })()}
             </div>
 
             <div className="mt-6">
@@ -921,7 +979,7 @@ export default function ProductPage({
           images={gallery}
           initialIndex={activeGalleryIndex}
           alt={product.title}
-          onClose={() => setIsLightboxOpen(false)}
+          onClose={() => requestCloseLightbox()}
         />
       )}
       <SizeGuideModal

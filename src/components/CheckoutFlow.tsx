@@ -2718,8 +2718,12 @@ export default function CheckoutFlow({
           </p>
         </div>
       )}
-      {/* Content */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
+      {/* Content — marge home-indicator iOS en bas (0 sur desktop) */}
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
         {step === 4 ? (
           <div className="max-w-xl mx-auto px-4 sm:px-6 py-10">
             <ConfirmationStep

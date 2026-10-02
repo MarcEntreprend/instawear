@@ -1,0 +1,21 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "InstaWear",
+    "documentationUrl": "https://instawear.vercel.app/faq"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:instawear:store:catalog",
+      "displayName": "InstaWear product catalog",
+      "description": "Print-on-demand event-wear store catalog (products, promotions, order tracking). Machine-readable index at llms.txt.",
+      "type": "text/markdown",
+      "url": "https://instawear.vercel.app/llms.txt",
+      "representativeQueries": [
+        "What products does InstaWear sell?",
+        "Where is the InstaWear catalog?"
+      ],
+      "version": "1.0"
+    }
+  ]
+}

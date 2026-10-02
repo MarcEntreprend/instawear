@@ -280,12 +280,16 @@ export default function HeroCarousel({
                     }}
                     aria-label={`Go to slide ${i + 1}`}
                     aria-current={i === index}
-                    className="h-1.5 rounded-full transition-all duration-500"
-                    style={{
-                      width: i === index ? "28px" : "8px",
-                      background: i === index ? "#fff" : "rgba(255,255,255,.4)",
-                    }}
-                  />
+                    className="flex items-center justify-center min-w-[24px] min-h-[24px]"
+                  >
+                    <span
+                      className="block h-1.5 rounded-full transition-all duration-500"
+                      style={{
+                        width: i === index ? "28px" : "8px",
+                        background: i === index ? "#fff" : "rgba(255,255,255,.4)",
+                      }}
+                    />
+                  </button>
                 ))}
             </div>
             <button

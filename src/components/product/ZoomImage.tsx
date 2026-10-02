@@ -86,7 +86,7 @@ export default function ZoomImage({
               e.stopPropagation();
               onRequestLightbox();
             }}
-            aria-label="Agrandir"
+            aria-label="Expand"
             className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center lg:hidden"
             style={{ background: "rgba(15,13,10,.55)", color: "#fff" }}
           >
