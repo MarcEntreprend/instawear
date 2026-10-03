@@ -38,6 +38,27 @@ export function isLightHeroBg(g?: string): boolean {
   return lightMarkers.some((m) => low.includes(m));
 }
 
+/** Hôtes acceptés pour les liens hero absolus (réduits au chemin). */
+const HERO_LINK_HOSTS = ["instawear.vercel.app", "localhost", "127.0.0.1"];
+
+/**
+ * Normalise un lien hero saisi (miroir de sanitizeHeroPhase2 côté API) :
+ * "/…" gardé, URL absolue same-origin réduite au chemin (l'admin colle
+ * depuis la barre d'adresse), le reste vidé — jamais de perte silencieuse,
+ * la conversion est visible dès le blur.
+ */
+export function normalizeHeroLink(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const t = v.trim();
+  if (t.startsWith("/") && !t.startsWith("//") && t.length <= 200) return t;
+  const m = t.match(/^https?:\/\/([^/:?#]+)(?::\d+)?(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i);
+  if (m && HERO_LINK_HOSTS.includes(m[1].toLowerCase())) {
+    const path = (m[2] || "/") + (m[3] || "") + (m[4] || "");
+    return path.length <= 200 ? path : "";
+  }
+  return "";
+}
+
 /** Garde-fou : les lignes existantes en base peuvent contenir l'ancien
  *  libellé Tailwind ("from-white …", truthy mais invalide en CSS). On ne
  *  retient que ce qui ressemble à du CSS réel, sinon fallback (aucune

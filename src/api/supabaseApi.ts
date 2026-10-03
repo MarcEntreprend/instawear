@@ -194,10 +194,22 @@ function sanitizeHeroPhase2(promo: Partial<HeroPromotion>): {
 } {
   const kind =
     promo.kind === "image" || promo.kind === "grid" ? promo.kind : "product";
-  const cleanLink = (v: unknown): string | null =>
-    typeof v === "string" && v.startsWith("/") && !v.startsWith("//") && v.length <= 200
-      ? v
-      : null;
+  // Accepte "/…" ET les URL absolues same-origin (l'admin colle souvent
+  // l'URL complète depuis la barre d'adresse : on la réduit au chemin
+  // au lieu de la jeter silencieusement — c'était une perte de données).
+  // Tout le reste (externe, data:, javascript:) → null.
+  const SITE_HOSTS = ["instawear.vercel.app", "localhost", "127.0.0.1"];
+  const cleanLink = (v: unknown): string | null => {
+    if (typeof v !== "string") return null;
+    const t = v.trim();
+    if (t.startsWith("/") && !t.startsWith("//") && t.length <= 200) return t;
+    const m = t.match(/^https?:\/\/([^/:?#]+)(?::\d+)?(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i);
+    if (m && SITE_HOSTS.includes(m[1].toLowerCase())) {
+      const path = (m[2] || "/") + (m[3] || "") + (m[4] || "");
+      return path.length <= 200 ? path : null;
+    }
+    return null;
+  };
   const tiles = Array.isArray(promo.tiles)
     ? promo.tiles
         .filter(

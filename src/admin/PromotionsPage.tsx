@@ -19,7 +19,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
-import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg } from "../components/HeroCarousel";
+import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg, normalizeHeroLink } from "../components/HeroCarousel";
 import AdminImageInput from "./ui/AdminImageInput";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
@@ -665,9 +665,9 @@ export default function PromotionsPage() {
               <div style={{ display: "flex", gap: 8 }}>
                 {(
                   [
-                    { value: "product", label: "Produit (classique)" },
-                    { value: "image", label: "Visuel plein cadre" },
-                    { value: "grid", label: "Grille + tuiles (Shein)" },
+                    { value: "product", label: "Produit", desc: "Fiche produit : image + titre + prix du produit choisi." },
+                    { value: "image", label: "Visuel", desc: "Ta propre image plein cadre (ex. créa jaune) + bouton." },
+                    { value: "grid", label: "Grille", desc: "Visuel principal + tuiles cliquables (style Shein)." },
                   ] as const
                 ).map((o) => {
                   const selected =
@@ -676,6 +676,7 @@ export default function PromotionsPage() {
                     <button
                       key={o.value}
                       type="button"
+                      title={o.desc}
                       onClick={() =>
                         setForm({ ...form, kind: o.value } as any)
                       }
@@ -700,23 +701,67 @@ export default function PromotionsPage() {
                   );
                 })}
               </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background:
+                    ((form as any).kind ?? "product") === "image" &&
+                    !(form as any).image
+                      ? "var(--color-accent-bg)"
+                      : "var(--color-surface2)",
+                  fontSize: 11,
+                  color: "var(--color-ink2)",
+                  lineHeight: 1.5,
+                }}
+              >
+                {((form as any).kind ?? "product") === "product" && (
+                  <span>
+                    <strong>Mode Produit :</strong> tout vient du produit choisi
+                    ci-dessus (image, titre, prix). Seul le bouton peut suivre
+                    ton lien ci-dessous.
+                  </span>
+                )}
+                {((form as any).kind ?? "product") === "image" && (
+                  <span>
+                    <strong>Mode Visuel :</strong>{" "}
+                    {!(form as any).image
+                      ? "⚠️ ajoute ton image dans « Visuel du slide » plus haut — sans elle, ce slide est identique au mode Produit."
+                      : "ton image s'affiche en grand ; le bouton suit ton lien ci-dessous."}
+                  </span>
+                )}
+                {((form as any).kind ?? "product") === "grid" && (
+                  <span>
+                    <strong>Mode Grille :</strong> visuel principal +
+                    tuiles cliquables ci-dessous.
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* ── Lien (image/grid : chemin interne "/…" uniquement) ── */}
-            {((form as any).kind === "image" || (form as any).kind === "grid") && (
-              <div>
-                <label style={labelStyle}>Lien du visuel principal (/… uniquement)</label>
-                <input
-                  type="text"
-                  value={(form as any).linkUrl || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, linkUrl: e.target.value } as any)
-                  }
-                  style={inputStyle}
-                  placeholder="/promotions (vide = fiche produit)"
-                />
-              </div>
-            )}
+            {/* ── Lien au clic (tous kinds : vide = fiche produit) ── */}
+            <div>
+              <label style={labelStyle}>Lien au clic (vide = fiche produit)</label>
+              <input
+                type="text"
+                value={(form as any).linkUrl || ""}
+                onChange={(e) =>
+                  setForm({ ...form, linkUrl: e.target.value } as any)
+                }
+                onBlur={(e) => {
+                  const v = normalizeHeroLink(e.target.value);
+                  if (v !== e.target.value)
+                    setForm({ ...form, linkUrl: v } as any);
+                }}
+                style={inputStyle}
+                placeholder="/promotions ou URL complète du site"
+              />
+              <p style={{ fontSize: 11, color: "var(--color-ink3)", marginTop: 4 }}>
+                Ex. <code>/promotions</code>, <code>/recherche?q=robe</code> ou l'URL complète copiée du navigateur (convertie auto). Les liens externes sont refusés.
+              </p>
+            </div>
 
             {/* ── Tuiles (grid, max 3) ── */}
             {(form as any).kind === "grid" && (
@@ -769,8 +814,16 @@ export default function PromotionsPage() {
                               tiles[ti] = { ...tiles[ti], link: e.target.value };
                               setForm({ ...form, tiles } as any);
                             }}
+                            onBlur={(e) => {
+                              const v = normalizeHeroLink(e.target.value);
+                              if (v !== e.target.value) {
+                                const tiles = [...((form as any).tiles || [])];
+                                tiles[ti] = { ...tiles[ti], link: v };
+                                setForm({ ...form, tiles } as any);
+                              }
+                            }}
                             style={{ ...inputStyle, flex: 1 }}
-                            placeholder="Lien /…"
+                            placeholder="Lien /… (URL complète acceptée)"
                           />
                         </div>
                       </div>

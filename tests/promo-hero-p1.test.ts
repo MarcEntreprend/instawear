@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDealLive } from "../src/utils/deals.ts";
+import { normalizeHeroLink } from "../src/components/HeroCarousel.tsx";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (f: string) => readFileSync(join(root, f), "utf-8");
@@ -73,6 +74,23 @@ test("AdminImageInput standard : lien + import + DnD + paste + aperçu", () => {
   }
 });
 
+test("normalizeHeroLink : absolue same-origin -> chemin, jamais de perte silencieuse", () => {
+  assert.equal(
+    normalizeHeroLink("https://instawear.vercel.app/produit/abc-123"),
+    "/produit/abc-123",
+  );
+  assert.equal(
+    normalizeHeroLink("https://instawear.vercel.app/recherche?q=robe#top"),
+    "/recherche?q=robe#top",
+  );
+  assert.equal(normalizeHeroLink("/promotions"), "/promotions");
+  assert.equal(normalizeHeroLink("https://evil.com/produit/x"), "");
+  assert.equal(normalizeHeroLink("javascript:alert(1)"), "");
+  assert.equal(normalizeHeroLink("//evil.com/x"), "");
+  assert.equal(normalizeHeroLink(""), "");
+  assert.equal(normalizeHeroLink(null), "");
+});
+
 test("Hero Phase 2 : kinds image/grid + liens internes + tuiles", () => {
   const hero = read("src/components/HeroCarousel.tsx");
   assert.ok(hero.includes('b.kind ?? "product"'), "kind par défaut");
@@ -87,9 +105,11 @@ test("Hero Phase 2 : kinds image/grid + liens internes + tuiles", () => {
   assert.ok(api.includes("sanitizeHeroPhase2"), "assainit");
   assert.ok(api.includes(".slice(0, 3)"), "tuiles capées");
   const admin = read("src/admin/PromotionsPage.tsx");
-  assert.ok(admin.includes("Grille + tuiles (Shein)"), "choix grid");
+  assert.ok(admin.includes('"Produit"'), "choix produit expliqué");
+  assert.ok(admin.includes('"Visuel"'), "choix image expliqué");
+  assert.ok(admin.includes('"Grille"'), "choix grid");
   assert.ok(admin.includes("Ajouter une tuile"), "éditeur tuiles");
-  assert.ok(admin.includes("/promotions (vide = fiche produit)"), "lien interne");
+  assert.ok(admin.includes("Lien au clic (vide = fiche produit)"), "lien pour tous");
 });
 
 test("Hero Phase 1 : image custom + presets + preview", () => {
