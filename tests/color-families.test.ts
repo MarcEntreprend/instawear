@@ -8,6 +8,8 @@ import {
   familyBySlug,
   parseColorParam,
   colorFilterMatches,
+  resolveColorTarget,
+  variantImageForColor,
   COLOR_FAMILIES,
 } from "../src/utils/colors.ts";
 import { buildColorFamilyFacets } from "../src/components/CatalogSection.tsx";
@@ -98,6 +100,44 @@ test("colorFilterMatches : hex exact + famille + inconnu", () => {
   assert.equal(colorFilterMatches(colors, null), true);
 });
 
+test("resolveColorTarget : slug -> premier hex du produit dans la famille", () => {
+  const colors = ["#1a1a1a", "#9aa0a3", "#8d867c"];
+  assert.equal(resolveColorTarget(colors, "grey"), "#9aa0a3");
+  assert.equal(resolveColorTarget(colors, "black"), "#1a1a1a");
+  assert.equal(resolveColorTarget(colors, "blue"), "blue");
+  assert.equal(resolveColorTarget(colors, "#9AA0A3"), "#9AA0A3");
+  assert.equal(resolveColorTarget(colors, null), null);
+  assert.equal(resolveColorTarget([], "grey"), "grey");
+});
+
+test("variantImageForColor : Groups montre le visuel (main en fallback)", () => {
+  const variants = [
+    { color: "#1a1a1a", color_name: "Black", image: "black.jpg" },
+    { color: "#9aa0a3", color_name: "Athletic Heather", image: "heather.jpg" },
+  ];
+  const colors = ["#1a1a1a", "#9aa0a3"];
+  const names = ["Black", "Athletic Heather"];
+  // Famille -> même image que la nuance exacte.
+  assert.equal(
+    variantImageForColor(variants, colors, names, "grey"),
+    "heather.jpg",
+  );
+  assert.equal(
+    variantImageForColor(variants, colors, names, "#9aa0a3"),
+    "heather.jpg",
+  );
+  // Famille absente du produit / variante sans image -> null (main fallback).
+  assert.equal(variantImageForColor(variants, colors, names, "blue"), null);
+  assert.equal(
+    variantImageForColor(
+      [{ color: "#1a1a1a", color_name: "Black", image: "" }],
+      ["#1a1a1a"],
+      ["Black"],
+      "black",
+    ),
+    null,
+  );
+});
 test("buildColorFamilyFacets : dedupe/produit, pastille repre, tri", () => {
   const out = buildColorFamilyFacets([
     { colors: ["#9aa0a3", "#8d867c", "#1a1a1a"] },

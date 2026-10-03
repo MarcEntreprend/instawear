@@ -167,9 +167,27 @@ interface VariantLike {
 }
 
 /**
+ * Résout la cible couleur d'une carte en hex concret : hex → inchangé ;
+ * slug de famille ("grey") → premier hex du produit dans cette famille
+ * (même image que le mode "All shades" aurait montrée pour cette nuance).
+ * null/inconnu → inchangé (l'appelant garde le fallback main image).
+ */
+export function resolveColorTarget(
+  colors: string[] | null | undefined,
+  target: string | null | undefined,
+): string | null | undefined {
+  if (!target || normHex(target) || !isColorFamilySlug(target)) return target;
+  const list = Array.isArray(colors) ? colors : [];
+  const hit = list.find((c) => classifyColorFamily(c) === target);
+  return normHex(hit) || target;
+}
+
+/**
  * Image de la variante correspondant à une couleur active (filtre).
- * Match hex normalisé d'abord, nom insensible à la casse ensuite.
- * null si introuvable ou sans image → l'appelant garde l'image par défaut.
+ * Cible hex (All shades) OU slug de famille (Groups, résolu au premier hex
+ * du produit dans la famille). Match hex normalisé d'abord, nom insensible
+ * à la casse ensuite. null si introuvable ou sans image → l'appelant garde
+ * l'image par défaut (main image fallback, inchangé).
  */
 export function variantImageForColor(
   variants: VariantLike[] | undefined | null,
@@ -177,7 +195,7 @@ export function variantImageForColor(
   colorNames: string[] | undefined | null,
   targetHex: string | null | undefined,
 ): string | null {
-  const target = normHex(targetHex);
+  const target = normHex(resolveColorTarget(colors, targetHex));
   if (!target) return null;
   const list = Array.isArray(variants) ? variants : [];
   const byHex = list.find((v) => normHex(v.color) === target);
