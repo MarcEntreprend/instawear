@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, RefreshCw, ExternalLink } from "lucide-react";
 import { podApi } from "../api/supabaseApi";
-import { storageApi } from "../api/storageApi";
-import { Upload } from "lucide-react";
 import { AdminProduct } from "./adminTypes";
+import AdminImageInput from "./ui/AdminImageInput";
 import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 // thStyle/tdStyle RESTENT locaux : grille dense des variantes, on ne touche
@@ -783,74 +782,13 @@ export default function PrintfulProductForm({
 
         {/* Image principale */}
         <div>
-          <label style={labelStyle}>Image principale (URL)</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="url"
-                value={mainImageUrl}
-                onChange={(e) => setMainImageUrl(e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
-                placeholder="https://..."
-              />
-              <label
-                title="Uploader une image"
-                style={{
-                  ...inputStyle,
-                  width: 40,
-                  padding: "8px 0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 10,
-                  background: "var(--color-surface2)",
-                  color: "var(--color-ink3)",
-                  flexShrink: 0,
-                }}
-              >
-                <Upload size={16} />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                  style={{ display: "none" }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      const url = await storageApi.uploadImage(
-                        file,
-                        "products",
-                      );
-                      setMainImageUrl(url);
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                      setError("Erreur lors de l'upload de l'image.");
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            {mainImageUrl && (
-              <div
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  background: "var(--color-surface2)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                <img
-                  src={mainImageUrl}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              </div>
-            )}
-          </div>
+          <AdminImageInput
+            label="Image principale (URL)"
+            value={mainImageUrl}
+            onChange={(url) => setMainImageUrl(url)}
+            folder="products"
+            placeholder="https://… (lien, import, dépôt, Ctrl+V)"
+          />
         </div>
 
         {/* Galerie d'images */}

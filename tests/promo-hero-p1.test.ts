@@ -60,6 +60,17 @@ test("AdminImageInput standard : lien + import + DnD + paste + aperçu", () => {
   const uses = admin.match(/<AdminImageInput/g) || [];
   assert.ok(uses.length >= 2, "visuel slide + images tuiles standardisés");
   assert.ok(!admin.includes("setUploadingHero"), "plus d'upload ad hoc");
+  for (const f of [
+    "src/admin/ProductFormPanel.tsx",
+    "src/admin/PrintfulProductForm.tsx",
+  ]) {
+    const src = read(f);
+    assert.ok(src.includes("<AdminImageInput"), `${f} : image standardisée`);
+    assert.ok(
+      !src.includes('title="Uploader une image"'),
+      `${f} : plus d'upload ad hoc`,
+    );
+  }
 });
 
 test("Hero Phase 2 : kinds image/grid + liens internes + tuiles", () => {
