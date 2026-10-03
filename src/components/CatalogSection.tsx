@@ -141,6 +141,8 @@ import {
   familyBySlug,
   parseColorParam,
   colorFilterMatches,
+  compareColorHex,
+  COLOR_FAMILIES,
 } from "../utils/colors";
 export { normHex };
 
@@ -154,7 +156,8 @@ export interface FacetColor {
 
 /**
  * Couleurs RÉELLES du catalogue : agrégées depuis products[].colors
- * (+ noms via colorNames alignés), triées par popularité. Remplace
+ * (+ noms via colorNames alignés), ordonnées en spectre (neutres puis
+ * arc-en-ciel, voir compareColorHex) — jamais par popularité. Remplace
  * l'ancienne liste générique en dur (qui ne matchait aucun vrai produit).
  */
 export function buildColorFacets(
@@ -178,7 +181,7 @@ export function buildColorFacets(
       }
     });
   }
-  return [...map.values()].sort((a, b) => b.count - a.count);
+  return [...map.values()].sort((a, b) => compareColorHex(a.hex, b.hex));
 }
 
 /**
@@ -186,7 +189,8 @@ export function buildColorFacets(
  * compte UNE fois par famille présente dans ses variantes (dédupliqué).
  * Pastille = swatch canonique saturé de la famille (Bleu = bleu franc, même
  * si le catalogue n'a que du bleu pâle : reconnaissable, jamais confondu
- * avec blanc/gris). value = slug (URL `?color=grey`). Le groupement vit
+ * avec blanc/gris). value = slug (URL `?color=grey`). Ordre canonique fixe
+ * (Black, White, Grey… Pink), jamais par popularité. Le groupement vit
  * dans `classifyColorFamily` (HEX réel, jamais les noms Printful).
  */
 export function buildColorFamilyFacets(
@@ -208,7 +212,11 @@ export function buildColorFamilyFacets(
       const fam = familyBySlug(slug)!;
       return { hex: fam.swatch, name: fam.label, count, value: slug };
     })
-    .sort((a, b) => b.count - a.count);
+    .sort(
+      (a, b) =>
+        COLOR_FAMILIES.findIndex((f) => f.slug === a.value) -
+        COLOR_FAMILIES.findIndex((f) => f.slug === b.value),
+    );
 }
 
 export interface StyleFacet {

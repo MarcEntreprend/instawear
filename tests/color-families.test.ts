@@ -11,6 +11,7 @@ import {
   resolveColorTarget,
   variantImageForColor,
   hexToHsl,
+  compareColorHex,
   COLOR_FAMILIES,
 } from "../src/utils/colors.ts";
 import { buildColorFamilyFacets } from "../src/components/CatalogSection.tsx";
@@ -49,6 +50,19 @@ test("classify : neutres (heather/stone sans le nom)", () => {
   assert.equal(classifyColorFamily("#8d867c"), "grey");
   assert.equal(classifyColorFamily("#b8b2a9"), "grey");
   assert.equal(classifyColorFamily("#d3d3d3"), "grey");
+});
+
+test("classify : roses jamais noyés dans red (famille séparée)", () => {
+  // Roses (même désaturés/clairs, hue côté magenta) -> pink.
+  assert.equal(classifyColorFamily("#d4a0a7"), "pink");
+  assert.equal(classifyColorFamily("#e8b4b8"), "pink");
+  assert.equal(classifyColorFamily("#ffb6c1"), "pink");
+  assert.equal(classifyColorFamily("#e75480"), "pink");
+  assert.equal(classifyColorFamily("#ff00ff"), "pink");
+  // Rouges francs et profonds -> red (pas de fuite inverse).
+  assert.equal(classifyColorFamily("#dc143c"), "red");
+  assert.equal(classifyColorFamily("#c0392b"), "red");
+  assert.equal(classifyColorFamily("#800020"), "red");
 });
 
 test("classify : saturés sombres (navy -> blue) + terre", () => {
@@ -139,7 +153,7 @@ test("variantImageForColor : Groups montre le visuel (main en fallback)", () => 
     null,
   );
 });
-test("buildColorFamilyFacets : dedupe/produit, pastille canonique, tri", () => {
+test("buildColorFamilyFacets : dedupe/produit, pastille canonique, ordre fixe", () => {
   const out = buildColorFamilyFacets([
     { colors: ["#9aa0a3", "#8d867c", "#1a1a1a"] },
     { colors: ["#9AA0A3"] },
@@ -148,13 +162,30 @@ test("buildColorFamilyFacets : dedupe/produit, pastille canonique, tri", () => {
     {},
   ]);
   assert.equal(out.length, 3);
+  // Ordre canonique fixe (Black, Grey, Red), PAS par popularité.
+  assert.deepEqual(
+    out.map((f) => f.value),
+    ["black", "grey", "red"],
+  );
   const grey = out.find((f) => f.value === "grey")!;
   assert.equal(grey.count, 2);
   assert.equal(grey.name, "Grey");
   // Pastille = swatch canonique saturé (jamais un pâle ambigu).
   assert.equal(grey.hex, familyBySlug("grey")!.swatch);
-  assert.equal(out[0].value, "grey");
   assert.deepEqual(buildColorFamilyFacets([]), []);
+});
+
+test("compareColorHex : neutres (noir->blanc) puis arc-en-ciel", () => {
+  const sorted = ["#c0392b", "#ffffff", "#2c5fa8", "#1a1a1a", "#f1c40f"].sort(
+    compareColorHex,
+  );
+  assert.deepEqual(sorted, [
+    "#1a1a1a",
+    "#ffffff",
+    "#c0392b",
+    "#f1c40f",
+    "#2c5fa8",
+  ]);
 });
 
 test("pastilles familles : saturees, uniques, pas de pales ambigus", () => {

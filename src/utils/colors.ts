@@ -117,7 +117,13 @@ export function classifyColorFamily(raw: unknown): string | null {
     if (s >= 0.55) return h < 42 ? "orange" : "yellow";
     return l >= 0.45 ? "beige" : "brown";
   }
-  if (h < 12 || h >= 345) return "red";
+  if (h < 12 || h >= 345) {
+    // Côté magenta (345-360°) : roses (désaturés ou clairs : dusty, mauve,
+    // rose bonbon) → pink ; rouges francs et profonds (crimson, bordeaux)
+    // restent red. Jamais de pink noyé dans red.
+    if (h >= 345 && (s < 0.65 || l > 0.6)) return "pink";
+    return "red";
+  }
   if (h < 42) return "orange";
   // Jaunes ternes (olive/kaki) → green, jaunes francs → yellow.
   // Olives sombres (hue ~60, clairs) → green ; jaune pur (clair) → yellow.
@@ -129,6 +135,23 @@ export function classifyColorFamily(raw: unknown): string | null {
   if (h < 258) return "blue";
   if (h < 292) return "purple";
   return "pink";
+}
+
+/**
+ * Ordre d'affichage des nuances (filtre + popup) : neutres d'abord
+ * (noir → blanc par lightness), puis arc-en-ciel par teinte. Fini le
+ * désordre par popularité : l'ordre est stable et prévisible.
+ */
+export function compareColorHex(a: string, b: string): number {
+  const A = hexToHsl(a);
+  const B = hexToHsl(b);
+  if (!A || !B) return 0;
+  const neutA = A.s < 0.12;
+  const neutB = B.s < 0.12;
+  if (neutA && neutB) return A.l - B.l;
+  if (neutA) return -1;
+  if (neutB) return 1;
+  return A.h - B.h;
 }
 
 /**
