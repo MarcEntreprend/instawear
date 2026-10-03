@@ -353,6 +353,8 @@ export interface HeroPromotion {
   showTag?: boolean; // whether to display the tag/badge
   showTitle?: boolean; // whether to display the product title
   isActive?: Boolean;
+  /** Mise en page du slide : full-bleed historique (défaut) ou split. */
+  layout?: "full" | "split";
 }
 // ─── Product Review (Phase 1) ───────────────────────────────────────────
 export interface ProductReview {

@@ -704,7 +704,108 @@ export default function PromotionsPage() {
               </div>
             </div>
 
-            {/* ── Aperçu live du slide ── */}
+            {/* ── Mise en page du slide ── */}
+            <div>
+              <label style={labelStyle}>Mise en page</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(
+                  [
+                    { value: "full", label: "Plein écran (image de fond)" },
+                    { value: "split", label: "Partagé (fond + visuel cadré)" },
+                  ] as const
+                ).map((o) => {
+                  const selected =
+                    ((form as any).layout ?? "full") === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, layout: o.value } as any)
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: selected
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                        background: selected
+                          ? "var(--color-accent-bg)"
+                          : "var(--color-surface2)",
+                        color: "var(--color-ink)",
+                        fontWeight: selected ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Aperçu live du slide (fidèle au choix) ── */}
+            {((form as any).layout ?? "full") === "full" ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid var(--color-border)",
+                  minHeight: 140,
+                  padding: "20px 24px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: "#1a1712",
+                  backgroundImage:
+                    ((form as any).image ||
+                      getProductById(form.productId!)?.image)
+                      ? `linear-gradient(90deg, rgba(15,13,10,.68) 0%, rgba(15,13,10,.28) 55%, transparent 100%), url(${(form as any).image || getProductById(form.productId!)?.image})`
+                      : heroBackground(form.bgGradient),
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                {(form.showTag !== false) && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      alignSelf: "flex-start",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: "#fff",
+                      background: "rgba(255,255,255,.14)",
+                      borderRadius: 999,
+                      padding: "3px 10px",
+                    }}
+                  >
+                    {(form.tag || "Promotion").slice(0, 24)}
+                  </span>
+                )}
+                <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
+                  {((form.headline || "").split("\n")[0] || form.title || "Titre") as string}
+                </div>
+                <div
+                  style={{
+                    display: "inline-block",
+                    alignSelf: "flex-start",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "var(--color-accent)",
+                    borderRadius: 999,
+                    padding: "7px 16px",
+                  }}
+                >
+                  {form.cta || "Voir"}
+                </div>
+              </div>
+            ) : (
             <div
               style={{
                 borderRadius: 14,
@@ -797,6 +898,7 @@ export default function PromotionsPage() {
                 />
               ) : null}
             </div>
+            )}
 
             {/* ── Options Deal ── */}
             <div

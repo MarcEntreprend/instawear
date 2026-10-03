@@ -14,6 +14,8 @@ interface HeroBanner {
   productId?: string;
   showTag: boolean;
   showTitle: boolean;
+  /** Mise en page : full-bleed historique (défaut) ou split. */
+  layout?: "full" | "split";
 }
 
 /** Fond hero par défaut (P4) : l'ancien fallback "from-white via-…" était des
@@ -70,6 +72,7 @@ function readLeadHero(): HeroBanner | null {
       productId: typeof raw.productId === "string" ? raw.productId : undefined,
       showTag: raw.showTag !== false,
       showTitle: raw.showTitle !== false,
+      layout: raw.layout === "split" ? "split" : "full",
     };
   } catch {
     return null;
@@ -151,11 +154,14 @@ export default function HeroCarousel({
     );
   }
   const banner = slides[index % slides.length];
-  // Texte adapté au fond (fonds clairs = encre sombre, sinon blanc).
-  const lightBg = isLightHeroBg(banner.bgGradient);
-  const ink = lightBg ? "var(--color-ink)" : "#fff";
-  const inkSoft = lightBg ? "var(--color-ink2)" : "rgba(255,255,255,.8)";
-  const chipBg = lightBg ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.14)";
+  // Mise en page du slide ACTIF (choix par slide, défaut full = avant).
+  const activeSplit = (banner.layout ?? "full") === "split";
+  // Texte adaptatif en split (fonds clairs = encre sombre) ; en full,
+  // blanc sur image comme avant (l'overlay assure le contraste).
+  const lightBg = activeSplit && isLightHeroBg(banner.bgGradient);
+  const ink = !activeSplit || !lightBg ? "#fff" : "var(--color-ink)";
+  const inkSoft = !activeSplit || !lightBg ? "rgba(255,255,255,.8)" : "var(--color-ink2)";
+  const chipBg = !activeSplit || !lightBg ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.06)";
 
   return (
     <section
@@ -164,7 +170,12 @@ export default function HeroCarousel({
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="relative h-[78vh] min-h-105 max-h-190 w-full">
-        {slides.map((b, i) => (
+        {slides.map((b, i) => {
+          // Split : fond visible + visuel cadré à droite (le dégradé
+          // choisi reste visible partout). Full (défaut, comme avant) :
+          // image plein cadre + voile sombre.
+          const split = (b.layout ?? "full") === "split";
+          return (
           <div
             key={i}
             className="absolute inset-0 transition-opacity duration-700"
@@ -174,28 +185,53 @@ export default function HeroCarousel({
               pointerEvents: i === index ? "auto" : "none",
             }}
           >
-            {/* Visuel cadré à droite (fini le full-bleed qui enterrait le
-                fond choisi) : le dégradé reste visible partout, l'image
-                vit dans sa carte. Dimensions stables → pas de CLS. */}
-            {b.image && b.image !== PLACEHOLDER_IMG && (
-              <div className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-[34vw] sm:w-[38vw] max-w-105">
+            {split ? (
+              b.image && b.image !== PLACEHOLDER_IMG && (
+                <div className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-[34vw] sm:w-[38vw] max-w-105">
+                  <img
+                    src={b.image}
+                    alt=""
+                    className="w-full aspect-[4/5] max-h-[60vh] object-cover rounded-2xl"
+                    style={{ boxShadow: "var(--shadow-xl)" }}
+                    onError={(e) => {
+                      ((e.currentTarget as HTMLImageElement).style.display = "none");
+                      if (showLead) setLeadFailed(true);
+                    }}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchPriority={i === 0 ? "high" : "auto"}
+                    decoding="async"
+                  />
+                </div>
+              )
+            ) : (
+              <>
                 <img
                   src={b.image}
                   alt=""
-                  className="w-full aspect-[4/5] max-h-[60vh] object-cover rounded-2xl"
-                  style={{ boxShadow: "var(--shadow-xl)" }}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ opacity: 0.55 }}
                   onError={(e) => {
-                    ((e.currentTarget as HTMLImageElement).style.display = "none");
                     if (showLead) setLeadFailed(true);
+                    else
+                      ((e.currentTarget as HTMLImageElement).src =
+                        PLACEHOLDER_IMG);
                   }}
                   loading={i === 0 ? "eager" : "lazy"}
                   fetchPriority={i === 0 ? "high" : "auto"}
                   decoding="async"
                 />
-              </div>
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(15,13,10,.68) 0%, rgba(15,13,10,.28) 55%, transparent 100%)",
+                  }}
+                />
+              </>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {/* Arrows (hidden if single) */}
         {!isSingleBanner && (
@@ -225,9 +261,9 @@ export default function HeroCarousel({
 
         <div className="relative z-10 h-full max-w-350 mx-auto px-5 sm:px-8 flex flex-col justify-between py-8 sm:py-12">
           <div />
-          {/* Texte à gauche, visuel à droite : largeur contenue pour ne
-              jamais passer sous la carte image. */}
-          <div className="max-w-[62%] sm:max-w-xl">
+          {/* Texte à gauche (split : contenu pour ne jamais passer sous
+              la carte image ; full : pleine largeur comme avant). */}
+          <div className={activeSplit ? "max-w-[62%] sm:max-w-xl" : "max-w-xl"}>
             {banner.showTag && banner.tag && (
               <span
                 className="inline-flex items-center gap-2 mb-5 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-[0.16em] animate-fade-up"

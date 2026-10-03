@@ -41,13 +41,21 @@ test("latch global supprimé (fini le flicker + la contagion)", () => {
   assert.ok(!card.includes("dealExpired"), "plus de prop globale");
 });
 
-test("Hero slide split : fond visible + texte adaptatif (fini le full-bleed)", () => {
+test("Hero layout au choix (défaut full = avant)", () => {
   const hero = read("src/components/HeroCarousel.tsx");
-  assert.ok(!hero.includes("inset-0 w-full h-full object-cover"), "plus de full-bleed");
-  assert.ok(hero.includes("aspect-[4/5]"), "visuel cadré ratio stable");
-  assert.ok(hero.includes("isLightHeroBg"), "texte adaptatif");
-  assert.ok(hero.includes("max-w-[62%] sm:max-w-xl"), "texte hors image");
-  assert.ok(hero.includes('fetchPriority={i === 0 ? "high" : "auto"}'), "LCP gardé");
+  assert.ok(hero.includes('(b.layout ?? "full") === "split"'), "branche par slide");
+  assert.ok(hero.includes("linear-gradient(90deg, rgba(15,13,10,.68)"), "full restauré");
+  const api = read("src/api/supabaseApi.ts");
+  assert.ok(api.includes('layout === "split" ? "split" : "full"'), "normalisé API");
+  const admin = read("src/admin/PromotionsPage.tsx");
+  assert.ok(admin.includes("Plein écran (image de fond)"), "choix full");
+  assert.ok(admin.includes("Partagé (fond + visuel cadré)"), "choix split");
+  assert.ok(
+    admin.includes('((form as any).layout ?? "full") === "full"'),
+    "preview fidèle",
+  );
+  assert.ok(hero.includes("aspect-[4/5]"), "split : visuel cadré");
+  assert.ok(hero.includes("max-w-[62%] sm:max-w-xl"), "split : texte hors image");
 });
 
 test("Hero Phase 1 : image custom + presets + preview", () => {

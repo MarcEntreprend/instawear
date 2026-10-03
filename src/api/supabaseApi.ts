@@ -200,6 +200,7 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   showTag: row.show_tag,
   showTitle: row.show_title,
   isActive: row.is_active,
+  layout: row.layout === "split" ? "split" : "full",
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -2455,6 +2456,7 @@ export const heroPromotionsApi = {
         bg_gradient: promo.bgGradient,
         tag: promo.tag,
         image: promo.image,
+        layout: promo.layout === "split" ? "split" : "full",
         order: promo.order,
         is_active: promo.isActive !== false,
         show_tag: promo.showTag,
@@ -2480,6 +2482,7 @@ export const heroPromotionsApi = {
         bg_gradient: promo.bgGradient,
         tag: promo.tag,
         image: promo.image,
+        layout: promo.layout === "split" ? "split" : "full",
         order: promo.order,
         show_tag: promo.showTag,
         show_title: promo.showTitle,

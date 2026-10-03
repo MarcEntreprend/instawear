@@ -271,7 +271,7 @@ if (url && anon && products.length > 0) {
     const { data: promos } = await supabase
       .from("hero_promotions")
       .select(
-        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order",
+        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout",
       )
       .order("order", { ascending: true });
     const first = (promos ?? []).find((pr: any) => {
@@ -305,6 +305,7 @@ if (url && anon && products.length > 0) {
           productId: prod.id,
           showTag: (first as any).show_tag !== false,
           showTitle: (first as any).show_title !== false,
+          layout: (first as any).layout === "split" ? "split" : "full",
         };
       }
     }

@@ -1140,6 +1140,9 @@ export default function App() {
           productId: promo.productId,
           showTag: promo.showTag !== false,
           showTitle: promo.showTitle !== false,
+          layout: (promo.layout === "split" ? "split" : "full") as
+            | "full"
+            | "split",
         };
       });
   }, [heroPromotions, products]);
