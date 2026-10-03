@@ -1,0 +1,9 @@
+// src/utils/routes.ts — routes SPA (purs, testables en node).
+//
+// L'admin est une page à part entière (/admin, refresh-safe) : l'URL est la
+// source de vérité, jamais un état volatil seul.
+
+/** Vrai si et seulement si le chemin est la page admin (strict, sans PII). */
+export function isAdminPath(path: string): boolean {
+  return path === "/admin";
+}

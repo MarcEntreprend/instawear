@@ -19,8 +19,21 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
-import { HERO_BG_FALLBACK } from "../components/HeroCarousel";
+import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg, normalizeHeroLink } from "../components/HeroCarousel";
+import AdminImageInput from "./ui/AdminImageInput";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
+
+// Presets de fond hero (Phase 1 : fini le CSS technique à la main —
+// le champ libre reste en "avancé"). Noms humains, valeurs testées.
+// `light` = texte sombre dans l'aperçu (et lisibilité du slide réel).
+const HERO_BG_PRESETS: Array<{ label: string; value: string }> = [
+  { label: "Sombre", value: HERO_BG_FALLBACK },
+  { label: "Crème", value: "linear-gradient(135deg, #faf7f0 0%, #f3ece0 60%, #faf7f0 100%)" },
+  { label: "Terracotta", value: "linear-gradient(135deg, #c2452a 0%, #e07a4e 60%, #c2452a 100%)" },
+  { label: "Sauge", value: "linear-gradient(135deg, #5b6b4f 0%, #8a9b7a 60%, #5b6b4f 100%)" },
+  { label: "Nuit bleue", value: "linear-gradient(135deg, #1c2340 0%, #3a4a7a 60%, #1c2340 100%)" },
+  { label: "Sable doré", value: "linear-gradient(135deg, #f0b13d 0%, #f7d789 60%, #f0b13d 100%)" },
+];
 
 export default function PromotionsPage() {
   // Devise du store (Vague B item 7/11 : fini le "$" en dur).
@@ -224,7 +237,12 @@ export default function PromotionsPage() {
       isActive: true,
       showTag: true,
       showTitle: true,
-    });
+      layout: "full",
+      kind: "product",
+      linkUrl: "",
+      image: "",
+      tiles: [],
+    } as any);
     setEditingId(null);
     setShowForm(false);
   };
@@ -593,17 +611,467 @@ export default function PromotionsPage() {
               </div>
               <div>
                 <label style={labelStyle}>Dégradé de fond</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {HERO_BG_PRESETS.map((p) => {
+                    const selected =
+                      (form.bgGradient || HERO_BG_FALLBACK) === p.value;
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        title={p.label}
+                        onClick={() =>
+                          setForm({ ...form, bgGradient: p.value })
+                        }
+                        style={{
+                          width: 40,
+                          height: 28,
+                          borderRadius: 8,
+                          background: p.value,
+                          border: selected
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
                 <input
                   type="text"
                   value={form.bgGradient || ""}
                   onChange={(e) =>
                     setForm({ ...form, bgGradient: e.target.value })
                   }
-                  style={inputStyle}
-                  placeholder="from-white via-indigo-50 to-white"
+                  style={{ ...inputStyle, marginTop: 8 }}
+                  placeholder="Personnalisé (CSS avancé)"
                 />
               </div>
             </div>
+
+            {/* ── Visuel hero (standardisé : lien + import + DnD + Ctrl+V) ── */}
+            <AdminImageInput
+              label="Visuel du slide (optionnel)"
+              value={(form as any).image || ""}
+              onChange={(url) => setForm({ ...form, image: url } as any)}
+              folder="hero"
+              placeholder="https://… (vide = image du produit)"
+            />
+
+            {/* ── Type de slide (Phase 2) ── */}
+            <div>
+              <label style={labelStyle}>Type de slide</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(
+                  [
+                    { value: "product", label: "Produit", desc: "Fiche produit : image + titre + prix du produit choisi." },
+                    { value: "image", label: "Visuel", desc: "Ta propre image plein cadre (ex. créa jaune) + bouton." },
+                    { value: "grid", label: "Grille", desc: "Visuel principal + tuiles cliquables (style Shein)." },
+                  ] as const
+                ).map((o) => {
+                  const selected =
+                    ((form as any).kind ?? "product") === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      title={o.desc}
+                      onClick={() =>
+                        setForm({ ...form, kind: o.value } as any)
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: selected
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                        background: selected
+                          ? "var(--color-accent-bg)"
+                          : "var(--color-surface2)",
+                        color: "var(--color-ink)",
+                        fontWeight: selected ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background:
+                    ((form as any).kind ?? "product") === "image" &&
+                    !(form as any).image
+                      ? "var(--color-accent-bg)"
+                      : "var(--color-surface2)",
+                  fontSize: 11,
+                  color: "var(--color-ink2)",
+                  lineHeight: 1.5,
+                }}
+              >
+                {((form as any).kind ?? "product") === "product" && (
+                  <span>
+                    <strong>Mode Produit :</strong> tout vient du produit choisi
+                    ci-dessus (image, titre, prix). Seul le bouton peut suivre
+                    ton lien ci-dessous.
+                  </span>
+                )}
+                {((form as any).kind ?? "product") === "image" && (
+                  <span>
+                    <strong>Mode Visuel :</strong>{" "}
+                    {!(form as any).image
+                      ? "⚠️ ajoute ton image dans « Visuel du slide » plus haut — sans elle, ce slide est identique au mode Produit."
+                      : "ton image s'affiche en grand ; le bouton suit ton lien ci-dessous."}
+                  </span>
+                )}
+                {((form as any).kind ?? "product") === "grid" && (
+                  <span>
+                    <strong>Mode Grille :</strong> visuel principal +
+                    tuiles cliquables ci-dessous.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* ── Lien au clic (tous kinds : vide = fiche produit) ── */}
+            <div>
+              <label style={labelStyle}>Lien au clic (vide = fiche produit)</label>
+              <input
+                type="text"
+                value={(form as any).linkUrl || ""}
+                onChange={(e) =>
+                  setForm({ ...form, linkUrl: e.target.value } as any)
+                }
+                onBlur={(e) => {
+                  const v = normalizeHeroLink(e.target.value);
+                  if (v !== e.target.value)
+                    setForm({ ...form, linkUrl: v } as any);
+                }}
+                style={inputStyle}
+                placeholder="/promotions ou URL complète du site"
+              />
+              <p style={{ fontSize: 11, color: "var(--color-ink3)", marginTop: 4 }}>
+                Ex. <code>/promotions</code>, <code>/recherche?q=robe</code> ou l'URL complète copiée du navigateur (convertie auto). Les liens externes sont refusés.
+              </p>
+            </div>
+
+            {/* ── Tuiles (grid, max 3) ── */}
+            {(form as any).kind === "grid" && (
+              <div>
+                <label style={labelStyle}>
+                  Tuiles ({((form as any).tiles || []).length}/3)
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {((form as any).tiles || []).map((t: any, ti: number) => (
+                    <div
+                      key={ti}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "flex-start",
+                        padding: 10,
+                        borderRadius: 10,
+                        border: "1px solid var(--color-border)",
+                        background: "var(--color-surface2)",
+                      }}
+                    >
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                        <AdminImageInput
+                          value={t.image || ""}
+                          onChange={(url) => {
+                            const tiles = [...((form as any).tiles || [])];
+                            tiles[ti] = { ...tiles[ti], image: url };
+                            setForm({ ...form, tiles } as any);
+                          }}
+                          folder="hero"
+                          placeholder="Image https://… (lien, import, dépôt, Ctrl+V)"
+                        />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            type="text"
+                            value={t.label || ""}
+                            onChange={(e) => {
+                              const tiles = [...((form as any).tiles || [])];
+                              tiles[ti] = { ...tiles[ti], label: e.target.value };
+                              setForm({ ...form, tiles } as any);
+                            }}
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="Libellé"
+                          />
+                          <input
+                            type="text"
+                            value={t.link || ""}
+                            onChange={(e) => {
+                              const tiles = [...((form as any).tiles || [])];
+                              tiles[ti] = { ...tiles[ti], link: e.target.value };
+                              setForm({ ...form, tiles } as any);
+                            }}
+                            onBlur={(e) => {
+                              const v = normalizeHeroLink(e.target.value);
+                              if (v !== e.target.value) {
+                                const tiles = [...((form as any).tiles || [])];
+                                tiles[ti] = { ...tiles[ti], link: v };
+                                setForm({ ...form, tiles } as any);
+                              }
+                            }}
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="Lien /… (URL complète acceptée)"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tiles = ((form as any).tiles || []).filter(
+                            (_: any, i: number) => i !== ti,
+                          );
+                          setForm({ ...form, tiles } as any);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#ef4444",
+                          fontSize: 16,
+                          padding: 4,
+                          flexShrink: 0,
+                        }}
+                        title="Retirer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {((form as any).tiles || []).length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          tiles: [...((form as any).tiles || []), { image: "", label: "", link: "" }],
+                        } as any)
+                      }
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "1px dashed var(--color-border2)",
+                        background: "transparent",
+                        color: "var(--color-ink2)",
+                        fontWeight: 600,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      + Ajouter une tuile
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Mise en page du slide ── */}
+            <div>
+              <label style={labelStyle}>Mise en page</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(
+                  [
+                    { value: "full", label: "Plein écran (image de fond)" },
+                    { value: "split", label: "Partagé (fond + visuel cadré)" },
+                  ] as const
+                ).map((o) => {
+                  const selected =
+                    ((form as any).layout ?? "full") === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, layout: o.value } as any)
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: selected
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                        background: selected
+                          ? "var(--color-accent-bg)"
+                          : "var(--color-surface2)",
+                        color: "var(--color-ink)",
+                        fontWeight: selected ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Aperçu live du slide (fidèle au choix) ── */}
+            {((form as any).layout ?? "full") === "full" ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid var(--color-border)",
+                  minHeight: 140,
+                  padding: "20px 24px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: "#1a1712",
+                  backgroundImage:
+                    ((form as any).image ||
+                      getProductById(form.productId!)?.image)
+                      ? `linear-gradient(90deg, rgba(15,13,10,.68) 0%, rgba(15,13,10,.28) 55%, transparent 100%), url(${(form as any).image || getProductById(form.productId!)?.image})`
+                      : heroBackground(form.bgGradient),
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                {(form.showTag !== false) && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      alignSelf: "flex-start",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: "#fff",
+                      background: "rgba(255,255,255,.14)",
+                      borderRadius: 999,
+                      padding: "3px 10px",
+                    }}
+                  >
+                    {(form.tag || "Promotion").slice(0, 24)}
+                  </span>
+                )}
+                <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
+                  {((form.headline || "").split("\n")[0] || form.title || "Titre") as string}
+                </div>
+                <div
+                  style={{
+                    display: "inline-block",
+                    alignSelf: "flex-start",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "var(--color-accent)",
+                    borderRadius: 999,
+                    padding: "7px 16px",
+                  }}
+                >
+                  {form.cta || "Voir"}
+                </div>
+              </div>
+            ) : (
+            <div
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid var(--color-border)",
+                background: heroBackground(form.bgGradient),
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "20px 24px",
+                minHeight: 140,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {(form.showTag !== false) && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: "var(--color-accent)",
+                      background: "var(--color-accent-bg)",
+                      borderRadius: 999,
+                      padding: "3px 10px",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {(form.tag || "Promotion").slice(0, 24)}
+                  </span>
+                )}
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    color: isLightHeroBg(form.bgGradient)
+                      ? "var(--color-ink)"
+                      : "#fff",
+                  }}
+                >
+                  {((form.headline || "").split("\n")[0] ||
+                    form.title ||
+                    "Titre") as string}
+                </div>
+                {(form.sub || "") && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: isLightHeroBg(form.bgGradient)
+                        ? "var(--color-ink2)"
+                        : "rgba(255,255,255,.75)",
+                      marginTop: 6,
+                    }}
+                  >
+                    {(form.sub || "").slice(0, 80)}
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: "inline-block",
+                    marginTop: 12,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "var(--color-accent)",
+                    borderRadius: 999,
+                    padding: "7px 16px",
+                  }}
+                >
+                  {form.cta || "Voir"}
+                </div>
+              </div>
+              {(form as any).image ||
+              getProductById(form.productId!)?.image ? (
+                <img
+                  src={
+                    ((form as any).image ||
+                      getProductById(form.productId!)?.image) as string
+                  }
+                  alt=""
+                  style={{
+                    width: 120,
+                    height: 120,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
+            </div>
+            )}
 
             {/* ── Options Deal ── */}
             <div

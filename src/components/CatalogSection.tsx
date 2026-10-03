@@ -35,9 +35,6 @@ interface CatalogSectionProps {
   loadingProducts: boolean;
   networkError?: boolean;
   favorites: string[];
-  dealExpired: boolean;
-  dealFadingOut: boolean;
-  countdownString: string;
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
@@ -102,7 +99,8 @@ function parseFiltersFromSearch(
     priceMax: params.has("pmax") ? Number(params.get("pmax")) : 200,
     inStockOnly: params.get("stock") === "1",
     size: params.get("size") ?? null,
-    color: normHex(params.get("color") || "") || null,
+    // Hex exact (rétro-compat anciens liens) ou slug de famille (?color=grey).
+    color: parseColorParam(params.get("color")),
   };
   const sortParam = params.get("sort");
   const sort = SORT_OPTIONS.some((o) => o.value === sortParam)
@@ -135,18 +133,31 @@ const SIZE_OPTIONS = SIZE_OPTIONS_US;
 
 // normHex vit dans utils/colors (évite les imports circulaires avec StoreProductCard).
 // Ré-exporté ici pour compatibilité (tests + appelants existants).
-import { normHex, hexToRgb } from "../utils/colors";
+import {
+  normHex,
+  hexToRgb,
+  classifyColorFamily,
+  isColorFamilySlug,
+  familyBySlug,
+  parseColorParam,
+  colorFilterMatches,
+  compareColorHex,
+  COLOR_FAMILIES,
+} from "../utils/colors";
 export { normHex };
 
 export interface FacetColor {
   hex: string;
   name: string;
   count: number;
+  /** Valeur posée dans le filtre/URL : hex exact, ou slug de famille. */
+  value: string;
 }
 
 /**
  * Couleurs RÉELLES du catalogue : agrégées depuis products[].colors
- * (+ noms via colorNames alignés), triées par popularité. Remplace
+ * (+ noms via colorNames alignés), ordonnées en spectre (neutres puis
+ * arc-en-ciel, voir compareColorHex) — jamais par popularité. Remplace
  * l'ancienne liste générique en dur (qui ne matchait aucun vrai produit).
  */
 export function buildColorFacets(
@@ -166,11 +177,46 @@ export function buildColorFacets(
         cur.count += 1;
         if (cur.name === cur.hex && name !== hex) cur.name = name;
       } else {
-        map.set(hex, { hex, name, count: 1 });
+        map.set(hex, { hex, name, count: 1, value: hex });
       }
     });
   }
-  return [...map.values()].sort((a, b) => b.count - a.count);
+  return [...map.values()].sort((a, b) => compareColorHex(a.hex, b.hex));
+}
+
+/**
+ * Familles de couleurs (groupé par défaut, façon stores) : chaque produit
+ * compte UNE fois par famille présente dans ses variantes (dédupliqué).
+ * Pastille = swatch canonique saturé de la famille (Bleu = bleu franc, même
+ * si le catalogue n'a que du bleu pâle : reconnaissable, jamais confondu
+ * avec blanc/gris). value = slug (URL `?color=grey`). Ordre canonique fixe
+ * (Black, White, Grey… Pink), jamais par popularité. Le groupement vit
+ * dans `classifyColorFamily` (HEX réel, jamais les noms Printful).
+ */
+export function buildColorFamilyFacets(
+  products: { colors?: string[] | null }[],
+): FacetColor[] {
+  const counts = new Map<string, number>();
+  for (const p of products) {
+    const colors = Array.isArray(p.colors) ? p.colors : [];
+    const seen = new Set<string>();
+    for (const raw of colors) {
+      const fam = classifyColorFamily(raw);
+      if (!fam || seen.has(fam)) continue;
+      seen.add(fam);
+      counts.set(fam, (counts.get(fam) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([slug, count]) => {
+      const fam = familyBySlug(slug)!;
+      return { hex: fam.swatch, name: fam.label, count, value: slug };
+    })
+    .sort(
+      (a, b) =>
+        COLOR_FAMILIES.findIndex((f) => f.slug === a.value) -
+        COLOR_FAMILIES.findIndex((f) => f.slug === b.value),
+    );
 }
 
 export interface StyleFacet {
@@ -214,9 +260,6 @@ export default function CatalogSection({
   loadingProducts,
   networkError = false,
   favorites,
-  dealExpired,
-  dealFadingOut,
-  countdownString,
   currencySymbol,
   onToggleFavorite,
   onAddToCart,
@@ -388,6 +431,70 @@ export default function CatalogSection({
     () => buildColorFacets(filteredProducts),
     [filteredProducts],
   );
+  // Familles groupées (défaut) : mêmes produits, agrégés par famille.
+  const availableColorFamilies = useMemo(
+    () => buildColorFamilyFacets(filteredProducts),
+    [filteredProducts],
+  );
+  // Mode d'affichage du filtre couleur : familles groupées (défaut, façon
+  // stores) ou toutes les nuances (comportement historique). Changer de mode
+  // réinitialise la sélection (une valeur d'un mode n'existe pas dans l'autre).
+  // Volontairement hors URL : préférence d'affichage, pas un filtre partageable.
+  const [colorMode, setColorMode] = useState<"families" | "all">("families");
+  const displayedColors =
+    colorMode === "families" ? availableColorFamilies : availableColors;
+  const switchColorMode = (mode: "families" | "all") => {
+    if (mode === colorMode) return;
+    setColorMode(mode);
+    setFilters((f) => (f.color ? { ...f, color: null } : f));
+  };
+  // Toggle Groupes / Toutes nuances (desktop + tiroir mobile partagent).
+  const colorModeToggle = (
+    <div
+      role="group"
+      aria-label="Color display mode"
+      style={{ display: "flex", gap: 4, marginBottom: 8 }}
+    >
+      {(
+        [
+          { mode: "families", label: "Groups", hint: "Grouped colors (Grey, Blue…)" },
+          { mode: "all", label: "All shades", hint: "Every shade (current view)" },
+        ] as const
+      ).map((o) => (
+        <button
+          key={o.mode}
+          type="button"
+          title={o.hint}
+          onClick={() => switchColorMode(o.mode)}
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "4px 10px",
+            borderRadius: 999,
+            cursor: "pointer",
+            color:
+              colorMode === o.mode ? "#fff" : "var(--color-ink3)",
+            background:
+              colorMode === o.mode
+                ? "var(--color-accent)"
+                : "transparent",
+            border: `1px solid ${
+              colorMode === o.mode
+                ? "var(--color-accent)"
+                : "var(--color-border)"
+            }`,
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+  const onSelectColorValue = (v: string | null) =>
+    setFilters((f) => ({
+      ...f,
+      color: normHex(v) || (isColorFamilySlug(v) ? v : null),
+    }));
 
   // Facettes style/matière RÉELLES : valeurs présentes au catalogue
   // (slugs stables), jamais de listes en dur. Calculées AVANT leur propre
@@ -403,8 +510,21 @@ export default function CatalogSection({
   );
 
   // Pastille "Color: <nom>" (nom d'abord, hex/RGB en fallback + tooltip).
+  // Famille → libellé + pastille représentative ; hex → comportement inchangé.
   const activeColorFacet = useMemo(() => {
     if (!filters.color) return null;
+    if (isColorFamilySlug(filters.color)) {
+      const fam = familyBySlug(filters.color)!;
+      const facet = availableColorFamilies.find(
+        (c) => c.value === filters.color,
+      );
+      const dot = facet ? facet.hex : fam.swatch;
+      return {
+        label: fam.label,
+        title: `${fam.label} group · ${facet ? facet.count : 0} product(s)`,
+        dot,
+      };
+    }
     const facet = availableColors.find((c) => c.hex === filters.color);
     const name =
       facet && facet.name && facet.name !== facet.hex
@@ -414,19 +534,23 @@ export default function CatalogSection({
     return {
       label: name,
       title: rgb ? `${name} · ${filters.color} · ${rgb}` : name,
+      dot: filters.color,
     };
-  }, [filters.color, availableColors]);
+  }, [filters.color, availableColors, availableColorFamilies]);
 
   const extraFiltered = useMemo(() => {
     let list = filteredProducts.filter((p) => {
       if (p.price < filters.priceMin || p.price > filters.priceMax)
         return false;
       if (filters.size && !p.sizes.includes(filters.size)) return false;
+      // Couleur : hex exact (historique) ou famille (?color=grey : une
+      // variante du produit dans la famille suffit).
       if (
         filters.color &&
-        !(Array.isArray(p.colors)
-          ? p.colors.some((c) => normHex(c) === filters.color)
-          : false)
+        !colorFilterMatches(
+          Array.isArray(p.colors) ? p.colors : [],
+          filters.color,
+        )
       )
         return false;
       if (filters.inStockOnly && p.inStock === false) return false;
@@ -755,14 +879,14 @@ export default function CatalogSection({
                 ))}
               </div>
             </FilterGroup>
-            {availableColors.length > 0 && (
+            {displayedColors.length > 0 && (
               <FilterGroup title="Color">
+                {colorModeToggle}
                 <ColorPicker
-                  colors={availableColors}
+                  colors={displayedColors}
                   selectedColor={filters.color}
-                  onSelect={(hex) =>
-                    setFilters((f) => ({ ...f, color: normHex(hex) || null }))
-                  }
+                  maxVisible={colorMode === "families" ? 12 : 6}
+                  onSelect={onSelectColorValue}
                 />
               </FilterGroup>
             )}
@@ -966,13 +1090,13 @@ export default function CatalogSection({
                     }}
                     title={activeColorFacet.title}
                   >
-                    <span
+                      <span
                       aria-hidden="true"
                       style={{
                         width: 12,
                         height: 12,
                         borderRadius: "50%",
-                        background: filters.color,
+                        background: activeColorFacet.dot,
                         border: "1px solid var(--color-border2)",
                         flexShrink: 0,
                       }}
@@ -1111,9 +1235,6 @@ export default function CatalogSection({
                     key={product.id}
                     product={product}
                     isFavorite={favorites.includes(product.id)}
-                    dealExpired={dealExpired}
-                    dealFadingOut={dealFadingOut}
-                    countdownStr={countdownString}
                     currencySymbol={currencySymbol}
                     onToggleFavorite={onToggleFavorite}
                     onAddToCart={onAddToCart}
@@ -1423,17 +1544,14 @@ export default function CatalogSection({
                     </div>
                   </FilterGroup>
 
-                  {availableColors.length > 0 && (
+                  {displayedColors.length > 0 && (
                     <FilterGroup title="Color">
+                      {colorModeToggle}
                       <ColorPicker
-                        colors={availableColors}
+                        colors={displayedColors}
                         selectedColor={filters.color}
-                        onSelect={(hex) =>
-                          setFilters((f) => ({
-                            ...f,
-                            color: normHex(hex) || null,
-                          }))
-                        }
+                        maxVisible={colorMode === "families" ? 12 : 6}
+                        onSelect={onSelectColorValue}
                       />
                     </FilterGroup>
                   )}
@@ -1513,10 +1631,13 @@ function ColorPicker({
   colors,
   selectedColor,
   onSelect,
+  maxVisible = 6,
 }: {
-  colors: { hex: string; name: string }[];
+  colors: { hex: string; name: string; value?: string }[];
   selectedColor: string | null;
-  onSelect: (hex: string | null) => void;
+  onSelect: (value: string | null) => void;
+  /** Pastilles visibles avant le "+N" (familles : tout, 12 max). */
+  maxVisible?: number;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   // Position mesurée du popup (fixed) : juste au-dessus du bloc filtre
@@ -1527,10 +1648,10 @@ function ColorPicker({
   );
   const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const MAX_VISIBLE = 6;
+  const itemValue = (c: { hex: string; value?: string }) => c.value ?? c.hex;
 
-  const visibleColors = colors.slice(0, MAX_VISIBLE);
-  const extraCount = colors.length - MAX_VISIBLE;
+  const visibleColors = colors.slice(0, maxVisible);
+  const extraCount = colors.length - maxVisible;
 
   const toggleOpen = () => {
     setDropPos(null);
@@ -1591,17 +1712,19 @@ function ColorPicker({
           <button
             key={`${c.hex}-${cidx}`}
             onClick={() => {
-              onSelect(selectedColor === c.hex ? null : c.hex);
+              const v = itemValue(c);
+              onSelect(selectedColor === v ? null : v);
               setIsOpen(false);
             }}
             className="w-6 h-6 rounded-full transition-transform hover:scale-110"
             style={{
               background: c.hex,
               border:
-                selectedColor === c.hex
+                selectedColor === itemValue(c)
                   ? "2px solid var(--color-accent)"
                   : "1px solid var(--color-border2)",
-              boxShadow: selectedColor === c.hex ? "var(--shadow-sm)" : "none",
+              boxShadow:
+                selectedColor === itemValue(c) ? "var(--shadow-sm)" : "none",
             }}
             title={c.name}
           />
@@ -1659,14 +1782,15 @@ function ColorPicker({
             <button
               key={`${c.hex}-${cidx}`}
               onClick={() => {
-                onSelect(selectedColor === c.hex ? null : c.hex);
+                const v = itemValue(c);
+                onSelect(selectedColor === v ? null : v);
                 setIsOpen(false);
               }}
               className="w-6 h-6 rounded-full transition-transform hover:scale-110"
               style={{
                 background: c.hex,
                 border:
-                  selectedColor === c.hex
+                  selectedColor === itemValue(c)
                     ? "2px solid var(--color-accent)"
                     : "1px solid var(--color-border2)",
               }}

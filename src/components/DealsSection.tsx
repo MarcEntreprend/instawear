@@ -9,9 +9,6 @@ import { merchApi } from "../api/supabaseApi";
 import { getVariant } from "../lib/engagement";
 
 interface DealsSectionProps {
-  dealExpired: boolean;
-  dealFadingOut: boolean;
-  countdownString: string;
   currencySymbol: string;
   products: Product[];
   favorites?: string[];
@@ -23,9 +20,6 @@ interface DealsSectionProps {
 }
 
 export default function DealsSection({
-  dealExpired,
-  dealFadingOut,
-  countdownString,
   currencySymbol,
   products,
   favorites = [],
@@ -156,9 +150,6 @@ export default function DealsSection({
               <StoreProductCard
                 product={product}
                 isFavorite={favorites.includes(product.id)}
-                dealExpired={dealExpired}
-                dealFadingOut={dealFadingOut}
-                countdownStr={countdownString}
                 currencySymbol={currencySymbol}
                 onToggleFavorite={(id) => onToggleFavorite?.(id)}
                 onAddToCart={(p, c, s) => onAddToCart?.(p, c, s)}

@@ -12,13 +12,11 @@ import { formatAmount } from "../data/currency";
 import { DISCOUNT_EVENT_TYPE } from "../data/categories";
 import { PLACEHOLDER_IMG, CART_PLUS_ICON } from "../constants/assets";
 import { imageKitUrl, imageKitSrcSet } from "../lib/imagekit";
+import { isDealLive } from "../utils/deals";
 
 interface StoreProductCardProps {
   product: Product;
   isFavorite: boolean;
-  dealExpired: boolean;
-  dealFadingOut: boolean;
-  countdownStr: string;
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
@@ -32,9 +30,6 @@ interface StoreProductCardProps {
 export default function StoreProductCard({
   product,
   isFavorite,
-  dealExpired,
-  dealFadingOut,
-  countdownStr,
   currencySymbol,
   onToggleFavorite,
   onAddToCart,
@@ -97,8 +92,9 @@ export default function StoreProductCard({
       }));
   const visibleSwatches = swatches.slice(0, 4);
   const extraSwatches = swatches.length - visibleSwatches.length;
-  const dealLive =
-    product.dealActive && !dealExpired && product.dealPrice != null;
+  // Deal PAR PRODUIT (pur, monotone) : fini le latch global qui tuait tous
+  // les deals à la première promo expirée + faisait flicker LIMITED.
+  const dealLive = isDealLive(product);
 
   const displayPrice = dealLive ? product.dealPrice! : product.price;
   const strikePrice = dealLive
@@ -149,11 +145,7 @@ export default function StoreProductCard({
             <span className="badge badge-ink">Best-seller</span>
           )}
           {!dealLive && product.isLimitedTime && (
-            <span
-              className={`badge badge-gold ${dealFadingOut ? "deal-fade-out" : ""}`}
-            >
-              Limited
-            </span>
+            <span className="badge badge-gold">Limited</span>
           )}
           {product.eventType === DISCOUNT_EVENT_TYPE && (
             <span
@@ -345,7 +337,7 @@ export default function StoreProductCard({
         </div>
 
         {dealLive && product.dealEndsAt && (
-          <div className={`mt-3 ${dealFadingOut ? "deal-fade-out" : ""}`}>
+          <div className="mt-3">
             <DealCountdown endsAt={product.dealEndsAt} compact />
           </div>
         )}

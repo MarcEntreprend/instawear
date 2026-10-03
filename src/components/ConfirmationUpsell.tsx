@@ -91,14 +91,11 @@ export default function ConfirmationUpsell({
       </h3>
       <div className="grid grid-cols-2 gap-4">
         {items.map((p) => (
-          <StoreProductCard
-            key={p.id}
-            product={p}
-            isFavorite={favorites.includes(p.id)}
-            dealExpired={false}
-            dealFadingOut={false}
-            countdownStr=""
-            currencySymbol={currencySymbol}
+            <StoreProductCard
+              key={p.id}
+              product={p}
+              isFavorite={favorites.includes(p.id)}
+              currencySymbol={currencySymbol}
             onToggleFavorite={onToggleFavorite}
             onAddToCart={onAddToCart}
             onSelectProduct={onSelectProduct}

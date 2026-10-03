@@ -1,10 +1,9 @@
 // src/admin/ProductFormPanel.tsx
 
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Save, Upload, RefreshCw, ExternalLink } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, ExternalLink } from "lucide-react";
 import TagInput from "../components/TagInput";
 import { PLACEHOLDER_IMG, LOGO_URL } from "../constants/assets";
-import { storageApi } from "../api/storageApi";
 import { podApi } from "../api/supabaseApi";
 import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
@@ -13,6 +12,7 @@ import {
   formLabelStyle as labelStyle,
 } from "./adminStyles";
 import GalleryPicker, { type GalleryPickItem } from "./GalleryPicker";
+import AdminImageInput from "./ui/AdminImageInput";
 import { AdminProduct } from "./adminTypes";
 
 interface ProductFormPanelProps {
@@ -971,79 +971,13 @@ export default function ProductFormPanel({
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
         >
           <div>
-            <label style={labelStyle}>Image principale (URL)</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="url"
-                  value={form.image}
-                  onChange={(e) => update("image", e.target.value)}
-                  style={{ ...inputStyle, flex: 1 }}
-                  placeholder="https://..."
-                />
-                <label
-                  title="Uploader une image"
-                  style={{
-                    ...inputStyle,
-                    width: 40,
-                    padding: "8px 0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 10,
-                    background: "var(--color-surface2)",
-                    color: "var(--color-ink3)",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Upload size={16} />
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                    style={{ display: "none" }}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        const url = await storageApi.uploadImage(
-                          file,
-                          "products",
-                        );
-                        update("image", url);
-                      } catch (err) {
-                        console.error("Upload failed", err);
-                        alert("Erreur lors de l'upload de l'image.");
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              {/* Miniature de l'image principale */}
-              {form.image && form.image !== PLACEHOLDER_IMG && (
-                <div
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 8,
-                    overflow: "hidden",
-                    background: "var(--color-surface2)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  <img
-                    src={form.image}
-                    alt=""
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <AdminImageInput
+              label="Image principale (URL)"
+              value={form.image}
+              onChange={(url) => update("image", url)}
+              folder="products"
+              placeholder="https://… (lien, import, dépôt, Ctrl+V)"
+            />
           </div>
           <div>
             <label style={labelStyle}>

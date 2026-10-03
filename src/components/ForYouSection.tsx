@@ -11,9 +11,6 @@ interface Props {
   favoriteIds: string[];
   recentlyIds: string[];
   favorites: string[];
-  dealExpired: boolean;
-  dealFadingOut: boolean;
-  countdownString: string;
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
@@ -25,9 +22,6 @@ export default function ForYouSection({
   favoriteIds,
   recentlyIds,
   favorites,
-  dealExpired,
-  dealFadingOut,
-  countdownString,
   currencySymbol,
   onToggleFavorite,
   onAddToCart,
@@ -82,9 +76,6 @@ export default function ForYouSection({
             <StoreProductCard
               product={product}
               isFavorite={favorites.includes(product.id)}
-              dealExpired={dealExpired}
-              dealFadingOut={dealFadingOut}
-              countdownStr={countdownString}
               currencySymbol={currencySymbol}
               onToggleFavorite={onToggleFavorite}
               onAddToCart={onAddToCart}

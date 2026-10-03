@@ -539,6 +539,15 @@ export default function ProductsPage() {
           : null;
       const thumbFallback =
         stored == null ? null : Math.max(0, applied - stored);
+      // Vues galerie (tâche B) : info additive, jamais bloquante.
+      const galleryViews =
+        typeof (result as any).galleryViews === "number"
+          ? (result as any).galleryViews
+          : 0;
+      const galleryWarning =
+        typeof (result as any).galleryWarning === "string"
+          ? (result as any).galleryWarning
+          : null;
       const fullSuccess =
         hasApplied &&
         stored != null &&
@@ -549,7 +558,11 @@ export default function ProductsPage() {
         // Clear immédiat : succès complet confirmé, le refetch serveur
         // qui suit confirme (et reprend la main dans tous les cas).
         setMockupsDoneIds((prev) => new Set(prev).add(productId));
-        alert(`${stored} mockup(s) stocké(s) et appliqué(s).`);
+        alert(
+          `${stored} mockup(s) stocké(s) et appliqué(s).` +
+            (galleryViews > 0 ? ` + ${galleryViews} vue(s) galerie.` : "") +
+            (galleryWarning ? ` (galerie : ${galleryWarning})` : ""),
+        );
       } else {
         alert(
           hasApplied
@@ -561,7 +574,9 @@ export default function ProductsPage() {
                 "." +
                 (unmatched.length > 0
                   ? ` Sans correspondance : ${unmatched.slice(0, 6).join(", ")}.`
-                  : "")
+                  : "") +
+                (galleryViews > 0 ? ` + ${galleryViews} vue(s) galerie.` : "") +
+                (galleryWarning ? ` (galerie : ${galleryWarning})` : "")
             : `${result.mockupsGenerated} mockup(s) généré(s) pour ${result.colors.length} couleur(s).`,
         );
       }

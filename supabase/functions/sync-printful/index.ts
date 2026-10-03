@@ -35,6 +35,7 @@ import {
   applyStorageToVariants,
   isStorageMockupUrl,
   countStoredApplications,
+  selectMockupStyles,
 } from "./_shared/productImages.ts";
 
 const corsHeaders = {
@@ -484,6 +485,9 @@ interface MockupPrepare {
   variantIdToColor?: Map<number, string>;
   /** Entrées printfiles brutes (géométrie par placement, Phase 3). */
   printfiles?: any[];
+  /** Styles de mockups dispos (option_groups printfiles : Flat, Flat
+   *  Lifestyle, Men's… ; vide = endpoint muet → pas de tâche B). */
+  optionGroups?: string[];
 }
 
 // Étapes 1-7 du flux legacy : produit DB, détail store, catalogue,
@@ -580,6 +584,7 @@ async function prepareMockupTask(
   let printAreaHeight = 2400;
   let placement = "front";
   let printfiles: any[] = [];
+  let optionGroups: string[] = [];
   try {
     const pfHeaders: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
@@ -598,6 +603,11 @@ async function prepareMockupTask(
       const placementKeys = Object.keys(availablePlacements);
       if (placementKeys.length > 0) placement = placementKeys[0];
       printfiles = result.printfiles ?? [];
+      if (Array.isArray(result.option_groups)) {
+        optionGroups = result.option_groups.filter(
+          (g: unknown) => typeof g === "string" && (g as string).trim().length > 0,
+        );
+      }
       if (printfiles.length > 0) {
         const firstPf = printfiles[0];
         if (firstPf.width) printAreaWidth = firstPf.width;
@@ -620,6 +630,7 @@ async function prepareMockupTask(
     printAreaHeight,
     variantIdToColor,
     printfiles,
+    optionGroups,
   };
 }
 
@@ -671,6 +682,9 @@ export interface MockupTaskOverrides {
   width?: number;
   files?: { placement: string; image_url: string; position: Record<string, number> }[];
   productTemplateId?: number;
+  /** Styles demandés (option_groups Printful : Flat, Flat Lifestyle…).
+   *  Vide/absent = legacy (aucun option_groups envoyé). */
+  styles?: string[];
 }
 
 // Étape 8 : crée la tâche Printful (rapide, sans poll).
@@ -699,6 +713,11 @@ async function createMockupTask(
     format: overrides?.format || "jpg",
     ...(overrides?.width ? { width: overrides.width } : {}),
     product_options: { lifelike: true },
+    // Styles (doc "Choosing mockup styles") : sans option_groups Printful
+    // ne génère que le premier mockup (flat front). Vide = legacy exact.
+    ...(overrides?.styles && overrides.styles.length > 0
+      ? { option_groups: overrides.styles }
+      : {}),
     ...(overrides?.productTemplateId
       ? { product_template_id: overrides.productTemplateId }
       : {
@@ -1114,6 +1133,196 @@ async function finalizeMockupTask(
     // URLs BRUTES (non signées) : usage forensique/aperçu uniquement.
     // La colonne gallery écrite en DB, elle, est signée.
     gallery: galleryUrls(galleryMetaBuilt, 20),
+  };
+}
+
+// ─── Finalize GALERIE SEULE (tâche B vues portées, Partie 2) ─────────────
+// Écrit UNIQUEMENT gallery + gallery_meta (kept:true par défaut, retrait
+// admin via picker). Ne touche JAMAIS à variants[] ni à image : la section
+// couleur reste octet pour octet ce que la tâche A (legacy) y a mis.
+// Chemins `-alt-{k}` : jamais de collision avec les fichiers tâche A.
+interface MockupGalleryOnlyResult {
+  ok: boolean;
+  status?: number;
+  error?: string;
+  taskKey?: string;
+  galleryViews?: number;
+  styles?: string[];
+  purgedTmp?: number;
+}
+
+function isTmpUrl(u: unknown): boolean {
+  if (typeof u !== "string" || u.length === 0) return false;
+  try {
+    return new URL(u).pathname.includes("/tmp/");
+  } catch {
+    return false;
+  }
+}
+
+async function finalizeGalleryOnly(
+  supabaseAdmin: any,
+  productId: string,
+  taskResult: any,
+  stylesUsed: string[],
+  taskKey: string,
+): Promise<MockupGalleryOnlyResult> {
+  const mockups: any[] = taskResult?.mockups ?? [];
+  if (mockups.length === 0) {
+    return { ok: false, error: "Aucune vue galerie générée.", status: 502, taskKey };
+  }
+  try {
+    await supabaseAdmin.storage.createBucket("product-mockups", {
+      public: true,
+    });
+  } catch {
+    // bucket likely already exists
+  }
+
+  // Regroupement minimal (couleur via variantIdToColor inconnu ici :
+  // chemins -alt-{k} uniques, pas besoin d'hex).
+  let altCounter = 0;
+  const uploaded: string[] = [];
+  const inserts: any[] = [];
+  for (const m of mockups) {
+    if (m == null || typeof m !== "object") continue;
+    const mockupUrl = (m as any).mockup_url;
+    if (typeof mockupUrl !== "string" || mockupUrl.length === 0) continue;
+    const placement =
+      typeof (m as any).placement === "string" && (m as any).placement
+        ? (m as any).placement
+        : "front";
+    try {
+      const imgRes = await safeFetch(mockupUrl, { headers: { Accept: "image/*" } });
+      if (!imgRes.ok) {
+        console.error(`Failed to download gallery view: ${imgRes.status}`);
+        continue;
+      }
+      const imgBuffer = await imgRes.arrayBuffer();
+      altCounter += 1;
+      const safePlacement = placement.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "front";
+      const storagePath = `${productId}/gallery-${safePlacement}-alt-${altCounter}.jpg`;
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from("product-mockups")
+        .upload(storagePath, imgBuffer, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+      if (uploadErr) {
+        console.error(`Failed to upload gallery view: ${uploadErr.message}`);
+        continue;
+      }
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from("product-mockups")
+        .getPublicUrl(storagePath);
+      const storageUrl = publicUrlData?.publicUrl || "";
+      if (!storageUrl) continue;
+      uploaded.push(storageUrl);
+      inserts.push({
+        product_id: productId,
+        color: null,
+        catalog_variant_ids: Array.isArray((m as any).variant_ids)
+          ? (m as any).variant_ids.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n))
+          : [],
+        mockup_url: mockupUrl,
+        storage_url: storageUrl,
+        placement,
+      });
+    } catch (e: any) {
+      console.error(`Error processing gallery view: ${e?.message || e}`);
+    }
+  }
+  if (uploaded.length === 0) {
+    return { ok: false, error: "Aucune vue galerie stockée.", status: 502, taskKey };
+  }
+
+  // Relit le produit FRAIS (tâche A déjà écrite) : on ne fait qu'ajouter.
+  const { data: dbProduct, error: dbErr } = await supabaseAdmin
+    .from("products")
+    .select("*")
+    .eq("id", productId)
+    .single();
+  if (dbErr || !dbProduct) {
+    return { ok: false, error: "Produit introuvable pour la galerie.", status: 404, taskKey };
+  }
+  if (inserts.length > 0) {
+    try {
+      await supabaseAdmin.from("product_mockups").insert(inserts);
+    } catch (insertErr: any) {
+      console.error(`Failed to insert gallery records: ${insertErr.message}`);
+    }
+  }
+
+  // Purge tmp/ pourrissants (anciens runs) : la galerie n'en contient plus.
+  // Mémoire kept:false préservée pour le reste (jamais ré-ajouté).
+  const existingMeta: any[] = Array.isArray((dbProduct as any)?.gallery_meta)
+    ? (dbProduct as any).gallery_meta
+    : [];
+  const existingGallery: any[] = Array.isArray((dbProduct as any)?.gallery)
+    ? (dbProduct as any).gallery
+    : [];
+  let purgedTmp = 0;
+  const cleanMeta = existingMeta.filter((r: any) => {
+    if (r && typeof r.url === "string" && isTmpUrl(r.url)) {
+      purgedTmp += 1;
+      return false;
+    }
+    return true;
+  });
+  const cleanGallery = existingGallery.filter((u: any) => {
+    if (typeof u === "string" && isTmpUrl(u)) {
+      purgedTmp += 1;
+      return false;
+    }
+    return true;
+  });
+
+  const fresh = uploaded.map((u) => ({
+    url: u,
+    color: null,
+    placement: null,
+    source: "generated" as const,
+  }));
+  const galleryMetaBuilt = buildGalleryMeta(fresh, {
+    existingMeta: cleanMeta,
+    existingGallery: cleanGallery,
+    // Fronts actuels exclus (déjà en section Color — inchangée).
+    variantFronts: Array.isArray((dbProduct as any)?.variants)
+      ? (dbProduct as any).variants.map((v: any) => v?.image)
+      : [],
+    importedColors: [],
+    identity: (u: string) => {
+      try {
+        return imagekitOriginal(u);
+      } catch {
+        return u;
+      }
+    },
+  });
+  const galleryUrlsOut = galleryUrls(galleryMetaBuilt, 20).map((u) =>
+    displayImageUrl(u),
+  );
+  const updatedGallery =
+    galleryUrlsOut.length > 0 ? galleryUrlsOut : cleanGallery.slice(0, 20);
+
+  try {
+    const signedUpdate: Record<string, unknown> = await signImagekitDeep({
+      gallery: updatedGallery,
+      gallery_meta: galleryMetaBuilt.slice(0, 100),
+    });
+    await supabaseAdmin
+      .from("products")
+      .update(signedUpdate)
+      .eq("id", productId);
+  } catch (updateErr: any) {
+    console.error(logSafe(`Failed to update gallery: ${updateErr.message}`));
+    return { ok: false, error: "Écriture galerie impossible.", status: 502, taskKey };
+  }
+  return {
+    ok: true,
+    galleryViews: uploaded.length,
+    styles: stylesUsed,
+    purgedTmp,
   };
 }
 
@@ -2864,6 +3073,49 @@ export default {
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: fin.status || 502 },
           );
         }
+        // ── Tâche B vues portées (Partie 2, galerie seule) ──────────────
+        // Styles demandés (défaut Flat + Flat Lifestyle) intersectés aux
+        // groupes réels du blank ; vide = pas de tâche B (legacy strict).
+        // Un échec B ne fait JAMAIS échouer la tâche A (chemin couleurs).
+        let galleryStyles: string[] = [];
+        let galleryViews = 0;
+        let galleryWarning: string | null = null;
+        if (body.styles !== undefined && !Array.isArray(body.styles)) {
+          return new Response(
+            JSON.stringify({ error: "styles invalide (tableau de chaînes)" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+          );
+        }
+        galleryStyles = selectMockupStyles(
+          body.styles,
+          (prep as any).optionGroups ?? [],
+        );
+        if (galleryStyles.length > 0) {
+          try {
+            const createdB = await createMockupTask(
+              supabaseAdmin, apiKey, storeId,
+              prep.catalogProductId!, prep.uniqueVariantIds!, prep.printFileUrl!,
+              prep.placement!, prep.printAreaWidth!, prep.printAreaHeight!,
+              { styles: galleryStyles },
+            );
+            if (createdB.ok) {
+              const taskResultB = await pollMockupTask(apiKey, storeId, createdB.taskKey!);
+              const galB = await finalizeGalleryOnly(
+                supabaseAdmin, body.productId, taskResultB,
+                galleryStyles, createdB.taskKey!,
+              );
+              if (galB.ok) {
+                galleryViews = galB.galleryViews ?? 0;
+              } else {
+                galleryWarning = galB.error || "Vues galerie indisponibles.";
+              }
+            } else {
+              galleryWarning = createdB.error || "Tâche galerie non créée.";
+            }
+          } catch (e: any) {
+            galleryWarning = e?.message || "Vues galerie indisponibles.";
+          }
+        }
         return new Response(
           JSON.stringify({
             success: true,
@@ -2876,6 +3128,9 @@ export default {
             unmatchedVids: fin.unmatchedVids ?? [],
             unmatchedHexes: fin.unmatchedHexes ?? [],
             placements: requestedPl ?? [prep.placement!],
+            styles: galleryStyles,
+            galleryViews,
+            ...(galleryWarning ? { galleryWarning } : {}),
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );

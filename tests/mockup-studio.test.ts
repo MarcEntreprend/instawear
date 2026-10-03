@@ -386,3 +386,33 @@ test("generate-mockups accepte placements (validés, max 5, défaut front)", () 
   assert.ok(syncSource.includes("body.placements"));
   assert.ok(syncSource.includes("requestedPl"));
 });
+
+test("Partie 2 : tâche A legacy intacte (couleurs gelées, verrou Part 1)", () => {
+  // La tâche A n'envoie JAMAIS option_groups : mêmes entrées, même ordre,
+  // même code de matching → pastilles octet pour octet identiques.
+  assert.ok(
+    syncSource.includes("? { option_groups: overrides.styles }"),
+    "option_groups seulement si styles",
+  );
+  // finalizeMockupTask : chemin couleurs inchangé (Passe 1 legacy).
+  assert.ok(
+    syncSource.includes("updatePayload.image = displayImageUrl(firstMockupUrl)"),
+    "main legacy (Partie 2 ne touche pas au main)",
+  );
+});
+
+test("Partie 2 : tâche B galerie-seule (jamais variants/image)", () => {
+  assert.ok(syncSource.includes("finalizeGalleryOnly("), "finalize dédié");
+  assert.ok(syncSource.includes("galleryViews"), "compteur vues");
+  // Chemins distincts : jamais de collision avec les fichiers tâche A.
+  assert.ok(syncSource.includes("-alt-"), "suffixe -alt-{k}");
+  // finalizeGalleryOnly n'écrit QUE gallery + gallery_meta.
+  const start = syncSource.indexOf("async function finalizeGalleryOnly(");
+  assert.ok(start !== -1, "fonction présente");
+  const end = syncSource.indexOf("export default {", start);
+  const body = syncSource.slice(start, end);
+  assert.ok(body.includes("gallery_meta"), "écrit meta");
+  assert.ok(!body.includes("variants:"), "pas d'écriture variants");
+  assert.ok(!body.includes("updatePayload"), "pas de payload legacy");
+  assert.ok(!body.includes("applyStorageToVariants"), "pas de matching");
+});

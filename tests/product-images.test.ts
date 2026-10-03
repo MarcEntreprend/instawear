@@ -12,6 +12,8 @@ import {
   preferStoredMain,
   applyStorageToVariants,
   countStoredApplications,
+  selectMockupStyles,
+  DEFAULT_MOCKUP_STYLES,
 } from "../supabase/functions/sync-printful/_shared/productImages.ts";
 
 const ST = (hex: string) =>
@@ -168,4 +170,24 @@ test("countStoredApplications: seul le storage compte (repli thumb exclu)", () =
   );
   assert.equal(countStoredApplications([]), 0);
   assert.equal(countStoredApplications(null as any), 0);
+});
+
+test("selectMockupStyles: défaut Flat+Lifestyle intersectés, legacy sinon", () => {
+  assert.deepEqual([...DEFAULT_MOCKUP_STYLES], ["Flat", "Flat Lifestyle"]);
+  const avail = ["Flat", "Flat Lifestyle", "Men's"];
+  assert.deepEqual(selectMockupStyles(undefined, avail), ["Flat", "Flat Lifestyle"]);
+  assert.deepEqual(selectMockupStyles(["flat lifestyle", "flat"], avail), [
+    "Flat Lifestyle",
+    "Flat",
+  ]);
+  assert.deepEqual(selectMockupStyles(["Men's"], avail), ["Men's"]);
+  assert.deepEqual(selectMockupStyles(["Ghost"], avail), []);
+  assert.deepEqual(selectMockupStyles(undefined, []), [], "endpoint muet = pas de tâche B");
+  assert.deepEqual(selectMockupStyles(undefined, null), []);
+  const many = ["Flat", "Flat Lifestyle", "Men's", "Women's", "On Hanger"];
+  assert.deepEqual(
+    selectMockupStyles(many, [...many, "Flat 2"]),
+    many.slice(0, 4),
+    "capé à 4",
+  );
 });

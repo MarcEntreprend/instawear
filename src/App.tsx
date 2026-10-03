@@ -70,6 +70,8 @@ import {
   getVariantAvailability,
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
+import { isDealLive } from "./utils/deals";
+import { isAdminPath } from "./utils/routes";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -132,7 +134,13 @@ export default function App() {
   );
 
   // Layout View States
-  const [activeTab, setActiveTab] = useState<"store" | "admin">("store");
+  // L'admin est une page (/admin) : l'URL au boot initialise l'état pour que
+  // le refresh reste dans l'admin (source de vérité = URL, pas état volatil).
+  const [activeTab, setActiveTab] = useState<"store" | "admin">(() =>
+    typeof window !== "undefined" && isAdminPath(window.location.pathname)
+      ? "admin"
+      : "store",
+  );
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   // Latch deep-route : vrai quand l'overlay produit a été ouvert par charge
   // directe /produit/:id (cold boot), pas par clic depuis l'accueil. Sert à
@@ -198,6 +206,14 @@ export default function App() {
     const onPop = () => {
       const path = window.location.pathname;
       const search = window.location.search;
+      // /admin est une page : précédent/suivant navigateur entre/sort de l'admin.
+      if (isAdminPath(path)) {
+        setActiveTab("admin");
+        setShowNewAdmin(true);
+      } else {
+        setShowNewAdmin(false);
+        setActiveTab("store");
+      }
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1] && x.isActive !== false);
@@ -288,6 +304,42 @@ export default function App() {
     try {
       history.pushState({}, "", `/recherche?q=${encodeURIComponent(q)}`);
     } catch {}
+  };
+  // Liens internes des slides hero Phase 2 (anti open-redirect : seuls les
+  // chemins "/" connus sont routés, le reste est ignoré silencieusement).
+  const openHeroLink = (link: string): boolean => {
+    if (!link.startsWith("/") || link.startsWith("//")) return false;
+    const [path, qs] = link.split("?");
+    const params = new URLSearchParams(qs || "");
+    if (path === "/") {
+      goHome();
+      return true;
+    }
+    if (path === "/promotions") {
+      openPromotionsPage();
+      return true;
+    }
+    if (path === "/recherche") {
+      openSearchPage(params.get("q") || "");
+      return true;
+    }
+    if (path === "/suivi") {
+      openTrackingPage(params.get("code") || undefined);
+      return true;
+    }
+    if (path === "/faq") {
+      openFaqPage();
+      return true;
+    }
+    if (path === "/contact") {
+      openContactPage();
+      return true;
+    }
+    if (path.startsWith("/legal/")) {
+      openLegal(path.split("/")[2] || "cgv");
+      return true;
+    }
+    return false;
   };
   const openTrackingPage = (code?: string) => {
     setTrackingPageCode(code || "");
@@ -500,11 +552,17 @@ export default function App() {
     syncCart();
   }, [cart, isAdmin, isUser]);
 
-  const [dealExpired, setDealExpired] = useState(false);
-  const [dealFadingOut, setDealFadingOut] = useState(false);
+  // Latch global dealExpired/dealFadingOut SUPPRIMÉ (flicker LIMITED +
+  // tuait tous les deals à la première promo expirée) : état par produit
+  // via isDealLive (pur). Le tick 1s plus bas fournit le re-render.
 
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
-  const [showNewAdmin, setShowNewAdmin] = useState(false);
+  // (même initialisation URL que activeTab : refresh-safe).
+  const [showNewAdmin, setShowNewAdmin] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      isAdminPath(window.location.pathname),
+  );
 
   const [showNotFound, setShowNotFound] = useState(false); // not found
 
@@ -577,12 +635,21 @@ export default function App() {
     }
   }, [showNewAdmin]);
 
-  // Force back to store if a non‑admin tries to access admin
+  // Force back to store if a non‑admin tries to access admin (/admin en
+  // lien direct ou session expirée : retour boutique + URL nettoyée).
+  // authChecked évite d'éjecter pendant la restauration de session (refresh).
+  const [authChecked, setAuthChecked] = useState(false);
   useEffect(() => {
-    if (activeTab === "admin" && !isAdmin) {
+    if (authChecked && activeTab === "admin" && !isAdmin) {
       setActiveTab("store");
+      setShowNewAdmin(false);
+      if (isAdminPath(window.location.pathname)) {
+        try {
+          history.pushState({}, "", "/");
+        } catch {}
+      }
     }
-  }, [activeTab, isAdmin]);
+  }, [authChecked, activeTab, isAdmin]);
 
   // Ouvre la modale en mode reset si on arrive depuis un lien de réinitialisation
   useEffect(() => {
@@ -668,8 +735,7 @@ export default function App() {
 
   // Listen to Supabase session changes (authentication)
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user?.email) {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {      if (session?.user?.email) {
         // Vérifier localement puis côté serveur si l'utilisateur est admin
         const isAdminUser = await checkAdminEmail(session.user.email);
         if (isAdminUser) {
@@ -698,7 +764,7 @@ export default function App() {
         setCartLoaded(false);
         setShowFavoritesOnly(false);
       }
-    });
+    }).finally(() => setAuthChecked(true));
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
@@ -811,11 +877,13 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [countdownString, setCountdownString] = useState("");
 
+  // Tick 1s : moteur de re-render pour les comptes à rebours et l'état
+  // deal PAR PRODUIT (isDealLive, pur). Plus de latch global : chaque deal
+  // meurt à sa date sans flicker et sans tuer les autres.
   useEffect(() => {
     if (!dealEndTime) {
       setTimeLeft(null);
       setCountdownString("");
-      // Ne pas réinitialiser dealExpired si déjà true (évite le flash)
       return;
     }
 
@@ -829,13 +897,7 @@ export default function App() {
       setCountdownString(
         `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
       );
-      if (remaining <= 0 && !dealExpired) {
-        setDealFadingOut(true);
-        setTimeout(() => {
-          setDealExpired(true);
-          setDealFadingOut(false);
-        }, 900);
-      }
+      // Plus de latch : l'expiration est lue par produit (isDealLive).
     };
 
     tick();
@@ -939,9 +1001,7 @@ export default function App() {
       return { blocked: msg, targetColor, targetSize };
     }
     const basePrice =
-      product.dealActive && !dealExpired && product.dealPrice
-        ? product.dealPrice
-        : product.price;
+      isDealLive(product) ? product.dealPrice! : product.price;
     let unitPrice = basePrice + (product.sizeSurcharge?.[targetSize] ?? 0);
 
     if (product.variants?.length) {
@@ -950,12 +1010,10 @@ export default function App() {
         const variantPrice = variant.sizes[targetSize].price;
         // Appliquer le même ratio de réduction
         if (
-          product.dealActive &&
-          !dealExpired &&
-          product.dealPrice &&
+          isDealLive(product) &&
           product.price > 0
         ) {
-          const discountRatio = product.dealPrice / product.price;
+          const discountRatio = product.dealPrice! / product.price;
           unitPrice = variantPrice * discountRatio;
         } else {
           unitPrice = variantPrice;
@@ -1146,6 +1204,14 @@ export default function App() {
           productId: promo.productId,
           showTag: promo.showTag !== false,
           showTitle: promo.showTitle !== false,
+          layout: (promo.layout === "split" ? "split" : "full") as
+            | "full"
+            | "split",
+          kind: (promo.kind === "image" || promo.kind === "grid"
+            ? promo.kind
+            : "product") as "product" | "image" | "grid",
+          linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
+          tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
         };
       });
   }, [heroPromotions, products]);
@@ -1469,6 +1535,7 @@ export default function App() {
       // Routes connues (SPA : pages produit / légales / aide / suivi)
       const knownPaths = [
         "/",
+        "/admin",
         "/unsubscribe",
         "/index.html",
         "/faq",
@@ -1582,7 +1649,29 @@ export default function App() {
     setSearchPageQuery(null);
     setTrackingPageCode(null);
     setActiveTab("store");
+    setShowNewAdmin(false);
     history.pushState({}, "", "/");
+  };
+
+  // ── Admin = page /admin (refresh-safe) ──────────────────────────────────
+  // Ouvre ET pose l'URL ; retour ET nettoie l'URL. L'URL est la source de
+  // vérité : refresh, précédent/suivant navigateur et lien direct marchent.
+  const openAdmin = () => {
+    setUiTick((t) => t + 1);
+    setActiveTab("admin");
+    setShowNewAdmin(true);
+    window.scrollTo({ top: 0 });
+    try {
+      history.pushState({}, "", "/admin");
+    } catch {}
+  };
+  const closeAdmin = () => {
+    setUiTick((t) => t + 1);
+    setActiveTab("store");
+    setShowNewAdmin(false);
+    try {
+      history.pushState({}, "", "/");
+    } catch {}
   };
 
   // Garde deep-route /produit/:id lue AU RENDU (l'URL ne ment jamais) :
@@ -1698,6 +1787,7 @@ export default function App() {
           setCartLoaded(false);
           setShowFavoritesOnly(false);
           setActiveTab("store");
+          setShowNewAdmin(false);
         }}
         onOpenAccount={() => {
           setShowAccountPage(true);
@@ -1733,10 +1823,14 @@ export default function App() {
             loading={promotionsLoading}
             suspended={suspendHeroForBootProduct}
             onBannerAction={(banner) => {
+              if (banner.linkUrl && openHeroLink(banner.linkUrl)) return;
               if (banner.productId) {
                 const target = products.find((p) => p.id === banner.productId);
                 if (target) openProduct(target);
               }
+            }}
+            onBannerLink={(link) => {
+              openHeroLink(link);
             }}
           />
           <ReassuranceBar />
@@ -1746,9 +1840,6 @@ export default function App() {
             onSelectCategory={setSelectedCategory}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
             currencySymbol={currencySymbol}
             products={products}
             onSelectEventType={setSelectedEventType}
@@ -1760,9 +1851,6 @@ export default function App() {
             loadingProducts={loadingProducts}
             networkError={networkError}
             favorites={favorites}
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
             currencySymbol={currencySymbol}
             showDeliveryInfo={SHOW_PRODUCT_DELIVERY_INFO}
             getDeliverEstimateString={getDeliverEstimateString}
@@ -1794,9 +1882,6 @@ export default function App() {
               favoriteIds={favorites}
               recentlyIds={recentlyIds}
               favorites={favorites}
-              dealExpired={dealExpired}
-              dealFadingOut={dealFadingOut}
-              countdownString={countdownString}
               currencySymbol={currencySymbol}
               onToggleFavorite={toggleFavorite}
               onAddToCart={addToCart}
@@ -1815,9 +1900,12 @@ export default function App() {
       {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
       {activeTab === "admin" && isAdmin && (
         <Suspense fallback={<LazyFallback />}>
-          <AdminDashboardNew onReturnToStore={() => setActiveTab("store")} />
+          <AdminDashboardNew onReturnToStore={closeAdmin} />
         </Suspense>
       )}
+      {/* /admin en restauration de session : spinner plein écran — ni
+          storefront ni 404 pendant que la session se restaure. */}
+      {activeTab === "admin" && !isAdmin && <LazyFallback />}
 
       {/* Deep-route /produit/:id : chargement, erreur fetch, id inconnu/inactif.
           Jamais de faux accueil silencieux (diagnostic deep-link + Q2.1/Q2.2). */}
@@ -1857,9 +1945,6 @@ export default function App() {
           products={products}
           currencySymbol={currencySymbol}
           favorites={favorites}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
-          countdownString={countdownString}
           onClose={() => {
             history.pushState({}, "", "/");
             setSelectedProduct(null);
@@ -1924,9 +2009,6 @@ export default function App() {
         <PromotionsPage
           products={products}
           favorites={favorites}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
-          countdownString={countdownString}
           currencySymbol={currencySymbol}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}
@@ -1999,7 +2081,7 @@ export default function App() {
         onSelectEventType={setSelectedEventType}
         onSelectCategory={setSelectedCategory}
         onNavigate={setActiveTab}
-        onOpenAdmin={() => setShowNewAdmin(true)}
+        onOpenAdmin={openAdmin}
         onOpenLegal={openLegal}
         onOpenFaq={openFaqPage}
         onOpenContact={openContactPage}
@@ -2020,8 +2102,7 @@ export default function App() {
           onLoginSuccess={(isAdminLogin, name) => {
             if (isAdminLogin) {
               setIsAdmin(true);
-              setActiveTab("admin");
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              openAdmin();
             } else {
               setIsUser(true);
               setUserName(name || "");
@@ -2086,7 +2167,7 @@ export default function App() {
       {/* empêche le modal d’être dans le DOM quand on est dans l’admin. */}
       {showNewAdmin && isAdmin && (
         <Suspense fallback={<LazyFallback />}>
-          <AdminDashboardNew onReturnToStore={() => setShowNewAdmin(false)} />
+          <AdminDashboardNew onReturnToStore={closeAdmin} />
         </Suspense>
       )}
 

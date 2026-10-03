@@ -18,7 +18,7 @@ test("normHex: casse, #, raccourcis, invalides", () => {
   assert.equal(normHex(undefined), "");
 });
 
-test("buildColorFacets: agrège, déduplique (casse), noms alignés, tri popularité", () => {
+test("buildColorFacets: agrège, déduplique (casse), noms alignés, ordre spectre", () => {
   const out = buildColorFacets([
     { colors: ["#f5f0e8", "#1A1A1A"], colorNames: ["Vintage White", "Black"] },
     { colors: ["#F5F0E8", "red"], colorNames: ["Vintage White", "Rouge"] },
@@ -26,12 +26,13 @@ test("buildColorFacets: agrège, déduplique (casse), noms alignés, tri popular
     {},
   ]);
   assert.equal(out.length, 2);
-  assert.equal(out[0].hex, "#f5f0e8");
-  assert.equal(out[0].name, "Vintage White");
-  assert.equal(out[0].count, 2);
-  assert.equal(out[1].hex, "#1a1a1a");
-  assert.equal(out[1].name, "Black");
-  assert.equal(out[1].count, 1);
+  // Ordre spectre : neutre d'abord (même si moins fréquent), teinte ensuite.
+  assert.equal(out[0].hex, "#1a1a1a");
+  assert.equal(out[0].name, "Black");
+  assert.equal(out[0].count, 1);
+  assert.equal(out[1].hex, "#f5f0e8");
+  assert.equal(out[1].name, "Vintage White");
+  assert.equal(out[1].count, 2);
 });
 
 test("buildColorFacets: nom = hex si pas de nom, vide si rien", () => {

@@ -1092,24 +1092,6 @@ html:not([data-theme="dark"]) {
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
 }
 
-/* Animation de fondu pour la disparition des offres */
-.deal-fade-out {
-  animation: fadeOutScale 0.6s var(--ease-smooth) forwards;
-  transform-origin: top;
-  pointer-events: none;
-}
-
-@keyframes fadeOutScale {
-  0% {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scaleY(0);
-  }
-}
-
 /* ------------------------- */
 
 /* Cercle multicolore pour les produits avec +4 couleurs */
