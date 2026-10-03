@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { isPlaceholderImage } from "../utils/gallery";
 import {
   getVariantAvailability,
   pickAvailableVariant,
@@ -267,7 +268,10 @@ export default function ProductPage({
     (u: string, idx: number, arr: string[]) =>
       u &&
       u.trim().length > 0 &&
-      u !== PLACEHOLDER_IMG &&
+      // Garde-fou client (Partie 1) : aucun visuel "manquant" dans la
+      // galerie, sous AUCUNE forme (constante, absolue, query). Le cadre
+      // garde son fallback unique (displayImage) ; l'admin voit le brut.
+      !isPlaceholderImage(u) &&
       arr.indexOf(u) === idx,
   );
   // Le cadre suit la variante choisie (visuel avec design), sinon la galerie
@@ -281,7 +285,14 @@ export default function ProductPage({
     variantFrameImage ||
     allImages[activeGalleryIndex] ||
     PLACEHOLDER_IMG;
-  const gallery = allImages.length ? allImages : [displayImage];
+  // Galerie client SANS missing : si tout est manquant, strip vide (pas de
+  // slide "manquant" parmi du vide) ; le cadre garde son fallback unique.
+  const gallery =
+    allImages.length > 0
+      ? allImages
+      : isPlaceholderImage(displayImage)
+        ? []
+        : [displayImage];
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
     currentVariantPrice != null ? currentVariantPrice : product.price;
@@ -974,7 +985,7 @@ export default function ProductPage({
         </div>
       </div>
 
-      {isLightboxOpen && (
+      {isLightboxOpen && gallery.length > 0 && (
         <ImageLightbox
           images={gallery}
           initialIndex={activeGalleryIndex}
