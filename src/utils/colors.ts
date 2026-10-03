@@ -41,14 +41,14 @@ export const COLOR_FAMILIES: ColorFamily[] = [
   { slug: "black", label: "Black", swatch: "#1a1a1a" },
   { slug: "white", label: "White", swatch: "#ffffff" },
   { slug: "grey", label: "Grey", swatch: "#8a8d91" },
-  { slug: "beige", label: "Beige", swatch: "#d8c49a" },
-  { slug: "brown", label: "Brown", swatch: "#6b4a2f" },
+  { slug: "beige", label: "Beige", swatch: "#d9bd7e" },
+  { slug: "brown", label: "Brown", swatch: "#7a4a21" },
   { slug: "red", label: "Red", swatch: "#c0392b" },
   { slug: "orange", label: "Orange", swatch: "#e67e22" },
   { slug: "yellow", label: "Yellow", swatch: "#f1c40f" },
   { slug: "green", label: "Green", swatch: "#2e7d46" },
   { slug: "blue", label: "Blue", swatch: "#2c5fa8" },
-  { slug: "purple", label: "Purple", swatch: "#7d3c98" },
+  { slug: "purple", label: "Purple", swatch: "#8338c4" },
   { slug: "pink", label: "Pink", swatch: "#e78fb3" },
 ];
 

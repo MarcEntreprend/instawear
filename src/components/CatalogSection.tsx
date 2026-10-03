@@ -184,15 +184,15 @@ export function buildColorFacets(
 /**
  * Familles de couleurs (groupé par défaut, façon stores) : chaque produit
  * compte UNE fois par famille présente dans ses variantes (dédupliqué).
- * Pastille = hex membre le plus fréquent (vraie teinte du catalogue),
- * value = slug (URL `?color=grey`). Le groupement vit dans
- * `classifyColorFamily` (HEX réel, jamais les noms Printful).
+ * Pastille = swatch canonique saturé de la famille (Bleu = bleu franc, même
+ * si le catalogue n'a que du bleu pâle : reconnaissable, jamais confondu
+ * avec blanc/gris). value = slug (URL `?color=grey`). Le groupement vit
+ * dans `classifyColorFamily` (HEX réel, jamais les noms Printful).
  */
 export function buildColorFamilyFacets(
   products: { colors?: string[] | null }[],
 ): FacetColor[] {
   const counts = new Map<string, number>();
-  const memberHits = new Map<string, Map<string, number>>();
   for (const p of products) {
     const colors = Array.isArray(p.colors) ? p.colors : [];
     const seen = new Set<string>();
@@ -201,18 +201,12 @@ export function buildColorFamilyFacets(
       if (!fam || seen.has(fam)) continue;
       seen.add(fam);
       counts.set(fam, (counts.get(fam) || 0) + 1);
-      const hex = normHex(raw);
-      const members = memberHits.get(fam) || new Map<string, number>();
-      members.set(hex, (members.get(hex) || 0) + 1);
-      memberHits.set(fam, members);
     }
   }
   return [...counts.entries()]
     .map(([slug, count]) => {
       const fam = familyBySlug(slug)!;
-      const members = memberHits.get(slug)!;
-      const repHex = [...members.entries()].sort((a, b) => b[1] - a[1])[0][0];
-      return { hex: repHex, name: fam.label, count, value: slug };
+      return { hex: fam.swatch, name: fam.label, count, value: slug };
     })
     .sort((a, b) => b.count - a.count);
 }

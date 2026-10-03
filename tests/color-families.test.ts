@@ -10,6 +10,7 @@ import {
   colorFilterMatches,
   resolveColorTarget,
   variantImageForColor,
+  hexToHsl,
   COLOR_FAMILIES,
 } from "../src/utils/colors.ts";
 import { buildColorFamilyFacets } from "../src/components/CatalogSection.tsx";
@@ -138,7 +139,7 @@ test("variantImageForColor : Groups montre le visuel (main en fallback)", () => 
     null,
   );
 });
-test("buildColorFamilyFacets : dedupe/produit, pastille repre, tri", () => {
+test("buildColorFamilyFacets : dedupe/produit, pastille canonique, tri", () => {
   const out = buildColorFamilyFacets([
     { colors: ["#9aa0a3", "#8d867c", "#1a1a1a"] },
     { colors: ["#9AA0A3"] },
@@ -150,8 +151,23 @@ test("buildColorFamilyFacets : dedupe/produit, pastille repre, tri", () => {
   const grey = out.find((f) => f.value === "grey")!;
   assert.equal(grey.count, 2);
   assert.equal(grey.name, "Grey");
-  // Pastille = hex membre le plus fréquent (#9aa0a3 ×2).
-  assert.equal(grey.hex, "#9aa0a3");
+  // Pastille = swatch canonique saturé (jamais un pâle ambigu).
+  assert.equal(grey.hex, familyBySlug("grey")!.swatch);
   assert.equal(out[0].value, "grey");
   assert.deepEqual(buildColorFamilyFacets([]), []);
+});
+
+test("pastilles familles : saturees, uniques, pas de pales ambigus", () => {
+  const swatches = COLOR_FAMILIES.map((f) => f.swatch);
+  assert.equal(new Set(swatches).size, swatches.length, "swatches uniques");
+  for (const f of COLOR_FAMILIES) {
+    const hsl = hexToHsl(f.swatch);
+    assert.ok(hsl, `${f.slug} swatch valide`);
+    if (f.slug === "black") assert.ok(hsl!.l < 0.2, "noir franc");
+    else if (f.slug === "white") assert.ok(hsl!.l > 0.95, "blanc franc");
+    // Gris : ton moyen (ni blanc cassé ni quasi-noir).
+    else if (f.slug === "grey") assert.ok(hsl!.l > 0.3 && hsl!.l < 0.7);
+    // Familles chromatiques : bien saturées (pas de pastel ambigu).
+    else assert.ok(hsl!.s >= 0.45, `${f.slug} sature (${hsl!.s})`);
+  }
 });
