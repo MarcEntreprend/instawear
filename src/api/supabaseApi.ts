@@ -1886,6 +1886,7 @@ export const podApi = {
   async generateMockups(
     productId: string,
     placements?: string[],
+    styles?: string[],
   ): Promise<{
     success: boolean;
     taskKey: string;
@@ -1897,6 +1898,9 @@ export const podApi = {
     unmatchedHexes?: string[];
     placements?: string[];
     gallery?: string[];
+    styles?: string[];
+    galleryViews?: number;
+    galleryWarning?: string;
   }> {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-printful`;
     const headers = await getPodAuthHeaders();
@@ -1907,6 +1911,7 @@ export const podApi = {
         action: "generate-mockups",
         productId,
         ...(placements && placements.length > 0 ? { placements } : {}),
+        ...(styles && styles.length > 0 ? { styles } : {}),
       }),
     });
     if (!res.ok) {
