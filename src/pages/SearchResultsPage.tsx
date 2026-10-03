@@ -183,9 +183,6 @@ export default function SearchResultsPage({
                 key={product.id}
                 product={product}
                 isFavorite={favouriteIds.includes(product.id)}
-                dealExpired={false}
-                dealFadingOut={false}
-                countdownStr=""
                 currencySymbol={currencySymbol}
                 onToggleFavorite={(id) =>
                   onToggleFavourite(products.find((p) => p.id === id)!)
@@ -223,9 +220,6 @@ export default function SearchResultsPage({
                   key={product.id}
                   product={product}
                   isFavorite={favouriteIds.includes(product.id)}
-                  dealExpired={false}
-                  dealFadingOut={false}
-                  countdownStr=""
                   currencySymbol={currencySymbol}
                   onToggleFavorite={(id) =>
                     onToggleFavourite(products.find((p) => p.id === id)!)

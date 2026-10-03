@@ -46,6 +46,7 @@ import {
 import { merchApi } from "../api/supabaseApi";
 import { getVariant } from "../lib/engagement";
 import { sortSizes } from "../utils/sizeOrder";
+import { isDealLive } from "../utils/deals";
 
 export default function ProductPage({
   product,
@@ -58,12 +59,9 @@ export default function ProductPage({
   onAddMany,
   onBuyNow,
   onSelectProduct,
-  dealExpired = false,
-  dealFadingOut = false,
   getDeliverEstimateString,
   initialColor,
   initialSize,
-  countdownString,
 }: any) {
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -296,8 +294,8 @@ export default function ProductPage({
   const currentVariantPrice = activeVariant?.sizes?.[pickedSize]?.price;
   const displayPrice =
     currentVariantPrice != null ? currentVariantPrice : product.price;
-  const dealLive =
-    product.dealActive && !dealExpired && product.dealPrice != null;
+  // Deal PAR PRODUIT (pur, monotone) : fini le latch global.
+  const dealLive = isDealLive(product);
   const unitPrice = dealLive ? product.dealPrice! : displayPrice;
 
   // ── Phase 1+4 Merchandising : affinité co-achats réels + pins/excludes.

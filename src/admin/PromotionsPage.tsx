@@ -13,14 +13,30 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
-import { HERO_BG_FALLBACK } from "../components/HeroCarousel";
+import { HERO_BG_FALLBACK, heroBackground } from "../components/HeroCarousel";
+import { storageApi } from "../api/storageApi";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
+
+// Presets de fond hero (Phase 1 : fini le CSS technique à la main —
+// le champ libre reste en "avancé"). Noms humains, valeurs testées.
+// `light` = texte sombre dans l'aperçu (et lisibilité du slide réel).
+const HERO_BG_PRESETS: Array<{ label: string; value: string; light?: boolean }> = [
+  { label: "Sombre", value: HERO_BG_FALLBACK },
+  { label: "Crème", value: "linear-gradient(135deg, #faf7f0 0%, #f3ece0 60%, #faf7f0 100%)", light: true },
+  { label: "Terracotta", value: "linear-gradient(135deg, #c2452a 0%, #e07a4e 60%, #c2452a 100%)" },
+  { label: "Sauge", value: "linear-gradient(135deg, #5b6b4f 0%, #8a9b7a 60%, #5b6b4f 100%)" },
+  { label: "Nuit bleue", value: "linear-gradient(135deg, #1c2340 0%, #3a4a7a 60%, #1c2340 100%)" },
+  { label: "Sable doré", value: "linear-gradient(135deg, #f0b13d 0%, #f7d789 60%, #f0b13d 100%)", light: true },
+];
+const isLightHeroBg = (bg?: string | null): boolean =>
+  HERO_BG_PRESETS.some((p) => p.light && p.value === (bg || ""));
 
 export default function PromotionsPage() {
   // Devise du store (Vague B item 7/11 : fini le "$" en dur).
@@ -34,6 +50,7 @@ export default function PromotionsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [form, setForm] = useState<Partial<HeroPromotion>>({
     productId: "",
     title: "",
@@ -593,16 +610,194 @@ export default function PromotionsPage() {
               </div>
               <div>
                 <label style={labelStyle}>Dégradé de fond</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {HERO_BG_PRESETS.map((p) => {
+                    const selected =
+                      (form.bgGradient || HERO_BG_FALLBACK) === p.value;
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        title={p.label}
+                        onClick={() =>
+                          setForm({ ...form, bgGradient: p.value })
+                        }
+                        style={{
+                          width: 40,
+                          height: 28,
+                          borderRadius: 8,
+                          background: p.value,
+                          border: selected
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
                 <input
                   type="text"
                   value={form.bgGradient || ""}
                   onChange={(e) =>
                     setForm({ ...form, bgGradient: e.target.value })
                   }
-                  style={inputStyle}
-                  placeholder="from-white via-indigo-50 to-white"
+                  style={{ ...inputStyle, marginTop: 8 }}
+                  placeholder="Personnalisé (CSS avancé)"
                 />
               </div>
+            </div>
+
+            {/* ── Visuel hero (Phase 1 : image custom au lieu de l'image
+                produit ; vide = image du produit comme avant) ── */}
+            <div>
+              <label style={labelStyle}>Visuel du slide (optionnel)</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="url"
+                  value={(form as any).image || ""}
+                  onChange={(e) =>
+                    setForm({ ...form, image: e.target.value } as any)
+                  }
+                  style={{ ...inputStyle, flex: 1 }}
+                  placeholder="https://… (vide = image du produit)"
+                />
+                <label
+                  title="Uploader un visuel"
+                  style={{
+                    ...inputStyle,
+                    width: 40,
+                    padding: "8px 0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: uploadingHero ? "wait" : "pointer",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 10,
+                    background: "var(--color-surface2)",
+                    color: "var(--color-ink3)",
+                    flexShrink: 0,
+                    opacity: uploadingHero ? 0.6 : 1,
+                  }}
+                >
+                  <Upload size={16} />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    style={{ display: "none" }}
+                    disabled={uploadingHero}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingHero(true);
+                      try {
+                        const url = await storageApi.uploadImage(file, "hero");
+                        setForm({ ...form, image: url } as any);
+                      } catch (err) {
+                        console.error("Upload failed", err);
+                        alert("Erreur lors de l'upload du visuel.");
+                      } finally {
+                        setUploadingHero(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* ── Aperçu live du slide ── */}
+            <div
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid var(--color-border)",
+                background: heroBackground(form.bgGradient),
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "20px 24px",
+                minHeight: 140,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {(form.showTag !== false) && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: "var(--color-accent)",
+                      background: "var(--color-accent-bg)",
+                      borderRadius: 999,
+                      padding: "3px 10px",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {(form.tag || "Promotion").slice(0, 24)}
+                  </span>
+                )}
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    color: isLightHeroBg(form.bgGradient)
+                      ? "var(--color-ink)"
+                      : "#fff",
+                  }}
+                >
+                  {((form.headline || "").split("\n")[0] ||
+                    form.title ||
+                    "Titre") as string}
+                </div>
+                {(form.sub || "") && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: isLightHeroBg(form.bgGradient)
+                        ? "var(--color-ink2)"
+                        : "rgba(255,255,255,.75)",
+                      marginTop: 6,
+                    }}
+                  >
+                    {(form.sub || "").slice(0, 80)}
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: "inline-block",
+                    marginTop: 12,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "var(--color-accent)",
+                    borderRadius: 999,
+                    padding: "7px 16px",
+                  }}
+                >
+                  {form.cta || "Voir"}
+                </div>
+              </div>
+              {(form as any).image ||
+              getProductById(form.productId!)?.image ? (
+                <img
+                  src={
+                    ((form as any).image ||
+                      getProductById(form.productId!)?.image) as string
+                  }
+                  alt=""
+                  style={{
+                    width: 120,
+                    height: 120,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
             </div>
 
             {/* ── Options Deal ── */}

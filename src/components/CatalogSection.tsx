@@ -35,9 +35,6 @@ interface CatalogSectionProps {
   loadingProducts: boolean;
   networkError?: boolean;
   favorites: string[];
-  dealExpired: boolean;
-  dealFadingOut: boolean;
-  countdownString: string;
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
@@ -214,9 +211,6 @@ export default function CatalogSection({
   loadingProducts,
   networkError = false,
   favorites,
-  dealExpired,
-  dealFadingOut,
-  countdownString,
   currencySymbol,
   onToggleFavorite,
   onAddToCart,
@@ -1111,9 +1105,6 @@ export default function CatalogSection({
                     key={product.id}
                     product={product}
                     isFavorite={favorites.includes(product.id)}
-                    dealExpired={dealExpired}
-                    dealFadingOut={dealFadingOut}
-                    countdownStr={countdownString}
                     currencySymbol={currencySymbol}
                     onToggleFavorite={onToggleFavorite}
                     onAddToCart={onAddToCart}

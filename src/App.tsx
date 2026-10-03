@@ -70,6 +70,7 @@ import {
   getVariantAvailability,
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
+import { isDealLive } from "./utils/deals";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -500,8 +501,9 @@ export default function App() {
     syncCart();
   }, [cart, isAdmin, isUser]);
 
-  const [dealExpired, setDealExpired] = useState(false);
-  const [dealFadingOut, setDealFadingOut] = useState(false);
+  // Latch global dealExpired/dealFadingOut SUPPRIMÉ (flicker LIMITED +
+  // tuait tous les deals à la première promo expirée) : état par produit
+  // via isDealLive (pur). Le tick 1s plus bas fournit le re-render.
 
   // afficher AdminDashboardNew en plein écran lorsqu'il est actif
   const [showNewAdmin, setShowNewAdmin] = useState(false);
@@ -811,11 +813,13 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [countdownString, setCountdownString] = useState("");
 
+  // Tick 1s : moteur de re-render pour les comptes à rebours et l'état
+  // deal PAR PRODUIT (isDealLive, pur). Plus de latch global : chaque deal
+  // meurt à sa date sans flicker et sans tuer les autres.
   useEffect(() => {
     if (!dealEndTime) {
       setTimeLeft(null);
       setCountdownString("");
-      // Ne pas réinitialiser dealExpired si déjà true (évite le flash)
       return;
     }
 
@@ -829,13 +833,7 @@ export default function App() {
       setCountdownString(
         `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
       );
-      if (remaining <= 0 && !dealExpired) {
-        setDealFadingOut(true);
-        setTimeout(() => {
-          setDealExpired(true);
-          setDealFadingOut(false);
-        }, 900);
-      }
+      // Plus de latch : l'expiration est lue par produit (isDealLive).
     };
 
     tick();
@@ -939,9 +937,7 @@ export default function App() {
       return { blocked: msg, targetColor, targetSize };
     }
     const basePrice =
-      product.dealActive && !dealExpired && product.dealPrice
-        ? product.dealPrice
-        : product.price;
+      isDealLive(product) ? product.dealPrice! : product.price;
     let unitPrice = basePrice + (product.sizeSurcharge?.[targetSize] ?? 0);
 
     if (product.variants?.length) {
@@ -950,12 +946,10 @@ export default function App() {
         const variantPrice = variant.sizes[targetSize].price;
         // Appliquer le même ratio de réduction
         if (
-          product.dealActive &&
-          !dealExpired &&
-          product.dealPrice &&
+          isDealLive(product) &&
           product.price > 0
         ) {
-          const discountRatio = product.dealPrice / product.price;
+          const discountRatio = product.dealPrice! / product.price;
           unitPrice = variantPrice * discountRatio;
         } else {
           unitPrice = variantPrice;
@@ -1746,9 +1740,6 @@ export default function App() {
             onSelectCategory={setSelectedCategory}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
             currencySymbol={currencySymbol}
             products={products}
             onSelectEventType={setSelectedEventType}
@@ -1760,9 +1751,6 @@ export default function App() {
             loadingProducts={loadingProducts}
             networkError={networkError}
             favorites={favorites}
-            dealExpired={dealExpired}
-            dealFadingOut={dealFadingOut}
-            countdownString={countdownString}
             currencySymbol={currencySymbol}
             showDeliveryInfo={SHOW_PRODUCT_DELIVERY_INFO}
             getDeliverEstimateString={getDeliverEstimateString}
@@ -1794,9 +1782,6 @@ export default function App() {
               favoriteIds={favorites}
               recentlyIds={recentlyIds}
               favorites={favorites}
-              dealExpired={dealExpired}
-              dealFadingOut={dealFadingOut}
-              countdownString={countdownString}
               currencySymbol={currencySymbol}
               onToggleFavorite={toggleFavorite}
               onAddToCart={addToCart}
@@ -1857,9 +1842,6 @@ export default function App() {
           products={products}
           currencySymbol={currencySymbol}
           favorites={favorites}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
-          countdownString={countdownString}
           onClose={() => {
             history.pushState({}, "", "/");
             setSelectedProduct(null);
@@ -1924,9 +1906,6 @@ export default function App() {
         <PromotionsPage
           products={products}
           favorites={favorites}
-          dealExpired={dealExpired}
-          dealFadingOut={dealFadingOut}
-          countdownString={countdownString}
           currencySymbol={currencySymbol}
           onToggleFavorite={toggleFavorite}
           onAddToCart={addToCart}

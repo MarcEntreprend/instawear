@@ -4,8 +4,8 @@ import type { Product } from "../types";
 import StoreProductCard from "../components/StoreProductCard";
 import { usePageMeta } from "../hooks/usePageMeta";
 
-export default function PromotionsPage({ products, favorites, dealExpired, dealFadingOut, countdownString, currencySymbol, onToggleFavorite, onAddToCart, onSelectProduct, onBack }: {
-  products: Product[]; favorites: string[]; dealExpired: boolean; dealFadingOut: boolean; countdownString: string; currencySymbol: string;
+export default function PromotionsPage({ products, favorites, currencySymbol, onToggleFavorite, onAddToCart, onSelectProduct, onBack }: {
+  products: Product[]; favorites: string[]; currencySymbol: string;
   onToggleFavorite: (id: string) => void; onAddToCart: (p: Product, c: string, s: string) => void; onSelectProduct: (p: Product) => void; onBack: () => void;
 }) {
   const deals = products.filter((p) => p.dealActive && p.isActive);
@@ -29,7 +29,7 @@ export default function PromotionsPage({ products, favorites, dealExpired, dealF
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {deals.map((p) => (
-              <StoreProductCard key={p.id} product={p} isFavorite={favorites.includes(p.id)} dealExpired={dealExpired} dealFadingOut={dealFadingOut} countdownStr={countdownString} currencySymbol={currencySymbol} onToggleFavorite={onToggleFavorite} onAddToCart={onAddToCart} onSelectProduct={onSelectProduct} />
+              <StoreProductCard key={p.id} product={p} isFavorite={favorites.includes(p.id)} currencySymbol={currencySymbol} onToggleFavorite={onToggleFavorite} onAddToCart={onAddToCart} onSelectProduct={onSelectProduct} />
             ))}
           </div>
         )}
