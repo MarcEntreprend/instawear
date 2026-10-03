@@ -20,23 +20,21 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
-import { HERO_BG_FALLBACK, heroBackground } from "../components/HeroCarousel";
+import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg } from "../components/HeroCarousel";
 import { storageApi } from "../api/storageApi";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 // Presets de fond hero (Phase 1 : fini le CSS technique à la main —
 // le champ libre reste en "avancé"). Noms humains, valeurs testées.
 // `light` = texte sombre dans l'aperçu (et lisibilité du slide réel).
-const HERO_BG_PRESETS: Array<{ label: string; value: string; light?: boolean }> = [
+const HERO_BG_PRESETS: Array<{ label: string; value: string }> = [
   { label: "Sombre", value: HERO_BG_FALLBACK },
-  { label: "Crème", value: "linear-gradient(135deg, #faf7f0 0%, #f3ece0 60%, #faf7f0 100%)", light: true },
+  { label: "Crème", value: "linear-gradient(135deg, #faf7f0 0%, #f3ece0 60%, #faf7f0 100%)" },
   { label: "Terracotta", value: "linear-gradient(135deg, #c2452a 0%, #e07a4e 60%, #c2452a 100%)" },
   { label: "Sauge", value: "linear-gradient(135deg, #5b6b4f 0%, #8a9b7a 60%, #5b6b4f 100%)" },
   { label: "Nuit bleue", value: "linear-gradient(135deg, #1c2340 0%, #3a4a7a 60%, #1c2340 100%)" },
-  { label: "Sable doré", value: "linear-gradient(135deg, #f0b13d 0%, #f7d789 60%, #f0b13d 100%)", light: true },
+  { label: "Sable doré", value: "linear-gradient(135deg, #f0b13d 0%, #f7d789 60%, #f0b13d 100%)" },
 ];
-const isLightHeroBg = (bg?: string | null): boolean =>
-  HERO_BG_PRESETS.some((p) => p.light && p.value === (bg || ""));
 
 export default function PromotionsPage() {
   // Devise du store (Vague B item 7/11 : fini le "$" en dur).

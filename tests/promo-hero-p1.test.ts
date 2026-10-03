@@ -41,6 +41,15 @@ test("latch global supprimé (fini le flicker + la contagion)", () => {
   assert.ok(!card.includes("dealExpired"), "plus de prop globale");
 });
 
+test("Hero slide split : fond visible + texte adaptatif (fini le full-bleed)", () => {
+  const hero = read("src/components/HeroCarousel.tsx");
+  assert.ok(!hero.includes("inset-0 w-full h-full object-cover"), "plus de full-bleed");
+  assert.ok(hero.includes("aspect-[4/5]"), "visuel cadré ratio stable");
+  assert.ok(hero.includes("isLightHeroBg"), "texte adaptatif");
+  assert.ok(hero.includes("max-w-[62%] sm:max-w-xl"), "texte hors image");
+  assert.ok(hero.includes('fetchPriority={i === 0 ? "high" : "auto"}'), "LCP gardé");
+});
+
 test("Hero Phase 1 : image custom + presets + preview", () => {
   const admin = read("src/admin/PromotionsPage.tsx");
   assert.ok(admin.includes("HERO_BG_PRESETS"), "presets");
