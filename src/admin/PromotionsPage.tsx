@@ -13,7 +13,6 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  Upload,
 } from "lucide-react";
 import { productApi, heroPromotionsApi } from "../api/supabaseApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
@@ -21,7 +20,7 @@ import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg } from "../components/HeroCarousel";
-import { storageApi } from "../api/storageApi";
+import AdminImageInput from "./ui/AdminImageInput";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 // Presets de fond hero (Phase 1 : fini le CSS technique à la main —
@@ -48,7 +47,6 @@ export default function PromotionsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [uploadingHero, setUploadingHero] = useState(false);
   const [form, setForm] = useState<Partial<HeroPromotion>>({
     productId: "",
     title: "",
@@ -239,7 +237,12 @@ export default function PromotionsPage() {
       isActive: true,
       showTag: true,
       showTitle: true,
-    });
+      layout: "full",
+      kind: "product",
+      linkUrl: "",
+      image: "",
+      tiles: [],
+    } as any);
     setEditingId(null);
     setShowForm(false);
   };
@@ -647,62 +650,179 @@ export default function PromotionsPage() {
               </div>
             </div>
 
-            {/* ── Visuel hero (Phase 1 : image custom au lieu de l'image
-                produit ; vide = image du produit comme avant) ── */}
+            {/* ── Visuel hero (standardisé : lien + import + DnD + Ctrl+V) ── */}
+            <AdminImageInput
+              label="Visuel du slide (optionnel)"
+              value={(form as any).image || ""}
+              onChange={(url) => setForm({ ...form, image: url } as any)}
+              folder="hero"
+              placeholder="https://… (vide = image du produit)"
+            />
+
+            {/* ── Type de slide (Phase 2) ── */}
             <div>
-              <label style={labelStyle}>Visuel du slide (optionnel)</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="url"
-                  value={(form as any).image || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, image: e.target.value } as any)
-                  }
-                  style={{ ...inputStyle, flex: 1 }}
-                  placeholder="https://… (vide = image du produit)"
-                />
-                <label
-                  title="Uploader un visuel"
-                  style={{
-                    ...inputStyle,
-                    width: 40,
-                    padding: "8px 0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: uploadingHero ? "wait" : "pointer",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 10,
-                    background: "var(--color-surface2)",
-                    color: "var(--color-ink3)",
-                    flexShrink: 0,
-                    opacity: uploadingHero ? 0.6 : 1,
-                  }}
-                >
-                  <Upload size={16} />
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    style={{ display: "none" }}
-                    disabled={uploadingHero}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setUploadingHero(true);
-                      try {
-                        const url = await storageApi.uploadImage(file, "hero");
-                        setForm({ ...form, image: url } as any);
-                      } catch (err) {
-                        console.error("Upload failed", err);
-                        alert("Erreur lors de l'upload du visuel.");
-                      } finally {
-                        setUploadingHero(false);
+              <label style={labelStyle}>Type de slide</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(
+                  [
+                    { value: "product", label: "Produit (classique)" },
+                    { value: "image", label: "Visuel plein cadre" },
+                    { value: "grid", label: "Grille + tuiles (Shein)" },
+                  ] as const
+                ).map((o) => {
+                  const selected =
+                    ((form as any).kind ?? "product") === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, kind: o.value } as any)
                       }
-                    }}
-                  />
-                </label>
+                      style={{
+                        flex: 1,
+                        padding: "9px 12px",
+                        borderRadius: 10,
+                        border: selected
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                        background: selected
+                          ? "var(--color-accent-bg)"
+                          : "var(--color-surface2)",
+                        color: "var(--color-ink)",
+                        fontWeight: selected ? 700 : 500,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            {/* ── Lien (image/grid : chemin interne "/…" uniquement) ── */}
+            {((form as any).kind === "image" || (form as any).kind === "grid") && (
+              <div>
+                <label style={labelStyle}>Lien du visuel principal (/… uniquement)</label>
+                <input
+                  type="text"
+                  value={(form as any).linkUrl || ""}
+                  onChange={(e) =>
+                    setForm({ ...form, linkUrl: e.target.value } as any)
+                  }
+                  style={inputStyle}
+                  placeholder="/promotions (vide = fiche produit)"
+                />
+              </div>
+            )}
+
+            {/* ── Tuiles (grid, max 3) ── */}
+            {(form as any).kind === "grid" && (
+              <div>
+                <label style={labelStyle}>
+                  Tuiles ({((form as any).tiles || []).length}/3)
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {((form as any).tiles || []).map((t: any, ti: number) => (
+                    <div
+                      key={ti}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "flex-start",
+                        padding: 10,
+                        borderRadius: 10,
+                        border: "1px solid var(--color-border)",
+                        background: "var(--color-surface2)",
+                      }}
+                    >
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                        <AdminImageInput
+                          value={t.image || ""}
+                          onChange={(url) => {
+                            const tiles = [...((form as any).tiles || [])];
+                            tiles[ti] = { ...tiles[ti], image: url };
+                            setForm({ ...form, tiles } as any);
+                          }}
+                          folder="hero"
+                          placeholder="Image https://… (lien, import, dépôt, Ctrl+V)"
+                        />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            type="text"
+                            value={t.label || ""}
+                            onChange={(e) => {
+                              const tiles = [...((form as any).tiles || [])];
+                              tiles[ti] = { ...tiles[ti], label: e.target.value };
+                              setForm({ ...form, tiles } as any);
+                            }}
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="Libellé"
+                          />
+                          <input
+                            type="text"
+                            value={t.link || ""}
+                            onChange={(e) => {
+                              const tiles = [...((form as any).tiles || [])];
+                              tiles[ti] = { ...tiles[ti], link: e.target.value };
+                              setForm({ ...form, tiles } as any);
+                            }}
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="Lien /…"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tiles = ((form as any).tiles || []).filter(
+                            (_: any, i: number) => i !== ti,
+                          );
+                          setForm({ ...form, tiles } as any);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#ef4444",
+                          fontSize: 16,
+                          padding: 4,
+                          flexShrink: 0,
+                        }}
+                        title="Retirer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {((form as any).tiles || []).length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          tiles: [...((form as any).tiles || []), { image: "", label: "", link: "" }],
+                        } as any)
+                      }
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "1px dashed var(--color-border2)",
+                        background: "transparent",
+                        color: "var(--color-ink2)",
+                        fontWeight: 600,
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      + Ajouter une tuile
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── Mise en page du slide ── */}
             <div>

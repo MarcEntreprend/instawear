@@ -186,6 +186,37 @@ export const mapOrder = (
 });
 
 //  fonction helper
+/** Assainit les champs Phase 2 hero (liens internes uniquement, tuiles capées). */
+function sanitizeHeroPhase2(promo: Partial<HeroPromotion>): {
+  kind: string;
+  link_url: string | null;
+  tiles: unknown;
+} {
+  const kind =
+    promo.kind === "image" || promo.kind === "grid" ? promo.kind : "product";
+  const cleanLink = (v: unknown): string | null =>
+    typeof v === "string" && v.startsWith("/") && !v.startsWith("//") && v.length <= 200
+      ? v
+      : null;
+  const tiles = Array.isArray(promo.tiles)
+    ? promo.tiles
+        .filter(
+          (t): t is { image: string; label?: string; link?: string } =>
+            !!t &&
+            typeof (t as any).image === "string" &&
+            (t as any).image.length > 0,
+        )
+        .slice(0, 3)
+        .map((t) => ({
+          image: t.image.slice(0, 500),
+          label:
+            typeof t.label === "string" ? t.label.slice(0, 40) : undefined,
+          link: cleanLink(t.link) ?? undefined,
+        }))
+    : null;
+  return { kind, link_url: cleanLink(promo.linkUrl), tiles };
+}
+
 const mapHeroPromotion = (row: any): HeroPromotion => ({
   id: row.id,
   productId: row.product_id,
@@ -201,6 +232,10 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   showTitle: row.show_title,
   isActive: row.is_active,
   layout: row.layout === "split" ? "split" : "full",
+  kind:
+    row.kind === "image" || row.kind === "grid" ? row.kind : "product",
+  linkUrl: typeof row.link_url === "string" ? row.link_url : null,
+  tiles: Array.isArray(row.tiles) ? row.tiles : null,
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -2457,6 +2492,7 @@ export const heroPromotionsApi = {
         tag: promo.tag,
         image: promo.image,
         layout: promo.layout === "split" ? "split" : "full",
+        ...sanitizeHeroPhase2(promo),
         order: promo.order,
         is_active: promo.isActive !== false,
         show_tag: promo.showTag,
@@ -2483,6 +2519,7 @@ export const heroPromotionsApi = {
         tag: promo.tag,
         image: promo.image,
         layout: promo.layout === "split" ? "split" : "full",
+        ...sanitizeHeroPhase2(promo),
         order: promo.order,
         show_tag: promo.showTag,
         show_title: promo.showTitle,

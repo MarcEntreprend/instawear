@@ -355,6 +355,12 @@ export interface HeroPromotion {
   isActive?: Boolean;
   /** Mise en page du slide : full-bleed historique (défaut) ou split. */
   layout?: "full" | "split";
+  /** Phase 2 : product (produit imposé, défaut) | image (visuel custom) | grid (tuiles liées). */
+  kind?: "product" | "image" | "grid";
+  /** Lien interne (doit commencer par "/") : image/grid ou CTA custom. Vide = fiche produit. */
+  linkUrl?: string | null;
+  /** Tuiles kind grid : [{image, label, link}] (max 3 affichées). */
+  tiles?: Array<{ image: string; label?: string; link?: string }> | null;
 }
 // ─── Product Review (Phase 1) ───────────────────────────────────────────
 export interface ProductReview {

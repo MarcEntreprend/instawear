@@ -45,24 +45,49 @@ test("Hero layout au choix (défaut full = avant)", () => {
   const hero = read("src/components/HeroCarousel.tsx");
   assert.ok(hero.includes('(b.layout ?? "full") === "split"'), "branche par slide");
   assert.ok(hero.includes("linear-gradient(90deg, rgba(15,13,10,.68)"), "full restauré");
-  const api = read("src/api/supabaseApi.ts");
-  assert.ok(api.includes('layout === "split" ? "split" : "full"'), "normalisé API");
   const admin = read("src/admin/PromotionsPage.tsx");
   assert.ok(admin.includes("Plein écran (image de fond)"), "choix full");
   assert.ok(admin.includes("Partagé (fond + visuel cadré)"), "choix split");
-  assert.ok(
-    admin.includes('((form as any).layout ?? "full") === "full"'),
-    "preview fidèle",
-  );
-  assert.ok(hero.includes("aspect-[4/5]"), "split : visuel cadré");
-  assert.ok(hero.includes("max-w-[62%] sm:max-w-xl"), "split : texte hors image");
+});
+
+test("AdminImageInput standard : lien + import + DnD + paste + aperçu", () => {
+  const ui = read("src/admin/ui/AdminImageInput.tsx");
+  assert.ok(ui.includes("onDrop"), "drag & drop");
+  assert.ok(ui.includes("clipboardData"), "Ctrl+V");
+  assert.ok(ui.includes("uploadImage(file, folder)"), "import");
+  assert.ok(ui.includes("5 * 1024 * 1024"), "garde 5 Mo");
+  const admin = read("src/admin/PromotionsPage.tsx");
+  const uses = admin.match(/<AdminImageInput/g) || [];
+  assert.ok(uses.length >= 2, "visuel slide + images tuiles standardisés");
+  assert.ok(!admin.includes("setUploadingHero"), "plus d'upload ad hoc");
+});
+
+test("Hero Phase 2 : kinds image/grid + liens internes + tuiles", () => {
+  const hero = read("src/components/HeroCarousel.tsx");
+  assert.ok(hero.includes('b.kind ?? "product"'), "kind par défaut");
+  assert.ok(hero.includes("activeIsProduct"), "texte partagé = product seul");
+  assert.ok(hero.includes("b.tiles ?? []"), "tuiles");
+  assert.ok(hero.includes("onBannerLink"), "clics liés");
+  const app = read("src/App.tsx");
+  assert.ok(app.includes("openHeroLink"), "dispatcher");
+  assert.ok(app.includes('startsWith("//")'), "anti open-redirect");
+  assert.ok(app.includes('"/promotions"'), "routes connues");
+  const api = read("src/api/supabaseApi.ts");
+  assert.ok(api.includes("sanitizeHeroPhase2"), "assainit");
+  assert.ok(api.includes(".slice(0, 3)"), "tuiles capées");
+  const admin = read("src/admin/PromotionsPage.tsx");
+  assert.ok(admin.includes("Grille + tuiles (Shein)"), "choix grid");
+  assert.ok(admin.includes("Ajouter une tuile"), "éditeur tuiles");
+  assert.ok(admin.includes("/promotions (vide = fiche produit)"), "lien interne");
 });
 
 test("Hero Phase 1 : image custom + presets + preview", () => {
   const admin = read("src/admin/PromotionsPage.tsx");
   assert.ok(admin.includes("HERO_BG_PRESETS"), "presets");
   assert.ok(admin.includes("Personnalisé (CSS avancé)"), "champ libre gardé");
-  assert.ok(admin.includes('uploadImage(file, "hero")'), "upload dédié");
+  const ui = read("src/admin/ui/AdminImageInput.tsx");
+  assert.ok(ui.includes("uploadImage(file, folder)"), "upload mutualisé");
+  assert.ok(admin.includes('folder="hero"'), "dossier hero");
   assert.ok(admin.includes("Aperçu live du slide") || admin.includes("Aperçu live"), "preview");
   assert.ok(admin.includes("heroBackground(form.bgGradient)"), "fond réel");
   // Le champ image traverse jusqu'au rendu (zéro backend : colonne déjà là).

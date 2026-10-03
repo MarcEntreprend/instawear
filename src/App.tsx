@@ -290,6 +290,42 @@ export default function App() {
       history.pushState({}, "", `/recherche?q=${encodeURIComponent(q)}`);
     } catch {}
   };
+  // Liens internes des slides hero Phase 2 (anti open-redirect : seuls les
+  // chemins "/" connus sont routés, le reste est ignoré silencieusement).
+  const openHeroLink = (link: string): boolean => {
+    if (!link.startsWith("/") || link.startsWith("//")) return false;
+    const [path, qs] = link.split("?");
+    const params = new URLSearchParams(qs || "");
+    if (path === "/") {
+      goHome();
+      return true;
+    }
+    if (path === "/promotions") {
+      openPromotionsPage();
+      return true;
+    }
+    if (path === "/recherche") {
+      openSearchPage(params.get("q") || "");
+      return true;
+    }
+    if (path === "/suivi") {
+      openTrackingPage(params.get("code") || undefined);
+      return true;
+    }
+    if (path === "/faq") {
+      openFaqPage();
+      return true;
+    }
+    if (path === "/contact") {
+      openContactPage();
+      return true;
+    }
+    if (path.startsWith("/legal/")) {
+      openLegal(path.split("/")[2] || "cgv");
+      return true;
+    }
+    return false;
+  };
   const openTrackingPage = (code?: string) => {
     setTrackingPageCode(code || "");
     try {
@@ -1143,6 +1179,11 @@ export default function App() {
           layout: (promo.layout === "split" ? "split" : "full") as
             | "full"
             | "split",
+          kind: (promo.kind === "image" || promo.kind === "grid"
+            ? promo.kind
+            : "product") as "product" | "image" | "grid",
+          linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
+          tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
         };
       });
   }, [heroPromotions, products]);
@@ -1730,10 +1771,14 @@ export default function App() {
             loading={promotionsLoading}
             suspended={suspendHeroForBootProduct}
             onBannerAction={(banner) => {
+              if (banner.linkUrl && openHeroLink(banner.linkUrl)) return;
               if (banner.productId) {
                 const target = products.find((p) => p.id === banner.productId);
                 if (target) openProduct(target);
               }
+            }}
+            onBannerLink={(link) => {
+              openHeroLink(link);
             }}
           />
           <ReassuranceBar />
