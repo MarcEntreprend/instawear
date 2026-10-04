@@ -5,7 +5,13 @@ import {
   isAdminPath,
   isAccountPath,
   productUrl,
-} from "../src/utils/routes.ts";import { cycleTabKey, swipeDir, parseAccountTab } from "../src/utils/accountTabs.ts";
+} from "../src/utils/routes.ts";import {
+  cycleTabKey,
+  swipeDir,
+  parseAccountTab,
+  extractOrderIds,
+  isTrackableStatus,
+} from "../src/utils/accountTabs.ts";
 
 test("isAdminPath : strictement /admin, rien d'autre", () => {
   assert.equal(isAdminPath("/admin"), true);
@@ -48,6 +54,29 @@ test("parseAccountTab : ?tab= valide, sinon null", () => {
   assert.equal(parseAccountTab("?tab=nope", keys), null);
   assert.equal(parseAccountTab("", keys), null);
   assert.equal(parseAccountTab("?q=x&tab=profile", keys), "profile");
+});
+
+test("extractOrderIds : ORD-… uniques, insensible casse", () => {
+  assert.deepEqual(extractOrderIds("Order ORD-2026-365346 confirmed"), [
+    "ORD-2026-365346",
+  ]);
+  assert.deepEqual(extractOrderIds("nope"), []);
+  assert.deepEqual(extractOrderIds(""), []);
+  assert.deepEqual(
+    extractOrderIds("ord-2026-12345 et ORD-2026-12345"),
+    ["ORD-2026-12345"],
+  );
+});
+
+test("isTrackableStatus : livré/annulé/remboursé/retourné exclus", () => {
+  assert.equal(isTrackableStatus("shipped"), true);
+  assert.equal(isTrackableStatus("pending"), true);
+  assert.equal(isTrackableStatus("on_hold"), true);
+  assert.equal(isTrackableStatus("delivered"), false);
+  assert.equal(isTrackableStatus("cancelled"), false);
+  assert.equal(isTrackableStatus("refunded"), false);
+  assert.equal(isTrackableStatus("returned"), false);
+  assert.equal(isTrackableStatus(null), true);
 });
 
 test("productUrl : id seul + variante encodee", () => {
