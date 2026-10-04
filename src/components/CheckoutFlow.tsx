@@ -2256,6 +2256,9 @@ export default function CheckoutFlow({
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user?.email) return;
+      // Pré-remplit l'email (jamais écrasé s'il est déjà saisi) : avec une
+      // adresse sauvegardée, il ne reste alors plus rien à taper.
+      setEmail((prev) => prev || user.email || "");
       supabase
         .from("customers")
         .select("id")
