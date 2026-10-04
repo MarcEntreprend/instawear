@@ -2209,7 +2209,8 @@ function OrderDetail({
           {order.items?.map((item: any) => (
             <div key={item.id} className="flex items-center gap-3">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (item.productId && onViewProduct) {
                     onViewProduct(
                       item.productId,
@@ -2230,7 +2231,8 @@ function OrderDetail({
               </button>
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (item.productId && onViewProduct) {
                       onViewProduct(
                         item.productId,

@@ -71,7 +71,7 @@ import {
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
-import { isAdminPath, isAccountPath } from "./utils/routes";
+import { isAdminPath, isAccountPath, productUrl } from "./utils/routes";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -1431,8 +1431,7 @@ export default function App() {
       .then(({ data: { session } }) => {
         if (session?.user?.email) {
           setPendingAccountOrderId(code);
-          setShowAccountPage(true);
-          pushOverlay("account");
+          openAccountPage();
         } else {
           setTrackingInitialCode(code);
           setTrackingOpen(true);
@@ -1720,6 +1719,40 @@ export default function App() {
     } catch {}
   };
 
+  // ── Compte = page /account (refresh-safe, miroir /admin) ───────────────
+  // TOUTES les entrées passent par ici (jamais de hash #account seul :
+  // le hash ne survit pas au refresh). Remplace pushOverlay("account").
+  const openAccountPage = (replace = false) => {
+    setShowAccountPage(true);
+    try {
+      const url = new URL(window.location.href);
+      // Canonicalise : le hash legacy #account est absorbé par la page.
+      const hash = url.hash === "#account" ? "" : url.hash;
+      const target =
+        "/account" + url.search + hash;
+      if (replace) history.replaceState({}, "", target);
+      else if (
+        url.pathname + url.search + url.hash !==
+        target
+      )
+        history.pushState({}, "", target);
+    } catch {}
+  };
+
+  // Boot : le hash legacy #account (ancien mode overlay) est canonicalisé
+  // vers /account (replace, pas d'entrée d'historique fantôme) : même un
+  // vieux lien /#account refresh-safe.
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash === "#account" &&
+      !isAccountPath(window.location.pathname)
+    ) {
+      openAccountPage(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Garde deep-route /produit/:id lue AU RENDU (l'URL ne ment jamais) :
   // - chargement → spinner (pas de faux accueil)
   // - fetch échoué → erreur + retry (pas de home silencieux)
@@ -1836,8 +1869,7 @@ export default function App() {
           setShowNewAdmin(false);
         }}
         onOpenAccount={() => {
-          setShowAccountPage(true);
-          pushOverlay("account");
+          openAccountPage();
         }}
         onScrollToSection={scrollToSection}
         onSelectProduct={(p) => openProduct(p)}
@@ -2228,32 +2260,23 @@ export default function App() {
                 showToast("This product is no longer available.", "info");
                 return;
               }
-              // Depuis le compte : nouvel onglet (le compte garde son état :
-              // onglet, scroll, recherche). Variante via ?color=&size= (lus au
-              // boot). Popup bloquée → repli même onglet (jamais de vide).
-              const params = new URLSearchParams();
-              if (initialColor) params.set("color", initialColor);
-              if (initialSize) params.set("size", initialSize);
-              const qs = params.toString();
-              let opened: Window | null = null;
+              // Depuis le compte : nouvel onglet, origine STRICTEMENT
+              // inchangée. Dispatch de clic sur ancre _blank (pas window.open :
+              // quirks mobiles qui bougeaient aussi l'onglet d'origine).
               try {
-                opened = window.open(
-                  `/produit/${productId}${qs ? `?${qs}` : ""}`,
-                  "_blank",
-                  "noopener",
+                const a = document.createElement("a");
+                a.href = productUrl(
+                  productId,
+                  initialColor,
+                  initialSize,
                 );
-              } catch {}
-              if (!opened) {
-                setShowAccountPage(false);
-                setPendingAccountOrderId(null);
-                if (isAccountPath(window.location.pathname)) {
-                  try {
-                    history.pushState({}, "", "/");
-                  } catch {}
-                }
-                setSelectedProductInitialColor(initialColor || null);
-                setSelectedProductInitialSize(initialSize || null);
-                setSelectedProduct(product);
+                a.target = "_blank";
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch {
+                showToast("Could not open the product.", "error");
               }
             }}
             onNameUpdated={(newName) => setUserName(newName)}
@@ -2396,8 +2419,7 @@ export default function App() {
               pushOverlay("tracking");
             } else if (tab === "account") {
               if (isUser) {
-                setShowAccountPage(true);
-                pushOverlay("account");
+                openAccountPage();
               } else if (isAdmin) {
                 setShowProfileModal(true);
                 pushOverlay("profile");

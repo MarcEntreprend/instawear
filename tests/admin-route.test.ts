@@ -1,8 +1,11 @@
 // tests/admin-route.test.ts — /admin + /account : pages à part entière.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isAdminPath, isAccountPath } from "../src/utils/routes.ts";
-import { cycleTabKey, swipeDir, parseAccountTab } from "../src/utils/accountTabs.ts";
+import {
+  isAdminPath,
+  isAccountPath,
+  productUrl,
+} from "../src/utils/routes.ts";import { cycleTabKey, swipeDir, parseAccountTab } from "../src/utils/accountTabs.ts";
 
 test("isAdminPath : strictement /admin, rien d'autre", () => {
   assert.equal(isAdminPath("/admin"), true);
@@ -45,4 +48,13 @@ test("parseAccountTab : ?tab= valide, sinon null", () => {
   assert.equal(parseAccountTab("?tab=nope", keys), null);
   assert.equal(parseAccountTab("", keys), null);
   assert.equal(parseAccountTab("?q=x&tab=profile", keys), "profile");
+});
+
+test("productUrl : id seul + variante encodee", () => {
+  assert.equal(productUrl("abc"), "/produit/abc");
+  assert.equal(
+    productUrl("abc", "#9b9b9b", "M"),
+    "/produit/abc?color=%239b9b9b&size=M",
+  );
+  assert.equal(productUrl("abc", null, "XL"), "/produit/abc?size=XL");
 });
