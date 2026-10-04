@@ -26,8 +26,10 @@ export default function CopyID({ id, size = 14 }: CopyIDProps) {
         alignItems: "center",
         verticalAlign: "middle",
         cursor: "pointer",
-        marginLeft: 6,
-        color: copied ? "var(--color-success)" : "var(--color-ink4)",
+        marginLeft: 3,
+        // Hérite la couleur du texte environnant (même couleur que l'ID),
+        // sauf feedback "copié" en vert.
+        color: copied ? "var(--color-success)" : "inherit",
         flexShrink: 0,
         lineHeight: 1,
       }}
