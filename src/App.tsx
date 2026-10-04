@@ -123,7 +123,7 @@ export default function App() {
   const [userEmail, setUserEmail] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
-  // /compte est une page (comme /admin) : l'URL au boot initialise l'état.
+  // /account est une page (comme /admin) : l'URL au boot initialise l'état.
   const [showAccountPage, setShowAccountPage] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -219,7 +219,7 @@ export default function App() {
         setShowNewAdmin(false);
         setActiveTab("store");
       }
-      // /compte est une page : précédent/suivant l'ouvre/la referme.
+      // /account est une page : précédent/suivant l'ouvre/la referme.
       if (isAccountPath(path)) setShowAccountPage(true);
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
@@ -252,7 +252,7 @@ export default function App() {
       if (h !== "#tracking") setTrackingOpen(false);
       if (h !== "#auth") setShowAuthModal(false);
       if (h !== "#profile") setShowProfileModal(false);
-      // /compte sans hash : la page reste ouverte (le hash ne la pilote pas).
+      // /account sans hash : la page reste ouverte (le hash ne la pilote pas).
       if (h !== "#account" && !isAccountPath(path)) {
         setShowAccountPage(false);
         setPendingAccountOrderId(null);
@@ -771,7 +771,7 @@ export default function App() {
         setFavorites([]);
         setCartLoaded(false);
         setShowFavoritesOnly(false);
-        // /compte sans session : la page compte exige un login → modale
+        // /account sans session : la page compte exige un login → modale
         // auth (même comportement que l'onglet compte de la tab-bar).
         if (isAccountPath(window.location.pathname)) {
           setShowAccountPage(false);
@@ -1551,7 +1551,7 @@ export default function App() {
       const knownPaths = [
         "/",
         "/admin",
-        "/compte",
+        "/account",
         "/unsubscribe",
         "/index.html",
         "/faq",
@@ -2122,7 +2122,7 @@ export default function App() {
             } else {
               setIsUser(true);
               setUserName(name || "");
-              // Retour sur /compte après login (garde invité ci-dessus).
+              // Retour sur /account après login (garde invité ci-dessus).
               if (isAccountPath(window.location.pathname)) {
                 setShowAccountPage(true);
               }
@@ -2181,7 +2181,7 @@ export default function App() {
               pushOverlay("checkout");
             }}
             onClose={() => {
-              // /compte : fermer nettoie aussi l'URL (miroir /admin).
+              // /account : fermer nettoie aussi l'URL (miroir /admin).
               if (isAccountPath(window.location.pathname)) {
                 try {
                   history.pushState({}, "", "/");
@@ -2194,11 +2194,22 @@ export default function App() {
             }}
             onViewProduct={(productId, initialColor, initialSize) => {
               const product = products.find((p) => p.id === productId);
-              if (product) {
-                setSelectedProductInitialColor(initialColor || null);
-                setSelectedProductInitialSize(initialSize || null);
-                setSelectedProduct(product);
+              if (!product) {
+                showToast("This product is no longer available.", "info");
+                return;
               }
+              // La PDP est un plein-écran séparé : refermer le compte
+              // d'abord (sinon elle rend SOUS l'overlay = invisible).
+              setShowAccountPage(false);
+              setPendingAccountOrderId(null);
+              if (isAccountPath(window.location.pathname)) {
+                try {
+                  history.pushState({}, "", "/");
+                } catch {}
+              }
+              setSelectedProductInitialColor(initialColor || null);
+              setSelectedProductInitialSize(initialSize || null);
+              setSelectedProduct(product);
             }}
             onNameUpdated={(newName) => setUserName(newName)}
           />

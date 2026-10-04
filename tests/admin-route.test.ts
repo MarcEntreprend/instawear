@@ -1,4 +1,4 @@
-// tests/admin-route.test.ts — /admin + /compte : pages à part entière.
+// tests/admin-route.test.ts — /admin + /account : pages à part entière.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isAdminPath, isAccountPath } from "../src/utils/routes.ts";
@@ -14,11 +14,11 @@ test("isAdminPath : strictement /admin, rien d'autre", () => {
   assert.equal(isAdminPath(""), false);
 });
 
-test("isAccountPath : strictement /compte, rien d'autre", () => {
-  assert.equal(isAccountPath("/compte"), true);
+test("isAccountPath : strictement /account, rien d'autre", () => {
+  assert.equal(isAccountPath("/account"), true);
   assert.equal(isAccountPath("/"), false);
-  assert.equal(isAccountPath("/compte/"), false);
-  assert.equal(isAccountPath("/account"), false);
+  assert.equal(isAccountPath("/account/"), false);
+  assert.equal(isAccountPath("/compte"), false);
   assert.equal(isAccountPath("/admin"), false);
   assert.equal(isAccountPath(""), false);
 });

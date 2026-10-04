@@ -1,4 +1,4 @@
-﻿// src/components/AccountPage.tsx
+// src/components/AccountPage.tsx
 
 import React, {
   useState,
@@ -63,7 +63,7 @@ import CartIcon from "./CartIcon";
 import OrderStatusStepper, { StatusPill } from "./OrderStatusStepper";
 import ShipmentTrackingBlock from "./ShipmentTrackingBlock";
 
-// â”€â”€â”€ Props â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Props ────────────────────────────────────────────────────────────
 interface AccountPageProps {
   onClose: () => void;
   onViewProduct?: (
@@ -74,11 +74,11 @@ interface AccountPageProps {
   onNameUpdated?: (newName: string) => void;
   /** Passe les items du panier en achat (ouvre le checkout, referme le compte). */
   onCheckout?: () => void;
-  /** Deep-link commande (depuis email) : ouvre l'onglet orders + le dÃ©tail. */
+  /** Deep-link commande (depuis email) : ouvre l'onglet orders + le détail. */
   initialOrderId?: string | null;
 }
 
-// â”€â”€â”€ Local types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Local types ─────────────────────────────────────────────────────
 interface Interaction {
   id: string;
   subject: string;
@@ -97,7 +97,7 @@ type TabKey =
   | "support"
   | "reviews";
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────
 
 function initials(email: string, name?: string): string {
   if (name && name.trim()) {
@@ -149,7 +149,7 @@ function getVariantImage(product: any, selectedColor: string): string {
   return product?.image || PLACEHOLDER_IMG;
 }
 
-// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main component ───────────────────────────────────────────────────
 export default function AccountPage({
   onClose,
   onViewProduct,
@@ -159,7 +159,7 @@ export default function AccountPage({
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
 
-  // â”€â”€ Auth & customer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Auth & customer ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [customerEmail, setCustomerEmail] = useState("");
@@ -171,13 +171,13 @@ export default function AccountPage({
     promotions: false,
   });
 
-  // RÃ©sout l'identitÃ© directement depuis la session Supabase Auth.
-  // IMPORTANT : on n'utilise plus allCustomers (cache global chargÃ© une
-  // seule fois dans App.tsx) car il peut Ãªtre en retard sur la session
-  // rÃ©elle (ex: juste aprÃ¨s un signup, ou pendant que le cache charge
-  // encore) â†’ c'Ã©tait la cause du flash "Guest". customers.id == auth.uid()
-  // pour tout client (voir AuthModal.tsx : id: data.user.id Ã  l'inscription),
-  // donc on peut requÃªter directement par cet ID, sans recherche par email.
+  // Résout l'identité directement depuis la session Supabase Auth.
+  // IMPORTANT : on n'utilise plus allCustomers (cache global chargé une
+  // seule fois dans App.tsx) car il peut être en retard sur la session
+  // réelle (ex: juste après un signup, ou pendant que le cache charge
+  // encore) → c'était la cause du flash "Guest". customers.id == auth.uid()
+  // pour tout client (voir AuthModal.tsx : id: data.user.id à l'inscription),
+  // donc on peut requêter directement par cet ID, sans recherche par email.
   useEffect(() => {
     let cancelled = false;
 
@@ -194,15 +194,15 @@ export default function AccountPage({
         return;
       }
 
-      // Affichage immÃ©diat (aucune requÃªte rÃ©seau nÃ©cessaire) : email +
-      // nom depuis la session Auth elle-mÃªme, pour Ã©liminer le flash Guest.
+      // Affichage immédiat (aucune requête réseau nécessaire) : email +
+      // nom depuis la session Auth elle-même, pour éliminer le flash Guest.
       if (!cancelled) {
         setCustomerEmail(user.email);
         setCustomerName(user.user_metadata?.full_name || "");
         setCustomerId(user.id);
       }
 
-      // ComplÃ©ment : nom exact + prÃ©fÃ©rences email depuis la table customers
+      // Complément : nom exact + préférences email depuis la table customers
       const c = await customerApi.get(user.id);
       if (cancelled) return;
       if (c?.name) setCustomerName(c.name);
@@ -215,13 +215,13 @@ export default function AccountPage({
       if (!cancelled) setInitializing(false);
     };
 
-    // RÃ©solution initiale : getSession() lit la session locale instantanÃ©ment
-    // (pas d'appel rÃ©seau comme getUser()) â†’ aucun flash au montage.
+    // Résolution initiale : getSession() lit la session locale instantanément
+    // (pas d'appel réseau comme getUser()) → aucun flash au montage.
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => resolveIdentity(session?.user ?? null));
 
-    // RÃ©-rÃ©solution si la session change pendant que la page est ouverte
+    // Ré-résolution si la session change pendant que la page est ouverte
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         resolveIdentity(session?.user ?? null);
@@ -234,9 +234,9 @@ export default function AccountPage({
     };
   }, []);
 
-  // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Navigation ───────────────────────────────────────────────────
   const [tab, setTab] = useState<TabKey>("orders");
-  // Conteneur scrollÃ© du contenu (barres timides des onglets).
+  // Conteneur scrollé du contenu (barres timides des onglets).
   const mainScrollRef = useRef<HTMLElement | null>(null);
   const [showMoreTabs, setShowMoreTabs] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -271,7 +271,7 @@ export default function AccountPage({
     goTab(cycleTabKey(NAV.map((n) => n.key), tab, dir) as TabKey);
   };
 
-  // â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Data ─────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [favorites, setFavorites] = useState<Favourite[]>([]);
@@ -279,7 +279,7 @@ export default function AccountPage({
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [loadingInter, setLoadingInter] = useState(false);
 
-  // â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Notifications ──────────────────────────────────────────────
   const [customerNotifications, setCustomerNotifications] = useState<any[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
@@ -313,7 +313,7 @@ export default function AccountPage({
     setUnreadNotifsCount((prev) => Math.max(0, prev - 1));
   };
 
-  // â”€â”€ Cart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Cart ─────────────────────────────────────────────────────────
   const [cart, setCart] = useState<AdminCartItem[]>([]);
   const [loadingCart, setLoadingCart] = useState(false);
 
@@ -441,7 +441,7 @@ export default function AccountPage({
   const [searchOrders, setSearchOrders] = useState("");
   const [searchResults, setSearchResults] = useState<Order[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [totalOrdersCount, setTotalOrdersCount] = useState(0); // total rÃ©el depuis la DB
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0); // total réel depuis la DB
 
   const handleLoadMoreOrders = useCallback(() => {
     if (loadingOrders || !hasMoreOrders) return;
@@ -482,7 +482,7 @@ export default function AccountPage({
     fetchCart();
     fetchNotifications(0, false);
     fetchInteractions();
-    // Charger le nombre total rÃ©el d'orders
+    // Charger le nombre total réel d'orders
     if (customerId) {
       customerApi
         .getOrderCount(customerId)
@@ -497,7 +497,7 @@ export default function AccountPage({
     const interval = setInterval(() => {
       fetchFavorites();
       fetchCart();
-      // Seul le compteur de notifications non lues est rafraÃ®chi, pas toute la liste
+      // Seul le compteur de notifications non lues est rafraîchi, pas toute la liste
       customerApi
         .getUnreadNotificationCount(customerId)
         .then(setUnreadNotifsCount)
@@ -507,16 +507,16 @@ export default function AccountPage({
     return () => clearInterval(interval);
   }, [customerId, fetchFavorites, fetchCart, fetchInteractions]);
 
-  // â”€â”€ Stats (computed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Stats (computed) ──────────────────────────────────────────────
   const totalSpent = orders.reduce((a, o) => a + o.totalAmount, 0);
   const memberSince =
     orders.length > 0
       ? new Date(
           Math.min(...orders.map((o) => new Date(o.createdAt).getTime())),
         ).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-      : "â€”";
+      : "—";
 
-  // â”€â”€ Tab labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Tab labels ────────────────────────────────────────────────────
   const NAV: {
     key: TabKey;
     label: string;
@@ -594,7 +594,7 @@ export default function AccountPage({
       className="fixed inset-0 z-50 flex flex-col"
       style={{ background: "var(--color-bg)" }}
     >
-      {/* â”€â”€ Top bar (mobile only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Top bar (mobile only) ─────────────────────────────────── */}
       <div
         className="flex items-center justify-between px-4 py-3 sm:hidden"
         style={{
@@ -623,9 +623,9 @@ export default function AccountPage({
         </div>
       </div>
 
-      {/* â”€â”€ Main layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Main layout ──────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* â”€â”€ Sidebar (desktop â‰¥ sm) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Sidebar (desktop ≥ sm) ────────────────────────────── */}
         <aside
           className="hidden sm:flex w-64 flex-col shrink-0 overflow-y-auto"
           style={{
@@ -816,7 +816,7 @@ export default function AccountPage({
               onClick={async () => {
                 await supabase.auth.signOut();
                 onClose();
-                // Force un vrai refresh pour nettoyer tous les Ã©tats
+                // Force un vrai refresh pour nettoyer tous les états
                 window.location.href = "/";
               }}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
@@ -839,7 +839,7 @@ export default function AccountPage({
           </div>
         </aside>
 
-        {/* â”€â”€ Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Content ───────────────────────────────────────────── */}
         <main
           ref={mainScrollRef}
           className="flex-1 overflow-y-auto pb-20 sm:pb-0"
@@ -873,7 +873,7 @@ export default function AccountPage({
                     className="text-sm mt-1"
                     style={{ color: "var(--color-ink3)" }}
                   >
-                    Member since {memberSince} Â· {orders.length} orders Â·{" "}
+                    Member since {memberSince} · {orders.length} orders ·{" "}
                     {favorites.length} saved
                   </p>
                 </div>
@@ -995,7 +995,7 @@ export default function AccountPage({
                               className="text-[11px]"
                               style={{ color: "var(--color-ink3)" }}
                             >
-                              {formatDate(o.createdAt)} Â·{" "}
+                              {formatDate(o.createdAt)} ·{" "}
                               <StatusPill status={o.status} />
                             </p>
                           </div>
@@ -1114,7 +1114,7 @@ export default function AccountPage({
         </main>
       </div>
 
-      {/* â”€â”€ Bottom nav (mobile) â€” marge home-indicator iOS (0 desktop) â”€â”€ */}
+      {/* ── Bottom nav (mobile) — marge home-indicator iOS (0 desktop) ── */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-10 flex sm:hidden"
         style={{
@@ -1257,7 +1257,7 @@ export default function AccountPage({
   );
 }
 
-// â”€â”€â”€ OrdersTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── OrdersTab ────────────────────────────────────────────────────────
 function OrdersTab({
   orders,
   loading,
@@ -1285,15 +1285,15 @@ function OrdersTab({
   customerEmail?: string;
   customerId?: string | null;
   initialOrderId?: string | null;
-  /** Conteneur scrollÃ© (main) pour la barre timide. */
+  /** Conteneur scrollé (main) pour la barre timide. */
   scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  // Barre recherche/filtres timide : visible au scroll-up, masquÃ©e au
-  // scroll-down (mÃªme hook que le catalogue, conteneur = main du compte).
+  // Barre recherche/filtres timide : visible au scroll-up, masquée au
+  // scroll-down (même hook que le catalogue, conteneur = main du compte).
   const barVisible = useTimidBar(scrollContainer);
-  // Deep-link email : prÃ©-remplit "Search by order ID" + ouvre le dÃ©tail
-  // une seule fois quand les commandes arrivent (comme le tracking invitÃ©).
+  // Deep-link email : pré-remplit "Search by order ID" + ouvre le détail
+  // une seule fois quand les commandes arrivent (comme le tracking invité).
   const deepOpenedRef = useRef(false);
   // Reclic onglet actif : retour a l'entree (detail referme).
   useEffect(() => {
@@ -1337,7 +1337,7 @@ function OrdersTab({
       return;
     }
     if (!customerId) {
-      // attendre que customerId soit rÃ©solu (session + onAuthStateChange)
+      // attendre que customerId soit résolu (session + onAuthStateChange)
       setSearchDebouncing(true);
       return;
     }
@@ -1376,7 +1376,7 @@ function OrdersTab({
     return () => observer.disconnect();
   }, [hasMore, loading, onLoadMore]);
 
-  // Filtrage + tri (cÃ´tÃ© client uniquement sur les donnÃ©es dÃ©jÃ  chargÃ©es)
+  // Filtrage + tri (côté client uniquement sur les données déjà chargées)
   const filtered = useMemo(() => {
     let list = [...orders];
     if (search.trim()) {
@@ -1399,7 +1399,7 @@ function OrdersTab({
     return list;
   }, [orders, search, filterStatus, sortOrder]);
 
-  // Appliquer les filtres locaux (status, sort) aux rÃ©sultats de recherche serveur
+  // Appliquer les filtres locaux (status, sort) aux résultats de recherche serveur
   const filteredServerResults = useMemo(() => {
     let list = [...serverResults];
     if (filterStatus !== "all") {
@@ -1451,7 +1451,7 @@ function OrdersTab({
   return (
     <div className="flex flex-col gap-3">
       {/* Barre de recherche + filtres : sticky timide (scroll-up = visible,
-          scroll-down = masquÃ©e, fini la remontÃ©e). */}
+          scroll-down = masquée, fini la remontée). */}
       <div
         className="sticky top-0 z-10 -mx-1 px-1"
         style={{
@@ -1477,7 +1477,7 @@ function OrdersTab({
           />
           <input
             type="text"
-            placeholder="Search by order IDâ€¦"
+            placeholder="Search by order ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-[13px]"
@@ -1629,7 +1629,7 @@ function OrdersTab({
                       className="text-[12px]"
                       style={{ color: "var(--color-ink4)" }}
                     >
-                      {formatDate(order.createdAt)} Â· {order.items?.length ?? 0}{" "}
+                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
                       item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -1772,7 +1772,7 @@ function OrdersTab({
                       className="text-[12px]"
                       style={{ color: "var(--color-ink4)" }}
                     >
-                      {formatDate(order.createdAt)} Â· {order.items?.length ?? 0}{" "}
+                      {formatDate(order.createdAt)} · {order.items?.length ?? 0}{" "}
                       item{(order.items?.length ?? 0) !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -1854,10 +1854,10 @@ function OrdersTab({
   );
 }
 
-// â”€â”€â”€ RefundRequestBlock : demande + historique vus par le client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Ã‰ligibilitÃ© indicative ici (paid/in_production/on_hold/delivered) â€”
-// l'edge refund-request tranche serveur (fenÃªtre 14j, doublons).
-// InvitÃ©s : pas de compte â†’ passer par /contact (indiquÃ© si non logguÃ©,
+// ─── RefundRequestBlock : demande + historique vus par le client ──────────
+// Éligibilité indicative ici (paid/in_production/on_hold/delivered) —
+// l'edge refund-request tranche serveur (fenêtre 14j, doublons).
+// Invités : pas de compte → passer par /contact (indiqué si non loggué,
 // mais ce composant ne s'affiche que dans le compte).
 function RefundRequestBlock({ order }: { order: Order }) {
   const [requests, setRequests] = useState<any[]>([]);
@@ -1927,7 +1927,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
       if (!res.ok) throw new Error(data.error || "Envoi impossible.");
       setShowForm(false);
       setMessage("");
-      setFeedback("Demande envoyÃ©e â€” nous revenons vers vous trÃ¨s vite.");
+      setFeedback("Demande envoyée — nous revenons vers vous très vite.");
       const rq = await supabase
         .from("refund_requests")
         .select("id, status, created_at")
@@ -1962,7 +1962,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
           {refunds.map((r: any, i: number) => (
             <p key={i} className="text-[13px]" style={{ color: "#065f46" }}>
               <CheckCircle2 size={13} className="inline mr-1" />
-              {(r.amount_cents / 100).toFixed(2)} {r.currency} remboursÃ©s le{" "}
+              {(r.amount_cents / 100).toFixed(2)} {r.currency} remboursés le{" "}
               {new Date(r.created_at).toLocaleDateString("fr-FR")}
               {r.status === "pending" ? " (en cours)" : ""}
             </p>
@@ -1971,7 +1971,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
       )}
       {pending ? (
         <p className="text-[13px]" style={{ color: "#92400e" }}>
-          Demande en cours d'examen â€” nous revenons vers vous trÃ¨s vite.
+          Demande en cours d'examen — nous revenons vers vous très vite.
         </p>
       ) : eligible ? (
         showForm ? (
@@ -1981,7 +1981,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
               maxLength={500}
-              placeholder="Motif (optionnel) â€” ex. taille non conformeâ€¦"
+              placeholder="Motif (optionnel) — ex. taille non conforme…"
               className="w-full rounded-xl border px-3 py-2 text-[13px] outline-none resize-none"
               style={{
                 background: "var(--color-surface2)",
@@ -1996,7 +1996,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
                 className="px-4 py-2 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-60"
                 style={{ background: "var(--color-accent)" }}
               >
-                {sending ? "Envoiâ€¦" : "Envoyer la demande"}
+                {sending ? "Envoi…" : "Envoyer la demande"}
               </button>
               <button
                 onClick={() => setShowForm(false)}
@@ -2033,7 +2033,7 @@ function RefundRequestBlock({ order }: { order: Order }) {
   );
 }
 
-// â”€â”€â”€ OrderDetail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── OrderDetail ──────────────────────────────────────────────────────
 function OrderDetail({
   order,
   currencySymbol,
@@ -2059,14 +2059,14 @@ function OrderDetail({
         <ArrowLeft size={14} strokeWidth={2} /> All Orders
       </button>
 
-      {/* Status timeline â€” composant partagÃ©, rÃ©utilisÃ© aussi dans OrderTrackingModal.tsx */}
+      {/* Status timeline — composant partagé, réutilisé aussi dans OrderTrackingModal.tsx */}
       <OrderStatusStepper status={order.status} />
 
       {/* Remboursement : demande client + historique (edge refund-request). */}
       <RefundRequestBlock order={order} />
 
-      {/* Suivi des colis â€” visible dÃ¨s le 1er colis (partial/shipped),
-          conservÃ© sur delivered (historique de livraison). */}
+      {/* Suivi des colis — visible dès le 1er colis (partial/shipped),
+          conservé sur delivered (historique de livraison). */}
       {(order.status === "shipped" ||
         order.status === "partial" ||
         order.status === "delivered") &&
@@ -2111,8 +2111,8 @@ function OrderDetail({
           </p>
         </div>
 
-        {/* P4/P6 POD: alerte partielle â€” seulement si des articles sont
-            rÃ©ellement bloquÃ©s ou si la commande est partielle. */}
+        {/* P4/P6 POD: alerte partielle — seulement si des articles sont
+            réellement bloqués ou si la commande est partielle. */}
         {(order.status === "partial" ||
           order.items?.some((it: any) =>
             (it.print_status || "").startsWith("blocked"),
@@ -2126,13 +2126,13 @@ function OrderDetail({
             }}
           >
             <span className="text-xs font-bold">
-              âš ï¸ Partial order â€” some unavailable items were not sent to
+              ⚠️ Partial order — some unavailable items were not sent to
               print (see per-line details). A partial refund will be issued
               if you were charged.
             </span>
           </div>
         )}
-        {/* Pause gÃ©nÃ©rique (review design ou contrÃ´le fournisseur) â€” mÃªme
+        {/* Pause générique (review design ou contrôle fournisseur) — même
             message que le suivi public et l'email on_hold. */}
         {order.status === "on_hold" &&
           !order.items?.some((it: any) =>
@@ -2147,8 +2147,8 @@ function OrderDetail({
               }}
             >
               <span className="text-xs font-bold">
-                â¸ï¸ Your order is temporarily paused while we resolve a
-                production detail. Production will resume shortly â€” no action
+                ⏸️ Your order is temporarily paused while we resolve a
+                production detail. Production will resume shortly — no action
                 is needed on your part.
               </span>
             </div>
@@ -2201,7 +2201,7 @@ function OrderDetail({
                   style={{ color: "var(--color-ink4)" }}
                 >
                   Size {item.selectedSize}
-                  {item.selectedColor ? ` Â· ${item.selectedColor}` : ""} Â· Qty{" "}
+                  {item.selectedColor ? ` · ${item.selectedColor}` : ""} · Qty{" "}
                   {item.quantity}
                 </p>
                 {(item as any).print_status?.startsWith("blocked") && (
@@ -2225,7 +2225,7 @@ function OrderDetail({
                         ? "Temporarily out of stock"
                         : "Not printed"}{" "}
                     {(item as any).block_reason
-                      ? `â€” ${(item as any).block_reason}`
+                      ? `— ${(item as any).block_reason}`
                       : ""}
                   </span>
                 )}
@@ -2329,7 +2329,7 @@ function OrderDetail({
           <p className="text-[12.5px]" style={{ color: "var(--color-ink3)" }}>
             {order.shippingAddress.address}
             <br />
-            {order.shippingAddress.city}, {order.shippingAddress.zip} Â·{" "}
+            {order.shippingAddress.city}, {order.shippingAddress.zip} ·{" "}
             {order.shippingAddress.country}
           </p>
         </div>
@@ -2338,7 +2338,7 @@ function OrderDetail({
   );
 }
 
-// â”€â”€â”€ FavoritesTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── FavoritesTab ─────────────────────────────────────────────────────
 function FavoritesTab({
   favorites,
   loading,
@@ -2443,7 +2443,7 @@ function FavoritesTab({
               )}
             </div>
 
-            {/* Hover â€” "View product" pill */}
+            {/* Hover — "View product" pill */}
             <button
               onClick={() => onViewProduct?.(fav.productId)}
               className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
@@ -2462,7 +2462,7 @@ function FavoritesTab({
   );
 }
 
-// â”€â”€â”€ CartTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CartTab ──────────────────────────────────────────────────────────
 function CartTab({
   items,
   loading,
@@ -2586,7 +2586,7 @@ function CartTab({
               {item.product?.title || "Product"}
             </button>
             <p className="text-[11.5px]" style={{ color: "var(--color-ink4)" }}>
-              Size {item.selectedSize} Â· Qty {item.quantity}
+              Size {item.selectedSize} · Qty {item.quantity}
               {item.selectedColor && (
                 <span className="ml-2 inline-flex items-center gap-1">
                   <span
@@ -2690,11 +2690,11 @@ function CartTab({
   );
 }
 
-// Regex pour dÃ©tecter un ID de commande (ORD-annÃ©e-suite ou ORD-UUID)
+// Regex pour détecter un ID de commande (ORD-année-suite ou ORD-UUID)
 const ORDER_ID_REGEX =
   /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
 
-// Regex pour dÃ©tecter une URL http(s) â€” rendue cliquable dans les
+// Regex pour détecter une URL http(s) — rendue cliquable dans les
 // notifications (ex: lien de suivi du colis) en ouvrant un nouvel onglet.
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi;
 
@@ -2707,9 +2707,9 @@ const MESSAGE_TOKEN_REGEX = new RegExp(
 
 /**
  * Transforme un texte en ReactNode :
- * - URLs â†’ lien cliquable (nouvel onglet) ;
- * - IDs de commande â†’ version majuscule + bouton CopyID.
- * Le reste du texte est conservÃ© tel quel.
+ * - URLs → lien cliquable (nouvel onglet) ;
+ * - IDs de commande → version majuscule + bouton CopyID.
+ * Le reste du texte est conservé tel quel.
  */
 function formatMessageText(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
@@ -2757,7 +2757,7 @@ function formatMessageText(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-// â”€â”€â”€ NotificationsTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── NotificationsTab ─────────────────────────────────────────────────
 function NotificationsTab({
   notifications,
   loading,
@@ -2767,11 +2767,11 @@ function NotificationsTab({
   notifications: any[];
   loading: boolean;
   onMarkRead: (id: string) => void;
-  /** Conteneur scrollÃ© (main) pour la barre timide. */
+  /** Conteneur scrollé (main) pour la barre timide. */
   scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
   const [query, setQuery] = useState("");
-  // Barre de recherche timide : mÃªme pattern que Orders et catalogue.
+  // Barre de recherche timide : même pattern que Orders et catalogue.
   const barVisible = useTimidBar(scrollContainer);
   const q = query.trim().toLowerCase();
   const visible = q
@@ -2815,7 +2815,7 @@ function NotificationsTab({
           />
           <input
             type="text"
-            placeholder="Search notificationsâ€¦"
+            placeholder="Search notifications…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-[13px]"
@@ -2896,7 +2896,7 @@ function NotificationsTab({
   );
 }
 
-// â”€â”€â”€ SupportTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── SupportTab ───────────────────────────────────────────────────────
 function SupportTab({
   interactions,
   loading,
@@ -2927,7 +2927,7 @@ function SupportTab({
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // â”€â”€ Vue dÃ©tail d'un ticket â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Vue détail d'un ticket ──────────────────────────────────────
   const [selectedTicket, setSelectedTicket] = useState<Interaction | null>(
     null,
   );
@@ -3042,8 +3042,8 @@ function SupportTab({
           from_field: "customer",
           text: message.trim(),
         });
-        // Notifie l'admin (notif + telegram + email, edge dÃ©diÃ©e) :
-        // best-effort, n'Ã©choue jamais la crÃ©ation du ticket.
+        // Notifie l'admin (notif + telegram + email, edge dédiée) :
+        // best-effort, n'échoue jamais la création du ticket.
         try {
           const {
             data: { session },
@@ -3082,7 +3082,7 @@ function SupportTab({
     }
   };
 
-  // â”€â”€ Vue dÃ©tail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Vue détail ──────────────────────────────────────────────────
   if (selectedTicket) {
     const ticketMeta = (selectedTicket as any).metadata || {};
     const attachments: any[] = ticketMeta.attachments || [];
@@ -3237,7 +3237,7 @@ function SupportTab({
           <textarea
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Write a replyâ€¦"
+            placeholder="Write a reply…"
             rows={3}
             className="w-full resize-none rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none"
             style={{
@@ -3263,7 +3263,7 @@ function SupportTab({
     );
   }
 
-  // â”€â”€ Formulaire nouveau ticket enrichi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Formulaire nouveau ticket enrichi ──────────────────────────
   if (showForm) {
     return (
       <div className="flex flex-col gap-4 animate-fade-up">
@@ -3401,12 +3401,12 @@ function SupportTab({
                   <option value="">None</option>
                   {orders.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.id} â€”{" "}
+                      {o.id} —{" "}
                       {new Date(o.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                       })}{" "}
-                      Â· {currencySymbol}
+                      · {currencySymbol}
                       {o.totalAmount.toFixed(2)}
                     </option>
                   ))}
@@ -3449,7 +3449,7 @@ function SupportTab({
                   Description <span className="text-(--color-accent)">*</span>
                 </label>
                 <textarea
-                  placeholder="Describe your issue or questionâ€¦"
+                  placeholder="Describe your issue or question…"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={4}
@@ -3474,7 +3474,7 @@ function SupportTab({
                   className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em]"
                   style={{ color: "var(--color-ink4)" }}
                 >
-                  Attachments (max 3, 5MB each â€” JPEG, PNG, WebP, GIF)
+                  Attachments (max 3, 5MB each — JPEG, PNG, WebP, GIF)
                 </label>
                 {/* Selected files preview */}
                 {files.length > 0 && (
@@ -3584,9 +3584,9 @@ function SupportTab({
                   <Send size={15} strokeWidth={2} />
                 )}
                 {uploadingFiles
-                  ? "Uploading filesâ€¦"
+                  ? "Uploading files…"
                   : sending
-                    ? "Submittingâ€¦"
+                    ? "Submitting…"
                     : "Submit Request"}
               </button>
             </div>
@@ -3596,7 +3596,7 @@ function SupportTab({
     );
   }
 
-  // â”€â”€ Liste des tickets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Liste des tickets ───────────────────────────────────────────
   if (loading) return <SkeletonList />;
 
   return (
@@ -3681,7 +3681,7 @@ function SupportTab({
   );
 }
 
-// â”€â”€â”€ ReviewsTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── ReviewsTab ─────────────────────────────────────────────────────
 function ReviewsTab({ customerId }: { customerId: string | null }) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3814,7 +3814,7 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
   );
 }
 
-// â”€â”€â”€ ProfileTab (version enrichie) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── ProfileTab (version enrichie) ─────────────────────────────────
 function ProfileTab({
   customerEmail,
   customerName,
@@ -3846,7 +3846,7 @@ function ProfileTab({
   onToggleNewsletter: () => void;
   onNameUpdated?: (newName: string) => void;
 }) {
-  // â”€â”€ Ã‰tats locaux â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── États locaux ───────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(customerName);
   useEffect(() => {
@@ -3877,7 +3877,7 @@ function ProfileTab({
   const [copied, setCopied] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  // â”€â”€ Charger les donnÃ©es â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Charger les données ─────────────────────────────────────────
   useEffect(() => {
     if (!customerId) return;
     // Charger la date de naissance
@@ -3889,7 +3889,7 @@ function ProfileTab({
     customerApi
       .getAddresses(customerId)
       .then((addrs) => {
-        // Placer l'adresse par dÃ©faut en tÃªte au chargement initial
+        // Placer l'adresse par défaut en tête au chargement initial
         const sorted = [...addrs].sort((a, b) =>
           a.is_default ? -1 : b.is_default ? 1 : 0,
         );
@@ -3898,7 +3898,7 @@ function ProfileTab({
       .finally(() => setLoadingAddresses(false));
   }, [customerId]);
 
-  // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Handlers ────────────────────────────────────────────────────
   const handleSaveName = async () => {
     if (!customerId || !nameInput.trim()) return;
     const newName = nameInput.trim();
@@ -3921,6 +3921,10 @@ function ProfileTab({
       await customerApi.updateProfile(customerId, {
         date_of_birth: dob || null,
       });
+      // Relecture serveur : l'affichage reflète le persisté (jamais un
+      // optimiste), y compris valeur pré-existante ou effacement (null).
+      const c = await customerApi.get(customerId);
+      if (c && "date_of_birth" in (c as any)) setDob(c.date_of_birth || "");
       setDobMsg({ ok: true, text: "Saved" });
       setTimeout(() => setDobMsg((m) => (m?.ok ? null : m)), 2500);
     } catch (e: any) {
@@ -4038,7 +4042,7 @@ function ProfileTab({
 
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
-      {/* â”€â”€ Identity card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Identity card ─────────────────────────────────────────── */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -4188,7 +4192,7 @@ function ProfileTab({
         </div>
       </div>
 
-      {/* â”€â”€ Addresses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Addresses ─────────────────────────────────────────────── */}
       <div
         className="rounded-[18px] p-5"
         style={{
@@ -4397,7 +4401,7 @@ function ProfileTab({
                 />
 
                 {editingAddressId === addr.id ? (
-                  /* â”€â”€ Mode Ã©dition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+                  /* ── Mode édition ──────────────────────── */
                   <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
                     <input
                       value={editForm.full_name || ""}
@@ -4533,7 +4537,7 @@ function ProfileTab({
                     </div>
                   </div>
                 ) : (
-                  /* â”€â”€ Mode affichage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+                  /* ── Mode affichage ──────────────────────── */
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
@@ -4739,7 +4743,7 @@ function ProfileTab({
           ) : (
             <Trash2 size={14} strokeWidth={1.75} />
           )}
-          {deletingAccount ? "Deletingâ€¦" : "Delete my account"}
+          {deletingAccount ? "Deleting…" : "Delete my account"}
         </button>
       </div>
     </div>
