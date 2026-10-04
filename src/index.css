@@ -31,6 +31,10 @@
      sombre (6.10:1). Les aplats/bordures/ombres gardent --color-accent. */
   --color-accent-ink: #c2452a;
 
+  /* Texte sur aplat accent (badges, avatar, pastilles) : encre sombre
+     5.8:1 en clair comme en sombre (le blanc échoue à ~3:1). */
+  --color-on-accent: #231310;
+
   --color-gold: #e8a020;
   --color-emerald: #1a8c5c;
 
@@ -95,6 +99,10 @@
   /* Même valeur que --color-accent en sombre : aucun changement visuel dark,
      mais les usages texte partagés restent corrects dans les 2 thèmes. */
   --color-accent-ink: #ff6b45;
+
+  /* Texte sur aplat accent : même valeur qu'en clair (aucun changement
+     visuel dark, correct dans les 2 thèmes). */
+  --color-on-accent: #231310;
 
   --color-gold: #f0b13d;
   --color-gold-bg: rgba(240, 177, 61, 0.1);

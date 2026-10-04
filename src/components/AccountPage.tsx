@@ -664,8 +664,11 @@ export default function AccountPage({
           {NAV.find((n) => n.key === tab)?.label ?? "My Account"}
         </span>
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
-          style={{ background: "var(--color-accent)" }}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black"
+          style={{
+            background: "var(--color-accent)",
+            color: "var(--color-on-accent)",
+          }}
         >
           {customerId ? initials(customerEmail, customerName) : "?"}
         </div>
@@ -811,7 +814,9 @@ export default function AccountPage({
                   background:
                     tab === key ? "var(--color-accent-bg)" : "transparent",
                   color:
-                    tab === key ? "var(--color-accent)" : "var(--color-ink2)",
+                    tab === key
+                      ? "var(--color-accent-ink)"
+                      : "var(--color-ink2)",
                 }}
                 onMouseEnter={(e) => {
                   if (tab !== key)
@@ -827,7 +832,9 @@ export default function AccountPage({
                 <span
                   style={{
                     color:
-                      tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+                      tab === key
+                        ? "var(--color-accent-ink)"
+                        : "var(--color-ink4)",
                   }}
                 >
                   {icon}
@@ -837,11 +844,14 @@ export default function AccountPage({
                   <span
                     className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
                     style={{
-                      background:
-                        tab === key
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color: tab === key ? "white" : "var(--color-ink3)",
+                    background:
+                      tab === key
+                        ? "var(--color-accent)"
+                        : "var(--color-surface2)",
+                    color:
+                      tab === key
+                        ? "var(--color-on-accent)"
+                        : "var(--color-ink3)",
                     }}
                   >
                     {badge}
@@ -851,7 +861,7 @@ export default function AccountPage({
                   <ChevronRight
                     size={14}
                     strokeWidth={2}
-                    style={{ color: "var(--color-accent)" }}
+                    style={{ color: "var(--color-accent-ink)" }}
                   />
                 )}
               </button>
@@ -1065,7 +1075,7 @@ export default function AccountPage({
                               className="text-xs font-bold px-3 py-1.5 rounded-full"
                               style={{
                                 background: "var(--color-accent)",
-                                color: "white",
+                                color: "var(--color-on-accent)",
                               }}
                             >
                               Reorder
@@ -1073,7 +1083,7 @@ export default function AccountPage({
                             <button
                               onClick={() => setTab("orders")}
                               className="text-xs font-bold hover:underline"
-                              style={{ color: "var(--color-accent)" }}
+                              style={{ color: "var(--color-accent-ink)" }}
                             >
                               View
                             </button>
@@ -1180,15 +1190,18 @@ export default function AccountPage({
               className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors"
               style={{
                 color:
-                  tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+                  tab === key ? "var(--color-accent-ink)" : "var(--color-ink4)",
               }}
             >
               <span className="relative">
                 {icon}
                 {badge !== undefined && (
                   <span
-                    className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
-                    style={{ background: "var(--color-accent)" }}
+                    className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold"
+                    style={{
+                      background: "var(--color-accent)",
+                      color: "var(--color-on-accent)",
+                    }}
                   >
                     {badge}
                   </span>
@@ -1209,13 +1222,22 @@ export default function AccountPage({
           <button
             onClick={() => setShowMoreTabs((v) => !v)}
             aria-expanded={showMoreTabs}
-            aria-label="More tabs"
+            aria-label={`More tabs${
+              NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).some(
+                (n) => n.badge !== undefined,
+              )
+                ? `, ${NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).reduce(
+                    (a, n) => a + (n.badge || 0),
+                    0,
+                  )} unread`
+                : ""
+            }`}
             className="relative flex w-full flex-col items-center gap-1 py-3 transition-colors"
             style={{
               color: NAV.some(
                 (n) => !MAIN_TAB_KEYS.includes(n.key) && n.key === tab,
               )
-                ? "var(--color-accent)"
+                ? "var(--color-accent-ink)"
                 : "var(--color-ink4)",
             }}
           >
@@ -1225,8 +1247,11 @@ export default function AccountPage({
                 (n) => n.badge !== undefined,
               ) && (
                 <span
-                  className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
-                  style={{ background: "var(--color-accent)" }}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold"
+                  style={{
+                    background: "var(--color-accent)",
+                    color: "var(--color-on-accent)",
+                  }}
                 >
                   {NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).reduce(
                     (a, n) => a + (n.badge || 0),
@@ -1267,7 +1292,7 @@ export default function AccountPage({
                             : "transparent",
                         color:
                           tab === key
-                            ? "var(--color-accent)"
+                            ? "var(--color-accent-ink)"
                             : "var(--color-ink2)",
                       }}
                     >
@@ -1275,7 +1300,7 @@ export default function AccountPage({
                         style={{
                           color:
                             tab === key
-                              ? "var(--color-accent)"
+                              ? "var(--color-accent-ink)"
                               : "var(--color-ink4)",
                         }}
                       >
@@ -1287,7 +1312,7 @@ export default function AccountPage({
                           className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
                           style={{
                             background: "var(--color-accent)",
-                            color: "white",
+                            color: "var(--color-on-accent)",
                           }}
                         >
                           {badge}
@@ -1537,6 +1562,7 @@ function OrdersTab({
           {search && (
             <button
               onClick={() => setSearch("")}
+              aria-label="Clear search"
               className="shrink-0"
               style={{ color: "var(--color-ink4)" }}
             >
@@ -1547,6 +1573,7 @@ function OrdersTab({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
+          aria-label="Filter by status"
           className="rounded-xl border px-3 py-2 text-[12.5px] font-medium outline-none cursor-pointer"
           style={{
             background: "var(--color-surface)",
@@ -2041,8 +2068,11 @@ function RefundRequestBlock({ order }: { order: Order }) {
               <button
                 onClick={submit}
                 disabled={sending}
-                className="px-4 py-2 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-60"
-                style={{ background: "var(--color-accent)" }}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-bold disabled:opacity-60"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-on-accent)",
+                }}
               >
                 {sending ? "Envoi…" : "Envoyer la demande"}
               </button>
@@ -2499,8 +2529,11 @@ function FavoritesTab({
               className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
             >
               <div
-                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-white"
-                style={{ background: "var(--color-accent)" }}
+                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-on-accent)",
+                }}
               >
                 <Eye size={12} strokeWidth={2} /> View
               </div>
@@ -2933,7 +2966,7 @@ function NotificationsTab({
                 className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
                 style={{
                   background: "var(--color-accent)",
-                  color: "white",
+                  color: "var(--color-on-accent)",
                 }}
               >
                 Mark read
@@ -3300,7 +3333,7 @@ function SupportTab({
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim()}
-            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
+            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
             style={{
               background: "var(--color-accent)",
               boxShadow: "var(--shadow-accent)",
@@ -3622,7 +3655,7 @@ function SupportTab({
                   !subject.trim() ||
                   !message.trim()
                 }
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",
@@ -4407,7 +4440,8 @@ function ProfileTab({
               <button
                 onClick={handleAddAddress}
                 disabled={savingAddress}
-                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold text-white"
+                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold"
+                style={{ color: "var(--color-on-accent)" }}
               >
                 {savingAddress ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -4580,7 +4614,8 @@ function ProfileTab({
                       </button>
                       <button
                         onClick={handleSaveEdit}
-                        className="text-xs font-bold bg-(--color-accent) text-white px-3 py-1 rounded-lg"
+                        className="text-xs font-bold bg-(--color-accent) px-3 py-1 rounded-lg"
+                        style={{ color: "var(--color-on-accent)" }}
                       >
                         Save
                       </button>
@@ -4601,7 +4636,7 @@ function ProfileTab({
                           className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
                           style={{
                             background: "var(--color-accent)",
-                            color: "white",
+                            color: "var(--color-on-accent)",
                           }}
                         >
                           Primary
@@ -4839,7 +4874,7 @@ function EmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
           style={{
             background: "var(--color-accent)",
             boxShadow: "var(--shadow-accent)",

@@ -32,6 +32,7 @@ export default function CopyID({ id, size = 14 }: CopyIDProps) {
         lineHeight: 1,
       }}
       title={`Copy ${id}`}
+      aria-label={`Copy ${id}`}
       role="button"
       tabIndex={0}
     >
