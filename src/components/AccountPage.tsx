@@ -2789,16 +2789,7 @@ const MESSAGE_TOKEN_REGEX = new RegExp(
  * - IDs de commande → version majuscule + bouton CopyID.
  * Le reste du texte est conservé tel quel.
  */
-function formatMessageText(
-  text: string,
-  opts?: {
-    /** Statut connu d'une commande (null = inconnue). */
-    orderStatusOf?: (orderId: string) => string | null;
-    /** Ouvre le suivi (OrderTrackingModal) pour cet ID. */
-    onTrack?: (orderId: string) => void;
-  },
-) {
-  const parts: React.ReactNode[] = [];
+function formatMessageText(text: string): React.ReactNode {  const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -2826,37 +2817,10 @@ function formatMessageText(
       );
     } else {
       const orderId = token.toUpperCase();
-      // Track (loupe) si traçable : statut connu et non exclu, ou inconnu
-      // (la modale dégrade gracieusement). Livré/annulé/remboursé/retourné :
-      // CopyID seul, rien d'autre ne change.
-      const status = opts?.orderStatusOf?.(orderId) ?? null;
-      const showTrack =
-        !!opts?.onTrack && (status == null || isTrackableStatus(status));
       parts.push(
         <span key={match.index} style={{ whiteSpace: "nowrap" }}>
           {orderId}
           <CopyID id={orderId} size={11} />
-          {showTrack && (
-            <button
-              onClick={() => opts!.onTrack!(orderId)}
-              title={`Track ${orderId}`}
-              className="underline font-semibold"
-              style={{
-                color: "var(--color-accent)",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                marginLeft: 6,
-                fontSize: "inherit",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              Track <Search size={11} strokeWidth={2.5} />
-            </button>
-          )}
         </span>,
       );
     }
@@ -2894,8 +2858,6 @@ function NotificationsTab({
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   // Barre timide : même pattern que Orders et catalogue.
   const barVisible = useTimidBar(scrollContainer);
-  const orderStatusOf = (id: string): string | null =>
-    orders.find((o: any) => o?.id === id)?.status ?? null;
   const notifOrderId = (n: any): string | null =>
     n.order_id ||
     n.metadata?.order_id ||
@@ -2964,6 +2926,15 @@ function NotificationsTab({
       ) : (
         visible.map((notif) => {
           const orderId = notifOrderId(notif);
+          // Track : statut connu et non exclu, ou inconnu (modale gracieuse).
+          // Livré/annulé/remboursé/retourné : pas de Track.
+          const orderStatus =
+            orderId != null
+              ? (orders.find((o: any) => o?.id === orderId)?.status ?? null)
+              : null;
+          const showTrack =
+            orderId != null &&
+            (orderStatus == null || isTrackableStatus(orderStatus));
           return (
             <div
               key={notif.id}
@@ -2983,10 +2954,7 @@ function NotificationsTab({
                     className="text-[13px] font-semibold"
                     style={{ color: "var(--color-ink)" }}
                   >
-                    {formatMessageText(notif.title, {
-                      orderStatusOf,
-                      onTrack: setTrackingCode,
-                    })}
+                    {formatMessageText(notif.title)}
                   </p>
                   <p
                     className="text-[12px] mt-1 break-words"
@@ -2995,10 +2963,7 @@ function NotificationsTab({
                       whiteSpace: "pre-wrap",
                     }}
                   >
-                    {formatMessageText(notif.message, {
-                      orderStatusOf,
-                      onTrack: setTrackingCode,
-                    })}
+                    {formatMessageText(notif.message)}
                   </p>
                   <p
                     className="text-[10px] mt-2"
@@ -3007,13 +2972,25 @@ function NotificationsTab({
                     {timeAgo(notif.created_at)}
                   </p>
                   {orderId && onViewOrder && (
-                    <button
-                      onClick={() => onViewOrder(orderId)}
-                      className="mt-2 text-[12px] font-bold hover:underline"
-                      style={{ color: "var(--color-accent)" }}
-                    >
-                      View order
-                    </button>
+                    <div className="mt-2 flex items-center gap-5">
+                      <button
+                        onClick={() => onViewOrder(orderId)}
+                        className="text-[12px] font-bold hover:underline"
+                        style={{ color: "var(--color-accent)" }}
+                      >
+                        View order
+                      </button>
+                      {showTrack && (
+                        <button
+                          onClick={() => setTrackingCode(orderId)}
+                          title={`Track ${orderId}`}
+                          className="text-[12px] font-bold hover:underline"
+                          style={{ color: "var(--color-accent)" }}
+                        >
+                          Track
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 {!notif.is_read && (
