@@ -2167,6 +2167,19 @@ export default function App() {
         <Suspense fallback={<LazyFallback />}>
           <AccountPage
             initialOrderId={pendingAccountOrderId}
+            onCheckout={() => {
+              // Le checkout est un overlay séparé : refermer le compte
+              // d'abord (jamais deux plein-écran empilés).
+              setShowAccountPage(false);
+              setPendingAccountOrderId(null);
+              if (isAccountPath(window.location.pathname)) {
+                try {
+                  history.pushState({}, "", "/");
+                } catch {}
+              }
+              setCheckoutOpen(true);
+              pushOverlay("checkout");
+            }}
             onClose={() => {
               // /compte : fermer nettoie aussi l'URL (miroir /admin).
               if (isAccountPath(window.location.pathname)) {

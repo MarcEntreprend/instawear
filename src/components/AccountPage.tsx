@@ -72,6 +72,8 @@ interface AccountPageProps {
     initialSize?: string,
   ) => void;
   onNameUpdated?: (newName: string) => void;
+  /** Passe les items du panier en achat (ouvre le checkout, referme le compte). */
+  onCheckout?: () => void;
   /** Deep-link commande (depuis email) : ouvre l'onglet orders + le dÃ©tail. */
   initialOrderId?: string | null;
 }
@@ -125,6 +127,15 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Image cassee (404/500, URL morte en base) -> placeholder local, jamais
+// de trou (meme pattern que StoreProductCard). Garde anti-boucle via dataset.
+function imgFallback(e: React.SyntheticEvent<HTMLImageElement>) {
+  const t = e.currentTarget;
+  if (t.dataset.fbk) return;
+  t.dataset.fbk = "1";
+  t.src = PLACEHOLDER_IMG;
+}
+
 //  Resolves the best image for a specific product color
 function getVariantImage(product: any, selectedColor: string): string {
   if (product?.variants?.length) {
@@ -143,6 +154,7 @@ export default function AccountPage({
   onClose,
   onViewProduct,
   onNameUpdated,
+  onCheckout,
   initialOrderId = null,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
@@ -1059,6 +1071,7 @@ export default function AccountPage({
                 onClear={handleClearCart}
                 onViewProduct={onViewProduct}
                 onUpdateQty={handleUpdateCartQty}
+                onCheckout={onCheckout}
               />
             )}
             {tab === "notifications" && (
@@ -1655,6 +1668,7 @@ function OrdersTab({
                           className="h-full w-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={imgFallback}
                         />
                       </span>
                     ))}
@@ -1797,6 +1811,7 @@ function OrdersTab({
                           className="h-full w-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={imgFallback}
                         />
                       </span>
                     ))}
@@ -2075,8 +2090,8 @@ function OrderDetail({
           border: "1px solid var(--color-border)",
         }}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <div>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <p
               className="text-[11px] font-semibold uppercase tracking-[0.08em]"
               style={{ color: "var(--color-ink4)" }}
@@ -2084,7 +2099,7 @@ function OrderDetail({
               Order ID
             </p>
             <p
-              className="text-[15px] font-black"
+              className="text-[15px] font-black break-words"
               style={{ color: "var(--color-ink)", fontFamily: "monospace" }}
             >
               {order.id}
@@ -2162,6 +2177,7 @@ function OrderDetail({
                   src={item.productImage || PLACEHOLDER_IMG}
                   alt={item.productTitle || "item"}
                   className="h-full w-full object-cover"
+                  onError={imgFallback}
                 />
               </button>
               <div className="flex-1 min-w-0">
@@ -2394,6 +2410,7 @@ function FavoritesTab({
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
                 decoding="async"
+                onError={imgFallback}
               />
             </div>
 
@@ -2454,6 +2471,7 @@ function CartTab({
   onClear,
   onViewProduct,
   onUpdateQty,
+  onCheckout,
 }: {
   items: AdminCartItem[];
   loading: boolean;
@@ -2466,6 +2484,8 @@ function CartTab({
     initialSize?: string,
   ) => void;
   onUpdateQty: (itemId: string, delta: number) => void;
+  /** Passe les items en achat (checkout). Absent = pas de bouton. */
+  onCheckout?: () => void;
 }) {
   if (loading) return <SkeletonList />;
   if (items.length === 0)
@@ -2546,6 +2566,7 @@ function CartTab({
               className="h-full w-full object-cover"
               loading="lazy"
               decoding="async"
+              onError={imgFallback}
             />
           </button>
           <div className="flex-1 min-w-0">
@@ -2658,6 +2679,13 @@ function CartTab({
           {total.toFixed(2)}
         </span>
       </div>
+
+      {/* Passer en achat */}
+      {onCheckout && (
+        <button onClick={onCheckout} className="btn btn-primary w-full">
+          Proceed to checkout
+        </button>
+      )}
     </div>
   );
 }
@@ -2834,7 +2862,7 @@ function NotificationsTab({
                 {formatMessageText(notif.title)}
               </p>
               <p
-                className="text-[12px] mt-1"
+                className="text-[12px] mt-1 break-words"
                 style={{
                   color: "var(--color-ink3)",
                   whiteSpace: "pre-wrap",
@@ -3825,6 +3853,10 @@ function ProfileTab({
     setNameInput(customerName);
   }, [customerName]);
   const [dob, setDob] = useState("");
+  const [dobMsg, setDobMsg] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
@@ -3884,12 +3916,18 @@ function ProfileTab({
 
   const handleSaveDob = async () => {
     if (!customerId) return;
+    setDobMsg(null);
     try {
       await customerApi.updateProfile(customerId, {
         date_of_birth: dob || null,
       });
+      setDobMsg({ ok: true, text: "Saved" });
+      setTimeout(() => setDobMsg((m) => (m?.ok ? null : m)), 2500);
     } catch (e: any) {
-      alert(e.message || "Failed to save date of birth");
+      setDobMsg({
+        ok: false,
+        text: e.message || "Failed to save date of birth",
+      });
     }
   };
 
@@ -4122,6 +4160,29 @@ function ProfileTab({
                   color: "var(--color-ink)",
                 }}
               />
+              <button
+                type="button"
+                onClick={handleSaveDob}
+                className="ml-2 rounded-lg px-3 py-1 text-[12.5px] font-bold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "#fff",
+                }}
+              >
+                Save
+              </button>
+              {dobMsg && (
+                <span
+                  className="ml-2 text-[12px] font-semibold"
+                  style={{
+                    color: dobMsg.ok
+                      ? "var(--color-success)"
+                      : "var(--color-negative)",
+                  }}
+                >
+                  {dobMsg.text}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -4476,7 +4537,7 @@ function ProfileTab({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
-                        className="text-[13px] font-semibold"
+                        className="text-[13px] font-semibold truncate"
                         style={{ color: "var(--color-ink)" }}
                       >
                         {addr.full_name}
@@ -4494,7 +4555,7 @@ function ProfileTab({
                       )}
                     </div>
                     <p
-                      className="text-[12px] leading-relaxed"
+                      className="text-[12px] leading-relaxed break-words"
                       style={{ color: "var(--color-ink3)" }}
                     >
                       {addr.address}
