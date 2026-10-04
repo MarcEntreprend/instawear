@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useOffline } from "../hooks/useOffline";
+import { scrollToCatalogTop } from "../utils/scroll";
 import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
@@ -647,6 +648,32 @@ export default function CatalogSection({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [extraFiltered.length]);
+  // Tout changement de filtre interne ré-ancre en haut des résultats
+  // (même helper unifié qu'App) : sans ça, la grille qui s'effondre
+  // (ex. popup couleur -> 1 item) laisse le viewport strandé sous le
+  // catalogue. Clé initiale mémorisée (pas de scroll au montage, même en
+  // StrictMode qui rejoue les effets).
+  const internalFilterKey = [
+    filters.color,
+    filters.size,
+    filters.material,
+    filters.style,
+    filters.priceMin,
+    filters.priceMax,
+    filters.inStockOnly ? "1" : "0",
+  ].join("|");
+  const initialFilterKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialFilterKey.current === null) {
+      initialFilterKey.current = internalFilterKey;
+      return;
+    }
+    if (initialFilterKey.current === internalFilterKey) return;
+    initialFilterKey.current = internalFilterKey;
+    const timer = setTimeout(() => scrollToCatalogTop(), 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [internalFilterKey]);
   // Tuile "+N" New arrivals : bascule le tri catalogue sur newest.
   // L'URL suit toute seule (synchro replaceState sur [filters, sort]).
   useEffect(() => {

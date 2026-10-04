@@ -50,6 +50,29 @@ export function computeDownCount(
   return Math.max(0, Math.floor((hiddenPx - 8) / thumbSize));
 }
 
+/**
+ * Fenêtre d'images à monter (pur, testé) : visibles + buffer, toujours
+ * l'active incluse (sélection hors champ, ex. clic variante). Le reste rend
+ * des boutons vides (layout/scroll intacts) SANS requête réseau : c'est ce
+ * qui économise les Mo (galeries 10+ visuels pleine résolution sinon).
+ */
+export function thumbWindowRange(
+  scrollPos: number,
+  clientSize: number,
+  thumbSize: number,
+  count: number,
+  activeIndex: number,
+  buffer = 3,
+): { start: number; end: number } {
+  if (thumbSize <= 0 || count <= 0) return { start: 0, end: 0 };
+  const per = Math.max(1, Math.ceil(clientSize / thumbSize));
+  let start = Math.max(0, Math.floor(scrollPos / thumbSize) - buffer);
+  let end = Math.min(count, start + per + buffer * 2);
+  start = Math.min(start, Math.max(0, activeIndex - buffer));
+  end = Math.max(end, Math.min(count, activeIndex + buffer + 1));
+  return { start, end };
+}
+
 export default function ThumbStrip({
   images,
   activeIndex,
@@ -66,6 +89,8 @@ export default function ThumbStrip({
   const rafRef = useRef<number | null>(null);
   const [canUp, setCanUp] = useState(false);
   const [downCount, setDownCount] = useState(0);
+  // Fenêtre montée (8 par défaut avant mesure) : seules ces <img> partent.
+  const [win, setWin] = useState({ start: 0, end: 8 });
 
   const refresh = () => {
     const el = trackRef.current;
@@ -79,6 +104,14 @@ export default function ThumbStrip({
       gapPx;
     setCanUp(scrollPos > 4);
     setDownCount(computeDownCount(size, scrollPos, client, thumb || 1));
+    const r = thumbWindowRange(
+      scrollPos,
+      client,
+      thumb || 1,
+      images.length,
+      activeIndex,
+    );
+    setWin((w) => (w.start === r.start && w.end === r.end ? w : r));
   };
 
   const handleScroll = () => {
@@ -103,6 +136,13 @@ export default function ThumbStrip({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images.length, orientation, maxPx]);
+
+  // Sélection hors fenêtre (clic variante, hover desktop) : élargit la
+  // fenêtre pour monter son visuel (sinon cadre vide sélectionné).
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex]);
 
   const step = (dir: 1 | -1) => {
     const el = trackRef.current;
@@ -182,28 +222,34 @@ export default function ThumbStrip({
                 activeIndex === i
                   ? "2px solid var(--color-accent)"
                   : "1px solid var(--color-border)",
+              background:
+                i >= win.start && i < win.end
+                  ? undefined
+                  : "var(--color-surface2)",
             }}
           >
-            <img
-              src={
-                imageKitUrl(img, {
-                  width: 128,
-                  quality: 80,
-                  format: "webp",
-                }) || img
-              }
-              alt=""
-              sizes="64px"
-              className="w-full h-full object-cover"
-              loading="lazy"
-              decoding="async"
-              onError={(e) => {
-                const el = e.currentTarget;
-                if (el.dataset.fbk) return;
-                el.dataset.fbk = "1";
-                el.src = PLACEHOLDER_IMG;
-              }}
-            />
+            {i >= win.start && i < win.end ? (
+              <img
+                src={
+                  imageKitUrl(img, {
+                    width: 128,
+                    quality: 80,
+                    format: "webp",
+                  }) || img
+                }
+                alt=""
+                sizes="64px"
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  if (el.dataset.fbk) return;
+                  el.dataset.fbk = "1";
+                  el.src = PLACEHOLDER_IMG;
+                }}
+              />
+            ) : null}
           </button>
         ))}
       </div>

@@ -29,14 +29,14 @@ export const ORDER_STATUS: Record<
   paid: {
     label: "Paid",
     icon: <CheckCircle2 size={12} strokeWidth={2} />,
-    color: "#2563eb",
+    color: "#1d4ed8",
     bg: "#dbeafe",
     step: 0,
   },
   pending: {
     label: "Pending",
     icon: <Clock size={12} strokeWidth={2} />,
-    color: "#d97706",
+    color: "#92400e",
     bg: "#fef3c7",
     step: 1,
   },
@@ -50,7 +50,7 @@ export const ORDER_STATUS: Record<
   shipped: {
     label: "Shipped",
     icon: <Truck size={12} strokeWidth={2} />,
-    color: "#059669",
+    color: "#047857",
     bg: "#d1fae5",
     step: 3,
   },

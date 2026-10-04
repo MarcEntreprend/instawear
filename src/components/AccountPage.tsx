@@ -50,10 +50,18 @@ import {
   newsletterApi,
 } from "../api/supabaseApi";
 import CopyID from "./CopyID";
+import AccountTabToolbar from "./AccountTabToolbar";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useTimidBar } from "../hooks/useTimidBar";
-import { cycleTabKey, swipeDir, parseAccountTab } from "../utils/accountTabs";
+import {
+  cycleTabKey,
+  swipeDir,
+  parseAccountTab,
+  extractOrderIds,
+  isTrackableStatus,
+} from "../utils/accountTabs";
+import OrderTrackingModal from "./OrderTrackingModal";
 import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
@@ -259,6 +267,21 @@ export default function AccountPage({
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   // 4 onglets principaux (bottom nav mobile), le reste dans "More".
   const MAIN_TAB_KEYS: TabKey[] = ["dashboard", "orders", "cart", "profile"];
+  // Surlignage commande (vue dashboard/notifications -> onglet orders),
+  // même esprit que useAdminHighlight, sans events (même arbre).
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(
+    null,
+  );
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewOrder = (orderId: string) => {
+    goTab("orders");
+    setHighlightedOrderId(orderId);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(
+      () => setHighlightedOrderId(null),
+      3000,
+    );
+  };
   // Aller a un onglet ; reclic sur l'actif = retour en haut + reset
   // (ex. detail commande referme via "account:tab-reset").
   const goTab = (key: TabKey) => {
@@ -498,6 +521,22 @@ export default function AccountPage({
     fetchOrders(nextPage, true);
   }, [loadingOrders, hasMoreOrders, ordersPage, fetchOrders]);
 
+  // Fraîcheur : orders/notifications se revalident à chaque entrée d'onglet
+  // (statuts temps réel) ; le reste (profil/adresses) est chargé une fois.
+  // goTab scrolle déjà en haut : pas de saut surprise.
+  const firstTabVisit = useRef(true);
+  useEffect(() => {
+    if (firstTabVisit.current) {
+      firstTabVisit.current = false;
+      return;
+    }
+    if (tab === "orders") {
+      setOrdersPage(0);
+      fetchOrders(0, false);
+    } else if (tab === "notifications") fetchNotifications(0, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const fetchFavorites = useCallback(async () => {
     if (!customerId) return;
     setLoadingFav(true);
@@ -664,8 +703,11 @@ export default function AccountPage({
           {NAV.find((n) => n.key === tab)?.label ?? "My Account"}
         </span>
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
-          style={{ background: "var(--color-accent)" }}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black"
+          style={{
+            background: "var(--color-accent)",
+            color: "var(--color-on-accent)",
+          }}
         >
           {customerId ? initials(customerEmail, customerName) : "?"}
         </div>
@@ -811,7 +853,9 @@ export default function AccountPage({
                   background:
                     tab === key ? "var(--color-accent-bg)" : "transparent",
                   color:
-                    tab === key ? "var(--color-accent)" : "var(--color-ink2)",
+                    tab === key
+                      ? "var(--color-accent-ink)"
+                      : "var(--color-ink2)",
                 }}
                 onMouseEnter={(e) => {
                   if (tab !== key)
@@ -827,7 +871,9 @@ export default function AccountPage({
                 <span
                   style={{
                     color:
-                      tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+                      tab === key
+                        ? "var(--color-accent-ink)"
+                        : "var(--color-ink4)",
                   }}
                 >
                   {icon}
@@ -837,11 +883,14 @@ export default function AccountPage({
                   <span
                     className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
                     style={{
-                      background:
-                        tab === key
-                          ? "var(--color-accent)"
-                          : "var(--color-surface2)",
-                      color: tab === key ? "white" : "var(--color-ink3)",
+                    background:
+                      tab === key
+                        ? "var(--color-accent)"
+                        : "var(--color-surface2)",
+                    color:
+                      tab === key
+                        ? "var(--color-on-accent)"
+                        : "var(--color-ink3)",
                     }}
                   >
                     {badge}
@@ -851,7 +900,7 @@ export default function AccountPage({
                   <ChevronRight
                     size={14}
                     strokeWidth={2}
-                    style={{ color: "var(--color-accent)" }}
+                    style={{ color: "var(--color-accent-ink)" }}
                   />
                 )}
               </button>
@@ -1049,31 +1098,9 @@ export default function AccountPage({
                           </div>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={async () => {
-                                const { customerApi } =
-                                  await import("../api/supabaseApi");
-                                for (const item of o.items) {
-                                  await customerApi.addCartItem(customerId!, {
-                                    productId: item.productId,
-                                    selectedColor: item.selectedColor,
-                                    selectedSize: item.selectedSize,
-                                    quantity: item.quantity,
-                                    unitPrice: item.unitPrice,
-                                  });
-                                }
-                              }}
-                              className="text-xs font-bold px-3 py-1.5 rounded-full"
-                              style={{
-                                background: "var(--color-accent)",
-                                color: "white",
-                              }}
-                            >
-                              Reorder
-                            </button>
-                            <button
-                              onClick={() => setTab("orders")}
+                              onClick={() => viewOrder(o.id)}
                               className="text-xs font-bold hover:underline"
-                              style={{ color: "var(--color-accent)" }}
+                              style={{ color: "var(--color-accent-ink)" }}
                             >
                               View
                             </button>
@@ -1098,6 +1125,7 @@ export default function AccountPage({
                 customerId={customerId}
                 initialOrderId={initialOrderId}
                 scrollContainer={mainScrollRef}
+                highlightedOrderId={highlightedOrderId}
               />
             )}
             {tab === "favorites" && (
@@ -1128,6 +1156,8 @@ export default function AccountPage({
                 loading={loadingNotifs}
                 onMarkRead={handleMarkNotifRead}
                 scrollContainer={mainScrollRef}
+                orders={orders}
+                onViewOrder={viewOrder}
               />
             )}
             {tab === "profile" && (
@@ -1155,9 +1185,15 @@ export default function AccountPage({
                 customerName={customerName}
                 orders={orders}
                 currencySymbol={currencySymbol}
+                scrollContainer={mainScrollRef}
               />
             )}
-            {tab === "reviews" && <ReviewsTab customerId={customerId} />}
+            {tab === "reviews" && (
+              <ReviewsTab
+                customerId={customerId}
+                scrollContainer={mainScrollRef}
+              />
+            )}
           </div>
         </main>
       </div>
@@ -1180,15 +1216,18 @@ export default function AccountPage({
               className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors"
               style={{
                 color:
-                  tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+                  tab === key ? "var(--color-accent-ink)" : "var(--color-ink4)",
               }}
             >
               <span className="relative">
                 {icon}
                 {badge !== undefined && (
                   <span
-                    className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
-                    style={{ background: "var(--color-accent)" }}
+                    className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold"
+                    style={{
+                      background: "var(--color-accent)",
+                      color: "var(--color-on-accent)",
+                    }}
                   >
                     {badge}
                   </span>
@@ -1209,13 +1248,22 @@ export default function AccountPage({
           <button
             onClick={() => setShowMoreTabs((v) => !v)}
             aria-expanded={showMoreTabs}
-            aria-label="More tabs"
+            aria-label={`More tabs${
+              NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).some(
+                (n) => n.badge !== undefined,
+              )
+                ? `, ${NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).reduce(
+                    (a, n) => a + (n.badge || 0),
+                    0,
+                  )} unread`
+                : ""
+            }`}
             className="relative flex w-full flex-col items-center gap-1 py-3 transition-colors"
             style={{
               color: NAV.some(
                 (n) => !MAIN_TAB_KEYS.includes(n.key) && n.key === tab,
               )
-                ? "var(--color-accent)"
+                ? "var(--color-accent-ink)"
                 : "var(--color-ink4)",
             }}
           >
@@ -1225,8 +1273,11 @@ export default function AccountPage({
                 (n) => n.badge !== undefined,
               ) && (
                 <span
-                  className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
-                  style={{ background: "var(--color-accent)" }}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold"
+                  style={{
+                    background: "var(--color-accent)",
+                    color: "var(--color-on-accent)",
+                  }}
                 >
                   {NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).reduce(
                     (a, n) => a + (n.badge || 0),
@@ -1267,7 +1318,7 @@ export default function AccountPage({
                             : "transparent",
                         color:
                           tab === key
-                            ? "var(--color-accent)"
+                            ? "var(--color-accent-ink)"
                             : "var(--color-ink2)",
                       }}
                     >
@@ -1275,7 +1326,7 @@ export default function AccountPage({
                         style={{
                           color:
                             tab === key
-                              ? "var(--color-accent)"
+                              ? "var(--color-accent-ink)"
                               : "var(--color-ink4)",
                         }}
                       >
@@ -1287,7 +1338,7 @@ export default function AccountPage({
                           className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
                           style={{
                             background: "var(--color-accent)",
-                            color: "white",
+                            color: "var(--color-on-accent)",
                           }}
                         >
                           {badge}
@@ -1318,6 +1369,7 @@ function OrdersTab({
   customerId,
   initialOrderId = null,
   scrollContainer,
+  highlightedOrderId = null,
 }: {
   orders: Order[];
   loading: boolean;
@@ -1335,11 +1387,28 @@ function OrdersTab({
   initialOrderId?: string | null;
   /** Conteneur scrollé (main) pour la barre timide. */
   scrollContainer?: React.RefObject<HTMLElement | null>;
+  /** Commande à surligner + scroller (vue dashboard/notifications). */
+  highlightedOrderId?: string | null;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   // Barre recherche/filtres timide : visible au scroll-up, masquée au
   // scroll-down (même hook que le catalogue, conteneur = main du compte).
   const barVisible = useTimidBar(scrollContainer);
+  // Surlignage externe (dashboard/notifications) : scrolle la carte au centre.
+  useEffect(() => {
+    if (!highlightedOrderId) return;
+    const t = setTimeout(() => {
+      const el = document.querySelector(
+        `[data-order-id="${highlightedOrderId}"]`,
+      );
+      if (el)
+        (el as HTMLElement).scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [highlightedOrderId, orders]);
   // Deep-link email : pré-remplit "Search by order ID" + ouvre le détail
   // une seule fois quand les commandes arrivent (comme le tracking invité).
   const deepOpenedRef = useRef(false);
@@ -1498,106 +1567,37 @@ function OrdersTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Barre de recherche + filtres : sticky timide (scroll-up = visible,
-          scroll-down = masquée, fini la remontée). */}
-      <div
-        className="sticky top-0 z-10 -mx-1 px-1"
-        style={{
-          background: "var(--color-bg)",
-          maxHeight: barVisible ? 160 : 0,
-          opacity: barVisible ? 1 : 0,
-          overflow: "hidden",
-          transition: "max-height .3s ease, opacity .25s ease",
+      <AccountTabToolbar
+        visible={barVisible}
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search by order ID…"
+        filterValue={filterStatus}
+        onFilterChange={setFilterStatus}
+        filterLabel="Filter by status"
+        filterOptions={[
+          { value: "all", label: "All statuses" },
+          { value: "pending", label: "Pending" },
+          { value: "paid", label: "Paid" },
+          { value: "in_production", label: "In Production" },
+          { value: "shipped", label: "Shipped" },
+          { value: "delivered", label: "Delivered" },
+          { value: "cancelled", label: "Cancelled" },
+          { value: "on_hold", label: "On Hold" },
+          { value: "refunded", label: "Refunded" },
+          { value: "returned", label: "Returned" },
+          { value: "partial", label: "Partial" },
+        ]}
+        sortOrder={sortOrder}
+        onToggleSort={() =>
+          setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
+        }
+        showReset={!!search || filterStatus !== "all"}
+        onReset={() => {
+          setSearch("");
+          setFilterStatus("all");
         }}
-      >
-      <div className="flex flex-wrap items-center gap-2 pb-2">
-        <div
-          className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          <Search
-            size={14}
-            strokeWidth={1.75}
-            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
-          />
-          <input
-            type="text"
-            placeholder="Search by order ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-[13px]"
-            style={{
-              color: "var(--color-ink)",
-              fontFamily: "var(--font-sans)",
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="shrink-0"
-              style={{ color: "var(--color-ink4)" }}
-            >
-              <X size={13} strokeWidth={2} />
-            </button>
-          )}
-        </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-xl border px-3 py-2 text-[12.5px] font-medium outline-none cursor-pointer"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
-            color: "var(--color-ink2)",
-          }}
-        >
-          <option value="all">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="in_production">In Production</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="on_hold">On Hold</option>
-          <option value="refunded">Refunded</option>
-          <option value="returned">Returned</option>
-          <option value="partial">Partial</option>
-        </select>
-        <button
-          onClick={() =>
-            setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
-          }
-          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12.5px] font-medium transition-colors"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
-            color: "var(--color-ink2)",
-          }}
-        >
-          <Clock size={13} strokeWidth={1.75} />
-          {sortOrder === "newest" ? "Newest" : "Oldest"}
-        </button>
-        {(search || filterStatus !== "all") && (
-          <button
-            onClick={() => {
-              setSearch("");
-              setFilterStatus("all");
-            }}
-            className="flex items-center gap-1 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors"
-            style={{
-              background: "var(--color-surface2)",
-              border: "1px solid var(--color-border)",
-              color: "var(--color-accent)",
-            }}
-          >
-            <X size={12} strokeWidth={2} /> Reset
-            </button>
-          )}
-        </div>
-      </div>
+      />
 
       {serverSearch || searchDebouncing ? (
         serverSearchLoading ? (
@@ -1651,9 +1651,20 @@ function OrdersTab({
                   }
                 }}
                 className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+                data-order-id={order.id}
                 style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
+                  background:
+                    highlightedOrderId === order.id
+                      ? "var(--color-accent-bg)"
+                      : "var(--color-surface)",
+                  borderColor:
+                    highlightedOrderId === order.id
+                      ? "var(--color-accent)"
+                      : "var(--color-border)",
+                  boxShadow:
+                    highlightedOrderId === order.id
+                      ? "var(--shadow-md)"
+                      : undefined,
                 }}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -1794,9 +1805,20 @@ function OrdersTab({
                   }
                 }}
                 className="w-full text-left rounded-2xl border p-4 transition-all duration-200 hover:shadow-(--shadow-md) active:scale-[0.99]"
+                data-order-id={order.id}
                 style={{
-                  background: "var(--color-surface)",
-                  borderColor: "var(--color-border)",
+                  background:
+                    highlightedOrderId === order.id
+                      ? "var(--color-accent-bg)"
+                      : "var(--color-surface)",
+                  borderColor:
+                    highlightedOrderId === order.id
+                      ? "var(--color-accent)"
+                      : "var(--color-border)",
+                  boxShadow:
+                    highlightedOrderId === order.id
+                      ? "var(--shadow-md)"
+                      : undefined,
                 }}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -2041,8 +2063,11 @@ function RefundRequestBlock({ order }: { order: Order }) {
               <button
                 onClick={submit}
                 disabled={sending}
-                className="px-4 py-2 rounded-xl text-[12.5px] font-bold text-white disabled:opacity-60"
-                style={{ background: "var(--color-accent)" }}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-bold disabled:opacity-60"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-on-accent)",
+                }}
               >
                 {sending ? "Envoi…" : "Envoyer la demande"}
               </button>
@@ -2499,8 +2524,11 @@ function FavoritesTab({
               className="absolute inset-x-2 bottom-2 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
             >
               <div
-                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-white"
-                style={{ background: "var(--color-accent)" }}
+                className="flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-on-accent)",
+                }}
               >
                 <Eye size={12} strokeWidth={2} /> View
               </div>
@@ -2742,7 +2770,7 @@ function CartTab({
 
 // Regex pour détecter un ID de commande (ORD-année-suite ou ORD-UUID)
 const ORDER_ID_REGEX =
-  /\b(ord-(?:\d{4}-\d{4,5}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
+  /\b(ord-(?:\d{4}-\d{4,6}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
 
 // Regex pour détecter une URL http(s) — rendue cliquable dans les
 // notifications (ex: lien de suivi du colis) en ouvrant un nouvel onglet.
@@ -2761,8 +2789,7 @@ const MESSAGE_TOKEN_REGEX = new RegExp(
  * - IDs de commande → version majuscule + bouton CopyID.
  * Le reste du texte est conservé tel quel.
  */
-function formatMessageText(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
+function formatMessageText(text: string): React.ReactNode {  const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -2813,22 +2840,48 @@ function NotificationsTab({
   loading,
   onMarkRead,
   scrollContainer,
+  orders,
+  onViewOrder,
 }: {
   notifications: any[];
   loading: boolean;
   onMarkRead: (id: string) => void;
   /** Conteneur scrollé (main) pour la barre timide. */
   scrollContainer?: React.RefObject<HTMLElement | null>;
+  orders: Order[];
+  /** Voir la commande (onglet orders + surlignage). */
+  onViewOrder?: (orderId: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  // Barre de recherche timide : même pattern que Orders et catalogue.
+  const [readFilter, setReadFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  // Barre timide : même pattern que Orders et catalogue.
   const barVisible = useTimidBar(scrollContainer);
+  const notifOrderId = (n: any): string | null =>
+    n.order_id ||
+    n.metadata?.order_id ||
+    extractOrderIds(`${n.title || ""} ${n.message || ""}`)[0] ||
+    null;
   const q = query.trim().toLowerCase();
-  const visible = q
-    ? notifications.filter((n) =>
-        `${n.title || ""} ${n.message || ""}`.toLowerCase().includes(q),
-      )
-    : notifications;
+  const visible = notifications
+    .filter((n) =>
+      readFilter === "all"
+        ? true
+        : readFilter === "unread"
+          ? !n.is_read
+          : !!n.is_read,
+    )
+    .filter((n) =>
+      q
+        ? `${n.title || ""} ${n.message || ""}`.toLowerCase().includes(q)
+        : true,
+    )
+    .sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sortOrder === "newest" ? db - da : da - db;
+    });
   if (loading) return <SkeletonList />;
   if (notifications.length === 0)
     return (
@@ -2841,48 +2894,29 @@ function NotificationsTab({
 
   return (
     <div className="flex flex-col gap-2">
-      <div
-        className="sticky top-0 z-10 -mx-1 px-1"
-        style={{
-          background: "var(--color-bg)",
-          maxHeight: barVisible ? 80 : 0,
-          opacity: barVisible ? 1 : 0,
-          overflow: "hidden",
-          transition: "max-height .3s ease, opacity .25s ease",
+      <AccountTabToolbar
+        visible={barVisible}
+        search={query}
+        onSearch={setQuery}
+        searchPlaceholder="Search notifications…"
+        filterValue={readFilter}
+        onFilterChange={setReadFilter}
+        filterLabel="Filter by read state"
+        filterOptions={[
+          { value: "all", label: "All" },
+          { value: "unread", label: "Unread" },
+          { value: "read", label: "Read" },
+        ]}
+        sortOrder={sortOrder}
+        onToggleSort={() =>
+          setSortOrder((p) => (p === "newest" ? "oldest" : "newest"))
+        }
+        showReset={!!query || readFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setReadFilter("all");
         }}
-      >
-        <div
-          className="flex items-center gap-2 rounded-xl border px-3 py-2 mb-2"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          <Search
-            size={14}
-            strokeWidth={1.75}
-            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
-          />
-          <input
-            type="text"
-            placeholder="Search notifications…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-[13px]"
-            style={{ color: "var(--color-ink)" }}
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="shrink-0"
-              style={{ color: "var(--color-ink4)" }}
-              aria-label="Clear search"
-            >
-              <X size={13} strokeWidth={2} />
-            </button>
-          )}
-        </div>
-      </div>
+      />
       {visible.length === 0 ? (
         <EmptyState
           icon={<Search size={28} strokeWidth={1.5} />}
@@ -2890,58 +2924,97 @@ function NotificationsTab({
           sub="Try a different search."
         />
       ) : (
-        visible.map((notif) => (
-        <div
-          key={notif.id}
-          className="rounded-2xl border p-4 transition-all"
-          style={{
-            background: notif.is_read
-              ? "var(--color-surface)"
-              : "var(--color-accent-bg)",
-            borderColor: notif.is_read
-              ? "var(--color-border)"
-              : "var(--color-accent)" + "40",
-          }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-[13px] font-semibold"
-                style={{ color: "var(--color-ink)" }}
-              >
-                {formatMessageText(notif.title)}
-              </p>
-              <p
-                className="text-[12px] mt-1 break-words"
-                style={{
-                  color: "var(--color-ink3)",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {formatMessageText(notif.message)}
-              </p>
-              <p
-                className="text-[10px] mt-2"
-                style={{ color: "var(--color-ink4)" }}
-              >
-                {timeAgo(notif.created_at)}
-              </p>
+        visible.map((notif) => {
+          const orderId = notifOrderId(notif);
+          // Track : statut connu et non exclu, ou inconnu (modale gracieuse).
+          // Livré/annulé/remboursé/retourné : pas de Track.
+          const orderStatus =
+            orderId != null
+              ? (orders.find((o: any) => o?.id === orderId)?.status ?? null)
+              : null;
+          const showTrack =
+            orderId != null &&
+            (orderStatus == null || isTrackableStatus(orderStatus));
+          return (
+            <div
+              key={notif.id}
+              className="rounded-2xl border p-4 transition-all"
+              style={{
+                background: notif.is_read
+                  ? "var(--color-surface)"
+                  : "var(--color-accent-bg)",
+                borderColor: notif.is_read
+                  ? "var(--color-border)"
+                  : "var(--color-accent)" + "40",
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[13px] font-semibold"
+                    style={{ color: "var(--color-ink)" }}
+                  >
+                    {formatMessageText(notif.title)}
+                  </p>
+                  <p
+                    className="text-[12px] mt-1 break-words"
+                    style={{
+                      color: "var(--color-ink3)",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {formatMessageText(notif.message)}
+                  </p>
+                  <p
+                    className="text-[10px] mt-2"
+                    style={{ color: "var(--color-ink4)" }}
+                  >
+                    {timeAgo(notif.created_at)}
+                  </p>
+                  {orderId && onViewOrder && (
+                    <div className="mt-2 flex items-center gap-5">
+                      <button
+                        onClick={() => onViewOrder(orderId)}
+                        className="text-[12px] font-bold hover:underline"
+                        style={{ color: "var(--color-accent)" }}
+                      >
+                        View order
+                      </button>
+                      {showTrack && (
+                        <button
+                          onClick={() => setTrackingCode(orderId)}
+                          title={`Track ${orderId}`}
+                          className="text-[12px] font-bold hover:underline"
+                          style={{ color: "var(--color-accent)" }}
+                        >
+                          Track
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {!notif.is_read && (
+                  <button
+                    onClick={() => onMarkRead(notif.id)}
+                    className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                    style={{
+                      background: "var(--color-accent)",
+                      color: "var(--color-on-accent)",
+                    }}
+                  >
+                    Mark read
+                  </button>
+                )}
+              </div>
             </div>
-            {!notif.is_read && (
-              <button
-                onClick={() => onMarkRead(notif.id)}
-                className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
-                style={{
-                  background: "var(--color-accent)",
-                  color: "white",
-                }}
-              >
-                Mark read
-              </button>
-            )}
-          </div>
-        </div>
-        )))}
+          );
+        }))}
+      {trackingCode && (
+        <OrderTrackingModal
+          initialCode={trackingCode}
+          onClose={() => setTrackingCode(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2954,6 +3027,7 @@ function SupportTab({
   customerName,
   orders,
   currencySymbol,
+  scrollContainer,
 }: {
   interactions: Interaction[];
   loading: boolean;
@@ -2961,6 +3035,8 @@ function SupportTab({
   customerName: string;
   orders: Order[];
   currencySymbol: string;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [subject, setSubject] = useState("");
@@ -2981,6 +3057,31 @@ function SupportTab({
   const [selectedTicket, setSelectedTicket] = useState<Interaction | null>(
     null,
   );
+  // Barre d'outils partagée (recherche + statut + tri), comme orders.
+  const [supQuery, setSupQuery] = useState("");
+  const [supStatus, setSupStatus] = useState("all");
+  const [supSort, setSupSort] = useState<"newest" | "oldest">("newest");
+  const supBarVisible = useTimidBar(scrollContainer);
+  const supVisible = interactions
+    .filter((t) =>
+      supStatus === "all"
+        ? true
+        : supStatus === "open"
+          ? t.status === "open"
+          : t.status !== "open",
+    )
+    .filter((t) => {
+      const q = supQuery.trim().toLowerCase();
+      if (!q) return true;
+      return `${t.subject || ""} ${t.lastMessage || ""}`
+        .toLowerCase()
+        .includes(q);
+    })
+    .sort((a, b) => {
+      const da = new Date(a.updatedAt).getTime();
+      const db = new Date(b.updatedAt).getTime();
+      return supSort === "newest" ? db - da : da - db;
+    });
   const [ticketMessages, setTicketMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -3167,7 +3268,7 @@ function SupportTab({
               style={{
                 background:
                   selectedTicket.status === "open" ? "#fef3c7" : "#d1fae5",
-                color: selectedTicket.status === "open" ? "#d97706" : "#065f46",
+                color: selectedTicket.status === "open" ? "#92400e" : "#065f46",
               }}
             >
               {selectedTicket.status === "open" ? "Open" : "Resolved"}
@@ -3300,7 +3401,7 @@ function SupportTab({
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim()}
-            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
+            className="self-end flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50"
             style={{
               background: "var(--color-accent)",
               boxShadow: "var(--shadow-accent)",
@@ -3622,7 +3723,7 @@ function SupportTab({
                   !subject.trim() ||
                   !message.trim()
                 }
-                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   background: "var(--color-accent)",
                   boxShadow: "var(--shadow-accent)",
@@ -3674,7 +3775,30 @@ function SupportTab({
           >
             <Plus size={14} strokeWidth={2.5} /> New message
           </button>
-          {interactions.map((t) => (
+          <AccountTabToolbar
+            visible={supBarVisible}
+            search={supQuery}
+            onSearch={setSupQuery}
+            searchPlaceholder="Search conversations…"
+            filterValue={supStatus}
+            onFilterChange={setSupStatus}
+            filterLabel="Filter by status"
+            filterOptions={[
+              { value: "all", label: "All" },
+              { value: "open", label: "Open" },
+              { value: "resolved", label: "Resolved" },
+            ]}
+            sortOrder={supSort}
+            onToggleSort={() =>
+              setSupSort((p) => (p === "newest" ? "oldest" : "newest"))
+            }
+            showReset={!!supQuery || supStatus !== "all"}
+            onReset={() => {
+              setSupQuery("");
+              setSupStatus("all");
+            }}
+          />
+          {supVisible.map((t) => (
             <button
               key={t.id}
               onClick={() => openTicket(t)}
@@ -3706,7 +3830,7 @@ function SupportTab({
                     className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
                     style={{
                       background: t.status === "open" ? "#fef3c7" : "#d1fae5",
-                      color: t.status === "open" ? "#d97706" : "#065f46",
+                      color: t.status === "open" ? "#92400e" : "#065f46",
                     }}
                   >
                     {t.status === "open" ? "Open" : "Resolved"}
@@ -3725,6 +3849,13 @@ function SupportTab({
               </div>
             </button>
           ))}
+          {supVisible.length === 0 && (
+            <EmptyState
+              icon={<Search size={28} strokeWidth={1.5} />}
+              title="No conversations match"
+              sub="Try a different search."
+            />
+          )}
         </>
       )}
     </div>
@@ -3732,11 +3863,26 @@ function SupportTab({
 }
 
 // ─── ReviewsTab ─────────────────────────────────────────────────────
-function ReviewsTab({ customerId }: { customerId: string | null }) {
+function ReviewsTab({
+  customerId,
+  scrollContainer,
+}: {
+  customerId: string | null;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
+}) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Une fois par client (même raison que ProfileTab : l'onglet remonte à
+  // chaque visite ; la suppression met à jour l'état local).
+  const reviewsLoadedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!customerId) return;
+    if (reviewsLoadedFor.current === customerId) {
+      setLoading(false);
+      return;
+    }
+    reviewsLoadedFor.current = customerId;
     import("../lib/supabaseClient").then(({ supabase }) => {
       supabase
         .from("product_reviews")
@@ -3755,6 +3901,23 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
     await reviewApi.delete(id);
     setReviews((r) => r.filter((x) => x.id !== id));
   };
+  // Barre d'outils partagée (recherche + tri, pas de statut ici).
+  const [revQuery, setRevQuery] = useState("");
+  const [revSort, setRevSort] = useState<"newest" | "oldest">("newest");
+  const revBarVisible = useTimidBar(scrollContainer);
+  const revVisible = reviews
+    .filter((r) => {
+      const q = revQuery.trim().toLowerCase();
+      if (!q) return true;
+      return `${r.title || ""} ${r.body || r.comment || ""}`
+        .toLowerCase()
+        .includes(q);
+    })
+    .sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return revSort === "newest" ? db - da : da - db;
+    });
   if (loading)
     return (
       <div
@@ -3798,7 +3961,38 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
       <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>
         Reviews ({reviews.length})
       </h3>
-      {reviews.map((r) => (
+      <AccountTabToolbar
+        visible={revBarVisible}
+        search={revQuery}
+        onSearch={setRevQuery}
+        searchPlaceholder="Search reviews…"
+        sortOrder={revSort}
+        onToggleSort={() =>
+          setRevSort((p) => (p === "newest" ? "oldest" : "newest"))
+        }
+        showReset={!!revQuery}
+        onReset={() => setRevQuery("")}
+      />
+      {revVisible.length === 0 ? (
+        <div className="card-premium p-8 text-center">
+          <Search
+            size={28}
+            strokeWidth={1.5}
+            className="mx-auto mb-3"
+            style={{ color: "var(--color-ink4)" }}
+          />
+          <p
+            className="text-sm font-bold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            No reviews match
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>
+            Try a different search.
+          </p>
+        </div>
+      ) : (
+        revVisible.map((r) => (
         <div key={r.id} className="card-premium p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center gap-0.5">
@@ -3859,7 +4053,8 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
             </button>
           </div>
         </div>
-      ))}
+        ))
+      )}
     </div>
   );
 }
@@ -3928,8 +4123,14 @@ function ProfileTab({
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   // ── Charger les données ─────────────────────────────────────────
+  // Une fois par client (l'onglet démonte/remonte à chaque visite : sans
+  // garde, DOB + adresses repartent en base à chaque fois). Les mutations
+  // (save/add/delete) mettent à jour l'état local, pas besoin de recharger.
+  const profileLoadedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!customerId) return;
+    if (profileLoadedFor.current === customerId) return;
+    profileLoadedFor.current = customerId;
     // Charger la date de naissance
     customerApi.get(customerId).then((c) => {
       if (c?.date_of_birth) setDob(c.date_of_birth);
@@ -4407,7 +4608,8 @@ function ProfileTab({
               <button
                 onClick={handleAddAddress}
                 disabled={savingAddress}
-                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold text-white"
+                className="flex items-center gap-1 rounded-lg bg-(--color-accent) px-3 py-1.5 text-xs font-bold"
+                style={{ color: "var(--color-on-accent)" }}
               >
                 {savingAddress ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -4580,7 +4782,8 @@ function ProfileTab({
                       </button>
                       <button
                         onClick={handleSaveEdit}
-                        className="text-xs font-bold bg-(--color-accent) text-white px-3 py-1 rounded-lg"
+                        className="text-xs font-bold bg-(--color-accent) px-3 py-1 rounded-lg"
+                        style={{ color: "var(--color-on-accent)" }}
                       >
                         Save
                       </button>
@@ -4601,7 +4804,7 @@ function ProfileTab({
                           className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
                           style={{
                             background: "var(--color-accent)",
-                            color: "white",
+                            color: "var(--color-on-accent)",
                           }}
                         >
                           Primary
@@ -4839,7 +5042,7 @@ function EmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
+          className="mt-1 rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.97]"
           style={{
             background: "var(--color-accent)",
             boxShadow: "var(--shadow-accent)",

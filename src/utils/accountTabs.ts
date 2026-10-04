@@ -34,3 +34,33 @@ export function parseAccountTab(
   }
   return v && validKeys.includes(v) ? v : null;
 }
+
+/** IDs de commande (ORD-…) trouvés dans un texte, majuscules, uniques. */
+export function extractOrderIds(text: string): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  const re =
+    /\b(ord-(?:\d{4}-\d{4,6}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const id = m[1].toUpperCase();
+    if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Commande traçable (suivi public pertinent) ? Exclus : livrée, annulée,
+ * remboursée, retournée. Inconnu -> traçable (la modale dégrade gracieusement).
+ */
+const UNTRACKABLE = new Set([
+  "delivered",
+  "cancelled",
+  "refunded",
+  "returned",
+]);
+
+export function isTrackableStatus(status: unknown): boolean {
+  if (status == null || status === "") return true;
+  return !UNTRACKABLE.has(String(status).toLowerCase());
+}

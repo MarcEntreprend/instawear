@@ -72,6 +72,7 @@ import {
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
 import { isAdminPath, isAccountPath, productUrl } from "./utils/routes";
+import { scrollToCatalogTop } from "./utils/scroll";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -1279,8 +1280,13 @@ export default function App() {
       about: "about",
       testimonials: "testimonials",
       faq: "section-faq",
-      filters: "section-filters",
+      filters: "section-catalog",
     };
+    // Le catalogue a son helper unifié (content-visibility + offset exact).
+    if (section === "catalog" || section === "filters") {
+      scrollToCatalogTop();
+      return;
+    }
     const id = idMap[section];
     if (!id) return;
 
@@ -1554,21 +1560,10 @@ export default function App() {
       return;
     }
 
-    const hasActiveFilter =
-      searchTerm.trim() || selectedCategory || selectedEventType;
-
-    const targetId = hasActiveFilter ? "section-filters" : "section-catalog";
-
-    const tryScroll = (attempts: number) => {
-      const el = document.getElementById(targetId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else if (attempts < 20) {
-        setTimeout(() => tryScroll(attempts + 1), 50);
-      }
-    };
-
-    const timer = setTimeout(() => tryScroll(0), 100);
+    // Filtres globaux (recherche/categorie/event) : ré-ancre unifiée.
+    // Les filtres internes au catalogue (couleur/taille/...) sont gérés
+    // dans CatalogSection (état local, même helper).
+    const timer = setTimeout(() => scrollToCatalogTop(), 100);
     return () => clearTimeout(timer);
   }, [searchTerm, selectedCategory, selectedEventType]);
 
@@ -1631,8 +1626,7 @@ export default function App() {
     setShowFavoritesOnly(true);
     setActiveTab("store");
     setTimeout(() => {
-      const el = document.getElementById("section-catalog");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToCatalogTop();
     }, 100);
   };
 
@@ -2172,6 +2166,7 @@ export default function App() {
         }}
         onOpenPromotions={openPromotionsPage}
         onManageCookies={cookieConsent.resetConsent}
+        onOpenCatalog={() => scrollToSection("catalog")}
       />
 
       {showAuthModal && (
@@ -2413,9 +2408,7 @@ export default function App() {
               setMobileTabHint("catalog");
               setActiveTab("store");
               setShowFavoritesOnly(false);
-              document
-                .getElementById("section-catalog")
-                ?.scrollIntoView({ behavior: "smooth" });
+              scrollToCatalogTop();
             } else if (tab === "order") {
               setTrackingOpen(true);
               pushOverlay("tracking");

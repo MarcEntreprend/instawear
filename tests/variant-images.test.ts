@@ -348,7 +348,10 @@ test("rien du tout : placeholder", () => {
 });
 
 // ─── ThumbStrip : pastille "+N" (pur, importé du composant) ─────────────────
-import { computeDownCount } from "../src/components/product/ThumbStrip.tsx";
+import {
+  computeDownCount,
+  thumbWindowRange,
+} from "../src/components/product/ThumbStrip.tsx";
 
 test("+N : pas de dépassement → 0", () => {
   assert.equal(computeDownCount(400, 0, 420, 74), 0);
@@ -371,4 +374,21 @@ test("+N : diminue en scrollant, ignoré pour un bout qui dépasse", () => {
 
 test("+N : thumbSize invalide → 0 (pas de crash)", () => {
   assert.equal(computeDownCount(740, 0, 420, 0), 0);
+});
+
+test("fenêtre : visibles + buffer, bornes serrées", () => {
+  // 20 thumbs de 74px, viewport 420 (~6 visibles), scroll 0, active 0
+  assert.deepEqual(thumbWindowRange(0, 420, 74, 20, 0), { start: 0, end: 12 });
+  // Scroll 300 -> start 1, end 13
+  assert.deepEqual(thumbWindowRange(300, 420, 74, 20, 4), { start: 1, end: 13 });
+});
+
+test("fenêtre : active hors champ toujours incluse", () => {
+  const r = thumbWindowRange(0, 420, 74, 20, 18);
+  assert.ok(r.start <= 18 && 18 < r.end, "active montee");
+});
+
+test("fenêtre : vide/invalide -> 0,0 (pas de crash)", () => {
+  assert.deepEqual(thumbWindowRange(0, 420, 74, 0, 0), { start: 0, end: 0 });
+  assert.deepEqual(thumbWindowRange(0, 420, 0, 20, 0), { start: 0, end: 0 });
 });

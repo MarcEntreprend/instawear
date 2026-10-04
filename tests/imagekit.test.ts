@@ -36,6 +36,19 @@ test("validateSourceUrl: accepte Printful + Supabase, rejette le reste", () => {
   assert.equal(validateSourceUrl("https://example.com/x.jpg"), false);
 });
 
+test("validateSourceUrl: bucket S3 d'upload Printful (mockups tmp/)", () => {
+  const tmp =
+    "https://printful-upload.s3-accelerate.amazonaws.com/tmp/17d77283795162365434fdbdba3fa8e8/unisex-classic-tee-sport-grey-front-6ac0a4dba1d27.jpg";
+  assert.equal(validateSourceUrl(tmp), true);
+  // Lookalike exact-host : sous-domaine piégé rejeté.
+  assert.equal(
+    validateSourceUrl(
+      "https://printful-upload.s3-accelerate.amazonaws.com.evil.com/x.jpg",
+    ),
+    false,
+  );
+});
+
 test("imageKitUrl: sans endpoint → originale (jamais d'image cassée)", () => {
   delete process.env.VITE_IMAGEKIT_URL_ENDPOINT;
   assert.equal(

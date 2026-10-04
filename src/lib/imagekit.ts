@@ -10,12 +10,18 @@
 //   l'originale est renvoyée (pas d'image cassée).
 import { imageKitConfig, envVar, isDevEnv } from "../config/imagekit";
 
-// Hôtes Printful autorisés (mockups, CDN catalogue)
+// Hôtes Printful autorisés (mockups, CDN catalogue). Match EXACT (pas de
+// startsWith). printful-upload.s3-accelerate : bucket S3 d'upload Printful
+// (mockups générateur, constaté en prod via Lighthouse : 24 images tmp/).
+// NOTE : le client est en passthrough volontaire (unsigned) — la whitelist
+// ne réduit rien seule ; elle documente l'hôte pour le flux signé serveur
+// et active les sondes `imageKitUrl !== src` le jour venu.
 const PRINTFUL_HOSTS = new Set([
   "files.cdn.printful.com",
   "images.printful.com",
   "printful.com",
   "www.printful.com",
+  "printful-upload.s3-accelerate.amazonaws.com",
 ]);
 
 /** Hôte Supabase Storage du projet (uploads/miroirs) — jamais null en pratique. */
