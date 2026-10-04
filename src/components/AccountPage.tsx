@@ -2983,7 +2983,10 @@ function NotificationsTab({
                     className="text-[13px] font-semibold"
                     style={{ color: "var(--color-ink)" }}
                   >
-                    {formatMessageText(notif.title)}
+                    {formatMessageText(notif.title, {
+                      orderStatusOf,
+                      onTrack: setTrackingCode,
+                    })}
                   </p>
                   <p
                     className="text-[12px] mt-1 break-words"
