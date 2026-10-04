@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useOffline } from "../hooks/useOffline";
+import { useTimidBar } from "../hooks/useTimidBar";
 import StoreProductCard from "./StoreProductCard";
 import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
@@ -296,6 +297,10 @@ export default function CatalogSection({
 }: CatalogSectionProps) {
   // Hors-ligne : navigateur (events online/offline) + erreur fetch produits.
   const isOffline = useOffline(networkError);
+  const isMobileView = useIsMobile();
+  // Barre d'outils timide (mobile) : visible au scroll-up, masquée au
+  // scroll-down — fini la remontée pour retrouver Filters. Desktop : sidebar.
+  const toolbarVisible = useTimidBar();
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
     if (typeof window !== "undefined" && window.location.search.length > 1)
       return parseFiltersFromSearch(
@@ -948,8 +953,24 @@ export default function CatalogSection({
         </aside>
 
         <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between gap-3">
-            {useIsMobile() && (
+          <div
+            className="flex items-center justify-between gap-3 max-lg:sticky max-lg:top-16 max-lg:z-30"
+            style={
+              isMobileView
+                ? {
+                    background: "var(--color-bg)",
+                    maxHeight: toolbarVisible ? 76 : 0,
+                    opacity: toolbarVisible ? 1 : 0,
+                    overflow: "hidden",
+                    transition:
+                      "max-height .3s ease, opacity .25s ease, padding .3s ease",
+                    paddingTop: toolbarVisible ? 8 : 0,
+                    paddingBottom: toolbarVisible ? 8 : 0,
+                  }
+                : undefined
+            }
+          >
+            {isMobileView && (
               <button
                 onClick={() => {
                   setIsFilterDrawerOpen(true);

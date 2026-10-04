@@ -51,6 +51,7 @@ import {
 import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useTimidBar } from "../hooks/useTimidBar";
 import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
@@ -221,6 +222,8 @@ export default function AccountPage({
 
   // ── Navigation ───────────────────────────────────────────────────
   const [tab, setTab] = useState<TabKey>("orders");
+  // Conteneur scrollé du contenu (barres timides des onglets).
+  const mainScrollRef = useRef<HTMLElement | null>(null);
 
   // ── Data ─────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
@@ -796,7 +799,10 @@ export default function AccountPage({
         </aside>
 
         {/* ── Content ───────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
+        <main
+          ref={mainScrollRef}
+          className="flex-1 overflow-y-auto pb-20 sm:pb-0"
+        >
           <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
             {/* Section heading */}
             <div className="mb-5 hidden sm:flex items-center justify-between">
@@ -1000,6 +1006,7 @@ export default function AccountPage({
                 customerEmail={customerEmail}
                 customerId={customerId}
                 initialOrderId={initialOrderId}
+                scrollContainer={mainScrollRef}
               />
             )}
             {tab === "favorites" && (
@@ -1028,6 +1035,7 @@ export default function AccountPage({
                 notifications={customerNotifications}
                 loading={loadingNotifs}
                 onMarkRead={handleMarkNotifRead}
+                scrollContainer={mainScrollRef}
               />
             )}
             {tab === "profile" && (
@@ -1119,6 +1127,7 @@ function OrdersTab({
   customerEmail,
   customerId,
   initialOrderId = null,
+  scrollContainer,
 }: {
   orders: Order[];
   loading: boolean;
@@ -1134,8 +1143,13 @@ function OrdersTab({
   customerEmail?: string;
   customerId?: string | null;
   initialOrderId?: string | null;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  // Barre recherche/filtres timide : visible au scroll-up, masquée au
+  // scroll-down (même hook que le catalogue, conteneur = main du compte).
+  const barVisible = useTimidBar(scrollContainer);
   // Deep-link email : pré-remplit "Search by order ID" + ouvre le détail
   // une seule fois quand les commandes arrivent (comme le tracking invité).
   const deepOpenedRef = useRef(false);
@@ -1288,8 +1302,19 @@ function OrdersTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Barre de recherche + filtres */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Barre de recherche + filtres : sticky timide (scroll-up = visible,
+          scroll-down = masquée, fini la remontée). */}
+      <div
+        className="sticky top-0 z-10 -mx-1 px-1"
+        style={{
+          background: "var(--color-bg)",
+          maxHeight: barVisible ? 160 : 0,
+          opacity: barVisible ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height .3s ease, opacity .25s ease",
+        }}
+      >
+      <div className="flex flex-wrap items-center gap-2 pb-2">
         <div
           className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
           style={{
@@ -1373,8 +1398,9 @@ function OrdersTab({
             }}
           >
             <X size={12} strokeWidth={2} /> Reset
-          </button>
-        )}
+            </button>
+          )}
+        </div>
       </div>
 
       {serverSearch || searchDebouncing ? (
@@ -2573,11 +2599,23 @@ function NotificationsTab({
   notifications,
   loading,
   onMarkRead,
+  scrollContainer,
 }: {
   notifications: any[];
   loading: boolean;
   onMarkRead: (id: string) => void;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
+  const [query, setQuery] = useState("");
+  // Barre de recherche timide : même pattern que Orders et catalogue.
+  const barVisible = useTimidBar(scrollContainer);
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? notifications.filter((n) =>
+        `${n.title || ""} ${n.message || ""}`.toLowerCase().includes(q),
+      )
+    : notifications;
   if (loading) return <SkeletonList />;
   if (notifications.length === 0)
     return (
@@ -2590,7 +2628,56 @@ function NotificationsTab({
 
   return (
     <div className="flex flex-col gap-2">
-      {notifications.map((notif) => (
+      <div
+        className="sticky top-0 z-10 -mx-1 px-1"
+        style={{
+          background: "var(--color-bg)",
+          maxHeight: barVisible ? 80 : 0,
+          opacity: barVisible ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height .3s ease, opacity .25s ease",
+        }}
+      >
+        <div
+          className="flex items-center gap-2 rounded-xl border px-3 py-2 mb-2"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <Search
+            size={14}
+            strokeWidth={1.75}
+            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            placeholder="Search notifications…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-[13px]"
+            style={{ color: "var(--color-ink)" }}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="shrink-0"
+              style={{ color: "var(--color-ink4)" }}
+              aria-label="Clear search"
+            >
+              <X size={13} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      </div>
+      {visible.length === 0 ? (
+        <EmptyState
+          icon={<Search size={28} strokeWidth={1.5} />}
+          title="No notifications match"
+          sub="Try a different search."
+        />
+      ) : (
+        visible.map((notif) => (
         <div
           key={notif.id}
           className="rounded-2xl border p-4 transition-all"
@@ -2641,7 +2728,7 @@ function NotificationsTab({
             )}
           </div>
         </div>
-      ))}
+        )))}
     </div>
   );
 }
