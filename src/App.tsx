@@ -1934,7 +1934,9 @@ export default function App() {
             getDeliverEstimateString={getDeliverEstimateString}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            onSelectProduct={(product) => openProduct(product)}
+            onSelectProduct={(product, color, size) =>
+              openProduct(product, color, size)
+            }
             onClearFilters={() => {
               setSearchTerm("");
               setSelectedCategory(null);

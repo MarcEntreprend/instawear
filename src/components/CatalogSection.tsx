@@ -38,7 +38,11 @@ interface CatalogSectionProps {
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
-  onSelectProduct: (product: Product) => void;
+  onSelectProduct: (
+    product: Product,
+    color?: string | null,
+    size?: string | null,
+  ) => void;
   onClearFilters: () => void;
   searchTerm: string;
   selectedCategory: string | null;
@@ -142,6 +146,7 @@ import {
   parseColorParam,
   colorFilterMatches,
   compareColorHex,
+  resolveColorTarget,
   COLOR_FAMILIES,
 } from "../utils/colors";
 export { normHex };
@@ -235,6 +240,40 @@ export function sortByNewest<T extends { createdAt?: string | null }>(
     if (Number.isNaN(tb)) return -1;
     return tb - ta;
   });
+}
+
+/**
+ * Variante d'ouverture depuis les filtres (état de passage, rien de stocké) :
+ * la couleur du filtre (hex exact ou famille -> hex concret du produit) et
+ * la taille présélectionnent la PDP. Absent/incompatible -> undefined et la
+ * PDP retombe sur ses défauts (main image, taille dispo). Filtre effacé puis
+ * entrée -> aucun param -> mode par défaut.
+ */
+export function filterVariantFor(
+  product: { colors?: string[] | null; sizes?: string[] | null },
+  colorFilter: string | null | undefined,
+  sizeFilter: string | null | undefined,
+): { color?: string; size?: string } {
+  const out: { color?: string; size?: string } = {};
+  if (colorFilter) {
+    const hex =
+      normHex(colorFilter) ||
+      normHex(
+        resolveColorTarget(
+          Array.isArray(product.colors) ? product.colors : [],
+          colorFilter,
+        ),
+      );
+    if (hex) out.color = hex;
+  }
+  if (
+    sizeFilter &&
+    Array.isArray(product.sizes) &&
+    product.sizes.includes(sizeFilter)
+  ) {
+    out.size = sizeFilter;
+  }
+  return out;
 }
 
 export interface StyleFacet {
@@ -1282,7 +1321,15 @@ export default function CatalogSection({
                     currencySymbol={currencySymbol}
                     onToggleFavorite={onToggleFavorite}
                     onAddToCart={onAddToCart}
-                    onSelectProduct={onSelectProduct}
+                    onSelectProduct={(p) => {
+                      // Ouvre sur la variante du filtre (état temporaire).
+                      const v = filterVariantFor(
+                        p,
+                        filters.color,
+                        filters.size,
+                      );
+                      onSelectProduct(p, v.color, v.size);
+                    }}
                     activeColor={filters.color}
                   />
                 ))}
