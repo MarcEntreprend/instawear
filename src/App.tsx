@@ -71,7 +71,7 @@ import {
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
-import { isAdminPath } from "./utils/routes";
+import { isAdminPath, isAccountPath, productUrl } from "./utils/routes";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -123,7 +123,12 @@ export default function App() {
   const [userEmail, setUserEmail] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showAccountPage, setShowAccountPage] = useState(false);
+  // /account est une page (comme /admin) : l'URL au boot initialise l'état.
+  const [showAccountPage, setShowAccountPage] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      isAccountPath(window.location.pathname),
+  );
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
 
   // Selection/Filtering States
@@ -168,6 +173,10 @@ export default function App() {
       // Q2.1 : les inactifs sont invisibles (même en URL directe).
       const p = products.find((x) => x.id === match[1] && x.isActive !== false);
       if (p) {
+        // Variante via ?color=&size= (liens "nouvel onglet" du compte).
+        const qs = new URLSearchParams(search);
+        setSelectedProductInitialColor(qs.get("color"));
+        setSelectedProductInitialSize(qs.get("size"));
         setSelectedProduct(p);
         setHeroSuspendedForBoot(true);
       }
@@ -214,11 +223,17 @@ export default function App() {
         setShowNewAdmin(false);
         setActiveTab("store");
       }
+      // /account est une page : précédent/suivant l'ouvre/la referme.
+      if (isAccountPath(path)) setShowAccountPage(true);
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1] && x.isActive !== false);
-        if (p) setSelectedProduct(p);
-        else {
+        if (p) {
+          const qs = new URLSearchParams(search);
+          setSelectedProductInitialColor(qs.get("color"));
+          setSelectedProductInitialSize(qs.get("size"));
+          setSelectedProduct(p);
+        } else {
           setSelectedProduct(null);
           setHeroSuspendedForBoot(false);
         }
@@ -245,7 +260,8 @@ export default function App() {
       if (h !== "#tracking") setTrackingOpen(false);
       if (h !== "#auth") setShowAuthModal(false);
       if (h !== "#profile") setShowProfileModal(false);
-      if (h !== "#account") {
+      // /account sans hash : la page reste ouverte (le hash ne la pilote pas).
+      if (h !== "#account" && !isAccountPath(path)) {
         setShowAccountPage(false);
         setPendingAccountOrderId(null);
       }
@@ -734,6 +750,9 @@ export default function App() {
   }, []);
 
   // Listen to Supabase session changes (authentication)
+  // Garde /account : si getSession répond vide alors que la session arrive
+  // juste après (INITIAL_SESSION), on rouvre la page à l'événement.
+  const accountGateRef = useRef(false);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {      if (session?.user?.email) {
         // Vérifier localement puis côté serveur si l'utilisateur est admin
@@ -763,12 +782,31 @@ export default function App() {
         setFavorites([]);
         setCartLoaded(false);
         setShowFavoritesOnly(false);
+        // /account sans session : la page compte exige un login → modale
+        // auth (même comportement que l'onglet compte de la tab-bar).
+        // Flag anti-race : si la session arrive juste après, on rouvre.
+        if (isAccountPath(window.location.pathname)) {
+          accountGateRef.current = true;
+          setShowAccountPage(false);
+          setShowAuthModal(true);
+          pushOverlay("auth");
+        }
       }
     }).finally(() => setAuthChecked(true));
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user?.email) {
+          // Session arrivée après la garde /account : rouvre la page,
+          // referme la modale auth (fin de course, jamais de frontstore vide).
+          if (
+            accountGateRef.current &&
+            isAccountPath(window.location.pathname)
+          ) {
+            accountGateRef.current = false;
+            setShowAuthModal(false);
+            setShowAccountPage(true);
+          }
           // Vérifier localement puis côté serveur si l'utilisateur est admin
           checkAdminEmail(session.user.email).then((isAdminUser) => {
             if (isAdminUser) {
@@ -795,6 +833,13 @@ export default function App() {
           setFavorites([]);
           setCartLoaded(false);
           setShowFavoritesOnly(false);
+          // Déconnexion sur /account : retour vers la modale auth (garde).
+          if (isAccountPath(window.location.pathname)) {
+            accountGateRef.current = true;
+            setShowAccountPage(false);
+            setShowAuthModal(true);
+            pushOverlay("auth");
+          }
         }
       },
     );
@@ -1386,8 +1431,7 @@ export default function App() {
       .then(({ data: { session } }) => {
         if (session?.user?.email) {
           setPendingAccountOrderId(code);
-          setShowAccountPage(true);
-          pushOverlay("account");
+          openAccountPage();
         } else {
           setTrackingInitialCode(code);
           setTrackingOpen(true);
@@ -1536,6 +1580,7 @@ export default function App() {
       const knownPaths = [
         "/",
         "/admin",
+        "/account",
         "/unsubscribe",
         "/index.html",
         "/faq",
@@ -1674,6 +1719,40 @@ export default function App() {
     } catch {}
   };
 
+  // ── Compte = page /account (refresh-safe, miroir /admin) ───────────────
+  // TOUTES les entrées passent par ici (jamais de hash #account seul :
+  // le hash ne survit pas au refresh). Remplace pushOverlay("account").
+  const openAccountPage = (replace = false) => {
+    setShowAccountPage(true);
+    try {
+      const url = new URL(window.location.href);
+      // Canonicalise : le hash legacy #account est absorbé par la page.
+      const hash = url.hash === "#account" ? "" : url.hash;
+      const target =
+        "/account" + url.search + hash;
+      if (replace) history.replaceState({}, "", target);
+      else if (
+        url.pathname + url.search + url.hash !==
+        target
+      )
+        history.pushState({}, "", target);
+    } catch {}
+  };
+
+  // Boot : le hash legacy #account (ancien mode overlay) est canonicalisé
+  // vers /account (replace, pas d'entrée d'historique fantôme) : même un
+  // vieux lien /#account refresh-safe.
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash === "#account" &&
+      !isAccountPath(window.location.pathname)
+    ) {
+      openAccountPage(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Garde deep-route /produit/:id lue AU RENDU (l'URL ne ment jamais) :
   // - chargement → spinner (pas de faux accueil)
   // - fetch échoué → erreur + retry (pas de home silencieux)
@@ -1790,8 +1869,7 @@ export default function App() {
           setShowNewAdmin(false);
         }}
         onOpenAccount={() => {
-          setShowAccountPage(true);
-          pushOverlay("account");
+          openAccountPage();
         }}
         onScrollToSection={scrollToSection}
         onSelectProduct={(p) => openProduct(p)}
@@ -1856,7 +1934,9 @@ export default function App() {
             getDeliverEstimateString={getDeliverEstimateString}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            onSelectProduct={(product) => openProduct(product)}
+            onSelectProduct={(product, color, size) =>
+              openProduct(product, color, size)
+            }
             onClearFilters={() => {
               setSearchTerm("");
               setSelectedCategory(null);
@@ -2106,6 +2186,10 @@ export default function App() {
             } else {
               setIsUser(true);
               setUserName(name || "");
+              // Retour sur /account après login (garde invité ci-dessus).
+              if (isAccountPath(window.location.pathname)) {
+                setShowAccountPage(true);
+              }
             }
             setShowAuthModal(false);
           }}
@@ -2113,6 +2197,9 @@ export default function App() {
             setIsUser(true);
             setUserName(name);
             setShowAuthModal(false);
+            if (isAccountPath(window.location.pathname)) {
+              setShowAccountPage(true);
+            }
             showToast(`Welcome, ${name}! Your account has been created.`);
           }}
         />
@@ -2144,18 +2231,54 @@ export default function App() {
         <Suspense fallback={<LazyFallback />}>
           <AccountPage
             initialOrderId={pendingAccountOrderId}
-            onClose={() =>
+            onCheckout={() => {
+              // Le checkout est un overlay séparé : refermer le compte
+              // d'abord (jamais deux plein-écran empilés).
+              setShowAccountPage(false);
+              setPendingAccountOrderId(null);
+              if (isAccountPath(window.location.pathname)) {
+                try {
+                  history.pushState({}, "", "/");
+                } catch {}
+              }
+              setCheckoutOpen(true);
+              pushOverlay("checkout");
+            }}
+            onClose={() => {
+              // /account : fermer nettoie aussi l'URL (miroir /admin).
+              if (isAccountPath(window.location.pathname)) {
+                try {
+                  history.pushState({}, "", "/");
+                } catch {}
+              }
               closeOverlay("account", () => {
                 setShowAccountPage(false);
                 setPendingAccountOrderId(null);
-              })
-            }
+              });
+            }}
             onViewProduct={(productId, initialColor, initialSize) => {
               const product = products.find((p) => p.id === productId);
-              if (product) {
-                setSelectedProductInitialColor(initialColor || null);
-                setSelectedProductInitialSize(initialSize || null);
-                setSelectedProduct(product);
+              if (!product) {
+                showToast("This product is no longer available.", "info");
+                return;
+              }
+              // Depuis le compte : nouvel onglet, origine STRICTEMENT
+              // inchangée. Dispatch de clic sur ancre _blank (pas window.open :
+              // quirks mobiles qui bougeaient aussi l'onglet d'origine).
+              try {
+                const a = document.createElement("a");
+                a.href = productUrl(
+                  productId,
+                  initialColor,
+                  initialSize,
+                );
+                a.target = "_blank";
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch {
+                showToast("Could not open the product.", "error");
               }
             }}
             onNameUpdated={(newName) => setUserName(newName)}
@@ -2298,8 +2421,7 @@ export default function App() {
               pushOverlay("tracking");
             } else if (tab === "account") {
               if (isUser) {
-                setShowAccountPage(true);
-                pushOverlay("account");
+                openAccountPage();
               } else if (isAdmin) {
                 setShowProfileModal(true);
                 pushOverlay("profile");

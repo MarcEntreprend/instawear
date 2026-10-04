@@ -66,6 +66,9 @@ export interface Product {
   style: string;
   /** Source of truth for variants. Replaces parallel colors/colorNames/colorImages/sizes/sizeSurcharge. */
   variants?: ProductVariant[];
+  /** ISO de création (fourni par productApi.list via select("*")).
+   *  Optionnel/additif : présent au runtime, utilisé par le tri Newest. */
+  createdAt?: string;
 }
 
 export interface CartItem {

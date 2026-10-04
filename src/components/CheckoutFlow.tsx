@@ -22,6 +22,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  Pencil,
   CreditCard,
   Lock,
   AlertCircle,
@@ -712,6 +713,25 @@ function ContactStep({
   onNext,
 }: ContactStepProps) {
   const needsState = STATE_REQUIRED_COUNTRIES.includes(country);
+  // Adresse sauvegardee active (memes setters que le select historique).
+  const activeSavedAddr =
+    selectedAddressId !== ""
+      ? (savedAddresses.find((a) => a.id === selectedAddressId) ?? null)
+      : null;
+  const selectAddress = (id: string) => {
+    setSelectedAddressId(id);
+    const addr = savedAddresses.find((a) => a.id === id);
+    if (addr) {
+      setName(addr.full_name || "");
+      setPhone(addr.phone || "");
+      setAddress(addr.address || "");
+      setCity(addr.city || "");
+      setZip(addr.zip || "");
+      setCountry(addr.country || "US");
+      setStateCode(addr.state_code || "");
+      setTaxNumber(addr.tax_number || "");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 animate-fade-up">
@@ -801,39 +821,114 @@ function ContactStep({
         </button>
       </div>
 
-      {/* Saved addresses */}
+      {/* Saved addresses : cartes selectionnables + bandeau de
+          confirmation (visuel seul, memes setters que le select). */}
       {savedAddresses.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold uppercase tracking-wider text-(--color-ink3)">
-            Saved Address
+            Saved addresses
           </label>
-          <select
-            value={selectedAddressId}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSelectedAddressId(id);
-              const addr = savedAddresses.find((a) => a.id === id);
-              if (addr) {
-                setName(addr.full_name || "");
-                setPhone(addr.phone || "");
-                setAddress(addr.address || "");
-                setCity(addr.city || "");
-                setZip(addr.zip || "");
-                setCountry(addr.country || "US");
-                setStateCode(addr.state_code || "");
-                setTaxNumber(addr.tax_number || "");
-              }
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {savedAddresses.map((addr) => {
+              const selected = addr.id === selectedAddressId;
+              return (
+                <button
+                  key={addr.id}
+                  type="button"
+                  onClick={() => selectAddress(addr.id)}
+                  aria-pressed={selected}
+                  className="text-left p-4 rounded-2xl transition-all duration-150"
+                  style={{
+                    border: selected
+                      ? "2px solid var(--color-accent)"
+                      : "1px solid var(--color-border)",
+                    background: selected
+                      ? "var(--color-accent-bg)"
+                      : "var(--color-surface)",
+                  }}
+                >
+                  <span className="flex items-start gap-2.5">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+                      style={{
+                        background: selected
+                          ? "var(--color-surface)"
+                          : "var(--color-surface2)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      <MapPin size={14} strokeWidth={2} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className="block text-sm font-bold truncate"
+                        style={{ color: "var(--color-ink)" }}
+                      >
+                        {addr.full_name}
+                      </span>
+                      <span
+                        className="block text-xs truncate"
+                        style={{ color: "var(--color-ink3)" }}
+                      >
+                        {addr.address}, {addr.city} {addr.zip}
+                      </span>
+                    </span>
+                    {selected && (
+                      <Check
+                        size={16}
+                        strokeWidth={2.5}
+                        style={{
+                          color: "var(--color-accent)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedAddressId("")}
+            className="self-start text-xs font-semibold mt-1"
+            style={{
+              color:
+                selectedAddressId === ""
+                  ? "var(--color-accent)"
+                  : "var(--color-ink3)",
             }}
-            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none bg-(--color-surface) text-(--color-ink)"
-            style={{ border: "1.5px solid var(--color-border2)" }}
           >
-            <option value="">— Choose an address —</option>
-            {savedAddresses.map((addr) => (
-              <option key={addr.id} value={addr.id}>
-                {addr.full_name}, {addr.address}, {addr.city}, {addr.zip}
-              </option>
-            ))}
-          </select>
+            + Use a new address
+          </button>
+          {activeSavedAddr && (
+            <div
+              className="flex items-center justify-between gap-3 p-3.5 rounded-xl animate-fade-up"
+              style={{
+                background: "var(--color-surface2)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <p
+                className="text-[13px] truncate"
+                style={{ color: "var(--color-ink2)" }}
+              >
+                Deliver to{" "}
+                <strong style={{ color: "var(--color-ink)" }}>
+                  {activeSavedAddr.full_name}
+                </strong>
+                , {activeSavedAddr.city}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedAddressId("")}
+                className="flex shrink-0 items-center gap-1 text-xs font-bold"
+                style={{ color: "var(--color-accent)" }}
+              >
+                <Pencil size={11} strokeWidth={2.5} /> Edit
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -896,7 +991,10 @@ function ContactStep({
         }}
       />
 
-      {reception === "livraison" && (
+      {/* Champs d'adresse repliés quand une adresse sauvegardée est
+          active (bandeau de confirmation au-dessus ; l'état reste intact,
+          la validation lit le même état). Edit = retour au formulaire. */}
+      {reception === "livraison" && !activeSavedAddr && (
         <div className="flex flex-col gap-4 pt-1 animate-fade-up">
           <TextField
             label="Address"
@@ -2158,6 +2256,9 @@ export default function CheckoutFlow({
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user?.email) return;
+      // Pré-remplit l'email (jamais écrasé s'il est déjà saisi) : avec une
+      // adresse sauvegardée, il ne reste alors plus rien à taper.
+      setEmail((prev) => prev || user.email || "");
       supabase
         .from("customers")
         .select("id")

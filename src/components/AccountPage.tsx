@@ -40,6 +40,7 @@ import {
   Search,
   X,
   Upload,
+  MoreHorizontal,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -51,6 +52,8 @@ import {
 import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
+import { useTimidBar } from "../hooks/useTimidBar";
+import { cycleTabKey, swipeDir, parseAccountTab } from "../utils/accountTabs";
 import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
@@ -69,6 +72,8 @@ interface AccountPageProps {
     initialSize?: string,
   ) => void;
   onNameUpdated?: (newName: string) => void;
+  /** Passe les items du panier en achat (ouvre le checkout, referme le compte). */
+  onCheckout?: () => void;
   /** Deep-link commande (depuis email) : ouvre l'onglet orders + le détail. */
   initialOrderId?: string | null;
 }
@@ -90,10 +95,10 @@ type TabKey =
   | "notifications"
   | "profile"
   | "support"
-  | "reviews"
-  | "addresses";
+  | "reviews";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
+
 function initials(email: string, name?: string): string {
   if (name && name.trim()) {
     const parts = name.trim().split(" ");
@@ -122,6 +127,15 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Image cassee (404/500, URL morte en base) -> placeholder local, jamais
+// de trou (meme pattern que StoreProductCard). Garde anti-boucle via dataset.
+function imgFallback(e: React.SyntheticEvent<HTMLImageElement>) {
+  const t = e.currentTarget;
+  if (t.dataset.fbk) return;
+  t.dataset.fbk = "1";
+  t.src = PLACEHOLDER_IMG;
+}
+
 //  Resolves the best image for a specific product color
 function getVariantImage(product: any, selectedColor: string): string {
   if (product?.variants?.length) {
@@ -140,6 +154,7 @@ export default function AccountPage({
   onClose,
   onViewProduct,
   onNameUpdated,
+  onCheckout,
   initialOrderId = null,
 }: AccountPageProps) {
   const currencySymbol = useCurrencySymbol();
@@ -220,7 +235,89 @@ export default function AccountPage({
   }, []);
 
   // ── Navigation ───────────────────────────────────────────────────
-  const [tab, setTab] = useState<TabKey>("orders");
+  const [tab, setTab] = useState<TabKey>(() => {
+    // Deep-link commande prioritaire, sinon ?tab= partageable, sinon orders.
+    if (initialOrderId) return "orders";
+    if (typeof window !== "undefined") {
+      const t = parseAccountTab(window.location.search, [
+        "dashboard",
+        "orders",
+        "favorites",
+        "cart",
+        "notifications",
+        "profile",
+        "support",
+        "reviews",
+      ]);
+      if (t) return t as TabKey;
+    }
+    return "orders";
+  });
+  // Conteneur scrollé du contenu (barres timides des onglets).
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+  const [showMoreTabs, setShowMoreTabs] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  // 4 onglets principaux (bottom nav mobile), le reste dans "More".
+  const MAIN_TAB_KEYS: TabKey[] = ["dashboard", "orders", "cart", "profile"];
+  // Aller a un onglet ; reclic sur l'actif = retour en haut + reset
+  // (ex. detail commande referme via "account:tab-reset").
+  const goTab = (key: TabKey) => {
+    if (key === tab) {
+      mainScrollRef.current?.scrollTo({ top: 0 });
+      try {
+        window.dispatchEvent(new CustomEvent("account:tab-reset"));
+      } catch {}
+      return;
+    }
+    setShowMoreTabs(false);
+    setTab(key);
+    mainScrollRef.current?.scrollTo({ top: 0 });
+    // Nav propre : chaque onglet a son URL (?tab=), le retour navigateur
+    // traverse les onglets (les synchros d'URL parentes préservent ?tab=).
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", key);
+      history.pushState(
+        {},
+        "",
+        url.pathname +
+          (url.searchParams.toString()
+            ? `?${url.searchParams.toString()}`
+            : "") +
+          url.hash,
+      );
+    } catch {}
+  };
+  // Retour/avant navigateur : suit ?tab= (cohabite avec le popstate d'App,
+  // qui ne touche pas aux onglets).
+  useEffect(() => {
+    const onPop = () => {
+      const t = parseAccountTab(
+        window.location.search,
+        NAV.map((n) => n.key),
+      );
+      if (t && t !== tab) {
+        setTab(t as TabKey);
+        mainScrollRef.current?.scrollTo({ top: 0 });
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [tab]);
+  // Swipe horizontal sur le contenu : onglet suivant/precedent (ordre NAV).
+  const onTouchStartContent = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEndContent = (e: React.TouchEvent) => {
+    const s = touchStart.current;
+    touchStart.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dir = swipeDir(t.clientX - s.x, t.clientY - s.y);
+    if (dir === 0) return;
+    goTab(cycleTabKey(NAV.map((n) => n.key), tab, dir) as TabKey);
+  };
 
   // ── Data ─────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
@@ -523,11 +620,6 @@ export default function AccountPage({
       label: "Reviews",
       icon: <Star size={18} strokeWidth={1.75} />,
     },
-    {
-      key: "addresses",
-      label: "Addresses",
-      icon: <MapPin size={18} strokeWidth={1.75} />,
-    },
   ];
 
   if (initializing) {
@@ -569,7 +661,7 @@ export default function AccountPage({
           className="text-[15px] font-bold"
           style={{ color: "var(--color-ink)" }}
         >
-          My Account
+          {NAV.find((n) => n.key === tab)?.label ?? "My Account"}
         </span>
         <div
           className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
@@ -710,10 +802,10 @@ export default function AccountPage({
 
           {/* Nav */}
           <nav className="flex flex-col gap-1 px-3 pb-4 flex-1">
-            {NAV.map(({ key, label, icon, badge }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
+          {NAV.map(({ key, label, icon, badge }) => (
+            <button
+              key={key}
+              onClick={() => goTab(key)}
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all duration-150 text-left"
                 style={{
                   background:
@@ -796,7 +888,12 @@ export default function AccountPage({
         </aside>
 
         {/* ── Content ───────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto pb-20 sm:pb-0">
+        <main
+          ref={mainScrollRef}
+          className="flex-1 overflow-y-auto pb-20 sm:pb-0"
+          onTouchStart={onTouchStartContent}
+          onTouchEnd={onTouchEndContent}
+        >
           <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
             {/* Section heading */}
             <div className="mb-5 hidden sm:flex items-center justify-between">
@@ -1000,6 +1097,7 @@ export default function AccountPage({
                 customerEmail={customerEmail}
                 customerId={customerId}
                 initialOrderId={initialOrderId}
+                scrollContainer={mainScrollRef}
               />
             )}
             {tab === "favorites" && (
@@ -1021,6 +1119,7 @@ export default function AccountPage({
                 onClear={handleClearCart}
                 onViewProduct={onViewProduct}
                 onUpdateQty={handleUpdateCartQty}
+                onCheckout={onCheckout}
               />
             )}
             {tab === "notifications" && (
@@ -1028,6 +1127,7 @@ export default function AccountPage({
                 notifications={customerNotifications}
                 loading={loadingNotifs}
                 onMarkRead={handleMarkNotifRead}
+                scrollContainer={mainScrollRef}
               />
             )}
             {tab === "profile" && (
@@ -1058,7 +1158,6 @@ export default function AccountPage({
               />
             )}
             {tab === "reviews" && <ReviewsTab customerId={customerId} />}
-            {tab === "addresses" && <AddressesTab customerId={customerId} />}
           </div>
         </main>
       </div>
@@ -1073,35 +1172,134 @@ export default function AccountPage({
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
-        {NAV.map(({ key, label, icon, badge }) => (
+        {NAV.filter((n) => MAIN_TAB_KEYS.includes(n.key)).map(
+          ({ key, label, icon, badge }) => (
+            <button
+              key={key}
+              onClick={() => goTab(key)}
+              className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors"
+              style={{
+                color:
+                  tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+              }}
+            >
+              <span className="relative">
+                {icon}
+                {badge !== undefined && (
+                  <span
+                    className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
+                    style={{ background: "var(--color-accent)" }}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-semibold">{label}</span>
+              {tab === key && (
+                <span
+                  className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                  style={{ background: "var(--color-accent)" }}
+                />
+              )}
+            </button>
+          ),
+        )}
+        {/* More : les 4 onglets restants dans un menu contextuel. */}
+        <div className="relative flex flex-1">
           <button
-            key={key}
-            onClick={() => setTab(key)}
-            className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-colors"
+            onClick={() => setShowMoreTabs((v) => !v)}
+            aria-expanded={showMoreTabs}
+            aria-label="More tabs"
+            className="relative flex w-full flex-col items-center gap-1 py-3 transition-colors"
             style={{
-              color: tab === key ? "var(--color-accent)" : "var(--color-ink4)",
+              color: NAV.some(
+                (n) => !MAIN_TAB_KEYS.includes(n.key) && n.key === tab,
+              )
+                ? "var(--color-accent)"
+                : "var(--color-ink4)",
             }}
           >
             <span className="relative">
-              {icon}
-              {badge !== undefined && (
+              <MoreHorizontal size={18} strokeWidth={1.75} />
+              {NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).some(
+                (n) => n.badge !== undefined,
+              ) && (
                 <span
                   className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white"
                   style={{ background: "var(--color-accent)" }}
                 >
-                  {badge}
+                  {NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).reduce(
+                    (a, n) => a + (n.badge || 0),
+                    0,
+                  )}
                 </span>
               )}
             </span>
-            <span className="text-[10px] font-semibold">{label}</span>
-            {tab === key && (
-              <span
-                className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
-                style={{ background: "var(--color-accent)" }}
-              />
-            )}
+            <span className="text-[10px] font-semibold">More</span>
           </button>
-        ))}
+          {showMoreTabs && (
+            <>
+              <button
+                aria-label="Close menu"
+                onClick={() => setShowMoreTabs(false)}
+                className="fixed inset-0 z-10 bg-transparent border-none p-0 cursor-default"
+              />
+              <div
+                role="menu"
+                className="absolute bottom-full right-1 z-20 mb-2 w-48 rounded-2xl p-1.5"
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  boxShadow: "var(--shadow-lg)",
+                }}
+              >
+                {NAV.filter((n) => !MAIN_TAB_KEYS.includes(n.key)).map(
+                  ({ key, label, icon, badge }) => (
+                    <button
+                      key={key}
+                      role="menuitem"
+                      onClick={() => goTab(key)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-left"
+                      style={{
+                        background:
+                          tab === key
+                            ? "var(--color-accent-bg)"
+                            : "transparent",
+                        color:
+                          tab === key
+                            ? "var(--color-accent)"
+                            : "var(--color-ink2)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          color:
+                            tab === key
+                              ? "var(--color-accent)"
+                              : "var(--color-ink4)",
+                        }}
+                      >
+                        {icon}
+                      </span>
+                      <span className="flex-1">{label}</span>
+                      {badge !== undefined && (
+                        <span
+                          className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                          style={{
+                            background: "var(--color-accent)",
+                            color: "white",
+                          }}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  ),
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </nav>
     </div>
   );
@@ -1119,6 +1317,7 @@ function OrdersTab({
   customerEmail,
   customerId,
   initialOrderId = null,
+  scrollContainer,
 }: {
   orders: Order[];
   loading: boolean;
@@ -1134,11 +1333,22 @@ function OrdersTab({
   customerEmail?: string;
   customerId?: string | null;
   initialOrderId?: string | null;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  // Barre recherche/filtres timide : visible au scroll-up, masquée au
+  // scroll-down (même hook que le catalogue, conteneur = main du compte).
+  const barVisible = useTimidBar(scrollContainer);
   // Deep-link email : pré-remplit "Search by order ID" + ouvre le détail
   // une seule fois quand les commandes arrivent (comme le tracking invité).
   const deepOpenedRef = useRef(false);
+  // Reclic onglet actif : retour a l'entree (detail referme).
+  useEffect(() => {
+    const handler = () => setSelectedOrder(null);
+    window.addEventListener("account:tab-reset", handler);
+    return () => window.removeEventListener("account:tab-reset", handler);
+  }, []);
   useEffect(() => {
     if (deepOpenedRef.current || !initialOrderId) return;
     if (!Array.isArray(orders) || orders.length === 0) return;
@@ -1288,8 +1498,19 @@ function OrdersTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Barre de recherche + filtres */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Barre de recherche + filtres : sticky timide (scroll-up = visible,
+          scroll-down = masquée, fini la remontée). */}
+      <div
+        className="sticky top-0 z-10 -mx-1 px-1"
+        style={{
+          background: "var(--color-bg)",
+          maxHeight: barVisible ? 160 : 0,
+          opacity: barVisible ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height .3s ease, opacity .25s ease",
+        }}
+      >
+      <div className="flex flex-wrap items-center gap-2 pb-2">
         <div
           className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border px-3 py-2"
           style={{
@@ -1373,8 +1594,9 @@ function OrdersTab({
             }}
           >
             <X size={12} strokeWidth={2} /> Reset
-          </button>
-        )}
+            </button>
+          )}
+        </div>
       </div>
 
       {serverSearch || searchDebouncing ? (
@@ -1494,6 +1716,7 @@ function OrdersTab({
                           className="h-full w-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={imgFallback}
                         />
                       </span>
                     ))}
@@ -1636,6 +1859,7 @@ function OrdersTab({
                           className="h-full w-full object-cover"
                           loading="lazy"
                           decoding="async"
+                          onError={imgFallback}
                         />
                       </span>
                     ))}
@@ -1914,8 +2138,8 @@ function OrderDetail({
           border: "1px solid var(--color-border)",
         }}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <div>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <p
               className="text-[11px] font-semibold uppercase tracking-[0.08em]"
               style={{ color: "var(--color-ink4)" }}
@@ -1923,7 +2147,7 @@ function OrderDetail({
               Order ID
             </p>
             <p
-              className="text-[15px] font-black"
+              className="text-[15px] font-black break-words"
               style={{ color: "var(--color-ink)", fontFamily: "monospace" }}
             >
               {order.id}
@@ -1985,7 +2209,8 @@ function OrderDetail({
           {order.items?.map((item: any) => (
             <div key={item.id} className="flex items-center gap-3">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (item.productId && onViewProduct) {
                     onViewProduct(
                       item.productId,
@@ -2001,11 +2226,13 @@ function OrderDetail({
                   src={item.productImage || PLACEHOLDER_IMG}
                   alt={item.productTitle || "item"}
                   className="h-full w-full object-cover"
+                  onError={imgFallback}
                 />
               </button>
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (item.productId && onViewProduct) {
                       onViewProduct(
                         item.productId,
@@ -2233,6 +2460,7 @@ function FavoritesTab({
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
                 decoding="async"
+                onError={imgFallback}
               />
             </div>
 
@@ -2293,6 +2521,7 @@ function CartTab({
   onClear,
   onViewProduct,
   onUpdateQty,
+  onCheckout,
 }: {
   items: AdminCartItem[];
   loading: boolean;
@@ -2305,6 +2534,8 @@ function CartTab({
     initialSize?: string,
   ) => void;
   onUpdateQty: (itemId: string, delta: number) => void;
+  /** Passe les items en achat (checkout). Absent = pas de bouton. */
+  onCheckout?: () => void;
 }) {
   if (loading) return <SkeletonList />;
   if (items.length === 0)
@@ -2385,6 +2616,7 @@ function CartTab({
               className="h-full w-full object-cover"
               loading="lazy"
               decoding="async"
+              onError={imgFallback}
             />
           </button>
           <div className="flex-1 min-w-0">
@@ -2497,6 +2729,13 @@ function CartTab({
           {total.toFixed(2)}
         </span>
       </div>
+
+      {/* Passer en achat */}
+      {onCheckout && (
+        <button onClick={onCheckout} className="btn btn-primary w-full">
+          Proceed to checkout
+        </button>
+      )}
     </div>
   );
 }
@@ -2573,11 +2812,23 @@ function NotificationsTab({
   notifications,
   loading,
   onMarkRead,
+  scrollContainer,
 }: {
   notifications: any[];
   loading: boolean;
   onMarkRead: (id: string) => void;
+  /** Conteneur scrollé (main) pour la barre timide. */
+  scrollContainer?: React.RefObject<HTMLElement | null>;
 }) {
+  const [query, setQuery] = useState("");
+  // Barre de recherche timide : même pattern que Orders et catalogue.
+  const barVisible = useTimidBar(scrollContainer);
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? notifications.filter((n) =>
+        `${n.title || ""} ${n.message || ""}`.toLowerCase().includes(q),
+      )
+    : notifications;
   if (loading) return <SkeletonList />;
   if (notifications.length === 0)
     return (
@@ -2590,7 +2841,56 @@ function NotificationsTab({
 
   return (
     <div className="flex flex-col gap-2">
-      {notifications.map((notif) => (
+      <div
+        className="sticky top-0 z-10 -mx-1 px-1"
+        style={{
+          background: "var(--color-bg)",
+          maxHeight: barVisible ? 80 : 0,
+          opacity: barVisible ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height .3s ease, opacity .25s ease",
+        }}
+      >
+        <div
+          className="flex items-center gap-2 rounded-xl border px-3 py-2 mb-2"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <Search
+            size={14}
+            strokeWidth={1.75}
+            style={{ color: "var(--color-ink4)", flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            placeholder="Search notifications…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-[13px]"
+            style={{ color: "var(--color-ink)" }}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="shrink-0"
+              style={{ color: "var(--color-ink4)" }}
+              aria-label="Clear search"
+            >
+              <X size={13} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      </div>
+      {visible.length === 0 ? (
+        <EmptyState
+          icon={<Search size={28} strokeWidth={1.5} />}
+          title="No notifications match"
+          sub="Try a different search."
+        />
+      ) : (
+        visible.map((notif) => (
         <div
           key={notif.id}
           className="rounded-2xl border p-4 transition-all"
@@ -2612,7 +2912,7 @@ function NotificationsTab({
                 {formatMessageText(notif.title)}
               </p>
               <p
-                className="text-[12px] mt-1"
+                className="text-[12px] mt-1 break-words"
                 style={{
                   color: "var(--color-ink3)",
                   whiteSpace: "pre-wrap",
@@ -2641,7 +2941,7 @@ function NotificationsTab({
             )}
           </div>
         </div>
-      ))}
+        )))}
     </div>
   );
 }
@@ -3564,111 +3864,6 @@ function ReviewsTab({ customerId }: { customerId: string | null }) {
   );
 }
 
-// ─── AddressesTab ───────────────────────────────────────────────────
-function AddressesTab({ customerId }: { customerId: string | null }) {
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    if (!customerId) return;
-    import("../api/supabaseApi").then(({ customerApi }) => {
-      customerApi.getAddresses(customerId).then((a) => {
-        setAddresses(a || []);
-        setLoading(false);
-      });
-    });
-  }, [customerId]);
-  const handleSetDefault = async (id: string) => {
-    if (!customerId) return;
-    const { customerApi } = await import("../api/supabaseApi");
-    await customerApi.setDefaultAddress(customerId, id);
-    const updated = await customerApi.getAddresses(customerId);
-    setAddresses(updated || []);
-  };
-  if (loading)
-    return (
-      <div
-        className="py-8 text-center text-sm"
-        style={{ color: "var(--color-ink3)" }}
-      >
-        Loading...
-      </div>
-    );
-  return (
-    <div className="flex flex-col gap-4 animate-fade-up">
-      <span className="eyebrow">Your addresses</span>
-      <h3 className="text-lg font-black" style={{ color: "var(--color-ink)" }}>
-        Addresses ({addresses.length}/3)
-      </h3>
-      {addresses.length === 0 ? (
-        <div className="card-premium p-8 text-center">
-          <MapPin
-            size={32}
-            style={{ color: "var(--color-ink4)" }}
-            className="mx-auto mb-3"
-          />
-          <p
-            className="text-sm font-bold"
-            style={{ color: "var(--color-ink)" }}
-          >
-            No addresses yet
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--color-ink3)" }}>
-            Add an address in Profile tab.
-          </p>
-        </div>
-      ) : (
-        addresses.map((a) => (
-          <div key={a.id} className="card-premium p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p
-                  className="text-sm font-bold"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  {a.full_name}{" "}
-                  {a.is_default && (
-                    <span
-                      className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{
-                        background: "var(--color-accent-bg)",
-                        color: "var(--color-accent)",
-                      }}
-                    >
-                      Default
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs" style={{ color: "var(--color-ink2)" }}>
-                  {a.address}, {a.city} {a.zip}, {a.country}
-                </p>
-                <p className="text-xs" style={{ color: "var(--color-ink3)" }}>
-                  {a.phone}
-                </p>
-              </div>
-              {!a.is_default && (
-                <button
-                  onClick={() => handleSetDefault(a.id)}
-                  className="text-xs font-bold px-3 py-1.5 rounded-full"
-                  style={{
-                    background: "var(--color-surface2)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-ink2)",
-                  }}
-                >
-                  Set default
-                </button>
-              )}
-            </div>
-          </div>
-        ))
-      )}
-      <p className="text-xs" style={{ color: "var(--color-ink4)" }}>
-        Max 3 addresses. Manage in Profile.
-      </p>
-    </div>
-  );
-}
-
 // ─── ProfileTab (version enrichie) ─────────────────────────────────
 function ProfileTab({
   customerEmail,
@@ -3708,6 +3903,10 @@ function ProfileTab({
     setNameInput(customerName);
   }, [customerName]);
   const [dob, setDob] = useState("");
+  const [dobMsg, setDobMsg] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
@@ -3767,12 +3966,22 @@ function ProfileTab({
 
   const handleSaveDob = async () => {
     if (!customerId) return;
+    setDobMsg(null);
     try {
       await customerApi.updateProfile(customerId, {
         date_of_birth: dob || null,
       });
+      // Relecture serveur : l'affichage reflète le persisté (jamais un
+      // optimiste), y compris valeur pré-existante ou effacement (null).
+      const c = await customerApi.get(customerId);
+      if (c && "date_of_birth" in (c as any)) setDob(c.date_of_birth || "");
+      setDobMsg({ ok: true, text: "Saved" });
+      setTimeout(() => setDobMsg((m) => (m?.ok ? null : m)), 2500);
     } catch (e: any) {
-      alert(e.message || "Failed to save date of birth");
+      setDobMsg({
+        ok: false,
+        text: e.message || "Failed to save date of birth",
+      });
     }
   };
 
@@ -4005,6 +4214,29 @@ function ProfileTab({
                   color: "var(--color-ink)",
                 }}
               />
+              <button
+                type="button"
+                onClick={handleSaveDob}
+                className="ml-2 rounded-lg px-3 py-1 text-[12.5px] font-bold"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "#fff",
+                }}
+              >
+                Save
+              </button>
+              {dobMsg && (
+                <span
+                  className="ml-2 text-[12px] font-semibold"
+                  style={{
+                    color: dobMsg.ok
+                      ? "var(--color-success)"
+                      : "var(--color-negative)",
+                  }}
+                >
+                  {dobMsg.text}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -4359,7 +4591,7 @@ function ProfileTab({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p
-                        className="text-[13px] font-semibold"
+                        className="text-[13px] font-semibold truncate"
                         style={{ color: "var(--color-ink)" }}
                       >
                         {addr.full_name}
@@ -4377,7 +4609,7 @@ function ProfileTab({
                       )}
                     </div>
                     <p
-                      className="text-[12px] leading-relaxed"
+                      className="text-[12px] leading-relaxed break-words"
                       style={{ color: "var(--color-ink3)" }}
                     >
                       {addr.address}

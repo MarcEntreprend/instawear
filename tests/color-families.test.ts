@@ -12,10 +12,13 @@ import {
   variantImageForColor,
   hexToHsl,
   compareColorHex,
+  filterAddCandidate,
   COLOR_FAMILIES,
 } from "../src/utils/colors.ts";
-import { buildColorFamilyFacets } from "../src/components/CatalogSection.tsx";
-
+import {
+  buildColorFamilyFacets,
+  filterVariantFor,
+} from "../src/components/CatalogSection.tsx";
 test("familles : 12 slugs stables façon stores", () => {
   assert.deepEqual(
     COLOR_FAMILIES.map((f) => f.slug),
@@ -175,7 +178,47 @@ test("buildColorFamilyFacets : dedupe/produit, pastille canonique, ordre fixe", 
   assert.deepEqual(buildColorFamilyFacets([]), []);
 });
 
-test("compareColorHex : neutres (noir->blanc) puis arc-en-ciel", () => {
+test("filterVariantFor : filtre -> variante d'ouverture (temporaire)", () => {
+  const p = { colors: ["#1a1a1a", "#9aa0a3"], sizes: ["S", "M", "XL"] };
+  // Hex exact (casse indifférente) + taille présente.
+  assert.deepEqual(filterVariantFor(p, "#9AA0A3", "XL"), {
+    color: "#9aa0a3",
+    size: "XL",
+  });
+  // Famille -> hex concret du produit.
+  assert.deepEqual(filterVariantFor(p, "grey", null), {
+    color: "#9aa0a3",
+  });
+  // Taille absente -> pas de size (défaut PDP).
+  assert.deepEqual(filterVariantFor(p, null, "XXL"), {});
+  // Famille absente du produit -> pas de couleur.
+  assert.deepEqual(filterVariantFor(p, "blue", null), {});
+  // Sans filtre -> défauts PDP.
+  assert.deepEqual(filterVariantFor(p, null, null), {});
+  assert.deepEqual(filterVariantFor({}, "grey", "M"), {});
+});
+
+test("filterAddCandidate : casse d'origine + fallback, jamais null sans fallback", () => {
+  const colors = ["#1A1A1A", "#9aa0a3"];
+  const sizes = ["S", "M", "XL"];
+  const fb = { color: "#1A1A1A", size: "S" };
+  // Hex (casse libre) -> casse d'origine du produit (match variante exact).
+  assert.deepEqual(filterAddCandidate(colors, sizes, "#9AA0A3", "XL", fb), {
+    color: "#9aa0a3",
+    size: "XL",
+  });
+  // Famille -> hex concret.
+  assert.deepEqual(filterAddCandidate(colors, sizes, "grey", null, fb), {
+    color: "#9aa0a3",
+    size: "S",
+  });
+  // Filtres absents/incompatibles -> fallback tel quel.
+  assert.deepEqual(filterAddCandidate(colors, sizes, null, null, fb), fb);
+  assert.deepEqual(filterAddCandidate(colors, sizes, "blue", "XXL", fb), fb);
+  assert.equal(filterAddCandidate(colors, sizes, "grey", "XL", null), null);
+});
+
+test("compareColorHex : ordre spectral", () => {
   const sorted = ["#c0392b", "#ffffff", "#2c5fa8", "#1a1a1a", "#f1c40f"].sort(
     compareColorHex,
   );

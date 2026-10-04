@@ -38,7 +38,11 @@ interface CatalogSectionProps {
   currencySymbol: string;
   onToggleFavorite: (id: string) => void;
   onAddToCart: (product: Product, color: string, size: string) => void;
-  onSelectProduct: (product: Product) => void;
+  onSelectProduct: (
+    product: Product,
+    color?: string | null,
+    size?: string | null,
+  ) => void;
   onClearFilters: () => void;
   searchTerm: string;
   selectedCategory: string | null;
@@ -142,6 +146,7 @@ import {
   parseColorParam,
   colorFilterMatches,
   compareColorHex,
+  resolveColorTarget,
   COLOR_FAMILIES,
 } from "../utils/colors";
 export { normHex };
@@ -219,6 +224,58 @@ export function buildColorFamilyFacets(
     );
 }
 
+/**
+ * Tri "Newest" véritable : récence (createdAt desc), sans date en dernier.
+ * Le tri merch (scores new) de la vitrine reste inchangé ; seul le tri
+ * catalogue "Newest" (libellé mensonger : limited-first) devient honnête.
+ */
+export function sortByNewest<T extends { createdAt?: string | null }>(
+  list: T[],
+): T[] {
+  return [...list].sort((a, b) => {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : NaN;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : NaN;
+    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+    if (Number.isNaN(ta)) return 1;
+    if (Number.isNaN(tb)) return -1;
+    return tb - ta;
+  });
+}
+
+/**
+ * Variante d'ouverture depuis les filtres (état de passage, rien de stocké) :
+ * la couleur du filtre (hex exact ou famille -> hex concret du produit) et
+ * la taille présélectionnent la PDP. Absent/incompatible -> undefined et la
+ * PDP retombe sur ses défauts (main image, taille dispo). Filtre effacé puis
+ * entrée -> aucun param -> mode par défaut.
+ */
+export function filterVariantFor(
+  product: { colors?: string[] | null; sizes?: string[] | null },
+  colorFilter: string | null | undefined,
+  sizeFilter: string | null | undefined,
+): { color?: string; size?: string } {
+  const out: { color?: string; size?: string } = {};
+  if (colorFilter) {
+    const hex =
+      normHex(colorFilter) ||
+      normHex(
+        resolveColorTarget(
+          Array.isArray(product.colors) ? product.colors : [],
+          colorFilter,
+        ),
+      );
+    if (hex) out.color = hex;
+  }
+  if (
+    sizeFilter &&
+    Array.isArray(product.sizes) &&
+    product.sizes.includes(sizeFilter)
+  ) {
+    out.size = sizeFilter;
+  }
+  return out;
+}
+
 export interface StyleFacet {
   value: string;
   label: string;
@@ -278,6 +335,11 @@ export default function CatalogSection({
 }: CatalogSectionProps) {
   // Hors-ligne : navigateur (events online/offline) + erreur fetch produits.
   const isOffline = useOffline(networkError);
+  const isMobileView = useIsMobile();
+  // Barre d'outils : en mobile, sticky TOUJOURS visible sous le header,
+  // confinée à la section (en-flux en haut, flottante dedans, libérée
+  // après). Pas de masquage au scroll (le timide flickerait ici).
+  // Desktop : sidebar, rien de sticky.
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
     if (typeof window !== "undefined" && window.location.search.length > 1)
       return parseFiltersFromSearch(
@@ -574,9 +636,7 @@ export default function CatalogSection({
         list = [...list].sort((a, b) => b.ratings.score - a.ratings.score);
         break;
       case "new":
-        list = [...list].sort(
-          (a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
-        );
+        list = sortByNewest(list);
         break;
       default:
         list = [...list].sort((a, b) => b.boughtLastMonth - a.boughtLastMonth);
@@ -587,6 +647,16 @@ export default function CatalogSection({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [extraFiltered.length]);
+  // Tuile "+N" New arrivals : bascule le tri catalogue sur newest.
+  // L'URL suit toute seule (synchro replaceState sur [filters, sort]).
+  useEffect(() => {
+    const handler = () => {
+      setSort("new");
+      setVisibleCount(PAGE_SIZE);
+    };
+    window.addEventListener("storefront:show-new", handler);
+    return () => window.removeEventListener("storefront:show-new", handler);
+  }, []);
   useEffect(() => {
     if (!sentinelRef.current) return;
     const obs = new IntersectionObserver(
@@ -922,8 +992,21 @@ export default function CatalogSection({
         </aside>
 
         <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between gap-3">
-            {useIsMobile() && (
+          <div
+            className="flex items-center justify-between gap-3 max-lg:sticky max-lg:top-16 max-lg:z-30"
+            style={
+              isMobileView
+                ? {
+                    background: "var(--color-bg)",
+                    borderBottom: "1px solid var(--color-border)",
+                    boxShadow: "var(--shadow-sm)",
+                    paddingTop: 8,
+                    paddingBottom: 8,
+                  }
+                : undefined
+            }
+          >
+            {isMobileView && (
               <button
                 onClick={() => {
                   setIsFilterDrawerOpen(true);
@@ -1238,8 +1321,17 @@ export default function CatalogSection({
                     currencySymbol={currencySymbol}
                     onToggleFavorite={onToggleFavorite}
                     onAddToCart={onAddToCart}
-                    onSelectProduct={onSelectProduct}
+                    onSelectProduct={(p) => {
+                      // Ouvre sur la variante du filtre (état temporaire).
+                      const v = filterVariantFor(
+                        p,
+                        filters.color,
+                        filters.size,
+                      );
+                      onSelectProduct(p, v.color, v.size);
+                    }}
                     activeColor={filters.color}
+                    activeSize={filters.size}
                   />
                 ))}
               </div>
