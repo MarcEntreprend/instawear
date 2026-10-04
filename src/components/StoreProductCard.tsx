@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Heart, Star, Flame, Check, ShoppingBag } from "lucide-react";
 import DealCountdown from "./DealCountdown";
 import type { Product } from "../types";
-import { variantImageForColor } from "../utils/colors";
+import { variantImageForColor, filterAddCandidate } from "../utils/colors";
 import {
   useProductAvailability,
+  getVariantAvailability,
   pickAvailableVariant,
 } from "../hooks/useProductAvailability";
 import { formatAmount } from "../data/currency";
@@ -25,6 +26,8 @@ interface StoreProductCardProps {
   getDeliverEstimateString?: (days: number) => string;
   /** Couleur active du filtre : la carte montre le visuel de cette variante. */
   activeColor?: string | null;
+  /** Taille active du filtre : l'ajout rapide la préfère (si dispo). */
+  activeSize?: string | null;
 }
 
 export default function StoreProductCard({
@@ -35,6 +38,7 @@ export default function StoreProductCard({
   onAddToCart,
   onSelectProduct,
   activeColor = null,
+  activeSize = null,
 }: StoreProductCardProps) {
   const fallbackSrc = product.image || PLACEHOLDER_IMG;
   // Progressif : on affiche l'image par défaut TEL QUEL, puis on bascule sur
@@ -83,6 +87,24 @@ export default function StoreProductCard({
   // par défaut (zéro toast d'erreur, zéro commande impossible).
   const firstAvailable = pickAvailableVariant(product);
   const purchasable = !unavailable && firstAvailable != null;
+  // Ajout rapide sous filtre : couleur/taille du filtre si la variante est
+  // dispo, sinon repli première dispo (jamais de toast bloquant surprise :
+  // ce qu'on voit partir en panier = ce que la carte montrait).
+  const quickAddTarget = (() => {
+    if (!firstAvailable) return null;
+    const cand = filterAddCandidate(
+      product.colors,
+      product.sizes,
+      activeColor,
+      activeSize,
+      { color: firstAvailable.color, size: firstAvailable.size },
+    );
+    if (!cand) return null;
+    return getVariantAvailability(product as any, cand.color, cand.size) ===
+      "available"
+      ? cand
+      : firstAvailable;
+  })();
 
   const swatches = product.variants?.length
     ? product.variants.map((v) => ({ hex: v.color, name: v.color_name }))
@@ -347,13 +369,14 @@ export default function StoreProductCard({
           </button>
         ) : (
           <button
-            onClick={() =>
-              onAddToCart(
-                product,
-                firstAvailable.color,
-                firstAvailable.size,
-              )
-            }
+            onClick={() => {
+              if (quickAddTarget)
+                onAddToCart(
+                  product,
+                  quickAddTarget.color,
+                  quickAddTarget.size,
+                );
+            }}
             className="btn btn-primary w-full"
           >
             <img

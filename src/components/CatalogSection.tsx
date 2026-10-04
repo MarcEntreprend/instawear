@@ -1331,6 +1331,7 @@ export default function CatalogSection({
                       onSelectProduct(p, v.color, v.size);
                     }}
                     activeColor={filters.color}
+                    activeSize={filters.size}
                   />
                 ))}
               </div>

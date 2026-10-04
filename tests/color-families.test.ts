@@ -12,6 +12,7 @@ import {
   variantImageForColor,
   hexToHsl,
   compareColorHex,
+  filterAddCandidate,
   COLOR_FAMILIES,
 } from "../src/utils/colors.ts";
 import {
@@ -195,6 +196,26 @@ test("filterVariantFor : filtre -> variante d'ouverture (temporaire)", () => {
   // Sans filtre -> défauts PDP.
   assert.deepEqual(filterVariantFor(p, null, null), {});
   assert.deepEqual(filterVariantFor({}, "grey", "M"), {});
+});
+
+test("filterAddCandidate : casse d'origine + fallback, jamais null sans fallback", () => {
+  const colors = ["#1A1A1A", "#9aa0a3"];
+  const sizes = ["S", "M", "XL"];
+  const fb = { color: "#1A1A1A", size: "S" };
+  // Hex (casse libre) -> casse d'origine du produit (match variante exact).
+  assert.deepEqual(filterAddCandidate(colors, sizes, "#9AA0A3", "XL", fb), {
+    color: "#9aa0a3",
+    size: "XL",
+  });
+  // Famille -> hex concret.
+  assert.deepEqual(filterAddCandidate(colors, sizes, "grey", null, fb), {
+    color: "#9aa0a3",
+    size: "S",
+  });
+  // Filtres absents/incompatibles -> fallback tel quel.
+  assert.deepEqual(filterAddCandidate(colors, sizes, null, null, fb), fb);
+  assert.deepEqual(filterAddCandidate(colors, sizes, "blue", "XXL", fb), fb);
+  assert.equal(filterAddCandidate(colors, sizes, "grey", "XL", null), null);
 });
 
 test("compareColorHex : ordre spectral", () => {

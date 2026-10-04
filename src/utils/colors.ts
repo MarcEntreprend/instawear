@@ -190,6 +190,39 @@ interface VariantLike {
 }
 
 /**
+ * Candidat d'ajout rapide sous filtre (état de passage) : couleur du filtre
+ * (hex exact ou famille -> hex, CASSE D'ORIGINE du produit car le match
+ * variante est exact) + taille du filtre si proposée, sinon le fallback
+ * (première variante dispo). null sans fallback. L'appelant vérifie la
+ * dispo du candidat (jamais d'ajout bloqué : repli fallback).
+ */
+export function filterAddCandidate(
+  colors: string[] | null | undefined,
+  sizes: string[] | null | undefined,
+  colorFilter: string | null | undefined,
+  sizeFilter: string | null | undefined,
+  fallback: { color: string; size: string } | null,
+): { color: string; size: string } | null {
+  if (!fallback) return null;
+  const list = Array.isArray(colors) ? colors : [];
+  let color = fallback.color;
+  let size = fallback.size;
+  if (colorFilter) {
+    const hex =
+      normHex(colorFilter) || normHex(resolveColorTarget(list, colorFilter));
+    const own = hex ? list.find((c) => normHex(c) === hex) : undefined;
+    if (own) color = own;
+  }
+  if (
+    sizeFilter &&
+    (Array.isArray(sizes) ? sizes : []).includes(sizeFilter)
+  ) {
+    size = sizeFilter;
+  }
+  return { color, size };
+}
+
+/**
  * Résout la cible couleur d'une carte en hex concret : hex → inchangé ;
  * slug de famille ("grey") → premier hex du produit dans cette famille
  * (même image que le mode "All shades" aurait montrée pour cette nuance).
