@@ -673,7 +673,7 @@ export default function ProductPage({
               >
                 Color — {dispColorNames?.[colorIdx] || pickedColor}
               </p>
-              <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
                 {dispColors.map((c: string, i: number) => {
                   const avail = getVariantAvailability(product, c, pickedSize);
                   const blocked =

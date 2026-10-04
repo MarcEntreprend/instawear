@@ -710,7 +710,11 @@ export default function Header({
             </button>
             <button
               className="btn-icon"
-              aria-label="Wishlist"
+              aria-label={
+                favoriteCount > 0
+                  ? `Wishlist, ${favoriteCount} items`
+                  : "Wishlist"
+              }
               onClick={onOpenFavorites}
             >
               <Heart size={18} />
@@ -718,7 +722,13 @@ export default function Header({
                 <span className="icon-count">{favoriteCount}</span>
               )}
             </button>
-            <button className="btn-icon" aria-label="Cart" onClick={onOpenCart}>
+            <button
+              className="btn-icon"
+              aria-label={
+                totalQty > 0 ? `Cart, ${totalQty} items` : "Cart"
+              }
+              onClick={onOpenCart}
+            >
               <ShoppingBag size={18} />
               {totalQty > 0 && (
                 <span key={totalQty} className="icon-count icon-bump">
