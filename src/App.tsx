@@ -173,6 +173,10 @@ export default function App() {
       // Q2.1 : les inactifs sont invisibles (même en URL directe).
       const p = products.find((x) => x.id === match[1] && x.isActive !== false);
       if (p) {
+        // Variante via ?color=&size= (liens "nouvel onglet" du compte).
+        const qs = new URLSearchParams(search);
+        setSelectedProductInitialColor(qs.get("color"));
+        setSelectedProductInitialSize(qs.get("size"));
         setSelectedProduct(p);
         setHeroSuspendedForBoot(true);
       }
@@ -224,8 +228,12 @@ export default function App() {
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1] && x.isActive !== false);
-        if (p) setSelectedProduct(p);
-        else {
+        if (p) {
+          const qs = new URLSearchParams(search);
+          setSelectedProductInitialColor(qs.get("color"));
+          setSelectedProductInitialSize(qs.get("size"));
+          setSelectedProduct(p);
+        } else {
           setSelectedProduct(null);
           setHeroSuspendedForBoot(false);
         }
@@ -742,6 +750,9 @@ export default function App() {
   }, []);
 
   // Listen to Supabase session changes (authentication)
+  // Garde /account : si getSession répond vide alors que la session arrive
+  // juste après (INITIAL_SESSION), on rouvre la page à l'événement.
+  const accountGateRef = useRef(false);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {      if (session?.user?.email) {
         // Vérifier localement puis côté serveur si l'utilisateur est admin
@@ -773,7 +784,9 @@ export default function App() {
         setShowFavoritesOnly(false);
         // /account sans session : la page compte exige un login → modale
         // auth (même comportement que l'onglet compte de la tab-bar).
+        // Flag anti-race : si la session arrive juste après, on rouvre.
         if (isAccountPath(window.location.pathname)) {
+          accountGateRef.current = true;
           setShowAccountPage(false);
           setShowAuthModal(true);
           pushOverlay("auth");
@@ -784,6 +797,16 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user?.email) {
+          // Session arrivée après la garde /account : rouvre la page,
+          // referme la modale auth (fin de course, jamais de frontstore vide).
+          if (
+            accountGateRef.current &&
+            isAccountPath(window.location.pathname)
+          ) {
+            accountGateRef.current = false;
+            setShowAuthModal(false);
+            setShowAccountPage(true);
+          }
           // Vérifier localement puis côté serveur si l'utilisateur est admin
           checkAdminEmail(session.user.email).then((isAdminUser) => {
             if (isAdminUser) {
@@ -810,6 +833,13 @@ export default function App() {
           setFavorites([]);
           setCartLoaded(false);
           setShowFavoritesOnly(false);
+          // Déconnexion sur /account : retour vers la modale auth (garde).
+          if (isAccountPath(window.location.pathname)) {
+            accountGateRef.current = true;
+            setShowAccountPage(false);
+            setShowAuthModal(true);
+            pushOverlay("auth");
+          }
         }
       },
     );
@@ -2198,18 +2228,33 @@ export default function App() {
                 showToast("This product is no longer available.", "info");
                 return;
               }
-              // La PDP est un plein-écran séparé : refermer le compte
-              // d'abord (sinon elle rend SOUS l'overlay = invisible).
-              setShowAccountPage(false);
-              setPendingAccountOrderId(null);
-              if (isAccountPath(window.location.pathname)) {
-                try {
-                  history.pushState({}, "", "/");
-                } catch {}
+              // Depuis le compte : nouvel onglet (le compte garde son état :
+              // onglet, scroll, recherche). Variante via ?color=&size= (lus au
+              // boot). Popup bloquée → repli même onglet (jamais de vide).
+              const params = new URLSearchParams();
+              if (initialColor) params.set("color", initialColor);
+              if (initialSize) params.set("size", initialSize);
+              const qs = params.toString();
+              let opened: Window | null = null;
+              try {
+                opened = window.open(
+                  `/produit/${productId}${qs ? `?${qs}` : ""}`,
+                  "_blank",
+                  "noopener",
+                );
+              } catch {}
+              if (!opened) {
+                setShowAccountPage(false);
+                setPendingAccountOrderId(null);
+                if (isAccountPath(window.location.pathname)) {
+                  try {
+                    history.pushState({}, "", "/");
+                  } catch {}
+                }
+                setSelectedProductInitialColor(initialColor || null);
+                setSelectedProductInitialSize(initialSize || null);
+                setSelectedProduct(product);
               }
-              setSelectedProductInitialColor(initialColor || null);
-              setSelectedProductInitialSize(initialSize || null);
-              setSelectedProduct(product);
             }}
             onNameUpdated={(newName) => setUserName(newName)}
           />

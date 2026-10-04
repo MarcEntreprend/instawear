@@ -9,7 +9,7 @@ export function isAdminPath(path: string): boolean {
   return path === "/admin";
 }
 
-/** Vrai si et seulement si le chemin est la page compte (strict, sans PII). */
+/** Page compte (strict, sans PII). /compte gardé en alias (anciens liens). */
 export function isAccountPath(path: string): boolean {
-  return path === "/account";
+  return path === "/account" || path === "/compte";
 }

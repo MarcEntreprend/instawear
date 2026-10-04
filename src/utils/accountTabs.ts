@@ -20,3 +20,17 @@ export function swipeDir(dx: number, dy: number, minX = 60): 1 | -1 | 0 {
   if (Math.abs(dx) < minX || Math.abs(dx) < Math.abs(dy) * 1.5) return 0;
   return dx < 0 ? 1 : -1;
 }
+
+/** Onglet depuis ?tab= (partageable, bouton retour). null si absent/invalide. */
+export function parseAccountTab(
+  search: string,
+  validKeys: string[],
+): string | null {
+  let v: string | null = null;
+  try {
+    v = new URLSearchParams(search).get("tab");
+  } catch {
+    return null;
+  }
+  return v && validKeys.includes(v) ? v : null;
+}

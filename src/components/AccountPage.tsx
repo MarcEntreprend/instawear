@@ -53,7 +53,7 @@ import CopyID from "./CopyID";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useTimidBar } from "../hooks/useTimidBar";
-import { cycleTabKey, swipeDir } from "../utils/accountTabs";
+import { cycleTabKey, swipeDir, parseAccountTab } from "../utils/accountTabs";
 import { COUNTRIES } from "../data/countries";
 import { PLACEHOLDER_IMG, CART_X_ICON } from "../constants/assets";
 import { formatCPFCNPJ } from "../utils/format";
@@ -235,7 +235,24 @@ export default function AccountPage({
   }, []);
 
   // ── Navigation ───────────────────────────────────────────────────
-  const [tab, setTab] = useState<TabKey>("orders");
+  const [tab, setTab] = useState<TabKey>(() => {
+    // Deep-link commande prioritaire, sinon ?tab= partageable, sinon orders.
+    if (initialOrderId) return "orders";
+    if (typeof window !== "undefined") {
+      const t = parseAccountTab(window.location.search, [
+        "dashboard",
+        "orders",
+        "favorites",
+        "cart",
+        "notifications",
+        "profile",
+        "support",
+        "reviews",
+      ]);
+      if (t) return t as TabKey;
+    }
+    return "orders";
+  });
   // Conteneur scrollé du contenu (barres timides des onglets).
   const mainScrollRef = useRef<HTMLElement | null>(null);
   const [showMoreTabs, setShowMoreTabs] = useState(false);
@@ -255,7 +272,38 @@ export default function AccountPage({
     setShowMoreTabs(false);
     setTab(key);
     mainScrollRef.current?.scrollTo({ top: 0 });
+    // Nav propre : chaque onglet a son URL (?tab=), le retour navigateur
+    // traverse les onglets (les synchros d'URL parentes préservent ?tab=).
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", key);
+      history.pushState(
+        {},
+        "",
+        url.pathname +
+          (url.searchParams.toString()
+            ? `?${url.searchParams.toString()}`
+            : "") +
+          url.hash,
+      );
+    } catch {}
   };
+  // Retour/avant navigateur : suit ?tab= (cohabite avec le popstate d'App,
+  // qui ne touche pas aux onglets).
+  useEffect(() => {
+    const onPop = () => {
+      const t = parseAccountTab(
+        window.location.search,
+        NAV.map((n) => n.key),
+      );
+      if (t && t !== tab) {
+        setTab(t as TabKey);
+        mainScrollRef.current?.scrollTo({ top: 0 });
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [tab]);
   // Swipe horizontal sur le contenu : onglet suivant/precedent (ordre NAV).
   const onTouchStartContent = (e: React.TouchEvent) => {
     const t = e.touches[0];
