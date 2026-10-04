@@ -5,6 +5,7 @@ import type { Product } from "../types";
 import StoreProductCard from "./StoreProductCard";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
 import { isMerchEligible } from "../utils/merch";
+import { scrollToCatalogTop } from "../utils/scroll";
 import { merchApi } from "../api/supabaseApi";
 import { getVariant } from "../lib/engagement";
 
@@ -73,9 +74,7 @@ export default function DealsSection({
     try {
       window.dispatchEvent(new CustomEvent("storefront:show-new"));
     } catch {}
-    document
-      .getElementById("section-catalog")
-      ?.scrollIntoView({ behavior: "smooth" });
+    scrollToCatalogTop();
   };
   const handleSelectCategory = (
     eventType: string | null,
@@ -83,9 +82,7 @@ export default function DealsSection({
   ) => {
     onSelectEventType(eventType);
     onSelectCategory?.(category);
-    document
-      .getElementById("section-catalog")
-      ?.scrollIntoView({ behavior: "smooth" });
+    scrollToCatalogTop();
   };
 
   return (

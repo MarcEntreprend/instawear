@@ -26,6 +26,8 @@ interface FooterProps {
   onOpenTracking?: () => void;
   onOpenPromotions?: () => void;
   onManageCookies?: () => void;
+  /** Scroll unifié vers le catalogue (remplace les scrollIntoView locaux). */
+  onOpenCatalog?: () => void;
 }
 
 export default function Footer({
@@ -40,6 +42,7 @@ export default function Footer({
   onOpenTracking,
   onOpenPromotions,
   onManageCookies,
+  onOpenCatalog,
 }: FooterProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -209,16 +212,7 @@ export default function Footer({
                   onSelectEventType(null);
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(
-                    () =>
-                      document
-                        .getElementById("section-catalog")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        }),
-                    100,
-                  );
+                  setTimeout(() => onOpenCatalog?.(), 100);
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -231,16 +225,7 @@ export default function Footer({
                   onSelectEventType("festival");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(
-                    () =>
-                      document
-                        .getElementById("section-catalog")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        }),
-                    100,
-                  );
+                  setTimeout(() => onOpenCatalog?.(), 100);
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -253,16 +238,7 @@ export default function Footer({
                   onSelectEventType("sport");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(
-                    () =>
-                      document
-                        .getElementById("section-catalog")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        }),
-                    100,
-                  );
+                  setTimeout(() => onOpenCatalog?.(), 100);
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
@@ -275,16 +251,7 @@ export default function Footer({
                   onSelectEventType("saisonnier");
                   onSelectCategory?.(null);
                   onNavigate("store");
-                  setTimeout(
-                    () =>
-                      document
-                        .getElementById("section-catalog")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        }),
-                    100,
-                  );
+                  setTimeout(() => onOpenCatalog?.(), 100);
                 }}
                 className="hover:text-(--color-accent) text-left"
               >
