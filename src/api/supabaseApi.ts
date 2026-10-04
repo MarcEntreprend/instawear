@@ -2,6 +2,7 @@
 
 import { supabase } from "../lib/supabaseClient";
 import { escapeHtml } from "../utils/format";
+import { mapCustomerProfile } from "./customerMapping";
 // Règle CA net canonique (Vague B item 8) : orderStatusLabels n'importe
 // que React — pas de cycle api ↔ admin.
 import { sumRevenue } from "../admin/orderStatusLabels";
@@ -562,22 +563,10 @@ export const customerApi = {
     // L'utilisateur connecté ne peut lire que sa propre fiche via la RPC
     // (SECURITY DEFINER, sans RLS). L'admin (Edge Functions) continue
     // d'utiliser le service_role et n'est pas concerné.
+    // La RPC renvoie un TABLEAU ([{...}]) : mapCustomerProfile déballe.
     const { data, error } = await supabase.rpc("get_my_customer_profile");
     if (error || !data) return null;
-
-    return {
-      id: data.id,
-      email: data.email,
-      name: data.name,
-      registrationDate: data.registration_date,
-      lastLoginDate: data.last_login_date,
-      emailPreferences: data.email_preferences || {
-        order_confirmation: true,
-        shipping_update: true,
-        promotions: false,
-      },
-      date_of_birth: data.date_of_birth || null,
-    };
+    return mapCustomerProfile(data);
   },
   // ── Favoris ──────────────────────────────────────────────────────────
   async addFavourite(clientId: string, productId: string): Promise<void> {
