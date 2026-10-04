@@ -927,6 +927,15 @@ export const customerApi = {
 
     if (existing) return existing.id;
 
+    // Garde max 3 (comme addAddress) : l'auto-save checkout ne doit pas
+    // faire déborder le carnet. Plein → null silencieux (le flux commande
+    // ne doit jamais échouer pour ça ; gestion dans l'onglet Profil).
+    const { count } = await supabase
+      .from("customer_addresses")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId);
+    if (count != null && count >= 3) return null;
+
     // Ajouter la nouvelle adresse (limite 3 déjà gérée dans addAddress)
     const { data: created, error } = await supabase
       .from("customer_addresses")

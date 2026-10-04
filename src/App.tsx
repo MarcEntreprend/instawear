@@ -71,7 +71,7 @@ import {
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
-import { isAdminPath } from "./utils/routes";
+import { isAdminPath, isAccountPath } from "./utils/routes";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -123,7 +123,12 @@ export default function App() {
   const [userEmail, setUserEmail] = useState("");
 
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showAccountPage, setShowAccountPage] = useState(false);
+  // /compte est une page (comme /admin) : l'URL au boot initialise l'état.
+  const [showAccountPage, setShowAccountPage] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      isAccountPath(window.location.pathname),
+  );
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
 
   // Selection/Filtering States
@@ -214,6 +219,8 @@ export default function App() {
         setShowNewAdmin(false);
         setActiveTab("store");
       }
+      // /compte est une page : précédent/suivant l'ouvre/la referme.
+      if (isAccountPath(path)) setShowAccountPage(true);
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
         const p = products.find((x) => x.id === m[1] && x.isActive !== false);
@@ -245,7 +252,8 @@ export default function App() {
       if (h !== "#tracking") setTrackingOpen(false);
       if (h !== "#auth") setShowAuthModal(false);
       if (h !== "#profile") setShowProfileModal(false);
-      if (h !== "#account") {
+      // /compte sans hash : la page reste ouverte (le hash ne la pilote pas).
+      if (h !== "#account" && !isAccountPath(path)) {
         setShowAccountPage(false);
         setPendingAccountOrderId(null);
       }
@@ -763,6 +771,13 @@ export default function App() {
         setFavorites([]);
         setCartLoaded(false);
         setShowFavoritesOnly(false);
+        // /compte sans session : la page compte exige un login → modale
+        // auth (même comportement que l'onglet compte de la tab-bar).
+        if (isAccountPath(window.location.pathname)) {
+          setShowAccountPage(false);
+          setShowAuthModal(true);
+          pushOverlay("auth");
+        }
       }
     }).finally(() => setAuthChecked(true));
 
@@ -1536,6 +1551,7 @@ export default function App() {
       const knownPaths = [
         "/",
         "/admin",
+        "/compte",
         "/unsubscribe",
         "/index.html",
         "/faq",
@@ -2106,6 +2122,10 @@ export default function App() {
             } else {
               setIsUser(true);
               setUserName(name || "");
+              // Retour sur /compte après login (garde invité ci-dessus).
+              if (isAccountPath(window.location.pathname)) {
+                setShowAccountPage(true);
+              }
             }
             setShowAuthModal(false);
           }}
@@ -2113,6 +2133,9 @@ export default function App() {
             setIsUser(true);
             setUserName(name);
             setShowAuthModal(false);
+            if (isAccountPath(window.location.pathname)) {
+              setShowAccountPage(true);
+            }
             showToast(`Welcome, ${name}! Your account has been created.`);
           }}
         />
@@ -2144,12 +2167,18 @@ export default function App() {
         <Suspense fallback={<LazyFallback />}>
           <AccountPage
             initialOrderId={pendingAccountOrderId}
-            onClose={() =>
+            onClose={() => {
+              // /compte : fermer nettoie aussi l'URL (miroir /admin).
+              if (isAccountPath(window.location.pathname)) {
+                try {
+                  history.pushState({}, "", "/");
+                } catch {}
+              }
               closeOverlay("account", () => {
                 setShowAccountPage(false);
                 setPendingAccountOrderId(null);
-              })
-            }
+              });
+            }}
             onViewProduct={(productId, initialColor, initialSize) => {
               const product = products.find((p) => p.id === productId);
               if (product) {
