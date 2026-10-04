@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowRight, ArrowDown } from "lucide-react";
 import { PLACEHOLDER_IMG } from "../constants/assets";
+import { supabaseImageUrl } from "../lib/supabaseImage";
 
 interface HeroBanner {
   title?: string;
@@ -223,7 +224,9 @@ export default function HeroCarousel({
           const kind = b.kind ?? "product";
           const split = (b.layout ?? "full") === "split";
           const visualSrc =
-            b.image && b.image !== PLACEHOLDER_IMG ? b.image : null;
+            b.image && b.image !== PLACEHOLDER_IMG
+              ? supabaseImageUrl(b.image, { width: 1280, quality: 75 })
+              : null;
           const fireLink = (link?: string | null): boolean => {
             if (link && onBannerLink) {
               onBannerLink(link);
@@ -251,7 +254,13 @@ export default function HeroCarousel({
                     }}
                     className="relative flex-1 min-h-0 rounded-2xl overflow-hidden text-left"
                     style={{ boxShadow: "var(--shadow-xl)" }}
-                    aria-label={b.headline || b.title || "Voir"}
+                    // Nom accessible = contenu si texte visible (headline/CTA),
+                    // sinon fallback (jamais de mismatch visible/nom).
+                    aria-label={
+                      b.headline || b.cta
+                        ? undefined
+                        : b.title || "Voir"
+                    }
                   >
                     <img
                       src={visualSrc}
@@ -288,14 +297,17 @@ export default function HeroCarousel({
                       aria-label={t.label || `Voir ${ti + 1}`}
                     >
                       <img
-                        src={t.image}
+                        src={supabaseImageUrl(t.image, {
+                          width: 400,
+                          quality: 70,
+                        })}
                         alt=""
                         className="absolute inset-0 w-full h-full object-cover"
                         loading="lazy"
                         decoding="async"
                       />
                       {t.label && (
-                        <span className="absolute left-2 bottom-2 text-white text-xs font-bold drop-shadow px-2 py-1 rounded-lg" style={{ background: "rgba(0,0,0,.35)" }}>
+                        <span className="absolute left-2 bottom-2 text-white text-xs font-bold drop-shadow px-2 py-1 rounded-lg" style={{ background: "rgba(0,0,0,.55)" }}>
                           {t.label}
                         </span>
                       )}
