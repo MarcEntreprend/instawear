@@ -90,7 +90,7 @@ export default function StoreProductCard({
         hex,
         name: product.colorNames?.[i] ?? hex,
       }));
-  const visibleSwatches = swatches.slice(0, 4);
+  const visibleSwatches = swatches.slice(0, 3);
   const extraSwatches = swatches.length - visibleSwatches.length;
   // Deal PAR PRODUIT (pur, monotone) : fini le latch global qui tuait tous
   // les deals à la première promo expirée + faisait flicker LIMITED.
@@ -107,7 +107,7 @@ export default function StoreProductCard({
     <article
       className={`ticket-card animate-fade-up group ${unavailable ? "opacity-90" : ""}`}
     >
-      <div className="relative p-3 pb-0">
+      <div className="relative p-2 pb-0">
         <a
           href={`/produit/${product.id}`}
           onClick={(e) => {
@@ -116,8 +116,13 @@ export default function StoreProductCard({
           }}
           className="block cursor-pointer"
         >
-          <div className="bezel-outer overflow-hidden rounded-xl">
-            <div className="bezel-inner aspect-square overflow-hidden">
+          {/* Cadre unique (fini le double carré bezel + wrapper) : l'image
+              y gagne ~12px de côté. */}
+          <div className="bezel-outer overflow-hidden">
+            <div
+              className="aspect-square overflow-hidden"
+              style={{ borderRadius: 15 }}
+            >
               <img
                 src={shownSrc}
                 srcSet={cardSrcSet}
@@ -137,7 +142,7 @@ export default function StoreProductCard({
             </div>
           </div>
         </a>
-        <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
+        <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
           {dealLive && (
             <span className="badge badge-accent animate-pulse">Deal</span>
           )}
@@ -172,7 +177,7 @@ export default function StoreProductCard({
           aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
           aria-pressed={isFavorite}
           disabled={unavailable}
-          className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: isFavorite
               ? "var(--color-accent)"
@@ -189,15 +194,7 @@ export default function StoreProductCard({
         </button>
       </div>
 
-      <div className="ticket-perforation mx-3 mt-3" />
-
-      <div className="p-5 pt-4">
-        <p
-          className="text-[11px] font-bold uppercase tracking-wider mb-1"
-          style={{ color: "var(--color-ink3)" }}
-        >
-          {product.brand}
-        </p>
+      <div className="p-4 pt-3">
         <h3
           className="text-sm font-bold leading-snug mb-1.5 line-clamp-2 transition-colors"
           style={{ color: "var(--color-ink)" }}
@@ -267,14 +264,9 @@ export default function StoreProductCard({
             ))}
             {extraSwatches > 0 && (
               <span
-                className="color-wheel"
-                title={`+${extraSwatches} colors`}
-              />
-            )}
-            {extraSwatches > 0 && (
-              <span
                 className="text-[11px] font-semibold"
                 style={{ color: "var(--color-ink4)" }}
+                title={`+${extraSwatches} colors`}
               >
                 +{extraSwatches}
               </span>
@@ -327,8 +319,10 @@ export default function StoreProductCard({
                 <Flame size={12} /> Only {(product as any).stock_quantity} left
             </span>
           ) : (
+            // État positif masqué en mobile (fini la confusion Limited /
+            // In stock) : seuls les avertissements s'affichent (< lg).
             <span
-              className="text-xs font-semibold flex items-center gap-1"
+              className="text-xs font-semibold items-center gap-1 hidden lg:inline-flex"
               style={{ color: "var(--color-success)" }}
             >
               <Check size={12} /> In stock
@@ -343,7 +337,7 @@ export default function StoreProductCard({
         )}
       </div>
 
-      <div className="px-5 pb-5">
+      <div className="px-4 pb-4">
         {!purchasable ? (
           <button
             disabled

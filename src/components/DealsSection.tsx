@@ -64,6 +64,19 @@ export default function DealsSection({
         : (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
     )
     .slice(0, 8);
+  // Vitrine : 3 cartes max + tuile "+N" (collage des suivants) vers le
+  // catalogue trié newest. L'ordre merch (scores) est inchangé.
+  const NEW_VISIBLE = 3;
+  const newVisible = newArrivals.slice(0, NEW_VISIBLE);
+  const newRest = newArrivals.slice(NEW_VISIBLE);
+  const showNewestInCatalog = () => {
+    try {
+      window.dispatchEvent(new CustomEvent("storefront:show-new"));
+    } catch {}
+    document
+      .getElementById("section-catalog")
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
   const handleSelectCategory = (
     eventType: string | null,
     category: string | null,
@@ -142,7 +155,7 @@ export default function DealsSection({
           </button>
         </div>
         <div className="flex sm:grid sm:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 min-w-0 max-w-[100vw] w-[calc(100%+2rem)] sm:w-full sm:max-w-none snap-x snap-mandatory sm:snap-none">
-          {newArrivals.map((product) => (
+          {newVisible.map((product) => (
             <div
               key={product.id}
               className="w-[72vw] max-w-75 sm:w-auto shrink-0 sm:shrink snap-start min-w-0"
@@ -157,6 +170,46 @@ export default function DealsSection({
               />
             </div>
           ))}
+          {/* Tuile "+N" : collage des suivants → catalogue trié newest. */}
+          {newRest.length > 0 && (
+            <button
+              type="button"
+              onClick={showNewestInCatalog}
+              title={`View ${newRest.length} more new arrivals`}
+              className="relative w-[72vw] max-w-75 sm:w-auto shrink-0 sm:shrink snap-start min-w-0 overflow-hidden rounded-3xl cursor-pointer"
+              style={{
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+                minHeight: 200,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                className="grid grid-cols-2 gap-1 p-2"
+              >
+                {newRest.slice(0, 4).map((p) => (
+                  <img
+                    key={p.id}
+                    src={p.image || ""}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full aspect-square object-cover rounded-xl"
+                  />
+                ))}
+              </span>
+              <span
+                className="absolute inset-0 flex flex-col items-center justify-center gap-1 font-extrabold"
+                style={{
+                  background: "rgba(0,0,0,0.45)",
+                  color: "#fff",
+                }}
+              >
+                <span className="text-2xl">+{newRest.length}</span>
+                <span className="text-xs font-semibold">View newest</span>
+              </span>
+            </button>
+          )}
         </div>
       </section>
 

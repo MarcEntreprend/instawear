@@ -219,6 +219,24 @@ export function buildColorFamilyFacets(
     );
 }
 
+/**
+ * Tri "Newest" véritable : récence (createdAt desc), sans date en dernier.
+ * Le tri merch (scores new) de la vitrine reste inchangé ; seul le tri
+ * catalogue "Newest" (libellé mensonger : limited-first) devient honnête.
+ */
+export function sortByNewest<T extends { createdAt?: string | null }>(
+  list: T[],
+): T[] {
+  return [...list].sort((a, b) => {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : NaN;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : NaN;
+    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+    if (Number.isNaN(ta)) return 1;
+    if (Number.isNaN(tb)) return -1;
+    return tb - ta;
+  });
+}
+
 export interface StyleFacet {
   value: string;
   label: string;
@@ -574,9 +592,7 @@ export default function CatalogSection({
         list = [...list].sort((a, b) => b.ratings.score - a.ratings.score);
         break;
       case "new":
-        list = [...list].sort(
-          (a, b) => (b.isLimitedTime ? 1 : 0) - (a.isLimitedTime ? 1 : 0),
-        );
+        list = sortByNewest(list);
         break;
       default:
         list = [...list].sort((a, b) => b.boughtLastMonth - a.boughtLastMonth);
@@ -587,6 +603,16 @@ export default function CatalogSection({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [extraFiltered.length]);
+  // Tuile "+N" New arrivals : bascule le tri catalogue sur newest.
+  // L'URL suit toute seule (synchro replaceState sur [filters, sort]).
+  useEffect(() => {
+    const handler = () => {
+      setSort("new");
+      setVisibleCount(PAGE_SIZE);
+    };
+    window.addEventListener("storefront:show-new", handler);
+    return () => window.removeEventListener("storefront:show-new", handler);
+  }, []);
   useEffect(() => {
     if (!sentinelRef.current) return;
     const obs = new IntersectionObserver(
