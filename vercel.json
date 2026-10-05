@@ -38,7 +38,7 @@
       "destination": "/unsubscribe.html"
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
