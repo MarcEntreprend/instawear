@@ -73,6 +73,10 @@ import {
 import { isDealLive } from "./utils/deals";
 import { isAdminPath, isAccountPath, productUrl } from "./utils/routes";
 import { scrollToCatalogTop } from "./utils/scroll";
+import {
+  findProductBySlugOrId,
+  productPagePath,
+} from "./utils/productSlugs";
 import { supabase } from "./lib/supabaseClient";
 import {
   loadGuestCart,
@@ -172,8 +176,20 @@ export default function App() {
     const match = path.match(/^\/produit\/([^/]+)/);
     if (match && products.length > 0) {
       // Q2.1 : les inactifs sont invisibles (même en URL directe).
-      const p = products.find((x) => x.id === match[1] && x.isActive !== false);
+      // Lookup slug OU id legacy ; canonique slug (remplace l'UUID).
+      const found = findProductBySlugOrId(products, match[1]);
+      const p = found && found.isActive !== false ? found : undefined;
       if (p) {
+        const canonical = p.slug || p.id;
+        if (match[1] !== canonical) {
+          try {
+            history.replaceState(
+              {},
+              "",
+              `${productPagePath(p)}${window.location.search}`,
+            );
+          } catch {}
+        }
         // Variante via ?color=&size= (liens "nouvel onglet" du compte).
         const qs = new URLSearchParams(search);
         setSelectedProductInitialColor(qs.get("color"));
@@ -228,8 +244,20 @@ export default function App() {
       if (isAccountPath(path)) setShowAccountPage(true);
       const m = path.match(/^\/produit\/([^/]+)/);
       if (m) {
-        const p = products.find((x) => x.id === m[1] && x.isActive !== false);
+        const foundM = findProductBySlugOrId(products, m[1]);
+        const p =
+          foundM && foundM.isActive !== false ? foundM : undefined;
         if (p) {
+          const canonical = p.slug || p.id;
+          if (m[1] !== canonical) {
+            try {
+              history.replaceState(
+                {},
+                "",
+                `${productPagePath(p)}${window.location.search}`,
+              );
+            } catch {}
+          }
           const qs = new URLSearchParams(search);
           setSelectedProductInitialColor(qs.get("color"));
           setSelectedProductInitialSize(qs.get("size"));
@@ -281,7 +309,7 @@ export default function App() {
     addViewed(p.id);
     track("product_click", "product", p.id, { v: getVariant() });
     try {
-      history.pushState({}, "", `/produit/${p.id}`);
+      history.pushState({}, "", productPagePath(p));
     } catch {}
   };
 
@@ -329,7 +357,19 @@ export default function App() {
     const [path, qs] = link.split("?");
     const params = new URLSearchParams(qs || "");
     if (path === "/") {
-      goHome();
+      // Capsules éditoriales ("Date Night", "Concert looks"...) : lien vers
+      // le catalogue pré-filtré (ex. /?event=concert). Sans query : accueil.
+      const event = params.get("event");
+      const cat = params.get("cat");
+      const q = params.get("q");
+      if (!event && !cat && (q === null || q === "")) {
+        goHome();
+        return true;
+      }
+      if (event) setSelectedEventType(event);
+      if (cat) setSelectedCategory(cat);
+      if (q) setSearchTerm(q);
+      scrollToCatalogTop();
       return true;
     }
     if (path === "/promotions") {

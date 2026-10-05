@@ -50,6 +50,7 @@ let currencyCode = "USD";
 
 interface Product {
   id: string;
+  slug: string | null;
   title: string;
   price: number;
   dealPrice: number | null;
@@ -237,6 +238,9 @@ if (url && anon) {
         const { price, deal } = pickPrice(p);
         return {
           id: String(p.id),
+          // Slug canonique (repli id si migration pas encore appliquée).
+          slug:
+            typeof p.slug === "string" && p.slug ? String(p.slug) : null,
           title: String(p.title || "InstaWear product"),
           price,
           dealPrice: deal,
@@ -259,6 +263,9 @@ if (url && anon) {
 }
 const sym = SYMBOLS[currencyCode] || "$";
 const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
+// URL canonique fiche produit (slug, repli id).
+const pagePath = (p: { id: string; slug?: string | null }) =>
+  `/produit/${p.slug || p.id}`;
 
 // 1b) 1re bannière hero (P4b — mêmes règles que App.tsx : 1re promo active
 // avec produit actif, sinon rien). Image peinte en visible avant le JS (LCP
@@ -472,13 +479,13 @@ for (const p of products) {
   let html = setHead(template, {
     title: p.title,
     desc: desc.slice(0, 300),
-    url: `${SITE}/produit/${p.id}`,
+    url: `${SITE}${pagePath(p)}`,
     image: p.image,
     type: "product",
   });
   const offer: Record<string, unknown> = {
     "@type": "Offer",
-    url: `${SITE}/produit/${p.id}`,
+    url: `${SITE}${pagePath(p)}`,
     priceCurrency: currencyCode,
     price: (p.dealPrice ?? p.price).toFixed(2),
     availability: "https://schema.org/InStock",
@@ -488,7 +495,7 @@ for (const p of products) {
     "@type": "Product",
     name: p.title,
     image: p.image,
-    url: `${SITE}/produit/${p.id}`,
+    url: `${SITE}${pagePath(p)}`,
     description: p.description || p.title,
     offers: offer,
   };
@@ -510,7 +517,7 @@ for (const p of products) {
         "@type": "ListItem",
         position: 3,
         name: p.title,
-        item: `${SITE}/produit/${p.id}`,
+        item: `${SITE}${pagePath(p)}`,
       },
     ],
   });
@@ -528,7 +535,7 @@ for (const p of products) {
       ? `<p>Rated ${p.rating}/5 (${p.ratingCount} reviews)</p>`
       : "") +
     `<p><a href="${SITE}/produit/${esc(p.id)}">View and customize this product on InstaWear →</a></p>`;
-  write(`produit/${p.id}.html`, setRoot(html, shell(snap)));
+  write(`produit/${p.slug || p.id}.html`, setRoot(html, shell(snap)));
 }
 
 console.log(

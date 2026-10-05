@@ -1,4 +1,4 @@
-﻿// src/pages/ProductPage.tsx — V2 full + live Supabase
+// src/pages/ProductPage.tsx — V2 full + live Supabase
 import { useEffect, useState, useMemo, useRef } from "react";
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { isPlaceholderImage } from "../utils/gallery";
+import { productPagePath } from "../utils/productSlugs";
 import {
   getVariantAvailability,
   pickAvailableVariant,
@@ -145,7 +146,7 @@ export default function ProductPage({
       product.fullDescription?.slice(0, 158) ||
       "",
     image: product.image,
-    url: `https://instawear.vercel.app/produit/${product.id}`,
+    url: `https://instawear.vercel.app${productPagePath(product)}`,
     type: "product",
   });
 
@@ -175,7 +176,7 @@ export default function ProductPage({
       brand: { "@type": "Brand", name: product.brand || "InstaWear" },
       offers: {
         "@type": "Offer",
-        url: `https://instawear.vercel.app/produit/${product.id}`,
+        url: `https://instawear.vercel.app${productPagePath(product)}`,
         priceCurrency: storeCurrency,
         price: Number(price).toFixed(2),
         availability:
@@ -223,7 +224,7 @@ export default function ProductPage({
           "@type": "ListItem",
           position: 3,
           name: product.title,
-          item: `https://instawear.vercel.app/produit/${product.id}`,
+          item: `https://instawear.vercel.app${productPagePath(product)}`,
         },
       ],
     });
