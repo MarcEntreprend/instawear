@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /account
 Sitemap: https://instawear.vercel.app/sitemap.xml
 
 User-agent: GPTBot

@@ -534,10 +534,29 @@ for (const p of products) {
     (p.rating != null && p.ratingCount > 0
       ? `<p>Rated ${p.rating}/5 (${p.ratingCount} reviews)</p>`
       : "") +
-    `<p><a href="${SITE}/produit/${esc(p.id)}">View and customize this product on InstaWear →</a></p>`;
+    `<p><a href="${SITE}${pagePath(p)}">View and customize this product on InstaWear →</a></p>`;
   write(`produit/${p.slug || p.id}.html`, setRoot(html, shell(snap)));
+  // Alias UUID (fichier statique) : le refresh/lien direct d'une URL legacy
+  // ne dépend plus des rewrites (qui ont déjà été ignorés en silence en prod).
+  // Même contenu, l'URL canonique (slug) est dedans + le boot la restaure.
+  if (p.slug && p.slug !== p.id) {
+    write(`produit/${p.id}.html`, setRoot(html, shell(snap)));
+  }
 }
 
 console.log(
   `prerender: ${written} fichiers HTML (${products.length} produits) → dist/`,
 );
+
+// 6) Coquilles /account + /admin (shell SPA) : refresh/lien direct sans
+// dépendre des rewrites (même raison que les alias UUID). Le boot ouvre la
+// bonne page depuis l'URL (initializers + garde session).
+try {
+  const shell = readFileSync(templatePath, "utf-8");
+  writeFileSync("dist/account.html", shell);
+  written += 1;
+  writeFileSync("dist/admin.html", shell);
+  written += 1;
+} catch (e: any) {
+  console.error("prerender: coquilles compte/admin:", e?.message || e);
+}
