@@ -69,6 +69,8 @@ export interface Product {
   /** ISO de création (fourni par productApi.list via select("*")).
    *  Optionnel/additif : présent au runtime, utilisé par le tri Newest. */
   createdAt?: string;
+  /** Slug SEO stable (trigger DB 20261030, repli id). */
+  slug?: string;
 }
 
 export interface CartItem {

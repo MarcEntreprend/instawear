@@ -4,6 +4,7 @@ import { Heart, Star, Flame, Check, ShoppingBag } from "lucide-react";
 import DealCountdown from "./DealCountdown";
 import type { Product } from "../types";
 import { variantImageForColor, filterAddCandidate } from "../utils/colors";
+import { productPagePath } from "../utils/productSlugs";
 import {
   useProductAvailability,
   getVariantAvailability,
@@ -131,7 +132,7 @@ export default function StoreProductCard({
     >
       <div className="relative p-2 pb-0">
         <a
-          href={`/produit/${product.id}`}
+          href={productPagePath(product)}
           onClick={(e) => {
             e.preventDefault();
             onSelectProduct(product);
@@ -223,7 +224,7 @@ export default function StoreProductCard({
           title={product.title}
         >
           <a
-            href={`/produit/${product.id}`}
+            href={productPagePath(product)}
             onClick={(e) => {
               e.preventDefault();
               onSelectProduct(product);

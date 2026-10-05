@@ -37,19 +37,22 @@ if (url && anon) {
   const supabase = createClient(url, anon);
   const { data, error } = await supabase
     .from("products")
-    .select("id, title")
+    .select("id, title, slug")
     .eq("is_active", true);
   if (error) {
     console.error("sitemap: products query failed:", error.message);
   } else {
+    // URL canonique slug (repli id si migration pas encore appliquée).
+    const pagePath = (p: any) => `/produit/${p.slug || p.id}`;
     productUrls = (data ?? []).map((p: any) => ({
-      loc: `${SITE}/produit/${p.id}`,
+      loc: `${SITE}${pagePath(p)}`,
       changefreq: "weekly",
       priority: "0.8",
     }));
     productTitles = (data ?? []).map((p: any) => ({
       id: String(p.id),
       title: String(p.title || p.id).replace(/[\[\]]/g, ""),
+      slug: typeof p.slug === "string" && p.slug ? String(p.slug) : null,
     }));
   }
 } else {
@@ -82,7 +85,10 @@ if (existsSync(LLMS_PATH)) {
   if (si !== -1 && ei !== -1 && ei > si) {
     const lines =
       productTitles.length > 0
-        ? productTitles.map((p) => `- [${p.title}](${SITE}/produit/${p.id})`)
+        ? productTitles.map(
+            (p: any) =>
+              `- [${p.title}](${SITE}/produit/${p.slug || p.id})`,
+          )
         : ["(catalogue indisponible au moment du build — voir sitemap.xml)"];
     const block =
       `${START}\n` +
