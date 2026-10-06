@@ -16,6 +16,8 @@ export interface AdminProductVariant {
 export interface AdminProduct {
   id: string;
   isActive: boolean;
+  /** Slug SEO stable (trigger DB, repli id). */
+  slug?: string | null;
   title: string;
   brand: string;
   description: string;
