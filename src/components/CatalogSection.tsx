@@ -1221,7 +1221,11 @@ export default function CatalogSection({
                     onClick={() => setSelectedCategory(null)}
                     style={{ cursor: "pointer" }}
                   >
-                    {selectedCategory} <X size={12} />
+                    {refLabel(
+                      taxonomy.filter((t) => t.type === "category"),
+                      selectedCategory,
+                    )}{" "}
+                    <X size={12} />
                   </span>
                 )}
                 {selectedEventType && (
@@ -1231,7 +1235,11 @@ export default function CatalogSection({
                     onClick={() => setSelectedEventType(null)}
                     style={{ cursor: "pointer" }}
                   >
-                    {selectedEventType} <X size={12} />
+                    {refLabel(
+                      taxonomy.filter((t) => t.type === "event_type"),
+                      selectedEventType,
+                    )}{" "}
+                    <X size={12} />
                   </span>
                 )}
                 {filters.size && (
@@ -1291,6 +1299,24 @@ export default function CatalogSection({
                     style={{ cursor: "pointer" }}
                   >
                     {materialLabel(filters.material)} <X size={12} />
+                  </span>
+                )}
+                {(filters.priceMin !== 0 || filters.priceMax !== 200) && (
+                  <span
+                    className="chip"
+                    data-active="true"
+                    onClick={() =>
+                      setFilters((f) => ({
+                        ...f,
+                        priceMin: 0,
+                        priceMax: 200,
+                      }))
+                    }
+                    style={{ cursor: "pointer" }}
+                  >
+                    {currencySymbol}
+                    {filters.priceMin} – {currencySymbol}
+                    {filters.priceMax} <X size={12} />
                   </span>
                 )}
                 {filters.inStockOnly && (
