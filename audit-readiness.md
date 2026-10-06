@@ -1,3 +1,10 @@
+# TODO
+
+## qd on fait login via google
+
+- true logo
+- it says `Prosseguir para hkbybsycaylobvbnnwak.supabase.co` instead of `Prosseguir para https://instawear.vercel.app`. why ?
+
 # Audit Frontstore — InstaWear_gem — Launch Readiness 12/09/2026 (CLOS)
 
 ### Volontairement abandonné (choix produit, ne plus tracker)
