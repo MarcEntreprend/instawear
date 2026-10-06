@@ -22,7 +22,7 @@ export default function VariablesModal({ open, onClose }: VariablesModalProps) {
     { var: "{{discount}}", desc: "Pourcentage de réduction (ex. 20)" },
     {
       var: "{{cta_link}}",
-      desc: "Lien du bouton (défini dans Infos de la campagne : accueil, suivi, produit /produit/<id>, collection /recherche?q=<mot>)",
+      desc: "Lien du bouton (défini dans Infos de la campagne : accueil, suivi, produit /item/<slug>, collection /recherche?q=<mot>)",
     },
     {
       var: "{{track_link}}",

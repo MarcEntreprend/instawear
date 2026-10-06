@@ -383,7 +383,7 @@ export default function CatalogSection({
     }));
   }, [searchTerm, selectedCategory, selectedEventType]);
   useEffect(() => {
-    // Ne jamais écraser une deep-route (/produit/:id, /contact, /faq…) :
+    // Ne jamais écraser une deep-route (/item/:slug-ou-id, /contact, /faq…) :
     // la synchro d'URL des filtres n'a de sens que sur l'accueil. Sans ce
     // garde, chaque chargement direct d'une page profonde était rabattu sur "/".
     if (window.location.pathname !== "/") return;

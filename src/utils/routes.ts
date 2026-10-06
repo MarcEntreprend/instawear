@@ -13,19 +13,3 @@ export function isAdminPath(path: string): boolean {
 export function isAccountPath(path: string): boolean {
   return path === "/account" || path === "/compte";
 }
-
-/**
- * URL fiche produit, variante optionnelle (?color=&size=, lus au boot).
- * Pure et testée (lien "nouvel onglet" du compte, ancres storefront).
- */
-export function productUrl(
-  productId: string,
-  color?: string | null,
-  size?: string | null,
-): string {
-  const params = new URLSearchParams();
-  if (color) params.set("color", color);
-  if (size) params.set("size", size);
-  const qs = params.toString();
-  return `/produit/${productId}${qs ? `?${qs}` : ""}`;
-}

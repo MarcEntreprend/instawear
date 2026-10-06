@@ -1,5 +1,5 @@
 // scripts/generate-sitemap.ts
-// Régénère public/sitemap.xml : URLs statiques + /produit/:id actifs depuis Supabase.
+// Régénère public/sitemap.xml : URLs statiques + /item/:slug actifs depuis Supabase.
 // Met aussi à jour le bloc <!-- PRODUCTS --> de public/llms.txt (catalogue agents).
 // Run auto via "prebuild" (npm run build) + manuel : npm run sitemap
 // (lit .env : VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY ; sans eux : statiques uniquement, exit 0)
@@ -42,8 +42,9 @@ if (url && anon) {
   if (error) {
     console.error("sitemap: products query failed:", error.message);
   } else {
-    // URL canonique slug (repli id si migration pas encore appliquée).
-    const pagePath = (p: any) => `/produit/${p.slug || p.id}`;
+    // URL canonique /item/ (repli id si migration pas encore appliquée).
+    // /produit/ reste servi (alias legacy, fichiers statiques + lookup).
+    const pagePath = (p: any) => `/item/${p.slug || p.id}`;
     productUrls = (data ?? []).map((p: any) => ({
       loc: `${SITE}${pagePath(p)}`,
       changefreq: "weekly",
@@ -119,7 +120,7 @@ if (existsSync(LLMS_PATH)) {
       productTitles.length > 0
         ? productTitles.map(
             (p: any) =>
-              `- [${p.title}](${SITE}/produit/${p.slug || p.id})`,
+              `- [${p.title}](${SITE}/item/${p.slug || p.id})`,
           )
         : ["(catalogue indisponible au moment du build — voir sitemap.xml)"];
     const block =

@@ -5,6 +5,7 @@ import {
   slugifyTitle,
   findProductBySlugOrId,
   productPagePath,
+  matchProductRoute,
 } from "../src/utils/productSlugs.ts";
 
 test("slugifyTitle : minuscules, accents, tirets, bornes", () => {
@@ -30,8 +31,21 @@ test("findProductBySlugOrId : slug d'abord, id legacy OK", () => {
   assert.equal(findProductBySlugOrId(ps, null), undefined);
 });
 
-test("productPagePath : slug canonique, repli id", () => {
-  assert.equal(productPagePath({ id: "u", slug: "tee-cook" }), "/produit/tee-cook");
-  assert.equal(productPagePath({ id: "u", slug: null }), "/produit/u");
-  assert.equal(productPagePath({ id: "u" }), "/produit/u");
+test("productPagePath : /item/ canonique, variante, repli id", () => {
+  assert.equal(productPagePath({ id: "u", slug: "tee-cook" }), "/item/tee-cook");
+  assert.equal(productPagePath({ id: "u", slug: null }), "/item/u");
+  assert.equal(productPagePath({ id: "u" }), "/item/u");
+  assert.equal(
+    productPagePath({ id: "u", slug: "tee" }, "#9b9b9b", "M"),
+    "/item/tee?color=%239b9b9b&size=M",
+  );
+});
+
+test("matchProductRoute : /item/ et alias /produit/, sinon null", () => {
+  assert.equal(matchProductRoute("/item/tee-cook"), "tee-cook");
+  assert.equal(matchProductRoute("/produit/tee-cook"), "tee-cook");
+  assert.equal(matchProductRoute("/produit/uuid-1"), "uuid-1");
+  assert.equal(matchProductRoute("/"), null);
+  assert.equal(matchProductRoute("/item/"), null);
+  assert.equal(matchProductRoute("/faq"), null);
 });

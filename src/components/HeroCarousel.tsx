@@ -127,7 +127,7 @@ interface HeroCarouselProps {
   onBannerAction: (banner: HeroBanner) => void;
   /** Clic tuile/link (kind grid/image) : lien interne validé par App. */
   onBannerLink?: (link: string) => void;
-  /** Suspendu (cold deep-route /produit/:id) : squelette au même gabarit,
+  /** Suspendu (cold deep-route /item/:slug-ou-id) : squelette au même gabarit,
    *  AUCUNE <img> — ni bannières, ni slide d'amorçage lead. Sans ça, le hero
    *  1536px part derrière l'overlay produit et vole le LCP (LCP ignore
    *  l'occlusion), avec ~1,4 s de retard de découverte. Le squelette garde

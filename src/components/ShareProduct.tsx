@@ -44,8 +44,8 @@ export default function ShareProduct({
   const [instaHint, setInstaHint] = useState(false);
   const url =
     typeof window !== "undefined"
-      ? `${window.location.origin}/produit/${productId}`
-      : `/produit/${productId}`;
+      ? `${window.location.origin}/item/${productId}`
+      : `/item/${productId}`;
   const text = title || "InstaWear";
 
   const flashCopied = () => {

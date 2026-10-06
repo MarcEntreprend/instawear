@@ -1,7 +1,7 @@
 // src/components/ProductUnavailable.tsx
 // Message uniforme "produit indisponible" (Q2.2) : remplace les strings
 // ad-hoc dispersées (carte, panier, toasts). Utilisé par la fiche produit
-// (inactif), les deep-links invalides (/produit/:bad-id) et le retry failed.
+// (inactif), les deep-links invalides (/item/:mauvaise-cle) et le retry failed.
 import { PackageX, RotateCcw, Home } from "lucide-react";
 
 export type UnavailableReason = "deleted" | "inactive" | "load-error";
