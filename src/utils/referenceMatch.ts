@@ -61,3 +61,54 @@ export function orderRefValues(
         counts.get(b)! - counts.get(a)!,
     );
 }
+
+/**
+ * Top-N pour nav/grilles (même source que les facettes : zéro liste en dur).
+ * Tri : popularité d'abord (le catalogue pilote), sort_order ref en égalité,
+ * valeur en dernier (stabilité). Zéro produit -> liste vide (l'appelant
+ * utilise son repli statique en attendant le chargement).
+ */
+export function topRefValues(
+  entries: RefEntry[],
+  counts: Map<string, number>,
+  limit: number,
+): string[] {
+  // Sans référentiel (chargement), on ne devine rien : l'appelant garde son
+  // repli statique plutôt qu'une liste brute sans libellés.
+  if (entries.length === 0) return [];
+  const order = new Map(entries.map((e, i) => [e.value, e.sortOrder ?? i]));
+  return [...counts.keys()]
+    .filter((v) => counts.get(v)! > 0)
+    .sort(
+      (a, b) =>
+        counts.get(b)! - counts.get(a)! ||
+        (order.get(a) ?? 9999) - (order.get(b) ?? 9999) ||
+        (a < b ? -1 : 1),
+    )
+    .slice(0, Math.max(0, limit));
+}
+
+/** Compte les produits actifs par valeur d'un champ (category/eventType). */
+export function countByField(
+  products: { category?: string | null; eventType?: string | null; isActive?: boolean }[],
+  field: "category" | "eventType",
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const p of products) {
+    if (p.isActive === false) continue;
+    const v = field === "category" ? p.category : p.eventType;
+    if (v) counts.set(v, (counts.get(v) || 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * Libellé storefront depuis un libellé ref (retire les emojis de tête :
+ * la nav utilise des icônes Lucide, pas d'emoji inline).
+ */
+export function cleanTaxLabel(label: string | null | undefined): string {
+  return String(label || "")
+    .replace(/^(\p{Extended_Pictographic}\uFE0F?\s*)+/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}

@@ -1,5 +1,5 @@
 // src/data/categories.ts — V2 port (for Header suggestions)
-import { Shirt, CloudSnow, Watch, Coffee, PartyPopper, Trophy, Gift, Ghost, Sun, type LucideIcon } from "lucide-react";
+import { Shirt, CloudSnow, Watch, Coffee, PartyPopper, Trophy, Gift, Ghost, Sun, Tag, CalendarDays, type LucideIcon } from "lucide-react";
 export interface CategoryOption { value: string; label: string; icon: LucideIcon; }
 export const PRODUCT_CATEGORIES: CategoryOption[] = [
   { value: "tshirt", label: "T-Shirts", icon: Shirt },
@@ -39,6 +39,29 @@ export function resolveLegacySlug(
 ): string | null {
   if (!value) return null;
   return aliases[value] ?? value;
+}
+
+/**
+ * Icônes par valeur de taxonomie (présentation uniquement : ne pilote
+ * jamais le filtrage). Repli générique par type pour les valeurs futures.
+ */
+const TAXONOMY_ICONS: Record<string, LucideIcon> = {
+  tshirt: Shirt,
+  hoodie: CloudSnow,
+  accessory: Watch,
+  mug: Coffee,
+  musicfestival: PartyPopper,
+  sport: Trophy,
+  birthday: Gift,
+  halloween: Ghost,
+  summer: Sun,
+};
+
+export function taxonomyIcon(
+  type: "category" | "event_type",
+  value: string,
+): LucideIcon {
+  return TAXONOMY_ICONS[value] ?? (type === "category" ? Tag : CalendarDays);
 }
 export const SORT_OPTIONS = [
   { value: "popular", label: "Popularity" },

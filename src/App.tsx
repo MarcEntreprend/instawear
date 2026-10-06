@@ -2210,6 +2210,7 @@ export default function App() {
         onOpenPromotions={openPromotionsPage}
         onManageCookies={cookieConsent.resetConsent}
         onOpenCatalog={() => scrollToSection("catalog")}
+        products={products}
       />
 
       {showAuthModal && (

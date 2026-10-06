@@ -5,6 +5,9 @@ import {
   detectReference,
   refLabel,
   orderRefValues,
+  topRefValues,
+  countByField,
+  cleanTaxLabel,
 } from "../src/utils/referenceMatch.ts";
 
 const CATS = [
@@ -39,4 +42,35 @@ test("orderRefValues : sort_order ref puis popularité", () => {
   ]);
   assert.deepEqual(orderRefValues(CATS, counts), ["tshirt", "mug"]);
   assert.deepEqual(orderRefValues(CATS, new Map()), []);
+});
+
+test("topRefValues : popularité d'abord, stable, borné", () => {
+  const counts = new Map([
+    ["mug", 9],
+    ["tshirt", 2],
+    ["hoodie", 2],
+  ]);
+  assert.deepEqual(topRefValues(CATS, counts, 2), ["mug", "tshirt"]);
+  assert.deepEqual(topRefValues(CATS, counts, 0), []);
+  assert.deepEqual(topRefValues([], counts, 5), []);
+});
+
+test("countByField : actifs seulement", () => {
+  const ps = [
+    { category: "tshirt", isActive: true },
+    { category: "tshirt", isActive: false },
+    { category: "mug" },
+    { category: null },
+  ];
+  assert.deepEqual(
+    [...countByField(ps, "category").entries()],
+    [["tshirt", 1], ["mug", 1]],
+  );
+});
+
+test("cleanTaxLabel : emojis de tête retirés", () => {
+  assert.equal(cleanTaxLabel("🏆 Sport"), "Sport");
+  assert.equal(cleanTaxLabel("🎵 Music Festival"), "Music Festival");
+  assert.equal(cleanTaxLabel("T-Shirt"), "T-Shirt");
+  assert.equal(cleanTaxLabel(null), "");
 });

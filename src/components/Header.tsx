@@ -26,7 +26,8 @@ import type { CartItem, NavLink, Product } from "../types";
 import { CART_PLUS_ICON } from "../constants/assets";
 import { useTheme } from "../hooks/useTheme";
 import { useCurrency } from "../hooks/useCurrency";
-import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { EVENT_TYPES, PRODUCT_CATEGORIES, taxonomyIcon } from "../data/categories";
+import { useTopTaxonomy } from "../hooks/useTaxonomy";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
 import {
@@ -338,6 +339,23 @@ export default function Header({
   const theme = isControlledDark ? (darkMode ? "dark" : "light") : themeHook;
   const toggleTheme = isControlledDark ? onToggleDarkMode! : toggleHook;
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
+  // Liens événements pilotés par le catalogue (top refs + comptes live),
+  // repli statique le temps du chargement. Même source que les facettes :
+  // zéro liste en dur à maintenir ici.
+  const topNavEvents = useTopTaxonomy(products, "event_type", 5);
+  const navLinks: CategoryLink[] = useMemo(() => {
+    if (topNavEvents.length === 0) return CATEGORY_LINKS;
+    return [
+      ...topNavEvents.map((e) => ({
+        label: e.label,
+        section: "catalog" as const,
+        eventType: e.value,
+        category: null as string | null,
+        icon: taxonomyIcon("event_type", e.value),
+      })),
+      CATEGORY_LINKS[CATEGORY_LINKS.length - 1],
+    ];
+  }, [topNavEvents]);
   const desktopAccountLabel = isAdminLoggedIn
     ? "Admin"
     : isUserLoggedIn
@@ -782,11 +800,11 @@ export default function Header({
           >
             <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full h-full flex items-center">
               <div className="flex items-center gap-2 min-w-max">
-                {CATEGORY_LINKS.map((link) => {
+                {navLinks.map((link) => {
                   const Icon = link.icon;
                   return (
                     <button
-                      key={link.label}
+                      key={link.eventType ?? link.label}
                       onClick={() => handleNavClick(link)}
                       className="chip"
                     >
@@ -938,11 +956,11 @@ export default function Header({
               <div className="pt-5">
                 <span className="eyebrow">Events</span>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {CATEGORY_LINKS.map((link) => {
+                  {navLinks.map((link) => {
                     const Icon = link.icon;
                     return (
                       <button
-                        key={link.label}
+                        key={link.eventType ?? link.label}
                         onClick={() => handleNavClick(link)}
                         className="chip"
                       >
