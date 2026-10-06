@@ -222,7 +222,7 @@ export default function Footer({
             <li>
               <button
                 onClick={() => {
-                  onSelectEventType("festival");
+                  onSelectEventType("musicfestival");
                   onSelectCategory?.(null);
                   onNavigate("store");
                   setTimeout(() => onOpenCatalog?.(), 100);

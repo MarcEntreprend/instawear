@@ -94,7 +94,7 @@ const CATEGORY_LINKS: CategoryLink[] = [
   {
     label: "Festivals",
     section: "catalog",
-    eventType: "festival",
+    eventType: "musicfestival",
     category: null,
     icon: PartyPopper,
   },
@@ -106,9 +106,10 @@ const CATEGORY_LINKS: CategoryLink[] = [
     icon: Trophy,
   },
   {
+    // Les concerts vivent dans musicfestival (même cible que Festivals).
     label: "Concerts",
     section: "catalog",
-    eventType: "concert",
+    eventType: "musicfestival",
     category: null,
     icon: Music,
   },
@@ -122,7 +123,7 @@ const CATEGORY_LINKS: CategoryLink[] = [
   {
     label: "Birthdays",
     section: "catalog",
-    eventType: "anniversaire",
+    eventType: "birthday",
     category: null,
     icon: Gift,
   },

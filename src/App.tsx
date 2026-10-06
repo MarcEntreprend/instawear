@@ -1962,6 +1962,7 @@ export default function App() {
 
           <CatalogSection
             filteredProducts={filteredProducts}
+            allProducts={products}
             loadingProducts={loadingProducts}
             networkError={networkError}
             favorites={favorites}

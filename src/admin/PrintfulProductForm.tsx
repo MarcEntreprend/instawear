@@ -5,6 +5,7 @@ import { podApi } from "../api/supabaseApi";
 import { AdminProduct } from "./adminTypes";
 import AdminImageInput from "./ui/AdminImageInput";
 import { useReferenceLists, EMPTY_MATERIAL_LABEL } from "./adminHooks";
+import { detectReference } from "../utils/referenceMatch";
 // Styles formulaire canoniques (Vague C3 réduit : fini la copie locale).
 // thStyle/tdStyle RESTENT locaux : grille dense des variantes, on ne touche
 // pas aux variants (contrainte C3 réduit).
@@ -63,9 +64,12 @@ export default function PrintfulProductForm({
 
   // Champs du formulaire
   const [price, setPrice] = useState<number>(29.99);
-  const [category, setCategory] = useState<string>("tshirt");
-  const [eventType, setEventType] = useState<string>("culture");
-  const [style, setStyle] = useState<string>("street");
+  // Pré-remplissage auto (mots-clés reference_lists) : l'admin valide.
+  // Replis honnêtes : catégorie "other", event "casual" (défaut by design),
+  // style "" (non renseigné, exclu des facettes). Jamais "culture" (fantôme).
+  const [category, setCategory] = useState<string>("other");
+  const [eventType, setEventType] = useState<string>("casual");
+  const [style, setStyle] = useState<string>("");
   // Matière : slug canonique (auto-détecté depuis les variants catalogue,
   // fallback mots-clés) ; "" = non renseigné. L'admin valide toujours.
   const [material, setMaterial] = useState<string>("");
@@ -139,49 +143,24 @@ export default function PrintfulProductForm({
           const currency = first.currency || data.currency || "USD";
           setPfCurrency(currency);
 
-          // Détection automatique catégorie / eventType / style
+          // Détection automatique catégorie / eventType / style (même
+          // sémantique que detectMaterial : premier match, repli honnête).
           const productName = (data.name || "").toLowerCase();
           const productType = (data.type || "").toLowerCase();
           const combined = `${productName} ${productType}`;
 
           const categories = getByType("category");
-          let matchedCat = "other";
-          for (const cat of categories) {
-            for (const kw of cat.keywords) {
-              if (combined.includes(kw.toLowerCase())) {
-                matchedCat = cat.value;
-                break;
-              }
-            }
-            if (matchedCat !== "other") break;
-          }
-          setCategory(matchedCat);
+          setCategory(
+            detectReference(combined, categories) || "other",
+          );
 
           const eventTypes = getByType("event_type");
-          let matchedEvt = "";
-          for (const evt of eventTypes) {
-            for (const kw of evt.keywords) {
-              if (combined.includes(kw.toLowerCase())) {
-                matchedEvt = evt.value;
-                break;
-              }
-            }
-            if (matchedEvt) break;
-          }
-          if (matchedEvt) setEventType(matchedEvt);
+          setEventType(
+            detectReference(combined, eventTypes) || "casual",
+          );
 
           const styles = getByType("style");
-          let matchedSty = "";
-          for (const sty of styles) {
-            for (const kw of sty.keywords) {
-              if (combined.includes(kw.toLowerCase())) {
-                matchedSty = sty.value;
-                break;
-              }
-            }
-            if (matchedSty) break;
-          }
-          if (matchedSty) setStyle(matchedSty);
+          setStyle(detectReference(combined, styles));
 
           // Matière : source primaire = variants catalogue (données serveur
           // déjà classifiées en slug), fallback = mots-clés nom/type comme
@@ -1242,6 +1221,7 @@ export default function PrintfulProductForm({
               onChange={(e) => setStyle(e.target.value)}
               style={inputStyle}
             >
+              <option value="">— Non renseigné —</option>
               {getByType("style").map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}

@@ -1,20 +1,45 @@
 // src/data/categories.ts — V2 port (for Header suggestions)
-import { Shirt, CloudSnow, Watch, Coffee, PartyPopper, Trophy, Music, Snowflake, Gift, type LucideIcon } from "lucide-react";
+import { Shirt, CloudSnow, Watch, Coffee, PartyPopper, Trophy, Gift, Ghost, Sun, type LucideIcon } from "lucide-react";
 export interface CategoryOption { value: string; label: string; icon: LucideIcon; }
 export const PRODUCT_CATEGORIES: CategoryOption[] = [
-  { value: "t-shirts", label: "T-Shirts", icon: Shirt },
-  { value: "hoodies", label: "Sweats & Hoodies", icon: CloudSnow },
-  { value: "accessories", label: "Accessories", icon: Watch },
-  { value: "mugs", label: "Mugs", icon: Coffee },
+  { value: "tshirt", label: "T-Shirts", icon: Shirt },
+  { value: "hoodie", label: "Sweats & Hoodies", icon: CloudSnow },
+  { value: "accessory", label: "Accessories", icon: Watch },
+  { value: "mug", label: "Mugs", icon: Coffee },
 ];
 export interface EventTypeOption { value: string; label: string; icon: LucideIcon; }
+export interface EventTypeOption { value: string; label: string; icon: LucideIcon; }
+// Sous-ensemble curé pour la nav/éditorial. VALEURS = slugs reference_lists
+// (le filtre est exact : toute valeur inventée donne un résultat vide).
+// Garde : tests/taxonomy-guard.test.ts (valeurs ⊆ seed migration).
 export const EVENT_TYPES: EventTypeOption[] = [
-  { value: "festival", label: "Festival", icon: PartyPopper },
-  { value: "sport", label: "Sport", icon: Trophy },
-  { value: "concert", label: "Concert", icon: Music },
-  { value: "saisonnier", label: "Seasonal", icon: Snowflake },
-  { value: "anniversaire", label: "Birthday", icon: Gift },
+  { value: "musicfestival", label: "Music Festivals", icon: PartyPopper },
+  { value: "sport", label: "Sports", icon: Trophy },
+  { value: "birthday", label: "Birthdays", icon: Gift },
+  { value: "halloween", label: "Halloween", icon: Ghost },
+  { value: "summer", label: "Summer", icon: Sun },
 ];
+// Alias d'anciennes URLs (?event=festival, ?cat=t-shirts) : résolus vers les
+// slugs réels au lieu d'un vide. Inconnu -> inchangé (vide assumé).
+export const LEGACY_EVENT_ALIAS: Record<string, string> = {
+  festival: "musicfestival",
+  concert: "musicfestival",
+  anniversaire: "birthday",
+};
+export const LEGACY_CATEGORY_ALIAS: Record<string, string> = {
+  "t-shirts": "tshirt",
+  hoodies: "hoodie",
+  accessories: "accessory",
+  mugs: "mug",
+};
+/** Résout un slug legacy vers le slug réel (ou la valeur telle quelle). */
+export function resolveLegacySlug(
+  value: string | null,
+  aliases: Record<string, string>,
+): string | null {
+  if (!value) return null;
+  return aliases[value] ?? value;
+}
 export const SORT_OPTIONS = [
   { value: "popular", label: "Popularity" },
   { value: "new", label: "Newest" },

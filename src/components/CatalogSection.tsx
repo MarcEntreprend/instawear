@@ -18,11 +18,17 @@ import ProductCardSkeleton from "./skeletons/ProductCardSkeleton";
 import type { Product } from "../types";
 import { PLACEHOLDER_IMG, NO_INTERNET } from "../constants/assets";
 import {
-  EVENT_TYPES,
-  PRODUCT_CATEGORIES,
   SORT_OPTIONS,
   type SortValue,
+  LEGACY_CATEGORY_ALIAS,
+  LEGACY_EVENT_ALIAS,
+  resolveLegacySlug,
 } from "../data/categories";
+import { useTaxonomy } from "../hooks/useTaxonomy";
+import {
+  refLabel,
+  orderRefValues,
+} from "../utils/referenceMatch";
 import {
   buildMaterialFacets,
   materialLabel,
@@ -59,6 +65,8 @@ interface CatalogSectionProps {
   onRetry?: () => void;
   /** Retour à l'accueil. Bouton "Back to home" du bloc offline. */
   onNavigateHome?: () => void;
+  /** Catalogue complet (facettes catégorie/event : valeurs présentes). */
+  allProducts?: Product[];
 }
 const PAGE_SIZE = 12;
 type FilterState = {
@@ -95,8 +103,13 @@ function parseFiltersFromSearch(
   const params = new URLSearchParams(search);
   const filters: FilterState = {
     search: params.get("q") ?? "",
-    eventType: params.get("event") ?? fallbackEventType,
-    category: params.get("cat") ?? fallbackCategory,
+    // Alias legacy (?event=festival, ?cat=t-shirts) résolus vers les slugs.
+    eventType:
+      resolveLegacySlug(params.get("event"), LEGACY_EVENT_ALIAS) ??
+      fallbackEventType,
+    category:
+      resolveLegacySlug(params.get("cat"), LEGACY_CATEGORY_ALIAS) ??
+      fallbackCategory,
     style: params.get("style") ?? null,
     // Compat liens anciens : libellé FR legacy -> slug (ex. "Coton bio").
     material: normalizeMaterialKey(params.get("material")) ?? params.get("material") ?? null,
@@ -333,10 +346,51 @@ export default function CatalogSection({
   onClearFavorites,
   onRetry,
   onNavigateHome,
+  allProducts,
 }: CatalogSectionProps) {
   // Hors-ligne : navigateur (events online/offline) + erreur fetch produits.
   const isOffline = useOffline(networkError);
   const isMobileView = useIsMobile();
+  // Facettes catégorie/événement pilotées par reference_lists (labels admin,
+  // slugs réels) + comptes live. Fini les listes en dur désynchronisées.
+  const taxonomy = useTaxonomy();
+  const facetBase = useMemo(() => {
+    const src = allProducts ?? filteredProducts;
+    return src.filter((p) => p.isActive !== false);
+  }, [allProducts, filteredProducts]);
+  const categoryFacets = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of facetBase) {
+      if (p.category) counts.set(p.category, (counts.get(p.category) || 0) + 1);
+    }
+    const refs = taxonomy.filter((t) => t.type === "category");
+    const values = orderRefValues(refs, counts);
+    if (selectedCategory && !values.includes(selectedCategory)) {
+      values.unshift(selectedCategory);
+    }
+    return values.map((v) => ({
+      value: v,
+      label: refLabel(refs, v),
+      count: counts.get(v) || 0,
+    }));
+  }, [taxonomy, facetBase, selectedCategory]);
+  const eventFacets = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of facetBase) {
+      if (p.eventType)
+        counts.set(p.eventType, (counts.get(p.eventType) || 0) + 1);
+    }
+    const refs = taxonomy.filter((t) => t.type === "event_type");
+    const values = orderRefValues(refs, counts);
+    if (selectedEventType && !values.includes(selectedEventType)) {
+      values.unshift(selectedEventType);
+    }
+    return values.map((v) => ({
+      value: v,
+      label: refLabel(refs, v),
+      count: counts.get(v) || 0,
+    }));
+  }, [taxonomy, facetBase, selectedEventType]);
   // Barre d'outils : en mobile, sticky TOUJOURS visible sous le header,
   // confinée à la section (en-flux en haut, flottante dedans, libérée
   // après). Pas de masquage au scroll (le timide flickerait ici).
@@ -771,7 +825,7 @@ export default function CatalogSection({
             </div>
             <FilterGroup title="Event">
               <div className="flex flex-col gap-0.5">
-                {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+                {eventFacets.map(({ value, label, count }) => (
                   <label
                     key={value}
                     className="flex items-center gap-2.5 py-1.5 cursor-pointer"
@@ -786,12 +840,17 @@ export default function CatalogSection({
                       }
                       className="w-4 h-4 accent-(--color-accent)"
                     />
-                    <Icon size={14} style={{ color: "var(--color-ink3)" }} />
                     <span
-                      className="text-sm"
+                      className="text-sm flex-1"
                       style={{ color: "var(--color-ink2)" }}
                     >
                       {label}
+                    </span>
+                    <span
+                      className="text-[11px] tabular-nums"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {count}
                     </span>
                   </label>
                 ))}
@@ -799,21 +858,14 @@ export default function CatalogSection({
             </FilterGroup>
             <FilterGroup title="Category">
               <div className="flex flex-col gap-0.5">
-                {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
+                {categoryFacets.map(({ value, label, count }) => (
                   <label
                     key={value}
                     className="flex items-center gap-2.5 py-1.5 cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={
-                        selectedCategory === value ||
-                        selectedCategory ===
-                          value
-                            .replace("t-shirts", "tshirt")
-                            .replace("hoodies", "hoodie")
-                            .replace("accessories", "accessory")
-                      }
+                      checked={selectedCategory === value}
                       onChange={() =>
                         setSelectedCategory(
                           selectedCategory === value ? null : value,
@@ -821,12 +873,17 @@ export default function CatalogSection({
                       }
                       className="w-4 h-4 accent-(--color-accent)"
                     />
-                    <Icon size={14} style={{ color: "var(--color-ink3)" }} />
                     <span
-                      className="text-sm"
+                      className="text-sm flex-1"
                       style={{ color: "var(--color-ink2)" }}
                     >
                       {label}
+                    </span>
+                    <span
+                      className="text-[11px] tabular-nums"
+                      style={{ color: "var(--color-ink4)" }}
+                    >
+                      {count}
                     </span>
                   </label>
                 ))}
@@ -1451,7 +1508,7 @@ export default function CatalogSection({
 
                   <FilterGroup title="Event">
                     <div className="flex flex-col gap-0.5">
-                      {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+                      {eventFacets.map(({ value, label, count }) => (
                         <label
                           key={value}
                           className="flex items-center gap-2.5 py-1.5 cursor-pointer"
@@ -1466,15 +1523,17 @@ export default function CatalogSection({
                             }
                             className="w-4 h-4 accent-(--color-accent)"
                           />
-                          <Icon
-                            size={14}
-                            style={{ color: "var(--color-ink3)" }}
-                          />
                           <span
-                            className="text-sm"
+                            className="text-sm flex-1"
                             style={{ color: "var(--color-ink2)" }}
                           >
                             {label}
+                          </span>
+                          <span
+                            className="text-[11px] tabular-nums"
+                            style={{ color: "var(--color-ink4)" }}
+                          >
+                            {count}
                           </span>
                         </label>
                       ))}
@@ -1483,42 +1542,35 @@ export default function CatalogSection({
 
                   <FilterGroup title="Category">
                     <div className="flex flex-col gap-0.5">
-                      {PRODUCT_CATEGORIES.map(
-                        ({ value, label, icon: Icon }) => (
-                          <label
-                            key={value}
-                            className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                      {categoryFacets.map(({ value, label, count }) => (
+                        <label
+                          key={value}
+                          className="flex items-center gap-2.5 py-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategory === value}
+                            onChange={() =>
+                              setSelectedCategory(
+                                selectedCategory === value ? null : value,
+                              )
+                            }
+                            className="w-4 h-4 accent-(--color-accent)"
+                          />
+                          <span
+                            className="text-sm flex-1"
+                            style={{ color: "var(--color-ink2)" }}
                           >
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedCategory === value ||
-                                selectedCategory ===
-                                  value
-                                    .replace("t-shirts", "tshirt")
-                                    .replace("hoodies", "hoodie")
-                                    .replace("accessories", "accessory")
-                              }
-                              onChange={() =>
-                                setSelectedCategory(
-                                  selectedCategory === value ? null : value,
-                                )
-                              }
-                              className="w-4 h-4 accent-(--color-accent)"
-                            />
-                            <Icon
-                              size={14}
-                              style={{ color: "var(--color-ink3)" }}
-                            />
-                            <span
-                              className="text-sm"
-                              style={{ color: "var(--color-ink2)" }}
-                            >
-                              {label}
-                            </span>
-                          </label>
-                        ),
-                      )}
+                            {label}
+                          </span>
+                          <span
+                            className="text-[11px] tabular-nums"
+                            style={{ color: "var(--color-ink4)" }}
+                          >
+                            {count}
+                          </span>
+                        </label>
+                      ))}
                     </div>
                   </FilterGroup>
 
