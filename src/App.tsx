@@ -1311,6 +1311,7 @@ export default function App() {
   const scrollToSection = (
     section:
       | "catalog"
+      | "new-arrivals"
       | "about"
       | "testimonials"
       | "faq"
@@ -1319,14 +1320,23 @@ export default function App() {
   ) => {
     const idMap: Record<string, string> = {
       catalog: "section-catalog",
+      "new-arrivals": "section-new-arrivals",
       about: "about",
       testimonials: "testimonials",
       faq: "section-faq",
       filters: "section-catalog",
     };
-    // Le catalogue a son helper unifié (content-visibility + offset exact).
-    if (section === "catalog" || section === "filters") {
-      scrollToCatalogTop();
+    // Le catalogue (et new arrivals, même section cv-auto) a son helper
+    // unifié (content-visibility + offset exact).
+    if (
+      section === "catalog" ||
+      section === "filters" ||
+      section === "new-arrivals"
+    ) {
+      scrollToCatalogTop(
+        true,
+        section === "new-arrivals" ? "section-new-arrivals" : "section-catalog",
+      );
       return;
     }
     const id = idMap[section];

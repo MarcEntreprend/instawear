@@ -61,6 +61,7 @@ interface HeaderProps {
   onScrollToSection: (
     section:
       | "catalog"
+      | "new-arrivals"
       | "about"
       | "testimonials"
       | "faq"
@@ -131,7 +132,7 @@ const CATEGORY_LINKS: CategoryLink[] = [
   },
   {
     label: "New Arrivals",
-    section: "catalog",
+    section: "new-arrivals",
     eventType: null,
     category: null,
     icon: Sparkles,

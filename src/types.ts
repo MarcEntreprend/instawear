@@ -7,7 +7,7 @@
 
 export interface NavLink {
   label: string;
-  section: "catalog" | "about" | "testimonials" | "faq" | "contact";
+  section: "catalog" | "new-arrivals" | "about" | "testimonials" | "faq" | "contact";
   eventType: string | null;
   category: string | null;
 }

@@ -153,8 +153,9 @@ export default function DealsSection({
       </section>
 
       <section
+        id="section-new-arrivals"
         data-track-section="deals-new"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto scroll-mt-24"
       >
         <div className="flex items-end justify-between mb-8">
           <div>
