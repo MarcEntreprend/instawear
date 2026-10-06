@@ -71,10 +71,11 @@ import {
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
-import { isAdminPath, isAccountPath, productUrl } from "./utils/routes";
+import { isAdminPath, isAccountPath } from "./utils/routes";
 import { scrollToCatalogTop } from "./utils/scroll";
 import {
   findProductBySlugOrId,
+  matchProductRoute,
   productPagePath,
 } from "./utils/productSlugs";
 import { supabase } from "./lib/supabaseClient";
@@ -153,7 +154,7 @@ export default function App() {
   );
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   // Latch deep-route : vrai quand l'overlay produit a été ouvert par charge
-  // directe /produit/:id (cold boot), pas par clic depuis l'accueil. Sert à
+  // directe /item/:slug-ou-id (cold boot), pas par clic depuis l'accueil. Sert à
   // suspendre le hero derrière l'overlay (cf. suspendHero). Posé dans l'effet
   // boot, levé à chaque retour accueil (goHome, onClose, BuyNow, popstate /).
   const [heroSuspendedForBoot, setHeroSuspendedForBoot] = useState(false);
@@ -169,24 +170,25 @@ export default function App() {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   }, []);
 
-  // V2 routing: /produit/:id → product page (pushState + popstate)
+  // V2 routing: /item/:slug-ou-id → product page (pushState + popstate)
   useEffect(() => {
     const path = window.location.pathname;
     const search = window.location.search;
-    const match = path.match(/^\/produit\/([^/]+)/);
-    if (match && products.length > 0) {
+    const key = matchProductRoute(path);
+    if (key && products.length > 0) {
       // Q2.1 : les inactifs sont invisibles (même en URL directe).
-      // Lookup slug OU id legacy ; canonique slug (remplace l'UUID).
-      const found = findProductBySlugOrId(products, match[1]);
+      // Lookup slug OU id legacy ; canonique /item/<slug> (remplace l'UUID
+      // comme l'ancien préfixe /produit/).
+      const found = findProductBySlugOrId(products, key);
       const p = found && found.isActive !== false ? found : undefined;
       if (p) {
-        const canonical = p.slug || p.id;
-        if (match[1] !== canonical) {
+        const canonical = productPagePath(p);
+        if (window.location.pathname !== canonical) {
           try {
             history.replaceState(
               {},
               "",
-              `${productPagePath(p)}${window.location.search}`,
+              `${canonical}${window.location.search}`,
             );
           } catch {}
         }
@@ -242,19 +244,19 @@ export default function App() {
       }
       // /account est une page : précédent/suivant l'ouvre/la referme.
       if (isAccountPath(path)) setShowAccountPage(true);
-      const m = path.match(/^\/produit\/([^/]+)/);
-      if (m) {
-        const foundM = findProductBySlugOrId(products, m[1]);
+      const key = matchProductRoute(path);
+      if (key) {
+        const foundM = findProductBySlugOrId(products, key);
         const p =
           foundM && foundM.isActive !== false ? foundM : undefined;
         if (p) {
-          const canonical = p.slug || p.id;
-          if (m[1] !== canonical) {
+          const canonical = productPagePath(p);
+          if (window.location.pathname !== canonical) {
             try {
               history.replaceState(
                 {},
                 "",
-                `${productPagePath(p)}${window.location.search}`,
+                `${canonical}${window.location.search}`,
               );
             } catch {}
           }
@@ -1309,6 +1311,7 @@ export default function App() {
   const scrollToSection = (
     section:
       | "catalog"
+      | "new-arrivals"
       | "about"
       | "testimonials"
       | "faq"
@@ -1317,14 +1320,23 @@ export default function App() {
   ) => {
     const idMap: Record<string, string> = {
       catalog: "section-catalog",
+      "new-arrivals": "section-new-arrivals",
       about: "about",
       testimonials: "testimonials",
       faq: "section-faq",
       filters: "section-catalog",
     };
-    // Le catalogue a son helper unifié (content-visibility + offset exact).
-    if (section === "catalog" || section === "filters") {
-      scrollToCatalogTop();
+    // Le catalogue (et new arrivals, même section cv-auto) a son helper
+    // unifié (content-visibility + offset exact).
+    if (
+      section === "catalog" ||
+      section === "filters" ||
+      section === "new-arrivals"
+    ) {
+      scrollToCatalogTop(
+        true,
+        section === "new-arrivals" ? "section-new-arrivals" : "section-catalog",
+      );
       return;
     }
     const id = idMap[section];
@@ -1628,6 +1640,7 @@ export default function App() {
         "/orderResult/success",
       ];
       const knownPrefixes = [
+        "/item/",
         "/produit/",
         "/legal/",
         "/order/success/",
@@ -1787,16 +1800,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Garde deep-route /produit/:id lue AU RENDU (l'URL ne ment jamais) :
+  // Garde deep-route /item/:slug-ou-id lue AU RENDU (l'URL ne ment jamais) :
   // - chargement → spinner (pas de faux accueil)
   // - fetch échoué → erreur + retry (pas de home silencieux)
   // - id inconnu → "deleted", inactif → "inactive" (Q2.1 + Q2.2)
   const livePath =
     typeof window !== "undefined" ? window.location.pathname : "/";
-  const bootProductMatch = livePath.match(/^\/produit\/([^/]+)/);
-  const bootProductId = bootProductMatch ? bootProductMatch[1] : null;
+  const bootProductId = matchProductRoute(livePath);
   const bootProduct = bootProductId
-    ? products.find((x) => x.id === bootProductId)
+    ? findProductBySlugOrId(products, bootProductId)
     : undefined;
   const showBootSpinner =
     !!bootProductId && loadingProducts && !networkError && !selectedProduct;
@@ -1813,7 +1825,7 @@ export default function App() {
     bootProduct.isActive === false &&
     !selectedProduct &&
     !loadingProducts;
-  // Suspension hero (Lighthouse page produit) : en charge directe /produit/:id,
+  // Suspension hero (Lighthouse page produit) : en charge directe /item/:slug-ou-id,
   // le hero 1536px partait derrière l'overlay et volait le LCP (LCP ignore
   // l'occlusion) avec ~1 s de retard de découverte. Contrairement à la
   // suppression du storefront (revert : elle regroupait le montage en un
@@ -1960,6 +1972,7 @@ export default function App() {
 
           <CatalogSection
             filteredProducts={filteredProducts}
+            allProducts={products}
             loadingProducts={loadingProducts}
             networkError={networkError}
             favorites={favorites}
@@ -2021,7 +2034,7 @@ export default function App() {
           storefront ni 404 pendant que la session se restaure. */}
       {activeTab === "admin" && !isAdmin && <LazyFallback />}
 
-      {/* Deep-route /produit/:id : chargement, erreur fetch, id inconnu/inactif.
+      {/* Deep-route /item/:slug-ou-id : chargement, erreur fetch, id inconnu/inactif.
           Jamais de faux accueil silencieux (diagnostic deep-link + Q2.1/Q2.2). */}
       {showBootSpinner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-(--color-bg)">
@@ -2207,6 +2220,7 @@ export default function App() {
         onOpenPromotions={openPromotionsPage}
         onManageCookies={cookieConsent.resetConsent}
         onOpenCatalog={() => scrollToSection("catalog")}
+        products={products}
       />
 
       {showAuthModal && (
@@ -2302,8 +2316,8 @@ export default function App() {
               // quirks mobiles qui bougeaient aussi l'onglet d'origine).
               try {
                 const a = document.createElement("a");
-                a.href = productUrl(
-                  productId,
+                a.href = productPagePath(
+                  product,
                   initialColor,
                   initialSize,
                 );

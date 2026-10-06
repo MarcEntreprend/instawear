@@ -7,7 +7,7 @@
 
 export interface NavLink {
   label: string;
-  section: "catalog" | "about" | "testimonials" | "faq" | "contact";
+  section: "catalog" | "new-arrivals" | "about" | "testimonials" | "faq" | "contact";
   eventType: string | null;
   category: string | null;
 }
@@ -70,7 +70,7 @@ export interface Product {
    *  Optionnel/additif : présent au runtime, utilisé par le tri Newest. */
   createdAt?: string;
   /** Slug SEO stable (trigger DB 20261030, repli id). */
-  slug?: string;
+  slug?: string | null;
 }
 
 export interface CartItem {

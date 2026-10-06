@@ -1179,7 +1179,7 @@ function ComposeSection({
   const [sending, setSending] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   // Lien du bouton {{cta_link}} : même contrat que les mails transactionnels
-  // (accueil, /suivi, /recherche, /produit/:id). Session uniquement.
+  // (accueil, /suivi, /recherche, /item/:slug). Session uniquement.
   const [ctaLink, setCtaLink] = useState("https://instawear.vercel.app");
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -1486,8 +1486,8 @@ function ComposeSection({
                   label="Lien du bouton ({{cta_link}})"
                   value={ctaLink}
                   onChange={setCtaLink}
-                  placeholder="https://instawear.vercel.app/produit/<id>"
-                  hint="Produit : /produit/<id> · Collection : /recherche?q=<mot> · Suivi : /suivi"
+                  placeholder="https://instawear.vercel.app/item/<slug>"
+                  hint="Produit : /item/<slug> · Collection : /recherche?q=<mot> · Suivi : /suivi"
                 />
                 <div
                   style={{

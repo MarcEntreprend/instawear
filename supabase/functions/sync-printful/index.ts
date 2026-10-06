@@ -24,6 +24,10 @@ import {
   resolveUnitPrice as resolveUnitPriceShared,
 } from "./_shared/variantPricing.ts";
 import { aggregateProductMaterials } from "./_shared/materials.ts";
+import {
+  classifyProduct,
+  type KeywordEntry,
+} from "./_shared/classify.ts";
 import { extractCatalogVariants } from "./_shared/catalog.ts";
 import { buildGalleryMeta, galleryUrls } from "./_shared/gallery.ts";
 import {
@@ -3196,6 +3200,35 @@ export default {
       // Compteur de remplissages auto effectifs (observabilité : le succès
       // silencieux est un bug de pilotage — voir incident sync sans effet).
       let materialsFilled = 0;
+      // Taxonomie (mots-clés reference_lists, édités admin) : UNE lecture par
+      // run pour classifier les INSERTS. Absent/illisible -> replis honnêtes
+      // (other/casual/""). Les resyncs ne touchent jamais ces champs (override
+      // admin gagnant, comme material).
+      const taxoRefs: {
+        category: KeywordEntry[];
+        event_type: KeywordEntry[];
+        style: KeywordEntry[];
+      } = { category: [], event_type: [], style: [] };
+      try {
+        const { data: refRows } = await supabaseAdmin
+          .from("reference_lists")
+          .select("type,value,keywords");
+        if (Array.isArray(refRows)) {
+          for (const r of refRows) {
+            const t = (r as any).type;
+            if (t === "category" || t === "event_type" || t === "style") {
+              taxoRefs[t].push({
+                value: String((r as any).value),
+                keywords: Array.isArray((r as any).keywords)
+                  ? (r as any).keywords
+                  : [],
+              });
+            }
+          }
+        }
+      } catch {
+        /* replis du classifieur */
+      }
 
       for (const pfProduct of printfulProducts) {
         try {
@@ -3500,6 +3533,24 @@ export default {
           // Signature serveur (URLs stockées utilisables avec restriction active).
           const signedPayload = await signImagekitDeep(productPayload);
 
+          // Classification auto (mots-clés) : nom sync (thème du design) +
+          // nom boutique + noms variantes catalogue (vêtement). INSERTS
+          // uniquement (voir ci-dessous), jamais d'écrasement au resync.
+          const classifiedTaxo = classifyProduct(
+            {
+              name: [
+                syncProduct?.name,
+                pfProduct.name,
+                ...((catalogVariants || []) as any[])
+                  .slice(0, 4)
+                  .map((v: any) => v?.name),
+              ]
+                .filter(Boolean)
+                .join(" "),
+            },
+            taxoRefs,
+          );
+
           const { data: existing } = await supabaseAdmin
             .from("products")
             .select("id, material, image, gallery, color_images, variants")
@@ -3535,9 +3586,9 @@ export default {
               is_active: true,
               brand: "INSTAWEAR",
               description: syncProduct?.name || "",
-              category: "tshirt",
-              event_type: "culture",
-              style: "street",
+              category: classifiedTaxo.category,
+              event_type: classifiedTaxo.event_type,
+              style: classifiedTaxo.style,
               tags: [],
               external_product_id: pfProduct.id.toString(),
               ...insertPayload,
@@ -3550,9 +3601,9 @@ export default {
                 is_active: true,
                 brand: "INSTAWEAR",
                 description: syncProduct?.name || "",
-                category: "tshirt",
-                event_type: "culture",
-                style: "street",
+                category: classifiedTaxo.category,
+                event_type: classifiedTaxo.event_type,
+                style: classifiedTaxo.style,
                 tags: [],
                 external_product_id: pfProduct.id.toString(),
                 ...insertPayload,
@@ -3564,9 +3615,9 @@ export default {
                   is_active: true,
                   brand: "INSTAWEAR",
                   description: syncProduct?.name || "",
-                  category: "tshirt",
-                  event_type: "culture",
-                  style: "street",
+                  category: classifiedTaxo.category,
+                  event_type: classifiedTaxo.event_type,
+                  style: classifiedTaxo.style,
                   tags: [],
                   external_product_id: pfProduct.id.toString(),
                   ...insertPayload,

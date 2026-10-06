@@ -26,7 +26,9 @@ import type { CartItem, NavLink, Product } from "../types";
 import { CART_PLUS_ICON } from "../constants/assets";
 import { useTheme } from "../hooks/useTheme";
 import { useCurrency } from "../hooks/useCurrency";
-import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { EVENT_TYPES, PRODUCT_CATEGORIES, taxonomyIcon } from "../data/categories";
+import { useTopTaxonomy, useTaxonomy } from "../hooks/useTaxonomy";
+import { refLabel } from "../utils/referenceMatch";
 import { merchApi } from "../api/supabaseApi";
 import { getFirstName } from "../utils/displayName";
 import {
@@ -59,6 +61,7 @@ interface HeaderProps {
   onScrollToSection: (
     section:
       | "catalog"
+      | "new-arrivals"
       | "about"
       | "testimonials"
       | "faq"
@@ -94,7 +97,7 @@ const CATEGORY_LINKS: CategoryLink[] = [
   {
     label: "Festivals",
     section: "catalog",
-    eventType: "festival",
+    eventType: "musicfestival",
     category: null,
     icon: PartyPopper,
   },
@@ -106,9 +109,10 @@ const CATEGORY_LINKS: CategoryLink[] = [
     icon: Trophy,
   },
   {
+    // Les concerts vivent dans musicfestival (même cible que Festivals).
     label: "Concerts",
     section: "catalog",
-    eventType: "concert",
+    eventType: "musicfestival",
     category: null,
     icon: Music,
   },
@@ -122,13 +126,13 @@ const CATEGORY_LINKS: CategoryLink[] = [
   {
     label: "Birthdays",
     section: "catalog",
-    eventType: "anniversaire",
+    eventType: "birthday",
     category: null,
     icon: Gift,
   },
   {
     label: "New Arrivals",
-    section: "catalog",
+    section: "new-arrivals",
     eventType: null,
     category: null,
     icon: Sparkles,
@@ -318,6 +322,8 @@ export default function Header({
   currentSearchTerm,
   onSelectCategory,
   onSelectEventType,
+  currentCategory,
+  currentEventType,
   isHomePage = true,
   networkError = false,
 }: HeaderProps) {
@@ -337,6 +343,77 @@ export default function Header({
   const theme = isControlledDark ? (darkMode ? "dark" : "light") : themeHook;
   const toggleTheme = isControlledDark ? onToggleDarkMode! : toggleHook;
   const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
+  // Filtres actifs visibles dans la recherche (desktop + mobile) : libellés
+  // refs, suppression au clic + retour catalogue. Même source que facettes.
+  const taxonomyEntries = useTaxonomy();
+  const activeSearchFilters = useMemo(() => {
+    const out: { key: string; label: string; clear: () => void }[] = [];
+    if (currentCategory)
+      out.push({
+        key: "cat",
+        label: refLabel(
+          taxonomyEntries.filter((t) => t.type === "category"),
+          currentCategory,
+        ),
+        clear: () => onSelectCategory(null),
+      });
+    if (currentEventType)
+      out.push({
+        key: "evt",
+        label: refLabel(
+          taxonomyEntries.filter((t) => t.type === "event_type"),
+          currentEventType,
+        ),
+        clear: () => onSelectEventType(null),
+      });
+    return out;
+  }, [taxonomyEntries, currentCategory, currentEventType, onSelectCategory, onSelectEventType]);
+  const renderActiveSearchFilters = () =>
+    activeSearchFilters.length > 0 ? (
+      <div className="px-2.5 pt-2">
+        <p
+          className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: "var(--color-ink4)" }}
+        >
+          Active filters
+        </p>
+        <div className="flex flex-wrap gap-1.5 px-2.5 pb-1">
+          {activeSearchFilters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                f.clear();
+                onScrollToSection("catalog");
+              }}
+              className="chip"
+              data-active="true"
+              style={{ cursor: "pointer" }}
+            >
+              {f.label} <X size={12} />
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null;
+  // Liens événements pilotés par le catalogue (top refs + comptes live),
+  // repli statique le temps du chargement. Même source que les facettes :
+  // zéro liste en dur à maintenir ici.
+  const topNavEvents = useTopTaxonomy(products, "event_type", 5);
+  const navLinks: CategoryLink[] = useMemo(() => {
+    if (topNavEvents.length === 0) return CATEGORY_LINKS;
+    return [
+      ...topNavEvents.map((e) => ({
+        label: e.label,
+        section: "catalog" as const,
+        eventType: e.value,
+        category: null as string | null,
+        icon: taxonomyIcon("event_type", e.value),
+      })),
+      CATEGORY_LINKS[CATEGORY_LINKS.length - 1],
+    ];
+  }, [topNavEvents]);
   const desktopAccountLabel = isAdminLoggedIn
     ? "Admin"
     : isUserLoggedIn
@@ -636,7 +713,9 @@ export default function Header({
               />
             </form>
             {isDesktopSuggestOpen &&
-              (query.trim().length > 0 || trending.length > 0) && (
+              (query.trim().length > 0 ||
+                trending.length > 0 ||
+                activeSearchFilters.length > 0) && (
                 <div
                   className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden animate-scale-in origin-top z-50 max-h-96 overflow-y-auto"
                   style={{
@@ -645,6 +724,7 @@ export default function Header({
                     boxShadow: "var(--shadow-lg)",
                   }}
                 >
+                  {renderActiveSearchFilters()}
                   {query.trim().length === 0 ? (
                     <div className="flex flex-col py-2 px-2">
                       <p
@@ -781,11 +861,11 @@ export default function Header({
           >
             <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full h-full flex items-center">
               <div className="flex items-center gap-2 min-w-max">
-                {CATEGORY_LINKS.map((link) => {
+                {navLinks.map((link) => {
                   const Icon = link.icon;
                   return (
                     <button
-                      key={link.label}
+                      key={link.eventType ?? link.label}
                       onClick={() => handleNavClick(link)}
                       className="chip"
                     >
@@ -850,6 +930,7 @@ export default function Header({
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
+            {renderActiveSearchFilters()}
             {query.trim().length === 0 && trending.length > 0 ? (
               <div className="flex flex-col py-2">
                 <p
@@ -937,11 +1018,11 @@ export default function Header({
               <div className="pt-5">
                 <span className="eyebrow">Events</span>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {CATEGORY_LINKS.map((link) => {
+                  {navLinks.map((link) => {
                     const Icon = link.icon;
                     return (
                       <button
-                        key={link.label}
+                        key={link.eventType ?? link.label}
                         onClick={() => handleNavClick(link)}
                         className="chip"
                       >

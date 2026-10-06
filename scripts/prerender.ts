@@ -263,9 +263,21 @@ if (url && anon) {
 }
 const sym = SYMBOLS[currencyCode] || "$";
 const fmt = (n: number) => `${sym}${n.toFixed(2)}`;
-// URL canonique fiche produit (slug, repli id).
+// URL canonique fiche produit (/item/, repli id). Les fichiers /produit/
+// sont aussi écrits (alias legacy, même contenu + canonique dedans).
 const pagePath = (p: { id: string; slug?: string | null }) =>
-  `/produit/${p.slug || p.id}`;
+  `/item/${p.slug || p.id}`;
+const legacyPaths = (p: { id: string; slug?: string | null }): string[] => {
+  const paths = [pagePath(p)];
+  const prodSlug = `/produit/${p.slug || p.id}`;
+  if (!paths.includes(prodSlug)) paths.push(prodSlug);
+  // Toutes les formes d'ID (partage, vieux liens) : fichier statique,
+  // le boot canonicalise vers /item/<slug>.
+  for (const alias of [`/produit/${p.id}`, `/item/${p.id}`]) {
+    if (!paths.includes(alias)) paths.push(alias);
+  }
+  return paths;
+};
 
 // 1b) 1re bannière hero (P4b — mêmes règles que App.tsx : 1re promo active
 // avec produit actif, sinon rien). Image peinte en visible avant le JS (LCP
@@ -342,7 +354,7 @@ if (url && anon && products.length > 0) {
             .slice(0, 6)
             .map(
               (p) =>
-                `<li><a href="${SITE}/produit/${esc(p.id)}">${esc(p.title)}</a> — ${fmt(p.dealPrice ?? p.price)}</li>`,
+                `<li><a href="${SITE}${pagePath(p)}">${esc(p.title)}</a> — ${fmt(p.dealPrice ?? p.price)}</li>`,
             )
             .join("")}</ul>`
         : ""),
@@ -403,7 +415,7 @@ const STATIC: {
           ? `<ul>${deals
               .map(
                 (p) =>
-                  `<li><a href="${SITE}/produit/${esc(p.id)}">${esc(p.title)}</a> — ` +
+                  `<li><a href="${SITE}${pagePath(p)}">${esc(p.title)}</a> — ` +
                   `<s>${fmt(p.price)}</s> <strong>${fmt(p.dealPrice as number)}</strong></li>`,
               )
               .join("")}</ul>`
@@ -535,12 +547,13 @@ for (const p of products) {
       ? `<p>Rated ${p.rating}/5 (${p.ratingCount} reviews)</p>`
       : "") +
     `<p><a href="${SITE}${pagePath(p)}">View and customize this product on InstaWear →</a></p>`;
-  write(`produit/${p.slug || p.id}.html`, setRoot(html, shell(snap)));
-  // Alias UUID (fichier statique) : le refresh/lien direct d'une URL legacy
-  // ne dépend plus des rewrites (qui ont déjà été ignorés en silence en prod).
-  // Même contenu, l'URL canonique (slug) est dedans + le boot la restaure.
-  if (p.slug && p.slug !== p.id) {
-    write(`produit/${p.id}.html`, setRoot(html, shell(snap)));
+  write(`${pagePath(p).slice(1)}.html`, setRoot(html, shell(snap)));
+  // Alias legacy /produit/ (fichiers statiques) : le refresh/lien direct
+  // d'une URL legacy ne dépend plus des rewrites (déjà ignorés en prod).
+  // Même contenu, l'URL canonique (/item/) est dedans + le boot la restaure.
+  for (const legacy of legacyPaths(p)) {
+    if (legacy === pagePath(p)) continue;
+    write(`${legacy.slice(1)}.html`, setRoot(html, shell(snap)));
   }
 }
 

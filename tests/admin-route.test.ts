@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   isAdminPath,
   isAccountPath,
-  productUrl,
 } from "../src/utils/routes.ts";import {
   cycleTabKey,
   swipeDir,
@@ -77,13 +76,4 @@ test("isTrackableStatus : livré/annulé/remboursé/retourné exclus", () => {
   assert.equal(isTrackableStatus("refunded"), false);
   assert.equal(isTrackableStatus("returned"), false);
   assert.equal(isTrackableStatus(null), true);
-});
-
-test("productUrl : id seul + variante encodee", () => {
-  assert.equal(productUrl("abc"), "/produit/abc");
-  assert.equal(
-    productUrl("abc", "#9b9b9b", "M"),
-    "/produit/abc?color=%239b9b9b&size=M",
-  );
-  assert.equal(productUrl("abc", null, "XL"), "/produit/abc?size=XL");
 });

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { newsletterApi } from "../api/supabaseApi";
 import { LOGO_URL } from "../constants/assets";
+import { useTopTaxonomy } from "../hooks/useTaxonomy";
 
 interface FooterProps {
   isAdmin: boolean;
@@ -28,6 +29,12 @@ interface FooterProps {
   onManageCookies?: () => void;
   /** Scroll unifié vers le catalogue (remplace les scrollIntoView locaux). */
   onOpenCatalog?: () => void;
+  /** Catalogue (liens événements dynamiques, même source que nav/facettes). */
+  products?: {
+    category?: string | null;
+    eventType?: string | null;
+    isActive?: boolean;
+  }[];
 }
 
 export default function Footer({
@@ -43,7 +50,19 @@ export default function Footer({
   onOpenPromotions,
   onManageCookies,
   onOpenCatalog,
+  products = [],
 }: FooterProps) {
+  // Liens événements pilotés par le catalogue (même source que nav/facettes),
+  // repli statique le temps du chargement.
+  const topEvents = useTopTaxonomy(products, "event_type", 4);
+  const shopEvents =
+    topEvents.length > 0
+      ? topEvents
+      : [
+          { value: "musicfestival", label: "Festivals", count: 0 },
+          { value: "sport", label: "Sport", count: 0 },
+          { value: "saisonnier", label: "Seasonal", count: 0 },
+        ];
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [valid, setValid] = useState(false);
@@ -219,45 +238,21 @@ export default function Footer({
                 All Shop
               </button>
             </li>
-            <li>
-              <button
-                onClick={() => {
-                  onSelectEventType("festival");
-                  onSelectCategory?.(null);
-                  onNavigate("store");
-                  setTimeout(() => onOpenCatalog?.(), 100);
-                }}
-                className="hover:text-(--color-accent) text-left"
-              >
-                Festivals
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => {
-                  onSelectEventType("sport");
-                  onSelectCategory?.(null);
-                  onNavigate("store");
-                  setTimeout(() => onOpenCatalog?.(), 100);
-                }}
-                className="hover:text-(--color-accent) text-left"
-              >
-                Sport
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => {
-                  onSelectEventType("saisonnier");
-                  onSelectCategory?.(null);
-                  onNavigate("store");
-                  setTimeout(() => onOpenCatalog?.(), 100);
-                }}
-                className="hover:text-(--color-accent) text-left"
-              >
-                Seasonal
-              </button>
-            </li>
+            {shopEvents.map((e) => (
+              <li key={e.value}>
+                <button
+                  onClick={() => {
+                    onSelectEventType(e.value);
+                    onSelectCategory?.(null);
+                    onNavigate("store");
+                    setTimeout(() => onOpenCatalog?.(), 100);
+                  }}
+                  className="hover:text-(--color-accent) text-left"
+                >
+                  {e.label}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
 

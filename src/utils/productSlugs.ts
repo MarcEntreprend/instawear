@@ -4,6 +4,10 @@
 // comme à la saisie admin, slugs manuels préservés). `slugifyTitle` est le
 // MIROIR documenté des mêmes règles (preview, fallback) — toute divergence
 // avec le SQL doit être corrigée ici ET là-bas.
+//
+// Routes : /item/<slug> canonique (public anglophone) ; /produit/<slug|id>
+// gardé en alias (anciens liens, index existants). Les URLs UUID restent
+// valides et sont canonicalisées vers /item/<slug>.
 
 /** Titre -> slug (miroir exact des regexp_replace SQL). */
 export function slugifyTitle(title: string): string {
@@ -22,12 +26,23 @@ export function slugifyTitle(title: string): string {
   return base || "product";
 }
 
+/** Préfixe canonique (anglophone) + alias legacy. */
+export const ITEM_ROUTE = "item";
+export const LEGACY_ITEM_ROUTE = "produit";
+
+/** Clé (slug ou id) depuis un pathname /item/… ou /produit/… ; null sinon. */
+export function matchProductRoute(pathname: string): string | null {
+  const m =
+    pathname.match(/^\/item\/([^/]+)/) || pathname.match(/^\/produit\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+/** Lookup par slug OU id legacy (les URLs UUID restent valides). */
 export interface SlugProduct {
   id: string;
   slug?: string | null;
 }
 
-/** Lookup par slug OU id legacy (les URLs UUID restent valides). */
 export function findProductBySlugOrId<T extends SlugProduct>(
   products: T[],
   key: string | null | undefined,
@@ -36,7 +51,15 @@ export function findProductBySlugOrId<T extends SlugProduct>(
   return products.find((p) => p.id === key || (p.slug || undefined) === key);
 }
 
-/** URL canonique fiche produit (slug, repli id). */
-export function productPagePath(product: SlugProduct): string {
-  return `/produit/${product.slug || product.id}`;
+/** URL canonique fiche produit (slug, repli id), variante ?color=&size=. */
+export function productPagePath(
+  product: SlugProduct,
+  color?: string | null,
+  size?: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (color) params.set("color", color);
+  if (size) params.set("size", size);
+  const qs = params.toString();
+  return `/${ITEM_ROUTE}/${product.slug || product.id}${qs ? `?${qs}` : ""}`;
 }

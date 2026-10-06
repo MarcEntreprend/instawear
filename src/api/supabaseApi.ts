@@ -84,6 +84,7 @@ interface ProductRow {
 const mapProduct = (row: any): AdminProduct => ({
   id: row.id,
   isActive: row.is_active,
+  slug: typeof row.slug === "string" && row.slug ? row.slug : null,
   title: row.title,
   brand: row.brand,
   description: row.description,

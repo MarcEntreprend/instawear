@@ -17,15 +17,18 @@ export function catalogScrollTop(
   return Math.max(0, elTopViewport + scrollY - headerH - gap);
 }
 
-/** Scroll vers le haut du catalogue (défaut fluide). Sans effet hors DOM. */
-export function scrollToCatalogTop(smooth = true): void {
+/** Scroll vers le haut d'une section (défaut fluide). Sans effet hors DOM. */
+export function scrollToCatalogTop(
+  smooth = true,
+  elementId = "section-catalog",
+): void {
   if (typeof document === "undefined") return;
-  const first = document.getElementById("section-catalog");
+  const first = document.getElementById(elementId);
   if (!first) return;
   // Force le rendu du sous-arbre skippé (rect exact, pas l'estimation).
   first.getBoundingClientRect();
   requestAnimationFrame(() => {
-    const el = document.getElementById("section-catalog");
+    const el = document.getElementById(elementId);
     if (!el) return;
     const headerH =
       document.querySelector("header")?.getBoundingClientRect().height ?? 64;

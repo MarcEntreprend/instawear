@@ -4,6 +4,8 @@ import { ArrowRight, Truck, Percent, Gift } from "lucide-react";
 import type { Product } from "../types";
 import StoreProductCard from "./StoreProductCard";
 import { EVENT_TYPES, PRODUCT_CATEGORIES } from "../data/categories";
+import { taxonomyIcon } from "../data/categories";
+import { useTopTaxonomy } from "../hooks/useTaxonomy";
 import { isMerchEligible } from "../utils/merch";
 import { scrollToCatalogTop } from "../utils/scroll";
 import { merchApi } from "../api/supabaseApi";
@@ -76,6 +78,26 @@ export default function DealsSection({
     } catch {}
     scrollToCatalogTop();
   };
+  // Grilles pilotées par le catalogue (top refs + comptes live), repli
+  // statique le temps du chargement. Même source que nav et facettes.
+  const topEvents = useTopTaxonomy(products, "event_type", 5);
+  const topCats = useTopTaxonomy(products, "category", 5);
+  const eventTiles =
+    topEvents.length > 0
+      ? topEvents.map((e) => ({
+          value: e.value,
+          label: e.label,
+          icon: taxonomyIcon("event_type", e.value),
+        }))
+      : EVENT_TYPES;
+  const catTiles =
+    topCats.length > 0
+      ? topCats.map((c) => ({
+          value: c.value,
+          label: c.label,
+          icon: taxonomyIcon("category", c.value),
+        }))
+      : PRODUCT_CATEGORIES;
   const handleSelectCategory = (
     eventType: string | null,
     category: string | null,
@@ -104,7 +126,7 @@ export default function DealsSection({
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-          {EVENT_TYPES.map(({ value, label, icon: Icon }) => (
+          {eventTiles.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
               onClick={() => handleSelectCategory(value, null)}
@@ -131,8 +153,9 @@ export default function DealsSection({
       </section>
 
       <section
+        id="section-new-arrivals"
         data-track-section="deals-new"
-        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto"
+        className="max-w-350 mx-auto px-4 sm:px-6 py-6 sm:py-10 overflow-hidden sm:overflow-visible cv-auto scroll-mt-24"
       >
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -346,7 +369,7 @@ export default function DealsSection({
           className="flex gap-3 overflow-x-auto no-scrollbar min-w-0 max-w-[100vw] sm:max-w-full w-[calc(100%+2rem)] sm:w-full -mx-4 px-4 sm:mx-0 sm:px-0 pb-1"
           style={{ touchAction: "pan-x pan-y" }}
         >
-          {PRODUCT_CATEGORIES.map(({ value, label, icon: Icon }) => (
+          {catTiles.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
               onClick={() => handleSelectCategory(null, value)}
