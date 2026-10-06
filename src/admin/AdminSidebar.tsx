@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Bell,
   MessageSquare,
+  Star,
   Mail,
   Truck,
   Sparkles,
@@ -46,6 +47,7 @@ export type AdminSection =
   | "admin-users"
   | "merchandising"
   | "finances"
+  | "reviews"
   | "help";
 
 interface NavItem {
@@ -87,6 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "products", label: "Produits", icon: Package },
       { id: "customers", label: "Clients", icon: Users },
       { id: "interactions", label: "Interactions", icon: MessageSquare },
+      { id: "reviews", label: "Avis", icon: Star },
     ],
   },
   {

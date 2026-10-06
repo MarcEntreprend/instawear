@@ -40,6 +40,7 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { dashboardApi } from "../api/supabaseApi";
 import { AdminProduct, Order, DashboardStats } from "./adminTypes";
 import InteractionsPage from "./InteractionsPage";
+import ReviewsPage from "./ReviewsPage";
 import { OrderStatusBadge, isPendingOrder } from "./orderStatusLabels";
 import AdminEmpty from "./ui/AdminEmpty";
 
@@ -1351,6 +1352,7 @@ export default function AdminDashboard({
           {section === "reports" && <ReportsPage />}
           {section === "monitoring" && <ErrorMonitoringPage />}
           {section === "interactions" && <InteractionsPage />}
+          {section === "reviews" && <ReviewsPage />}
           {section === "integrations" && (
             <IntegrationsPage
               onNavigateToPrintfulSettings={() => {

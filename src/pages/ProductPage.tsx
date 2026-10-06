@@ -23,6 +23,7 @@ import {
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { formatAmount } from "../data/currency";
+import ProductPageSkeleton from "../components/skeletons/ProductPageSkeleton";
 import { materialLabel } from "../data/materials";
 import { useCurrencyCode } from "../hooks/useCurrencySymbol";
 import ZoomImage from "../components/product/ZoomImage";
@@ -137,6 +138,15 @@ export default function ProductPage({
   useEffect(() => {
     setFrameOverride(null);
     setActiveGalleryIndex(0);
+  }, [product.id]);
+
+  // Transition inter-produits (doc §10) : skeleton 350ms au lieu du flash de
+  // contenu périmé (ex. clic produit associé). Gabarits = page réelle (pas de CLS).
+  const [booting, setBooting] = useState(true);
+  useEffect(() => {
+    setBooting(true);
+    const t = setTimeout(() => setBooting(false), 350);
+    return () => clearTimeout(t);
   }, [product.id]);
 
   usePageMeta({
@@ -516,6 +526,10 @@ export default function ProductPage({
   // s'affiche jamais comme achetable — message uniforme à la place.
   if (product.isActive === false) {
     return <ProductUnavailable reason="inactive" onBackHome={onClose} />;
+  }
+
+  if (booting) {
+    return <ProductPageSkeleton />;
   }
 
   return (

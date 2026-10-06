@@ -202,7 +202,8 @@ export default function SettingsPage() {
 
   const handleSaveStore = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveStore(storeForm);
+    // Verrou mono-devise : la devise reste USD quoi qu'il y ait en base.
+    await saveStore({ ...storeForm, currency: "USD" });
     // Notifie tous les composants qu'ils doivent relire la devise / les paramètres
     window.dispatchEvent(new Event("store-settings-updated"));
 
@@ -210,7 +211,7 @@ export default function SettingsPage() {
       notificationApi
         .create({
           title: "Paramètres boutique mis à jour",
-          description: `Devise: ${storeForm.currency}, Pays: ${storeForm.country}, Livraison gratuite: ${storeForm.freeShippingThreshold}`,
+          description: `Devise: USD, Pays: ${storeForm.country}, Livraison gratuite: ${storeForm.freeShippingThreshold}`,
           category: "api",
           priority: "low",
           metadata: { source: "Système", linkTo: "/admin/settings" },
@@ -615,11 +616,7 @@ export default function SettingsPage() {
                 >
                   Devise
                 </label>
-                <select
-                  value={storeForm.currency}
-                  onChange={(e) =>
-                    setStoreForm({ ...storeForm, currency: e.target.value })
-                  }
+                <div
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -627,20 +624,17 @@ export default function SettingsPage() {
                     border: "1px solid var(--color-border)",
                     background: "var(--color-surface2)",
                     fontSize: 13,
+                    fontWeight: 700,
                     color: "var(--color-ink)",
                     fontFamily: "var(--font-body)",
-                    outline: "none",
-                    cursor: "pointer",
                   }}
                 >
-                  <option value="USD">USD ($)</option>
-                  <option value="BRL">BRL (R$)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="CAD">CAD (CA$)</option>
-                  <option value="CHF">CHF (CHF)</option>
-                  <option value="JPY">JPY (¥)</option>
-                </select>
+                  USD ($)
+                </div>
+                <p style={{ fontSize: 11, color: "var(--color-ink4)", marginTop: 4 }}>
+                  Boutique mono-devise : USD, devise de charge Stripe. Les prix
+                  en base sont exprimés dedans, sans conversion.
+                </p>
               </div>
               <div>
                 <label

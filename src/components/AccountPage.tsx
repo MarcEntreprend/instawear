@@ -51,6 +51,7 @@ import {
 } from "../api/supabaseApi";
 import CopyID from "./CopyID";
 import AccountTabToolbar from "./AccountTabToolbar";
+import EditReviewModal from "./product/EditReviewModal";
 import { storageApi } from "../api/storageApi";
 import { useCurrencySymbol } from "../hooks/useCurrencySymbol";
 import { useTimidBar } from "../hooks/useTimidBar";
@@ -3901,6 +3902,34 @@ function ReviewsTab({
     await reviewApi.delete(id);
     setReviews((r) => r.filter((x) => x.id !== id));
   };
+  const [editingReview, setEditingReview] = useState<any | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const handleSaveEdit = async (draft: {
+    rating: number;
+    title: string;
+    body: string;
+  }) => {
+    if (!editingReview) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const { reviewApi } = await import("../api/supabaseApi");
+      await reviewApi.update(editingReview.id, draft);
+      setReviews((rs) =>
+        rs.map((x) =>
+          x.id === editingReview.id
+            ? { ...x, rating: draft.rating, title: draft.title, body: draft.body }
+            : x,
+        ),
+      );
+      setEditingReview(null);
+    } catch (e: any) {
+      setEditError(e.message || "Error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
   // Barre d'outils partagée (recherche + tri, pas de statut ici).
   const [revQuery, setRevQuery] = useState("");
   const [revSort, setRevSort] = useState<"newest" | "oldest">("newest");
@@ -4045,8 +4074,18 @@ function ReviewsTab({
               <Star size={12} /> Helpful: {r.helpful || 0}
             </span>
             <button
+              onClick={() => {
+                setEditError(null);
+                setEditingReview(r);
+              }}
+              className="ml-auto text-xs font-bold hover:underline"
+              style={{ color: "var(--color-accent-ink)" }}
+            >
+              Edit
+            </button>
+            <button
               onClick={() => handleDelete(r.id)}
-              className="ml-auto text-xs font-bold flex items-center gap-1"
+              className="text-xs font-bold flex items-center gap-1"
               style={{ color: "#ef4444" }}
             >
               <Trash2 size={12} /> Delete
@@ -4054,6 +4093,19 @@ function ReviewsTab({
           </div>
         </div>
         ))
+      )}
+      {editingReview && (
+        <EditReviewModal
+          initial={{
+            rating: editingReview.rating,
+            title: editingReview.title || "",
+            body: editingReview.body || editingReview.comment || "",
+          }}
+          saving={savingEdit}
+          error={editError}
+          onSave={handleSaveEdit}
+          onClose={() => setEditingReview(null)}
+        />
       )}
     </div>
   );
