@@ -6,6 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+client_secret_509561368696-1dmgnn1uq7ojd3ms7fjb9162kp9c3g22.apps.googleusercontent.com.json
 Models/
 *.zip
 instawear-security-check.zip
