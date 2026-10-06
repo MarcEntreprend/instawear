@@ -336,7 +336,6 @@ export default function Header({
   const {
     country: shipTo,
     setCountry: onShipToChange,
-    currency,
   } = useCurrency();
   const isControlledDark =
     typeof darkMode === "boolean" && typeof onToggleDarkMode === "function";

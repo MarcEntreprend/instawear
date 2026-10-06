@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Star, ShieldCheck, ThumbsUp, Send } from "lucide-react";
 import { reviewApi } from "../../api/supabaseApi";
 import { supabase } from "../../lib/supabaseClient";
+import EditReviewModal, { isOwnReview } from "./EditReviewModal";
 
 export default function ProductReviews({ productId }: { productId: string }) {
   const [reviews, setReviews] = useState<any[]>([]);
@@ -14,14 +15,20 @@ export default function ProductReviews({ productId }: { productId: string }) {
   const [sending, setSending] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(5);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const reload = async () => {
+    const list = await reviewApi.list(productId);
+    setReviews(list);
+    if (list.length) setAvg(list.reduce((s: number, r: any) => s + r.rating, 0) / list.length);
+    else setAvg(0);
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
-    reviewApi.list(productId).then((list) => {
-      setReviews(list);
-      if (list.length) setAvg(list.reduce((s: number, r: any) => s + r.rating, 0) / list.length);
-      setLoading(false);
-    });
+    reload().finally(() => setLoading(false));
   }, [productId]);
 
   const breakdown = [5, 4, 3, 2, 1].map((star) => {
@@ -50,8 +57,30 @@ export default function ProductReviews({ productId }: { productId: string }) {
   const toggleHelpful = async (reviewId: string) => {
     if (!userId) { alert("Please sign in"); return; }
     await reviewApi.toggleHelpful(reviewId, userId);
-    const list = await reviewApi.list(productId);
-    setReviews(list);
+    await reload();
+  };
+
+  const saveEdit = async (draft: { rating: number; title: string; body: string }) => {
+    if (!editing) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await reviewApi.update(editing.id, draft);
+      setEditing(null);
+      await reload();
+    } catch (err: any) {
+      setEditError(err.message || "Error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const removeReview = async (id: string) => {
+    if (!confirm("Delete this review?")) return;
+    try {
+      await reviewApi.delete(id);
+      await reload();
+    } catch (err: any) { alert(err.message || "Error"); }
   };
 
   if (loading) return <div className="py-8 text-center text-sm" style={{ color: "var(--color-ink3)" }}>Loading reviews...</div>;
@@ -108,12 +137,33 @@ export default function ProductReviews({ productId }: { productId: string }) {
             </div>
             {r.title && <p className="text-sm font-bold ml-12 mb-1" style={{ color: "var(--color-ink)" }}>{r.title}</p>}
             <p className="text-sm leading-relaxed ml-12" style={{ color: "var(--color-ink2)" }}>{r.body || r.comment}</p>
-            <button onClick={() => toggleHelpful(r.id)} className="ml-12 mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--color-ink4)" }}><ThumbsUp size={12} /> Helpful ({r.helpful})</button>
+            <div className="ml-12 mt-2 flex items-center gap-3">
+              <button onClick={() => toggleHelpful(r.id)} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--color-ink4)" }}><ThumbsUp size={12} /> Helpful ({r.helpful})</button>
+              {isOwnReview(r, userId) && (
+                <>
+                  <button onClick={() => { setEditError(null); setEditing(r); }} className="text-xs font-bold hover:underline" style={{ color: "var(--color-accent-ink)" }}>Edit</button>
+                  <button onClick={() => removeReview(r.id)} className="text-xs font-bold hover:underline" style={{ color: "#ef4444" }}>Delete</button>
+                </>
+              )}
+            </div>
           </article>
         ))}
       </div>
       {visibleCount < reviews.length && <button onClick={() => setVisibleCount((v) => v + 5)} className="btn btn-secondary mx-auto mt-6">See more reviews</button>}
       {reviews.length === 0 && <p className="text-sm text-center py-4" style={{ color: "var(--color-ink3)" }}>No reviews for this item yet.</p>}
+      {editing && (
+        <EditReviewModal
+          initial={{
+            rating: editing.rating,
+            title: editing.title || "",
+            body: editing.body || editing.comment || "",
+          }}
+          saving={savingEdit}
+          error={editError}
+          onSave={saveEdit}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </section>
   );
 }
