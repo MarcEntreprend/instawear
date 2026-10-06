@@ -6,6 +6,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "../lib/supabaseClient";
+import AuthSocial, { type OAuthProvider } from "./AuthSocial";
 import {
   X,
   ArrowLeft,
@@ -50,6 +51,28 @@ export default function AuthModal({
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  // OAuth social (additif : ne touche à aucun flux existant).
+  const [oauthPending, setOauthPending] = useState<OAuthProvider | null>(null);
+
+  // OAuth (Google réel ; Apple/Facebook désactivés côté UI) : redirection
+  // navigateur vers le provider puis retour (la session est reprise par
+  // onAuthStateChange/getSession dans App). Pré-requis dashboard : provider
+  // activé + Redirect URLs (voir procédure commit).
+  const handleOAuth = async (provider: OAuthProvider) => {
+    setError("");
+    setOauthPending(provider);
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin },
+      });
+      if (oauthError) throw oauthError;
+      // Succès = navigation hors page (rien d'autre à faire ici).
+    } catch (e: any) {
+      setError(e.message || `Could not sign in with ${provider}.`);
+      setOauthPending(null);
+    }
+  };
 
   // Visual-only: show/hide password (style from design-from-zero, no logic change)
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -406,6 +429,7 @@ export default function AuthModal({
   // Login/signup form — styled with IconField (design-from-zero)
   const renderAuthForm = () => (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 animate-fade-up">
+      <AuthSocial pending={oauthPending} onOAuth={handleOAuth} />
       {mode === "signup" && (
         <>
           <IconField
