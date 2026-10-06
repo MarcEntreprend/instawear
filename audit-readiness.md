@@ -2,7 +2,6 @@
 
 ## qd on fait login via google
 
-- true logo
 - it says `Prosseguir para hkbybsycaylobvbnnwak.supabase.co` instead of `Prosseguir para https://instawear.vercel.app`. why ?
 
 ## from product a color -> catalogue
