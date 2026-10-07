@@ -77,18 +77,31 @@ Vercel deploys the frontend on push (build runs sitemap + prerender automaticall
 
 ```text
 src/
-  admin/            Back office (dashboard, orders, products, marketing, reports…)
-  api/              Supabase client + typed API layers (products, orders, merch…)
-  components/       Storefront UI (catalog, cart, checkout, product…)
-  pages/            Route pages (product, search, FAQ, legal, tracking…)
-  hooks/ data/      Shared hooks, static data, currency, countries
-  utils/ lib/       Ranking, merch rules, email templates, formatting
+  App.tsx             Storefront shell (routing, cart, auth, overlays)
+  admin/              Back office (dashboard, orders, products, reviews,
+                      customers, marketing, reports, settings…)
+  api/                Supabase client + typed API layers (products, orders,
+                      merch, customer mapping…)
+  components/         Storefront UI (Header, Hero, Catalog, ProductCard,
+                      CartDrawer, CheckoutFlow, AccountPage, AuthModal,
+                      AuthSocial, Footer, MobileTabBar…)
+    product/          PDP blocks (gallery, reviews, FBT, lightbox…)
+    skeletons/        Loading placeholders (cards, product page)
+  pages/              Route pages (product, search, FAQ, legal, tracking,
+                      promotions, order success…)
+  hooks/              Shared hooks (currency, taxonomy, overlays, badges…)
+  data/               Static data (categories, materials, countries…)
+  utils/ lib/         Pure helpers (colors, slugs, filters, routes, scroll,
+                      imagekit, supabaseImage…) — unit-tested
+  config/ constants/  Env readers, assets, order statuses
 supabase/
-  functions/        Edge Functions (+ openapi.json inventory, _shared/)
-  migrations/       SQL migrations (idempotent, replayable)
-scripts/            Sitemap + prerender + inventory checks
-tests/              Unit tests (node:test)
-public/             Static assets, robots/sitemap/llms.txt, unsubscribe page
+  functions/          21 Edge Functions (stripe-*, printful-*, send-email,
+                      sync-printful, merch-scorer…) + _shared/
+  migrations/         Versioned SQL (RLS, taxonomy seeds, slugs…)
+scripts/              Sitemap + llms.txt, prerender, edge env/live checks
+tests/                Unit tests, static guards (node:test, ~800 cases)
+public/               Assets, robots/sitemap/llms.txt, manifest, unsubscribe
+docs-*/               API refs, protocols, audits, Lighthouse reports
 ```
 
 ---
