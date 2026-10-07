@@ -2,7 +2,7 @@
 
 ## qd on fait login via google
 
-- it says `Prosseguir para hkbybsycaylobvbnnwak.supabase.co` instead of `Prosseguir para https://instawear.vercel.app`. why ?
+- it says `Prosseguir para hkbybsycaylobvbnnwak.supabase.co` instead of `Prosseguir para https://instawear.vercel.app`. why ? -> still going on, as long I don't have my own domain
 
 ## from product a color -> catalogue
 
