@@ -104,4 +104,55 @@ public/               Assets, robots/sitemap/llms.txt, manifest, unsubscribe
 docs-*/               API refs, protocols, audits, Lighthouse reports
 ```
 
+## Project structure (tree)
+
+```text
+📁 instawear_gem/
+├── 📁 src/
+│   ├── App.tsx                        # Storefront shell (routing, cart, auth, overlays)
+│   ├── main.tsx
+│   ├── 📁 admin/                      # Back office (/admin)
+│   │   ├── AdminDashboardNew.tsx      # Shell + section routing
+│   │   ├── AdminSidebar.tsx           # Single nav source (NAV_GROUPS)
+│   │   ├── OrdersPage.tsx / ProductsPage.tsx / CustomersPage.tsx
+│   │   ├── ReviewsPage.tsx            # Review moderation
+│   │   ├── FinancesPage.tsx / ReportsPage.tsx / MerchandisingPage.tsx
+│   │   ├── EmailMarketingPage.tsx / NotificationsPage.tsx / PromotionsPage.tsx
+│   │   ├── MockupStudio.tsx / GalleryPicker.tsx / ProductFormPanel.tsx
+│   │   ├── SettingsPage.tsx / IntegrationsPage.tsx / ErrorMonitoringPage.tsx
+│   │   ├── AdminUsersPage.tsx / HelpPage.tsx / ShippedDeliveredPage.tsx
+│   │   ├── ProductQuickViewModal.tsx / *_InfoModal.tsx
+│   │   ├── ui/                        # Shared primitives (Button, Modal, Badge…)
+│   │   ├── emailMarketing/            # Templates, prefs, events sections
+│   │   └── adminTypes.ts / adminHooks.ts / adminStyles.ts / adminGuards.ts
+│   ├── 📁 api/                        # Typed Supabase layers
+│   │   ├── supabaseApi.ts             # products, orders, merch, prefs…
+│   │   ├── customerMapping.ts         # Pure RPC mapping (tested)
+│   │   └── storageApi.ts
+│   ├── 📁 components/                 # Storefront UI
+│   │   ├── Header.tsx / Footer.tsx / MobileTabBar.tsx
+│   │   ├── HeroCarousel.tsx / DealsSection.tsx / CatalogSection.tsx
+│   │   ├── StoreProductCard.tsx / ForYouSection.tsx
+│   │   ├── CartDrawer.tsx / CheckoutFlow.tsx / OrderTrackingModal.tsx
+│   │   ├── AccountPage.tsx / AccountTabToolbar.tsx
+│   │   ├── AuthModal.tsx / AuthSocial.tsx / ProfileModal.tsx
+│   │   ├── CopyID.tsx / ToastContainer.tsx / BackToTopButton.tsx …
+│   │   ├── 📁 product/                # PDP blocks (gallery, reviews, FBT…)
+│   │   └── 📁 skeletons/              # Loading placeholders
+│   ├── 📁 pages/                      # Route pages (/item, /search, /faq…)
+│   ├── 📁 hooks/                      # useTaxonomy, useCurrency, useTimidBar…
+│   ├── 📁 data/                       # categories, materials, countries…
+│   ├── 📁 utils/ 📁 lib/              # Pure helpers + clients (unit-tested)
+│   └── 📁 config/ 📁 constants/       # Env readers, assets, order statuses
+├── 📁 supabase/
+│   ├── 📁 functions/                  # 21 Edge Functions + _shared/
+│   └── 📁 migrations/                 # Versioned SQL (RLS, seeds, slugs…)
+├── 📁 scripts/                       # sitemap, prerender, edge checks
+├── 📁 tests/                         # ~800 cases (node:test)
+├── 📁 public/                        # Assets, robots/sitemap/llms.txt, manifest
+├── 📁 docs-API/ 📁 docs-front-back/ 📁 docs-lighthouse-reports/ 📁 docs-POD/
+├── vercel.json / server.ts / index.html / package.json
+└── README.md / AGENT.md / *.md        # Audits & notes
+```
+
 ---
