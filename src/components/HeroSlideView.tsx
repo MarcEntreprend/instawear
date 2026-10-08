@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import HeroHtml from "./HeroHtml";
+import HeroCountdown from "./HeroCountdown";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import { heroBackground, isLightHeroBg } from "./HeroCarousel";
@@ -637,6 +638,24 @@ export default function HeroSlideView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Countdown (lot 14) : hydratation cliente, centré, non cliquable.
+       *  Jamais dans le lead prerender (placeholder statique côté build). */}
+      {cfg.layers.some((l) => l.type === "countdown") && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          {cfg.layers.map((l, li) =>
+            l.type !== "countdown" || hide(l.hidden) ? null : (
+              <HeroCountdown
+                key={li}
+                targetAt={l.targetAt}
+                label={l.label}
+                tone={l.tone}
+                expiredText={l.expiredText}
+              />
+            ),
+          )}
         </div>
       )}
 

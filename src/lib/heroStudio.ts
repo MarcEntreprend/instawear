@@ -146,6 +146,14 @@ export function createHeroLayer(type: HeroLayer["type"]): HeroLayer | null {
         direction: "left",
         tone: "dark",
       };
+    case "countdown":
+      return {
+        type: "countdown",
+        targetAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+        label: "",
+        tone: "dark",
+        expiredText: "C'est parti !",
+      };
     case "html":
     default:
       // Couche HTML : réservée au lot 4 (super_admin + sandbox).

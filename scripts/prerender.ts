@@ -304,13 +304,17 @@ if (url && anon && products.length > 0) {
       const e = (pr as any).ends_at ? Date.parse((pr as any).ends_at) : NaN;
       if (!Number.isNaN(s) && buildNow < s) return false;
       if (!Number.isNaN(e) && buildNow >= e) return false;
-      // Marquee (lot 13) : jamais de lead animé (LCP statique garanti).
+      // Marquee/countdown (lots 13-14) : jamais de lead animé ou daté
+      // (LCP statique garanti, hydratation cliente au runtime).
       const cfg = (pr as any).config as { layers?: unknown } | null;
       const layers = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
       if (
         layers.some(
           (l: unknown) =>
-            !!l && typeof l === "object" && (l as { type?: unknown }).type === "marquee",
+            !!l &&
+            typeof l === "object" &&
+            ((l as { type?: unknown }).type === "marquee" ||
+              (l as { type?: unknown }).type === "countdown"),
         )
       )
         return false;

@@ -1230,7 +1230,7 @@ export default function HeroStudioEditor({
           ))}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {(
-              ["image", "card", "tiles", "text", "marquee"] as const
+              ["image", "card", "tiles", "text", "marquee", "countdown"] as const
             ).map((t) => (
               <button
                 key={t}
@@ -1595,6 +1595,8 @@ function layerLabel(type: string): string {
       return "Texte";
     case "marquee":
       return "Bandeau";
+    case "countdown":
+      return "Compte à rebours";
     default:
       return type;
   }
@@ -2275,6 +2277,84 @@ function LayerEditor({
           </Row>
         </div>
       );
+    case "countdown": {
+      const toLocal = (iso: string) => {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        const p = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+      };
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={hint}>
+            Hydratation cliente (jamais figé au build) et exclu du lead.
+            Fuseau : heure locale du navigateur.
+          </p>
+          <Field label="Échéance">
+            <input
+              type="datetime-local"
+              value={toLocal(layer.targetAt)}
+              onChange={(e) =>
+                onPatch((l) => {
+                  if (l.type !== "countdown") return;
+                  if (!e.target.value) return;
+                  const ms = Date.parse(e.target.value);
+                  if (Number.isFinite(ms))
+                    l.targetAt = new Date(ms).toISOString();
+                })
+              }
+              style={formInputStyle}
+            />
+          </Field>
+          <Row>
+            <Field label="Étiquette (vide = aucune)">
+              <input
+                type="text"
+                value={layer.label}
+                maxLength={60}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "countdown") l.label = e.target.value;
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+            <Field label="Texte une fois expiré">
+              <input
+                type="text"
+                value={layer.expiredText}
+                maxLength={60}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "countdown")
+                      l.expiredText = e.target.value;
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Ton">
+              <select
+                value={layer.tone}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "countdown")
+                      l.tone = e.target.value as "light" | "dark";
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="dark">Sombre (texte clair)</option>
+                <option value="light">Clair (texte sombre)</option>
+              </select>
+            </Field>
+          </Row>
+        </div>
+      );
+    }
     default:
       return null;
   }

@@ -119,6 +119,17 @@ export interface HeroHtmlLayer {
 }
 /** Bandeau défilant (lot 13) : animation CSS transform-only, JAMAIS sur le
  *  slide 1 (garde éditeur + exclu du lead prerender). */
+/** Compte à rebours (lot 14) : hydratation cliente uniquement (jamais dans
+ *  le HTML prerender : placeholder statique), exclu du lead. */
+export interface HeroCountdownLayer {
+  type: "countdown";
+  /** ISO UTC. Invalide => couche écartée. */
+  targetAt: string;
+  label: string;
+  tone: "light" | "dark";
+  expiredText: string;
+  hidden?: HeroHidden;
+}
 export interface HeroMarqueeLayer {
   type: "marquee";
   text: string;
@@ -134,6 +145,7 @@ export type HeroLayer =
   | HeroTilesLayer
   | HeroTextLayer
   | HeroMarqueeLayer
+  | HeroCountdownLayer
   | HeroHtmlLayer;
 
 export interface HeroCtaPoint {
@@ -444,6 +456,18 @@ function sanitizeLayer(raw: unknown): HeroLayer | null {
         showSub: raw.showSub !== false,
         fromProduct: raw.fromProduct === true,
       }, raw);
+    case "countdown": {
+      const ms =
+        typeof raw.targetAt === "string" ? Date.parse(raw.targetAt) : NaN;
+      if (!Number.isFinite(ms)) return null;
+      return {
+        type: "countdown",
+        targetAt: new Date(ms).toISOString(),
+        label: str(raw.label, 60),
+        tone: pick(raw.tone, ["light", "dark"] as const, "dark"),
+        expiredText: str(raw.expiredText, 60) || "C'est parti !",
+      };
+    }
     case "marquee": {
       const text = str(raw.text, 200);
       if (!text) return null;

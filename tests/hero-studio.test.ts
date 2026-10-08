@@ -31,6 +31,7 @@ import {
 import { sanitizeHeroConfig } from "../src/lib/heroSchema.ts";
 import { selectHeroSlides } from "../src/lib/heroSelect.ts";
 import { heroShellStyle } from "../src/components/HeroCarousel.tsx";
+import { heroCountdownParts } from "../src/components/HeroCountdown.tsx";
 import type { HeroPromotion } from "../src/admin/adminTypes.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -251,6 +252,62 @@ test("marquee : rendu CSS-only, jamais de JS, exclu du lead", () => {
   const ed = read("src/admin/HeroStudioEditor.tsx");
   assert.ok(ed.includes("Bandeau"), "éditeur : couche ajoutable");
   assert.ok(ed.includes("position 1"), "avertissement LCP");
+});
+
+test("countdown (lot 14) : ISO normalisé, invalide écarté", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      {
+        type: "countdown",
+        targetAt: "2026-12-31T23:59:00",
+        label: "  Go  ",
+        tone: "pink",
+        expiredText: "",
+      },
+      { type: "countdown", targetAt: "n'importe quoi" },
+      { type: "countdown" },
+    ],
+    ctas: [],
+  });
+  assert.equal(c.layers.length, 1);
+  assert.deepEqual(c.layers[0], {
+    type: "countdown",
+    targetAt: new Date("2026-12-31T23:59:00").toISOString(),
+    label: "Go",
+    tone: "dark",
+    expiredText: "C'est parti !",
+  });
+  const f = createHeroLayer("countdown") as { targetAt: string };
+  assert.ok(Number.isFinite(Date.parse(f.targetAt)), "factory valide");
+});
+
+test("countdown : parties exactes + rendu client-only + exclu du lead", () => {
+  assert.deepEqual(heroCountdownParts(100000, 1000), {
+    d: 0,
+    h: 0,
+    m: 1,
+    s: 39,
+    expired: false,
+  });
+  assert.deepEqual(heroCountdownParts(90061000, 0), {
+    d: 1,
+    h: 1,
+    m: 1,
+    s: 1,
+    expired: false,
+  });
+  assert.equal(heroCountdownParts(1000, 1000).expired, true);
+  assert.equal(heroCountdownParts(NaN, 0).expired, true);
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("HeroCountdown"), "rendu dédié");
+  const cd = read("src/components/HeroCountdown.tsx");
+  assert.ok(cd.includes("setInterval"), "tick 1 s");
+  assert.ok(cd.includes("clearInterval"), "nettoyé");
+  assert.ok(cd.includes('role="timer"'), "a11y timer");
+  const pre = read("scripts/prerender.ts");
+  assert.ok(pre.includes('"countdown"'), "lead jamais daté");
+  const ed = read("src/admin/HeroStudioEditor.tsx");
+  assert.ok(ed.includes("Compte à rebours"), "éditeur : couche ajoutable");
 });
 
 test("caps : plafonds schéma respectés", () => {

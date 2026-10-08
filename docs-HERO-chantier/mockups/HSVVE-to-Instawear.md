@@ -157,3 +157,6 @@ Deploy Hook sur `main` uniquement après merge (voir `blocNote.md`).
 - Lot 13 fait : marquee (texte 5–120 s/boucle, direction, ton, CSS
   transform-only + reduced-motion global, exclu du lead, avertissement
   slide 1). Aucun slide marquee live → impact LCP nul. Tests 867/867.
+- Lot 14 fait : countdown (ISO normalisé, label, ton, texte expiré,
+  tick 1 s nettoyé, `role="timer"`, exclu du lead, hydratation cliente).
+  Aucun slide countdown live → impact LCP nul. Tests 869/869.
