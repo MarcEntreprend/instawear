@@ -92,7 +92,8 @@ import {
   orderApi,
 } from "./api/supabaseApi";
 const ProductPage = lazy(() => import("./pages/ProductPage"));
-import HeroCarousel, { HERO_BG_FALLBACK } from "./components/HeroCarousel";
+import HeroCarousel from "./components/HeroCarousel";
+import { selectHeroSlides } from "./lib/heroSelect";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -100,7 +101,6 @@ import { rankProducts } from "./utils/productRanking";
 import CatalogSection from "./components/CatalogSection";
 import ForYouSection from "./components/ForYouSection";
 import SitewideCountdownBanner from "./components/SitewideCountdownBanner";
-import { PLACEHOLDER_IMG } from "./constants/assets";
 import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
@@ -1269,40 +1269,11 @@ export default function App() {
     return targetDate.toLocaleDateString("en-US", options);
   };
 
-  // Hero Carousel banners content
-  const heroBanners = React.useMemo(() => {
-    return [...heroPromotions]
-      .filter((promo) => {
-        if (promo.isActive === false) return false;
-        const product = products.find((p) => p.id === promo.productId);
-        if (!product || product.isActive === false) return false;
-        return true;
-      })
-      .sort((a, b) => a.order - b.order)
-      .map((promo) => {
-        const product = products.find((p) => p.id === promo.productId);
-        return {
-          title: promo.title || product?.title || promo.headline || "Promotion",
-          headline: promo.headline || product?.title || "",
-          sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || HERO_BG_FALLBACK,
-          image: promo.image || product?.image || PLACEHOLDER_IMG,
-          tag: promo.tag || "⚡ PROMOTION",
-          productId: promo.productId,
-          showTag: promo.showTag !== false,
-          showTitle: promo.showTitle !== false,
-          layout: (promo.layout === "split" ? "split" : "full") as
-            | "full"
-            | "split",
-          kind: (promo.kind === "image" || promo.kind === "grid"
-            ? promo.kind
-            : "product") as "product" | "image" | "grid",
-          linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
-          tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
-        };
-      });
-  }, [heroPromotions, products]);
+  // Hero Carousel banners content (sélection pure testée : voir heroSelect).
+  const heroBanners = React.useMemo(
+    () => selectHeroSlides(heroPromotions, products),
+    [heroPromotions, products],
+  );
 
   // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS
   // le paint donc le <img> gagne toujours la course (preload inutile + warnings

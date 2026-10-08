@@ -290,12 +290,20 @@ if (url && anon && products.length > 0) {
     const { data: promos } = await supabase
       .from("hero_promotions")
       .select(
-        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout, kind, link_url",
+        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout, kind, link_url, starts_at, ends_at",
       )
-      .order("order", { ascending: true });
+      .order("order", { ascending: true })
+      .order("id", { ascending: true }); // ex æquo : même déterminisme que l'API
+    const buildNow = Date.now();
     const first = (promos ?? []).find((pr: any) => {
       if (pr == null) return false;
       if ((pr as any).is_active === false) return false;
+      // Fenêtre de planification (miroir isHeroScheduledLive, heure du build ;
+      // le runtime ré-filtre à l'heure réelle — prerender périmé assumé).
+      const s = (pr as any).starts_at ? Date.parse((pr as any).starts_at) : NaN;
+      const e = (pr as any).ends_at ? Date.parse((pr as any).ends_at) : NaN;
+      if (!Number.isNaN(s) && buildNow < s) return false;
+      if (!Number.isNaN(e) && buildNow >= e) return false;
       const prod = products.find(
         (p) => p.id === String((pr as any).product_id),
       );

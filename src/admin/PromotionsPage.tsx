@@ -77,6 +77,9 @@ export default function PromotionsPage() {
     try {
       const promos = await heroPromotionsApi.list();
       for (const promo of promos) {
+        // Slide studio sans produit : aucune dépendance catalogue,
+        // jamais auto-désactivé (lot 2 : product_id NULL => "").
+        if (!promo.productId) continue;
         const product = allProducts.find((p) => p.id === promo.productId);
         if (
           (!product || product.isActive === false) &&
