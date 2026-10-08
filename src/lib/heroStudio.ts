@@ -39,6 +39,21 @@ export const HERO_BG_PRESETS: Array<{ label: string; value: string }> = [
     label: "Sable doré",
     value: "linear-gradient(135deg, #f0b13d 0%, #f7d789 60%, #f0b13d 100%)",
   },
+  {
+    label: "Verre (glass)",
+    value:
+      "linear-gradient(135deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.04) 40%, rgba(20,18,14,.6) 100%)",
+  },
+  {
+    label: "Maille (mesh)",
+    value:
+      "linear-gradient(135deg, #2b1a3a 0%, transparent 60%), linear-gradient(45deg, #c2452a 0%, transparent 55%), linear-gradient(200deg, #1c2340 0%, #0f0d0a 85%)",
+  },
+  {
+    label: "Grain (noise SVG, ~350 o)",
+    value:
+      "linear-gradient(135deg, #211d16 0%, #171411 100%), url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E\")",
+  },
 ];
 
 export const HERO_ANCHORS = [
@@ -59,6 +74,7 @@ export const HERO_CTA_STYLES = [
   { value: "light", label: "Clair" },
   { value: "dark", label: "Sombre" },
   { value: "ghost", label: "Fantôme" },
+  { value: "hotspot", label: "Pastille (hotspot)" },
 ] as const;
 
 /** Positions CTA : null = en ligne (flux texte, historique). Les % sont

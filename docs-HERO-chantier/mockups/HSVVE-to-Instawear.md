@@ -160,3 +160,6 @@ Deploy Hook sur `main` uniquement après merge (voir `blocNote.md`).
 - Lot 14 fait : countdown (ISO normalisé, label, ton, texte expiré,
   tick 1 s nettoyé, `role="timer"`, exclu du lead, hydratation cliente).
   Aucun slide countdown live → impact LCP nul. Tests 869/869.
+- Lot 15 fait : hotspots (style pastille pulsante, `pulse-ring` réutilisé,
+  aria-label, 3 rendus), presets Verre/Maille/Grain (SVG data ~350 o,
+  pisteurs refusés). Aucun usage live → impact nul. Tests 871/871.

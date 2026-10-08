@@ -41,6 +41,8 @@ export function heroCtaClass(style: HeroCta["style"]): {
         className: "btn btn-ghost",
         extra: { background: "#111", color: "#fff", borderColor: "#111" },
       };
+    case "hotspot":
+      return { className: "hero-hotspot" };
     case "accent":
     default:
       return { className: "btn btn-accent" };
@@ -77,6 +79,31 @@ function typoWrapStyle(
   if (t.maxWidth) out.maxWidth = t.maxWidth;
   return Object.keys(out).length > 0 ? out : undefined;
 }
+/** Pastille hotspot (lot 15) : point d'intérêt pulsant, label en
+ *  aria-label + title (pas de texte visible). Même cible que le CTA. */
+function HotspotDot({
+  label,
+  onClick,
+  className,
+  style,
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`hero-hotspot${className ? ` ${className}` : ""}`}
+      style={style}
+    />
+  );
+}
+
 export function heroTextDark(slide: HeroSlideData): boolean {
   const tone =
     slide.config.layers.find((l) => l.type === "text") &&
@@ -427,16 +454,24 @@ export default function HeroSlideView({
               {!isStudio &&
                 b.cta &&
                 (() => {
-                  const s = heroCtaClass(
-                    inlineCtas[0]?.style ?? "accent",
-                  );
+                  const first = inlineCtas[0];
+                  const s = heroCtaClass(first?.style ?? "accent");
+                  const go = () => onAction(b);
+                  if (s.className === "hero-hotspot") {
+                    return (
+                      <HotspotDot
+                        label={first?.label || b.cta}
+                        onClick={go}
+                      />
+                    );
+                  }
                   return (
                     <button
-                      onClick={() => onAction(b)}
+                      onClick={go}
                       className={`${s.className} shrink-0`}
                       style={s.extra}
                     >
-                      {inlineCtas[0]?.label || b.cta} <ArrowRight size={16} />
+                      {first?.label || b.cta} <ArrowRight size={16} />
                     </button>
                   );
                 })()}
@@ -558,11 +593,20 @@ export default function HeroSlideView({
                 (() => {
                   const c = inlineCtas[0];
                   const s = heroCtaClass(c.style);
+                  const go = () => {
+                    if (!fireLink(c.link)) onAction(b);
+                  };
+                  if (s.className === "hero-hotspot") {
+                    return (
+                      <HotspotDot
+                        label={c.label || b.cta}
+                        onClick={go}
+                      />
+                    );
+                  }
                   return (
                     <button
-                      onClick={() => {
-                        if (!fireLink(c.link)) onAction(b);
-                      }}
+                      onClick={go}
                       className={`${s.className} animate-fade-up`}
                       style={{ animationDelay: "240ms", ...s.extra }}
                     >
@@ -707,12 +751,28 @@ export default function HeroSlideView({
         const s = heroCtaClass(c.style);
         const mobile = devMobile;
         const pt = (mobile ? c.pos.mobile : undefined) ?? c.pos.desktop;
+        const go = () => {
+          if (!fireLink(c.link)) onAction(b);
+        };
+        if (s.className === "hero-hotspot") {
+          return (
+            <HotspotDot
+              key={c.id}
+              label={c.label}
+              onClick={go}
+              className="absolute z-20"
+              style={{
+                left: `${pt.x}%`,
+                top: `${pt.y}%`,
+                transform: `translate(-${pt.x}%, -${pt.y}%)`,
+              }}
+            />
+          );
+        }
         return (
           <button
             key={c.id}
-            onClick={() => {
-              if (!fireLink(c.link)) onAction(b);
-            }}
+            onClick={go}
             className={`${s.className} absolute z-20`}
             style={{
               left: `${pt.x}%`,

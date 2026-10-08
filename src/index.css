@@ -636,6 +636,29 @@ body {
   animation-direction: reverse;
 }
 
+/* Hero hotspot (lot 15) : pastille pulsante, transform/box-shadow only.
+ * Le bloc global prefers-reduced-motion neutralise déjà l'animation. */
+.hero-hotspot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding: 0;
+  border: 3px solid #fff;
+  background: #ff5c35;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+.hero-hotspot::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
 /* Pill badge */
 .badge {
   display: inline-flex;

@@ -156,7 +156,7 @@ export interface HeroCta {
   id: string;
   label: string;
   link: string | null; // null = fiche du produit principal
-  style: "accent" | "light" | "dark" | "ghost";
+  style: "accent" | "light" | "dark" | "ghost" | "hotspot";
   /** null = "inline" (dans le flux du bloc texte, comportement legacy).
    *  Sinon position libre ; au rendu : left/top = x%/y% + translate(-x%, -y%)
    *  => le bouton ne déborde JAMAIS, même à 0 % ou 100 %. */
@@ -240,11 +240,26 @@ export function cleanHeroSrc(v: unknown): string | null {
   return null;
 }
 
-/** Fond CSS : dégradé / couleur uniquement. url(), @import, ;{}<> => rejeté. */
+/** Fond CSS (lot 15) : dégradé / couleur, OU SVG embarqué data: (grain).
+ *  Tout autre url() (pisteurs réseau), @import, ;{}<> => rejeté. Le SVG
+ *  data est inerte en contexte image (aucun script ne s'y exécute), mais
+ *  on refuse quand même script/handlers/javascript:/foreignObject.
+ *  Plafond 1200 caractères (le CHECK config 20 Ko reste le garde-fou). */
 export function cleanHeroBackground(v: unknown): string {
-  const t = str(v, 600);
+  const t = str(v, 1200);
   if (!t) return "";
-  if (/url\s*\(|expression\s*\(|@import|[;{}<>]/i.test(t)) return "";
+  if (/expression\s*\(|@import/i.test(t)) return "";
+  if (/url\s*\(/i.test(t)) {
+    const rest = t.replace(
+      /url\(\s*["']?data:image\/svg\+xml,[\s\S]*?["']?\s*\)/gi,
+      "",
+    );
+    if (/url\s*\(/i.test(rest)) return "";
+    if (/<script|javascript\s*:|\son[a-z]+\s*=|<foreignobject/i.test(t))
+      return "";
+    return t;
+  }
+  if (/[;{}<>]/i.test(t)) return "";
   return /gradient\(|^#|^var\(--|^rgba?\(|^hsla?\(/i.test(t) ? t : "";
 }
 
@@ -506,7 +521,7 @@ function sanitizeCta(raw: unknown, index: number): HeroCta | null {
     link: cleanHeroLink(raw.link),
     style: pick(
       raw.style,
-      ["accent", "light", "dark", "ghost"] as const,
+      ["accent", "light", "dark", "ghost", "hotspot"] as const,
       "accent",
     ),
     pos,
