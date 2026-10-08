@@ -4,7 +4,7 @@
 // par sanitizeHeroConfig (jamais d'état invalide), origin forcée "studio"
 // à l'enregistrement (l'ancien formulaire ne peut plus écraser), html/css
 // intouchés (lot 4). Produit optionnel : "" = slide autonome.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2, X } from "lucide-react";
 import { heroPromotionsApi } from "../api/supabaseApi";
 import {
@@ -102,6 +102,12 @@ export default function HeroStudioEditor({
   const [isActive, setIsActive] = useState(true);
   const [startsAt, setStartsAt] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  // HTML/CSS collés (lot 4) : chargés via getFull, écrits seulement si
+  // modifiés (un non-super_admin ne doit jamais heurter la garde 42501
+  // en sauvegardant un autre champ).
+  const [html, setHtml] = useState("");
+  const [css, setCss] = useState("");
+  const initialHtml = useRef({ html: "", css: "" });
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
   useEffect(() => {
@@ -124,6 +130,12 @@ export default function HeroStudioEditor({
         setIsActive(row.isActive !== false);
         setStartsAt(row.startsAt ?? null);
         setEndsAt(row.endsAt ?? null);
+        setHtml(typeof row.html === "string" ? row.html : "");
+        setCss(typeof row.css === "string" ? row.css : "");
+        initialHtml.current = {
+          html: typeof row.html === "string" ? row.html : "",
+          css: typeof row.css === "string" ? row.css : "",
+        };
       })
       .catch((e) => setError(String((e as Error)?.message || e)))
       .finally(() => setLoading(false));
@@ -182,27 +194,52 @@ export default function HeroStudioEditor({
       linkUrl: null,
       tiles: null,
       config: sanitizeHeroConfig({ ...config, origin: "studio" }),
+      html,
+      css,
       startsAt,
       endsAt,
     } as unknown as HeroPromotion;
     return selectHeroSlides([draft], productsLite, Date.now())[0] ?? null;
-  }, [config, productId, slideId, startsAt, endsAt, productsLite]);
+  }, [config, productId, slideId, startsAt, endsAt, productsLite, html, css]);
 
   const caps = heroStudioCaps(config);
-  const budget = heroPayloadBudget("", "");
+  const budget = heroPayloadBudget(html, css);
+  const htmlDirty =
+    html !== initialHtml.current.html || css !== initialHtml.current.css;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
+      if (budget.level === "over") {
+        setError(
+          `HTML+CSS : ${budget.bytes.toLocaleString("fr-FR")} octets > plafond 50 000 — réduisez avant d'enregistrer.`,
+        );
+        return;
+      }
       const clean = sanitizeHeroConfig({ ...config, origin: "studio" });
+      // La couche {type:"html"} suit le contenu : ajoutée si HTML/CSS
+      // présent, retirée si vidé (jamais de couche orpheline).
+      const wantsHtml = html !== "" || css !== "";
+      const layers = clean.layers.some((l) => l.type === "html")
+        ? wantsHtml
+          ? clean.layers
+          : clean.layers.filter((l) => l.type !== "html")
+        : wantsHtml
+          ? [...clean.layers, { type: "html" } as const]
+          : clean.layers;
+      const final = sanitizeHeroConfig({ ...clean, layers });
+      // html/css écrits seulement si modifiés : un non-super_admin qui
+      // retouche un autre champ ne heurte jamais la garde 42501.
+      const htmlPatch = htmlDirty ? { html, css } : {};
       if (slideId) {
         await heroPromotionsApi.update(slideId, {
-          config: clean,
+          config: final,
           productId,
           isActive,
           startsAt,
           endsAt,
+          ...htmlPatch,
         });
       } else {
         await heroPromotionsApi.create({
@@ -211,12 +248,18 @@ export default function HeroStudioEditor({
           isActive,
           startsAt,
           endsAt,
-          config: clean,
+          ...htmlPatch,
+          config: final,
         } as Omit<HeroPromotion, "id">);
       }
       onSaved();
     } catch (e) {
-      setError(String((e as Error)?.message || e));
+      const msg = String((e as Error)?.message || e);
+      setError(
+        msg.includes("42501") || msg.includes("super_admin")
+          ? "HTML/CSS réservés aux super_admin : enregistrez sans modifier ces champs, ou demandez un accès."
+          : msg,
+      );
     } finally {
       setSaving(false);
     }
@@ -391,10 +434,21 @@ export default function HeroStudioEditor({
               />
             </Field>
           </Row>
-          <p style={hint}>
+          <p
+            style={{
+              ...hint,
+              color:
+                budget.level === "over"
+                  ? "#ef4444"
+                  : budget.level === "warn"
+                    ? "#d97706"
+                    : undefined,
+            }}
+          >
             Config : {JSON.stringify(config).length.toLocaleString("fr-FR")}{" "}
-            / 20 000 caractères · HTML+CSS : {budget.bytes.toLocaleString("fr-FR")}{" "}
-            / 50 000 octets (HTML collé : lot 4).
+            / 20 000 caractères · HTML+CSS :{" "}
+            {budget.bytes.toLocaleString("fr-FR")} / 50 000 octets (
+            {budget.pct} %){budget.level === "over" ? " — TROP LOURD" : ""}
           </p>
         </div>
       </div>
@@ -940,6 +994,46 @@ export default function HeroStudioEditor({
               <Plus size={13} /> Bouton
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* HTML collé (lot 4) : super_admin uniquement, sandboxé + nettoyé. */}
+      <div style={card}>
+        <p style={sectionTitle}>
+          HTML personnalisé
+          {htmlDirty ? " (modifié)" : ""}
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={notice}>
+            Super-admin uniquement : tout autre rôle reçoit une erreur 42501
+            à l'enregistrement. Rendu sandboxé (Shadow DOM, styles scopés)
+            + nettoyé (scripts, handlers, iframes, URL javascript: refusés).
+            La couche HTML est ajoutée/retirée automatiquement selon le
+            contenu.
+          </p>
+          <Field
+            label="HTML (overlay plein slide)"
+            hint="Balises sûres uniquement. Les <script> et handlers sont retirés au rendu."
+          >
+            <textarea
+              value={html}
+              rows={6}
+              spellCheck={false}
+              onChange={(e) => setHtml(e.target.value)}
+              style={{ ...formInputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }}
+              placeholder='<div class="promo">…</div>'
+            />
+          </Field>
+          <Field label="CSS (scopé au slide)">
+            <textarea
+              value={css}
+              rows={4}
+              spellCheck={false}
+              onChange={(e) => setCss(e.target.value)}
+              style={{ ...formInputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }}
+              placeholder=".promo { … }"
+            />
+          </Field>
         </div>
       </div>
     </div>

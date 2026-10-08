@@ -57,6 +57,10 @@ export interface HeroSlideData {
   linkUrl: string | null;
   tiles: Array<{ image: string; label?: string; link?: string }> | null;
   product: HeroSlideProduct | null;
+  /** HTML/CSS collés (lot 4) : absents de la liste publique, chargés à la
+   *  demande (getHtml) uniquement pour les slides à couche html. */
+  html?: string;
+  css?: string;
 }
 
 export function selectHeroSlides(
@@ -102,6 +106,8 @@ export function selectHeroSlides(
           : "product") as "product" | "image" | "grid",
         linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
         tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
+        html: promo.html || undefined,
+        css: promo.css || undefined,
         product: product
           ? {
               title: product.title,

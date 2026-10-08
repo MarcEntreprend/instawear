@@ -2557,6 +2557,31 @@ export const heroPromotionsApi = {
     if (error || !data) return null;
     return mapHeroPromotion(data);
   },
+  /** HTML/CSS des slides à couche html (lot 4) : un seul appel batch, hors
+   *  liste publique (50 Ko max/slide). Lecture publique des publiés
+   *  (RLS Phase 0), jamais dans le chemin LCP (chargé après la liste). */
+  async getHtml(
+    ids: string[],
+  ): Promise<Record<string, { html: string; css: string }>> {
+    if (ids.length === 0) return {};
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .select("id,html,css")
+      .in("id", ids);
+    if (error) throw error;
+    const out: Record<string, { html: string; css: string }> = {};
+    for (const row of (data ?? []) as Array<{
+      id: string;
+      html: string | null;
+      css: string | null;
+    }>) {
+      out[row.id] = {
+        html: typeof row.html === "string" ? row.html : "",
+        css: typeof row.css === "string" ? row.css : "",
+      };
+    }
+    return out;
+  },
   async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
     const p2 = sanitizeHeroPhase2(promo);
     const layout = promo.layout === "split" ? "split" : "full";

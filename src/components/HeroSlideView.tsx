@@ -7,6 +7,7 @@
 // n'existe pas (lot 3). La couche "html" rend vide jusqu'au lot 4.
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import HeroHtml from "./HeroHtml";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import { heroBackground, isLightHeroBg } from "./HeroCarousel";
@@ -505,6 +506,12 @@ export default function HeroSlideView({
             </div>
           </div>
         )}
+
+      {/* HTML collé (lot 4) : overlay sandboxé au-dessus des couches, sous
+       *  les CTA positionnés. Absent sans contenu (jamais de div vide). */}
+      {cfg.layers.some((l) => l.type === "html") && (b.html || b.css) ? (
+        <HeroHtml html={b.html || ""} css={b.css || ""} onLink={onLink} />
+      ) : null}
 
       {/* Ancre non left-middle (studio uniquement) : bloc texte en overlay. */}
       {isStudio && textLayer && textLayer.anchor !== "left-middle" && (

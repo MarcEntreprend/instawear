@@ -522,6 +522,11 @@ export default function App() {
   // Promotions
   const [heroPromotions, setHeroPromotions] = useState<HeroPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
+  // HTML/CSS collés (lot 4) : chargés à part, uniquement pour les slides à
+  // couche html — jamais dans la liste (poids) ni dans le chemin LCP.
+  const [heroHtml, setHeroHtml] = useState<
+    Record<string, { html: string; css: string }>
+  >({});
 
   const [cart, setCart] = useState<CartItem[]>([]);
   useTabBadge(cart, isAdmin);
@@ -1269,10 +1274,42 @@ export default function App() {
     return targetDate.toLocaleDateString("en-US", options);
   };
 
+  // HTML collé (lot 4) : un appel batch quand la liste arrive, merge ensuite
+  // dans la sélection (les autres couches rendent sans attendre).
+  useEffect(() => {
+    const ids = heroPromotions
+      .filter((p) =>
+        p.config?.layers.some((l) => l.type === "html"),
+      )
+      .map((p) => p.id);
+    if (ids.length === 0) {
+      setHeroHtml({});
+      return;
+    }
+    let live = true;
+    heroPromotionsApi
+      .getHtml(ids)
+      .then((m) => {
+        if (live) setHeroHtml(m);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [heroPromotions]);
+
   // Hero Carousel banners content (sélection pure testée : voir heroSelect).
   const heroBanners = React.useMemo(
-    () => selectHeroSlides(heroPromotions, products),
-    [heroPromotions, products],
+    () =>
+      selectHeroSlides(
+        heroPromotions.map((p) =>
+          heroHtml[p.id]
+            ? { ...p, html: heroHtml[p.id].html, css: heroHtml[p.id].css }
+            : p,
+        ),
+        products,
+      ),
+    [heroPromotions, products, heroHtml],
   );
 
   // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS
