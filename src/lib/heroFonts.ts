@@ -1,7 +1,11 @@
 // src/lib/heroFonts.ts — fontes du hero (lot 10, 02 Font Library).
 // Liste fermée (HERO_FONT_FAMILIES), display=swap, chargement à la demande
 // avec déduplication. Partie pure testée en node, injection DOM isolée.
-import { HERO_FONT_FAMILIES } from "./heroSchema";
+import {
+  HERO_FONT_FAMILIES,
+  cleanHeroFontUrl,
+  parseHeroFontUrlFamilies,
+} from "./heroSchema";
 
 const STACKS: Record<string, string> = {
   Inter: "'Inter',system-ui,sans-serif",
@@ -29,12 +33,25 @@ export function heroFontHref(families: string[]): string | null {
   return `https://fonts.googleapis.com/css2?${qs}&display=swap`;
 }
 
-/** Injecte le <link> une seule fois (no-op sans DOM / déjà présent). */
-export function ensureHeroFonts(families: string[]): void {
+/** Injecte le <link> une seule fois (no-op sans DOM / déjà présent).
+ *  Échec de chargement => élément retiré, piles système en repli (le
+ *  display=swap + fallback évitent le texte invisible dans l'intervalle). */
+export function ensureHeroFonts(
+  families: string[],
+  urls: string[] = [],
+): void {
   if (typeof document === "undefined") return;
   const href = heroFontHref(families);
-  if (!href) return;
-  const id = "hero-fonts";
+  if (href) injectHeroFontLink("hero-fonts", href);
+  const seen = new Set<string>();
+  urls
+    .map((u) => cleanHeroFontUrl(u))
+    .filter((u): u is string => !!u && !seen.has(u) && !!seen.add(u))
+    .slice(0, 3) // plafond : pas d'avalanche de <link>
+    .forEach((u, i) => injectHeroFontLink(`hero-fonts-custom-${i}`, u));
+}
+
+function injectHeroFontLink(id: string, href: string): void {
   if (document.getElementById(id)) return;
   const pre = document.createElement("link");
   pre.rel = "preconnect";
@@ -44,15 +61,17 @@ export function ensureHeroFonts(families: string[]): void {
   link.id = id;
   link.rel = "stylesheet";
   link.href = href;
+  link.onerror = () => link.remove();
   document.head.appendChild(pre);
   document.head.appendChild(link);
 }
 
-/** Familles utilisées par des slides (globale + blocs). */
+/** Familles utilisées par des slides (globale + blocs + URLs custom). */
 export function heroFontsInUse(
   slides: Array<{
     config?: {
       fontFamily?: string;
+      fontUrl?: string;
       layers?: Array<{ type?: string; font?: string }>;
     } | null;
   }>,
@@ -62,9 +81,25 @@ export function heroFontsInUse(
     const c = s.config;
     if (!c) continue;
     if (c.fontFamily) out.add(c.fontFamily);
+    if (c.fontUrl) parseHeroFontUrlFamilies(c.fontUrl).forEach((f) => out.add(f));
     for (const l of c.layers ?? []) {
       if (l.type === "text" && l.font) out.add(l.font);
     }
+  }
+  return [...out];
+}
+
+/** URLs custom utilisées (validées, dédupliquées, max 3). */
+export function heroFontUrlsInUse(
+  slides: Array<{ config?: { fontUrl?: string } | null }>,
+): string[] {
+  const out = new Set<string>();
+  for (const s of slides) {
+    const clean = s.config?.fontUrl
+      ? cleanHeroFontUrl(s.config.fontUrl)
+      : undefined;
+    if (clean) out.add(clean);
+    if (out.size >= 3) break;
   }
   return [...out];
 }

@@ -18,8 +18,13 @@ import {
 import { HERO_TEMPLATES } from "../src/lib/heroTemplates.ts";
 import {
   heroFontHref,
+  heroFontUrlsInUse,
   heroFontsInUse,
 } from "../src/lib/heroFonts.ts";
+import {
+  cleanHeroFontUrl,
+  parseHeroFontUrlFamilies,
+} from "../src/lib/heroSchema.ts";
 import { sanitizeHeroConfig } from "../src/lib/heroSchema.ts";
 import { selectHeroSlides } from "../src/lib/heroSelect.ts";
 import { heroShellStyle } from "../src/components/HeroCarousel.tsx";
@@ -157,6 +162,53 @@ test("fonts : href fermé, usage collecté, legacy sans requête", () => {
     [],
   );
   assert.deepEqual(heroFontsInUse(styled).sort(), ["Inter", "Sora"]);
+});
+
+test("fonts URL (lot 12) : css2 seul, swap forcé, familles parsées", () => {
+  const good =
+    "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;700";
+  const clean = cleanHeroFontUrl(good)!;
+  assert.ok(clean.includes("display=swap"), "swap forcé");
+  assert.deepEqual(parseHeroFontUrlFamilies(good), ["Fraunces", "Inter"]);
+  assert.equal(
+    cleanHeroFontUrl("https://fonts.googleapis.com/css2?family=Inter"),
+    "https://fonts.googleapis.com/css2?family=Inter&display=swap",
+  );
+  for (const bad of [
+    "https://evil.com/css2?family=Inter",
+    "http://fonts.googleapis.com/css2?family=Inter",
+    "javascript:alert(1)",
+    "https://fonts.googleapis.com/css?family=Inter",
+    "https://fonts.googleapis.com/css2?foo=bar",
+    "https://fonts.googleapis.com/css2?family=<img>",
+    "",
+    null,
+    "a".repeat(600),
+  ]) {
+    assert.equal(cleanHeroFontUrl(bad), undefined, String(bad)?.slice(0, 40));
+  }
+  // Traverse sanitize + usage.
+  const c = sanitizeHeroConfig({
+    origin: "studio",
+    fontUrl: good,
+    layers: [],
+    ctas: [],
+  });
+  assert.equal(c.fontUrl, clean);
+  const slides = selectHeroSlides(
+    [
+      {
+        id: "u",
+        productId: "",
+        order: 0,
+        isActive: true,
+        config: c,
+      } as HeroPromotion,
+    ],
+    [],
+  );
+  assert.deepEqual(heroFontUrlsInUse(slides), [clean]);
+  assert.ok(heroFontsInUse(slides).includes("Fraunces"));
 });
 
 test("caps : plafonds schéma respectés", () => {

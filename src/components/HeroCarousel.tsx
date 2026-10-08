@@ -5,7 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowDown } from "lucide-react";
 import HeroSlideView, { heroVisibleIndices, heroTextDark } from "./HeroSlideView";
 import { resolveHeroConfig } from "../lib/heroSchema";
-import { ensureHeroFonts, heroFontsInUse } from "../lib/heroFonts";
+import {
+  ensureHeroFonts,
+  heroFontUrlsInUse,
+  heroFontsInUse,
+} from "../lib/heroFonts";
 import type { HeroSlideData } from "../lib/heroSelect";
 
 // HERO_BG_FALLBACK vit dans heroSelect (zéro cycle d'import) ; ré-exporté
@@ -206,10 +210,10 @@ export default function HeroCarousel({
     autoPlayTimeoutRef.current = setTimeout(() => setIsPaused(false), duration);
   };
 
-  // Polices des slides (lot 10) : <link> unique, display=swap, dédupliqué.
+  // Polices des slides (lots 10+12) : <link> uniques, display=swap.
   // Les slides legacy n'en déclarent aucune → zéro requête ajoutée.
   useEffect(() => {
-    ensureHeroFonts(heroFontsInUse(slides));
+    ensureHeroFonts(heroFontsInUse(slides), heroFontUrlsInUse(slides));
   }, [slides]);
 
   // Montage paresseux : seuls l'actif et le suivant portent du contenu

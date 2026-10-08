@@ -36,7 +36,11 @@ import {
   type HeroHistory,
 } from "../lib/heroStudio";
 import { HERO_TEMPLATES } from "../lib/heroTemplates";
-import { HERO_FONT_FAMILIES } from "../lib/heroSchema";
+import {
+  HERO_FONT_FAMILIES,
+  cleanHeroFontUrl,
+  parseHeroFontUrlFamilies,
+} from "../lib/heroSchema";
 import HeroSlideView from "../components/HeroSlideView";
 import { normalizeHeroLink } from "../components/HeroCarousel";
 import AdminImageInput from "./ui/AdminImageInput";
@@ -142,6 +146,9 @@ export default function HeroStudioEditor({
   const [html, setHtml] = useState("");
   const [css, setCss] = useState("");
   const initialHtml = useRef({ html: "", css: "" });
+  // Brouillon URL custom (lot 12) : validé au blur, jamais persisté tel quel.
+  const [fontUrlDraft, setFontUrlDraft] = useState("");
+  const [fontUrlError, setFontUrlError] = useState<string | null>(null);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
   useEffect(() => {
@@ -158,10 +165,11 @@ export default function HeroStudioEditor({
           buildHeroConfigFromLegacy(row as unknown as Parameters<
             typeof buildHeroConfigFromLegacy
           >[0]);
+        const clean = sanitizeHeroConfig({ ...parsed, origin: "studio" });
         setConverted(parsed.origin !== "studio");
-        setHist(
-          heroHistoryInit(sanitizeHeroConfig({ ...parsed, origin: "studio" })),
-        );
+        setHist(heroHistoryInit(clean));
+        setFontUrlDraft(clean.fontUrl ?? "");
+        setFontUrlError(null);
         setSelection({ kind: "slide" });
         setLocked(new Set());
         setProductId(row.productId || "");
@@ -853,6 +861,52 @@ export default function HeroStudioEditor({
                   </option>
                 ))}
               </select>
+            </Field>
+          </Row>
+          <Row>
+            <Field
+              label="Import custom (URL Google Fonts css2)"
+              hint={
+                fontUrlError ??
+                (config.fontUrl
+                  ? `Familles : ${parseHeroFontUrlFamilies(config.fontUrl).join(", ")}`
+                  : "Vide = aucune. Domaine fonts.googleapis.com uniquement.")
+              }
+            >
+              <input
+                type="url"
+                value={fontUrlDraft}
+                placeholder="https://fonts.googleapis.com/css2?family=…&display=swap"
+                onChange={(e) => {
+                  setFontUrlDraft(e.target.value);
+                  if (e.target.value.trim() === "") setFontUrlError(null);
+                }}
+                onBlur={() => {
+                  const v = fontUrlDraft.trim();
+                  if (v === "") {
+                    patchConfig((c) => {
+                      delete c.fontUrl;
+                    });
+                    setFontUrlError(null);
+                    return;
+                  }
+                  const clean = cleanHeroFontUrl(v);
+                  if (!clean) {
+                    setFontUrlError(
+                      "URL refusée : collez une URL https://fonts.googleapis.com/css2?family=…",
+                    );
+                    return;
+                  }
+                  setFontUrlError(null);
+                  patchConfig((c) => {
+                    c.fontUrl = clean;
+                  });
+                }}
+                style={{
+                  ...formInputStyle,
+                  ...(fontUrlError ? { borderColor: "#ef4444" } : null),
+                }}
+              />
             </Field>
           </Row>
           <p

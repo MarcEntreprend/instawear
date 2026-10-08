@@ -148,3 +148,9 @@ Régression LCP > 100 ms ou CLS > 0.01 → lot reverté, pas discuté.
 (lots 1–5 d'abord), puis réévaluer si Claude couvre tout ou partie des
 lots 6–16. Ne pas merger avant verdict. `main` intacte jusqu'à décision ;
 Deploy Hook sur `main` uniquement après merge (voir `blocNote.md`).
+
+## État (style-15-b)
+
+- Vague 1 faite (lots 6–11 + disposition 02 : voir commit vague 1).
+- Lot 12 fait : import font URL (css2 Google validé, swap forcé, max
+  3 `<link>`, repli système + suppression onError). Tests 865/865.

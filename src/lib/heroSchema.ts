@@ -150,6 +150,8 @@ export interface HeroConfig {
   ctas: HeroCta[];
   /** Police globale (02) : appliquée aux blocs non verrouillés. Liste fermée. */
   fontFamily?: string;
+  /** Import custom (lot 12) : URL css2 Google Fonts validée (swap forcé). */
+  fontUrl?: string;
 }
 
 // ─── Helpers de validation ──────────────────────────────────────────────
@@ -241,13 +243,59 @@ export function cleanHeroFont(v: unknown): string | undefined {
     : undefined;
 }
 
-/** Police effective d'un bloc : bloc > globale (sauf verrou) > défaut. */
+/** URL d'import de fonte (lot 12) : uniquement le css2 Google Fonts
+ *  (même discipline que les liens hero : domaine fermé), display=swap
+ *  forcé, familles valides requises. Tout le reste => undefined. */
+export function cleanHeroFontUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  if (t.length === 0 || t.length > 500) return undefined;
+  let u: URL;
+  try {
+    u = new URL(t);
+  } catch {
+    return undefined;
+  }
+  if (u.protocol !== "https:") return undefined;
+  if (u.hostname.toLowerCase() !== "fonts.googleapis.com") return undefined;
+  if (!u.pathname.startsWith("/css2")) return undefined;
+  const families = parseHeroFontUrlFamilies(t);
+  if (families.length === 0) return undefined;
+  u.searchParams.set("display", "swap");
+  return u.toString();
+}
+
+/** Noms de familles déclarés par une URL css2 (tokens sûrs uniquement). */
+export function parseHeroFontUrlFamilies(url: string): string[] {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const f of u.searchParams.getAll("family")) {
+    const name = f.split(":")[0].replace(/\+/g, " ").trim();
+    if (/^[A-Za-z][A-Za-z0-9 ]{1,39}$/.test(name) && !out.includes(name))
+      out.push(name);
+  }
+  return out;
+}
+
+/** Police effective d'un bloc : bloc > globale (nom ou URL, sauf verrou).
+ *  Retourne un NOM de famille (l'URL est résolue vers sa 1re famille). */
 export function heroEffectiveFont(
-  cfg: { fontFamily?: string },
+  cfg: { fontFamily?: string; fontUrl?: string },
   layer: { font?: string; fontLocked?: boolean },
 ): string | undefined {
   if (layer.font) return layer.font;
-  if (!layer.fontLocked && cfg.fontFamily) return cfg.fontFamily;
+  if (!layer.fontLocked) {
+    if (cfg.fontFamily) return cfg.fontFamily;
+    if (cfg.fontUrl) {
+      const fams = parseHeroFontUrlFamilies(cfg.fontUrl);
+      if (fams.length > 0) return fams[0];
+    }
+  }
   return undefined;
 }
 
@@ -463,6 +511,9 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
     ctas,
     ...(cleanHeroFont(r.fontFamily)
       ? { fontFamily: cleanHeroFont(r.fontFamily)! }
+      : null),
+    ...(cleanHeroFontUrl(r.fontUrl)
+      ? { fontUrl: cleanHeroFontUrl(r.fontUrl)! }
       : null),
   };
 }
