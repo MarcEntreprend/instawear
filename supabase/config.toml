@@ -98,3 +98,7 @@ verify_jwt = false
 [functions.admin-invite]
 enabled = true
 verify_jwt = false
+
+[functions.hero-deploy-hook]
+enabled = true
+verify_jwt = false

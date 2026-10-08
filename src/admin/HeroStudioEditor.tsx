@@ -252,6 +252,9 @@ export default function HeroStudioEditor({
           config: final,
         } as Omit<HeroPromotion, "id">);
       }
+      // Propagation instantanée même onglet (lot 5) : la boutique ré-écoute
+      // via storefront:invalidate ; le cross-client passe par le polling.
+      window.dispatchEvent(new Event("storefront:invalidate"));
       onSaved();
     } catch (e) {
       const msg = String((e as Error)?.message || e);

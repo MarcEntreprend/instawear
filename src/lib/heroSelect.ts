@@ -22,6 +22,20 @@ export const HERO_BG_FALLBACK =
 
 export const HERO_PLACEHOLDER_TAG = "⚡ PROMOTION";
 
+/** Rafraîchissement boutique (lot 5) : 45 s + retour visible, jamais
+ *  onglet caché. Quelques octets par sondage (version + updated_at). */
+export const HERO_VERSION_POLL_MS = 45000;
+
+/** Faut-il recharger les promos ? (pur, testé). Premier appel : cale sans
+ *  recharger (seen null). */
+export function shouldRefreshHero(
+  seen: number | null,
+  version: number | null,
+): boolean {
+  if (version === null || seen === null) return false;
+  return version !== seen;
+}
+
 export interface HeroSlideProduct {
   title: string;
   description: string;

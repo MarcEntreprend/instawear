@@ -2582,6 +2582,32 @@ export const heroPromotionsApi = {
     }
     return out;
   },
+  /** Compteur de version hero (lot 5) : 2 colonnes publiques, quelques
+   *  octets, jamais de polling lourd. Anon OK (GRANT version, updated_at). */
+  async getVersion(): Promise<{ version: number; updatedAt: string | null }> {
+    const { data, error } = await supabase
+      .from("hero_version")
+      .select("version,updated_at")
+      .eq("id", true)
+      .maybeSingle();
+    if (error || !data)
+      throw error || new Error("hero_version indisponible");
+    return {
+      version: Number((data as { version: number }).version) || 0,
+      updatedAt: (data as { updated_at: string | null }).updated_at ?? null,
+    };
+  },
+  /** Demande un redéploiement (rebuild prerender/lead, lot 5) : edge vérifie
+   *  admin + secret HERO_DEPLOY_HOOK_URL. 503 = secret manquant (normal
+   *  tant que non configuré), 401 = non admin. */
+  async requestDeploy(): Promise<{ ok: boolean }> {
+    const { data, error } = await supabase.functions.invoke(
+      "hero-deploy-hook",
+      { method: "POST" },
+    );
+    if (error) throw error;
+    return { ok: (data as { ok?: boolean })?.ok === true };
+  },
   async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
     const p2 = sanitizeHeroPhase2(promo);
     const layout = promo.layout === "split" ? "split" : "full";

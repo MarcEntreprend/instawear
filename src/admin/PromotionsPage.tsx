@@ -371,6 +371,35 @@ export default function PromotionsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
+            onClick={async () => {
+              // Rebuild prerender/lead (lot 5) : edge admin-only, secret
+              // HERO_DEPLOY_HOOK_URL côté serveur (503 = non configuré).
+              if (
+                !window.confirm(
+                  "Relancer un déploiement du site ? (lead hero + SEO à jour dans quelques minutes)",
+                )
+              )
+                return;
+              try {
+                const r = await heroPromotionsApi.requestDeploy();
+                alert(
+                  r.ok
+                    ? "Déploiement demandé."
+                    : "Réponse inattendue du serveur.",
+                );
+              } catch (e) {
+                alert(
+                  `Échec : ${String((e as Error)?.message || e)}`,
+                );
+              }
+            }}
+            style={secondaryBtn}
+            title="Rebuild (lead hero + prerender à jour)"
+          >
+            <RefreshCw size={15} strokeWidth={2.5} />
+            Republier le site
+          </button>
+          <button
             onClick={() => setStudio({ id: null })}
             style={secondaryBtn}
           >

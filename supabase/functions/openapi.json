@@ -68,6 +68,9 @@
     },
     "/admin-invite": {
       "post": { "summary": "Super-admin: invite a new administrator (creates admin_users row + Auth invite, no password in transit)", "x-roles": ["admin"], "x-edges": ["admin-invite"] }
+    },
+    "/hero-deploy-hook": {
+      "post": { "summary": "Admin: redeploys the site (refreshes hero prerender/lead), requires HERO_DEPLOY_HOOK_URL secret", "x-roles": ["admin"], "x-edges": ["hero-deploy-hook"] }
     }
   }
 }

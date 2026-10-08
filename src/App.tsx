@@ -10,6 +10,7 @@ import React, {
   useEffect,
   useRef,
   useMemo,
+  useCallback,
   lazy,
   Suspense,
 } from "react";
@@ -93,7 +94,11 @@ import {
 } from "./api/supabaseApi";
 const ProductPage = lazy(() => import("./pages/ProductPage"));
 import HeroCarousel from "./components/HeroCarousel";
-import { selectHeroSlides } from "./lib/heroSelect";
+import {
+  HERO_VERSION_POLL_MS,
+  selectHeroSlides,
+  shouldRefreshHero,
+} from "./lib/heroSelect";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -777,25 +782,82 @@ export default function App() {
     }
   };
 
-  // Promotions
+  // Promotions (lot 5 : liste + HTML batch au même endroit, réutilisé par
+  // l'invalidate admin et le polling de version).
+  const fetchPromos = useCallback(async () => {
+    try {
+      const promos = await heroPromotionsApi.list();
+      setHeroPromotions(promos);
+      const ids = promos
+        .filter((p) => p.config?.layers.some((l) => l.type === "html"))
+        .map((p) => p.id);
+      if (ids.length === 0) {
+        setHeroHtml({});
+        return;
+      }
+      try {
+        setHeroHtml(await heroPromotionsApi.getHtml(ids));
+      } catch {
+        /* liste affichée sans le HTML */
+      }
+    } catch {
+      setHeroPromotions([]);
+    } finally {
+      setPromotionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     // fetchSettings();
-    heroPromotionsApi
-      .list()
-      .then(setHeroPromotions)
-      .catch(() => setHeroPromotions([]))
-      .finally(() => setPromotionsLoading(false));
-  }, []);
+    void fetchPromos();
+  }, [fetchPromos]);
 
-  // Refresh catalog when admin modifies a product
+  // Refresh catalog + promos when admin modifies something (lot 5 : les
+  // promos aussi, même onglet — le cross-client passe par le polling).
   useEffect(() => {
     const handler = () => {
       fetchProducts();
+      void fetchPromos();
     };
     window.addEventListener("storefront:invalidate", handler);
     return () => window.removeEventListener("storefront:invalidate", handler);
-  }, []);
+  }, [fetchPromos]);
+
+  // Propagation hero (lot 5) : le trigger bump hero_version à chaque écriture
+  // (1 seul bump par reorder atomique). Sondage léger toutes les 45 s + à
+  // chaque retour visible (jamais onglet caché) → re-fetch si version neuve.
+  const heroVersionRef = useRef<number | null>(null);
+  useEffect(() => {
+    let stopped = false;
+    const check = async () => {
+      if (document.hidden) return;
+      try {
+        const v = await heroPromotionsApi.getVersion();
+        if (stopped) return;
+        if (heroVersionRef.current === null) {
+          heroVersionRef.current = v.version;
+          return;
+        }
+        if (shouldRefreshHero(heroVersionRef.current, v.version)) {
+          heroVersionRef.current = v.version;
+          await fetchPromos();
+        }
+      } catch {
+        /* hors-ligne ou RLS : on réessaiera au prochain cycle */
+      }
+    };
+    const timer = setInterval(check, HERO_VERSION_POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchPromos]);
 
   // Listen to Supabase session changes (authentication)
   // Garde /account : si getSession répond vide alors que la session arrive
@@ -1273,30 +1335,6 @@ export default function App() {
     targetDate.setDate(targetDate.getDate() + daysOffset);
     return targetDate.toLocaleDateString("en-US", options);
   };
-
-  // HTML collé (lot 4) : un appel batch quand la liste arrive, merge ensuite
-  // dans la sélection (les autres couches rendent sans attendre).
-  useEffect(() => {
-    const ids = heroPromotions
-      .filter((p) =>
-        p.config?.layers.some((l) => l.type === "html"),
-      )
-      .map((p) => p.id);
-    if (ids.length === 0) {
-      setHeroHtml({});
-      return;
-    }
-    let live = true;
-    heroPromotionsApi
-      .getHtml(ids)
-      .then((m) => {
-        if (live) setHeroHtml(m);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [heroPromotions]);
 
   // Hero Carousel banners content (sélection pure testée : voir heroSelect).
   const heroBanners = React.useMemo(
