@@ -5,7 +5,7 @@
 // à l'enregistrement (l'ancien formulaire ne peut plus écraser), html/css
 // intouchés (lot 4). Produit optionnel : "" = slide autonome.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, LockOpen, Monitor, Moon, Plus, Redo2, Smartphone, Sun, Trash2, Undo2, X } from "lucide-react";
 import { heroPromotionsApi } from "../api/supabaseApi";
 import {
   HERO_MAX_LAYERS,
@@ -27,9 +27,16 @@ import {
   createHeroCta,
   createHeroLayer,
   duplicateItem,
+  heroHistoryInit,
+  heroHistoryPush,
+  heroHistoryRedo,
+  heroHistoryUndo,
   heroStudioCaps,
   moveItem,
+  type HeroHistory,
 } from "../lib/heroStudio";
+import { HERO_TEMPLATES } from "../lib/heroTemplates";
+import { HERO_FONT_FAMILIES } from "../lib/heroSchema";
 import HeroSlideView from "../components/HeroSlideView";
 import { normalizeHeroLink } from "../components/HeroCarousel";
 import AdminImageInput from "./ui/AdminImageInput";
@@ -44,6 +51,12 @@ interface HeroStudioEditorProps {
   onClose: () => void;
   onSaved: () => void;
 }
+
+/** Sélection 02 : slide entier, couche i, ou bouton i. */
+export type StudioSelection =
+  | { kind: "slide" }
+  | { kind: "layer"; index: number }
+  | { kind: "cta"; index: number };
 
 function Field({
   label,
@@ -97,7 +110,28 @@ export default function HeroStudioEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [converted, setConverted] = useState(false);
-  const [config, setConfig] = useState<HeroConfig>(() => blankStudioConfig());
+  // Historique undo/redo (02) : `config` = présent ; chaque commit pousse
+  // (coalescé < 800 ms : la frappe reste 1 entrée). Cap 20.
+  const [hist, setHist] = useState<HeroHistory>(() =>
+    heroHistoryInit(blankStudioConfig()),
+  );
+  const config = hist.present;
+  // Sélection 02 : slide | couche | bouton (panneau gauche → inspecteur).
+  const [selection, setSelection] =
+    useState<StudioSelection>({ kind: "slide" });
+  // Verrous 02 (session uniquement, jamais persistés) : bloque contenu +
+  // réorganisation, pas la visibilité.
+  const [locked, setLocked] = useState<Set<string>>(new Set());
+  // Thème du studio 02 (outil seul, jamais le hero) : persisté local.
+  const [studioTheme, setStudioTheme] = useState<
+    "light" | "grey" | "dark"
+  >(() => {
+    const v =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("hero-studio-theme")
+        : null;
+    return v === "light" || v === "dark" ? v : "grey";
+  });
   const [productId, setProductId] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [startsAt, setStartsAt] = useState<string | null>(null);
@@ -125,7 +159,11 @@ export default function HeroStudioEditor({
             typeof buildHeroConfigFromLegacy
           >[0]);
         setConverted(parsed.origin !== "studio");
-        setConfig(sanitizeHeroConfig({ ...parsed, origin: "studio" }));
+        setHist(
+          heroHistoryInit(sanitizeHeroConfig({ ...parsed, origin: "studio" })),
+        );
+        setSelection({ kind: "slide" });
+        setLocked(new Set());
         setProductId(row.productId || "");
         setIsActive(row.isActive !== false);
         setStartsAt(row.startsAt ?? null);
@@ -141,24 +179,118 @@ export default function HeroStudioEditor({
       .finally(() => setLoading(false));
   }, [slideId]);
 
-  // Patch immuable + normalisé (l'éditeur ne peut pas produire d'invalide).
+  // Commit (historisé) + patch immuable normalisé (jamais d'invalide).
+  const commit = (next: HeroConfig) =>
+    setHist((h) => heroHistoryPush(h, sanitizeHeroConfig(next)));
   const patchConfig = (fn: (draft: HeroConfig) => void) => {
-    setConfig((c) => {
-      const next = JSON.parse(JSON.stringify(c)) as HeroConfig;
+    setHist((h) => {
+      const next = JSON.parse(JSON.stringify(h.present)) as HeroConfig;
       fn(next);
-      return sanitizeHeroConfig(next);
+      return heroHistoryPush(h, sanitizeHeroConfig(next));
     });
   };
-  const patchLayer = (index: number, fn: (l: HeroLayer) => void) =>
+  const isLocked = (key: string) => locked.has(key);
+  const patchLayer = (index: number, fn: (l: HeroLayer) => void) => {
+    if (isLocked(`l:${index}`)) return;
     patchConfig((c) => {
       const l = c.layers[index];
       if (l) fn(l);
     });
-  const patchCta = (index: number, fn: (cta: HeroCta) => void) =>
+  };
+  const patchCta = (index: number, fn: (cta: HeroCta) => void) => {
+    if (isLocked(`c:${index}`)) return;
     patchConfig((c) => {
       const t = c.ctas[index];
       if (t) fn(t);
     });
+  };
+  // Opération structurelle (verrous réinitialisés : les index changent).
+  const structural = (fn: (c: HeroConfig) => void) => {
+    setLocked(new Set());
+    patchConfig(fn);
+  };
+
+  // ─── Panneau couches 02 : œil, verrou, pills Hide-on, scroll ─────────
+  const layerHiddenOf = (index: number) => {
+    const l = config.layers[index] as
+      | { hidden?: { mobile?: boolean; desktop?: boolean } }
+      | undefined;
+    return l?.hidden;
+  };
+  const ctaHiddenOf = (index: number) => config.ctas[index]?.hidden;
+  const setLayerHidden = (
+    index: number,
+    h: { mobile?: boolean; desktop?: boolean } | undefined,
+  ) =>
+    patchConfig((c) => {
+      const l = c.layers[index] as
+        | { hidden?: { mobile?: boolean; desktop?: boolean } }
+        | undefined;
+      if (l) l.hidden = h;
+    });
+  const setCtaHidden = (
+    index: number,
+    h: { mobile?: boolean; desktop?: boolean } | undefined,
+  ) =>
+    patchConfig((c) => {
+      const t = c.ctas[index];
+      if (t) t.hidden = h;
+    });
+  const toggleEye = (sel: StudioSelection) => {
+    const cur =
+      sel.kind === "layer"
+        ? layerHiddenOf(sel.index)
+        : sel.kind === "cta"
+          ? ctaHiddenOf(sel.index)
+          : undefined;
+    const next =
+      cur?.mobile && cur?.desktop ? undefined : { mobile: true, desktop: true };
+    if (sel.kind === "layer") setLayerHidden(sel.index, next);
+    else if (sel.kind === "cta") setCtaHidden(sel.index, next);
+  };
+  const togglePill = (
+    sel: StudioSelection,
+    axis: "mobile" | "desktop",
+  ) => {
+    const cur =
+      sel.kind === "layer"
+        ? layerHiddenOf(sel.index)
+        : sel.kind === "cta"
+          ? ctaHiddenOf(sel.index)
+          : undefined;
+    const next = { ...(cur ?? {}) };
+    if (next[axis]) delete next[axis];
+    else next[axis] = true;
+    const clean =
+      !next.mobile && !next.desktop
+        ? undefined
+        : (next as { mobile?: boolean; desktop?: boolean });
+    if (sel.kind === "layer") setLayerHidden(sel.index, clean);
+    else if (sel.kind === "cta") setCtaHidden(sel.index, clean);
+  };
+  const eyeOff = (sel: StudioSelection) => {
+    const cur =
+      sel.kind === "layer"
+        ? layerHiddenOf(sel.index)
+        : sel.kind === "cta"
+          ? ctaHiddenOf(sel.index)
+          : undefined;
+    return !!cur && !!cur.mobile && !!cur.desktop;
+  };
+  const scrollToId = (id: string) => {
+    setSelection(
+      id === "hero-slide"
+        ? { kind: "slide" }
+        : id.startsWith("hero-layer-")
+          ? { kind: "layer", index: Number(id.slice(11)) }
+          : { kind: "cta", index: Number(id.slice(9)) },
+    );
+    requestAnimationFrame(() => {
+      document
+        .getElementById(id)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
 
   const productsLite = useMemo(
     () =>
@@ -278,38 +410,131 @@ export default function HeroStudioEditor({
     );
   }
 
+  const themeBg =
+    studioTheme === "dark"
+      ? "#0A0A0B"
+      : studioTheme === "light"
+        ? "#FFFFFF"
+        : "#F4F4F5";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Barre d'actions */}
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        background: themeBg,
+        borderRadius: 16,
+        padding: 12,
+      }}
+    >
+      {/* Barre haute 02 : retour, titre, thème studio, device, undo/redo, sauver */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 8,
           flexWrap: "wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 30,
+          background: themeBg,
+          padding: "4px 0",
         }}
       >
-        <h3 style={{ fontWeight: 800, fontSize: 16, margin: 0, flex: 1 }}>
+        <button type="button" onClick={onClose} style={secondaryBtn} title="Retour aux promotions">
+          <X size={14} />
+        </button>
+        <h3 style={{ fontWeight: 800, fontSize: 16, margin: 0, flex: 1, minWidth: 140 }}>
           {slideId ? "Studio — modifier le slide" : "Studio — nouveau slide"}
         </h3>
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["desktop", "mobile"] as const).map((d) => (
+        <div style={{ display: "flex", gap: 4 }} title="Thème du studio (outil seul)">
+          {(
+            [
+              { id: "light", label: "Studio clair", bg: "#FFFFFF", icon: Sun },
+              { id: "grey", label: "Studio neutre (calibrage)", bg: "#F4F4F5", icon: null },
+              { id: "dark", label: "Studio sombre", bg: "#0A0A0B", icon: Moon },
+            ] as const
+          ).map((t) => (
             <button
-              key={d}
+              key={t.id}
               type="button"
-              onClick={() => setDevice(d)}
+              title={t.label}
+              onClick={() => {
+                setStudioTheme(t.id);
+                try {
+                  localStorage.setItem("hero-studio-theme", t.id);
+                } catch {
+                  /* stockage indisponible : thème session seule */
+                }
+              }}
               style={{
-                ...chipBtn,
-                ...(device === d ? chipBtnActive : null),
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                border:
+                  studioTheme === t.id
+                    ? "2px solid #FF6B21"
+                    : "1px solid var(--color-border2)",
+                background: t.bg,
+                color: t.id === "dark" ? "#fff" : "#111",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {d === "desktop" ? "Desktop" : "Mobile"}
+              {t.icon ? <t.icon size={13} /> : null}
             </button>
           ))}
         </div>
-        <button type="button" onClick={onClose} style={secondaryBtn}>
-          <X size={14} /> Annuler
-        </button>
+        <div style={{ display: "flex", gap: 4 }} title="Aperçu">
+          {(
+            [
+              { id: "desktop", icon: Monitor, label: "Aperçu desktop" },
+              { id: "mobile", icon: Smartphone, label: "Aperçu mobile" },
+            ] as const
+          ).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              title={d.label}
+              onClick={() => setDevice(d.id)}
+              style={{
+                ...chipBtn,
+                ...(device === d.id ? chipBtnActive : null),
+              }}
+            >
+              <d.icon size={13} />
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            type="button"
+            title="Annuler (historique)"
+            disabled={hist.past.length === 0}
+            onClick={() => {
+              setHist((h) => heroHistoryUndo(h));
+              setSelection({ kind: "slide" });
+            }}
+            style={miniBtn}
+          >
+            <Undo2 size={13} />
+          </button>
+          <button
+            type="button"
+            title="Rétablir (historique)"
+            disabled={hist.future.length === 0}
+            onClick={() => {
+              setHist((h) => heroHistoryRedo(h));
+              setSelection({ kind: "slide" });
+            }}
+            style={miniBtn}
+          >
+            <Redo2 size={13} />
+          </button>
+        </div>
         <button
           type="button"
           onClick={handleSave}
@@ -336,6 +561,170 @@ export default function HeroStudioEditor({
         </p>
       )}
 
+      {/* Corps 3 panneaux 02 : couches | canvas | inspecteur */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Panneau couches 02 : z-stack, œil, verrou, pills Hide-on */}
+        <div style={{ ...card, width: 250, flexShrink: 0, padding: 12 }}>
+          <button
+            type="button"
+            onClick={() => scrollToId("hero-slide")}
+            style={{
+              ...layerRow,
+              ...(selection.kind === "slide" ? layerRowActive : null),
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 13 }}>Slide</span>
+            <span style={hint}>fond · dimensions</span>
+          </button>
+          <p style={groupTitle}>Partir de… (remplace, annulable)</p>
+          <select
+            value=""
+            onChange={(e) => {
+              const t = HERO_TEMPLATES.find((x) => x.id === e.target.value);
+              if (t) {
+                commit(t.build());
+                setSelection({ kind: "slide" });
+              }
+              e.target.value = "";
+            }}
+            style={formInputStyle}
+            title="Gabarit (la config courante est remplaçable via Annuler)"
+          >
+            <option value="">Choisir un gabarit…</option>
+            {HERO_TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id} title={t.hint}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <p style={groupTitle}>Couches ({config.layers.length})</p>          {config.layers.map((layer, i) => {
+            const sel: StudioSelection = { kind: "layer", index: i };
+            const h = layerHiddenOf(i);
+            return (
+              <div
+                key={i}
+                style={{
+                  ...layerRow,
+                  ...(selection.kind === "layer" && selection.index === i
+                    ? layerRowActive
+                    : null),
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollToId(`hero-layer-${i}`)}
+                  style={layerName}
+                  title={`${layerLabel(layer.type)} #${i + 1}`}
+                >
+                  <span style={layerDot} />
+                  <span style={{ fontWeight: 600, fontSize: 12 }}>
+                    {layerLabel(layer.type)} #{i + 1}
+                  </span>
+                  {isLocked(`l:${i}`) && <Lock size={11} />}
+                </button>
+                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    title={eyeOff(sel) ? "Afficher partout" : "Masquer partout"}
+                    onClick={() => toggleEye(sel)}
+                    style={miniBtn}
+                  >
+                    {eyeOff(sel) ? <EyeOff size={11} /> : <Eye size={11} />}
+                  </button>
+                  {(["D", "M"] as const).map((axis) => {
+                    const key = axis === "D" ? "desktop" : "mobile";
+                    const on = !!h?.[key];
+                    return (
+                      <button
+                        key={axis}
+                        type="button"
+                        title={`Masquer sur ${axis === "D" ? "desktop" : "mobile"}`}
+                        onClick={() => togglePill(sel, key)}
+                        style={{
+                          ...miniBtn,
+                          ...(on ? miniBtnActive : null),
+                          fontSize: 10,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {axis}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <p style={groupTitle}>Boutons ({config.ctas.length})</p>
+          {config.ctas.map((cta, i) => {
+            const sel: StudioSelection = { kind: "cta", index: i };
+            const h = ctaHiddenOf(i);
+            return (
+              <div
+                key={cta.id}
+                style={{
+                  ...layerRow,
+                  ...(selection.kind === "cta" && selection.index === i
+                    ? layerRowActive
+                    : null),
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollToId(`hero-cta-${i}`)}
+                  style={layerName}
+                  title={cta.label || `Bouton ${i + 1}`}
+                >
+                  <span style={ctaBadge}>TOP</span>
+                  <span style={{ fontWeight: 600, fontSize: 12 }}>
+                    {(cta.label || `Bouton ${i + 1}`).slice(0, 18)}
+                  </span>
+                  {isLocked(`c:${i}`) && <Lock size={11} />}
+                </button>
+                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    title={eyeOff(sel) ? "Afficher partout" : "Masquer partout"}
+                    onClick={() => toggleEye(sel)}
+                    style={miniBtn}
+                  >
+                    {eyeOff(sel) ? <EyeOff size={11} /> : <Eye size={11} />}
+                  </button>
+                  {(["D", "M"] as const).map((axis) => {
+                    const key = axis === "D" ? "desktop" : "mobile";
+                    const on = !!h?.[key];
+                    return (
+                      <button
+                        key={axis}
+                        type="button"
+                        title={`Masquer sur ${axis === "D" ? "desktop" : "mobile"}`}
+                        onClick={() => togglePill(sel, key)}
+                        style={{
+                          ...miniBtn,
+                          ...(on ? miniBtnActive : null),
+                          fontSize: 10,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {axis}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Canvas central */}
+        <div style={{ flex: 1, minWidth: 300 }}>
       {/* Aperçu live */}
       <div style={card}>
         <p style={sectionTitle}>Aperçu live (WYSIWYG)</p>
@@ -378,9 +767,14 @@ export default function HeroStudioEditor({
           cadre.
         </p>
       </div>
+        </div>
 
+        {/* Inspecteur droit : sections slide + cartes couches/boutons */}
+        <div
+          style={{ flex: 1.4, minWidth: 320, display: "flex", flexDirection: "column", gap: 16 }}
+        >
       {/* Général */}
-      <div style={card}>
+      <div style={card} id="hero-slide">
         <p style={sectionTitle}>Général</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Field label="Produit (vide = slide autonome, sans fiche)">
@@ -435,6 +829,30 @@ export default function HeroStudioEditor({
                 }
                 style={formInputStyle}
               />
+            </Field>
+          </Row>
+          <Row>
+            <Field
+              label="Police globale (blocs non verrouillés)"
+              hint="Chargée display=swap, une seule fois."
+            >
+              <select
+                value={config.fontFamily ?? ""}
+                onChange={(e) =>
+                  patchConfig((c) => {
+                    if (!e.target.value) delete c.fontFamily;
+                    else c.fontFamily = e.target.value;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="">Défaut navigateur</option>
+                {HERO_FONT_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
             </Field>
           </Row>
           <p
@@ -649,7 +1067,16 @@ export default function HeroStudioEditor({
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {config.layers.map((layer, i) => (
-            <div key={i} style={layerCard}>
+            <div
+              key={i}
+              id={`hero-layer-${i}`}
+              style={{
+                ...layerCard,
+                ...(selection.kind === "layer" && selection.index === i
+                  ? selectedCard
+                  : null),
+              }}
+            >
               <div style={layerHead}>
                 <strong style={{ fontSize: 13 }}>
                   {layerLabel(layer.type)} #{i + 1}
@@ -657,16 +1084,14 @@ export default function HeroStudioEditor({
                 <div style={{ display: "flex", gap: 4 }}>
                   <button
                     type="button"
-                    title="Monter"
+                    title={
+                      isLocked(`l:${i}`) ? "Verrouillé" : "Monter"
+                    }
+                    disabled={isLocked(`l:${i}`)}
                     onClick={() =>
-                      setConfig((c) => ({
-                        ...sanitizeHeroConfig(c),
-                        layers: moveItem(
-                          sanitizeHeroConfig(c).layers,
-                          i,
-                          i - 1,
-                        ),
-                      }))
+                      structural((c) => {
+                        c.layers = moveItem(c.layers, i, i - 1);
+                      })
                     }
                     style={miniBtn}
                   >
@@ -674,16 +1099,14 @@ export default function HeroStudioEditor({
                   </button>
                   <button
                     type="button"
-                    title="Descendre"
+                    title={
+                      isLocked(`l:${i}`) ? "Verrouillé" : "Descendre"
+                    }
+                    disabled={isLocked(`l:${i}`)}
                     onClick={() =>
-                      setConfig((c) => ({
-                        ...sanitizeHeroConfig(c),
-                        layers: moveItem(
-                          sanitizeHeroConfig(c).layers,
-                          i,
-                          i + 1,
-                        ),
-                      }))
+                      structural((c) => {
+                        c.layers = moveItem(c.layers, i, i + 1);
+                      })
                     }
                     style={miniBtn}
                   >
@@ -691,17 +1114,16 @@ export default function HeroStudioEditor({
                   </button>
                   <button
                     type="button"
-                    title="Dupliquer"
+                    title={
+                      isLocked(`l:${i}`) ? "Verrouillé" : "Dupliquer"
+                    }
+                    disabled={isLocked(`l:${i}`)}
                     onClick={() =>
-                      setConfig((c) => {
-                        const clean = sanitizeHeroConfig(c);
-                        return {
-                          ...clean,
-                          layers: duplicateItem(clean.layers, i).slice(
-                            0,
-                            HERO_MAX_LAYERS,
-                          ),
-                        };
+                      structural((c) => {
+                        c.layers = duplicateItem(c.layers, i).slice(
+                          0,
+                          HERO_MAX_LAYERS,
+                        );
                       })
                     }
                     style={miniBtn}
@@ -710,9 +1132,32 @@ export default function HeroStudioEditor({
                   </button>
                   <button
                     type="button"
+                    title="Verrouiller / déverrouiller (session)"
+                    onClick={() =>
+                      setLocked((s) => {
+                        const next = new Set(s);
+                        const k = `l:${i}`;
+                        if (next.has(k)) next.delete(k);
+                        else next.add(k);
+                        return next;
+                      })
+                    }
+                    style={{
+                      ...miniBtn,
+                      ...(isLocked(`l:${i}`) ? miniBtnActive : null),
+                    }}
+                  >
+                    {isLocked(`l:${i}`) ? (
+                      <Lock size={12} />
+                    ) : (
+                      <LockOpen size={12} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     title="Supprimer"
                     onClick={() =>
-                      patchConfig((c) => {
+                      structural((c) => {
                         c.layers.splice(i, 1);
                       })
                     }
@@ -759,7 +1204,16 @@ export default function HeroStudioEditor({
         <p style={sectionTitle}>Boutons ({config.ctas.length} / 4)</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {config.ctas.map((cta, i) => (
-            <div key={cta.id} style={layerCard}>
+            <div
+              key={cta.id}
+              id={`hero-cta-${i}`}
+              style={{
+                ...layerCard,
+                ...(selection.kind === "cta" && selection.index === i
+                  ? selectedCard
+                  : null),
+              }}
+            >
               <div style={layerHead}>
                 <strong style={{ fontSize: 13 }}>
                   {cta.label || `Bouton ${i + 1}`}
@@ -767,14 +1221,11 @@ export default function HeroStudioEditor({
                 <div style={{ display: "flex", gap: 4 }}>
                   <button
                     type="button"
-                    title="Monter"
+                    title={isLocked(`c:${i}`) ? "Verrouillé" : "Monter"}
+                    disabled={isLocked(`c:${i}`)}
                     onClick={() =>
-                      setConfig((c) => {
-                        const clean = sanitizeHeroConfig(c);
-                        return {
-                          ...clean,
-                          ctas: moveItem(clean.ctas, i, i - 1),
-                        };
+                      structural((c) => {
+                        c.ctas = moveItem(c.ctas, i, i - 1);
                       })
                     }
                     style={miniBtn}
@@ -783,14 +1234,11 @@ export default function HeroStudioEditor({
                   </button>
                   <button
                     type="button"
-                    title="Descendre"
+                    title={isLocked(`c:${i}`) ? "Verrouillé" : "Descendre"}
+                    disabled={isLocked(`c:${i}`)}
                     onClick={() =>
-                      setConfig((c) => {
-                        const clean = sanitizeHeroConfig(c);
-                        return {
-                          ...clean,
-                          ctas: moveItem(clean.ctas, i, i + 1),
-                        };
+                      structural((c) => {
+                        c.ctas = moveItem(c.ctas, i, i + 1);
                       })
                     }
                     style={miniBtn}
@@ -799,9 +1247,32 @@ export default function HeroStudioEditor({
                   </button>
                   <button
                     type="button"
+                    title="Verrouiller / déverrouiller (session)"
+                    onClick={() =>
+                      setLocked((s) => {
+                        const next = new Set(s);
+                        const k = `c:${i}`;
+                        if (next.has(k)) next.delete(k);
+                        else next.add(k);
+                        return next;
+                      })
+                    }
+                    style={{
+                      ...miniBtn,
+                      ...(isLocked(`c:${i}`) ? miniBtnActive : null),
+                    }}
+                  >
+                    {isLocked(`c:${i}`) ? (
+                      <Lock size={12} />
+                    ) : (
+                      <LockOpen size={12} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     title="Supprimer"
                     onClick={() =>
-                      patchConfig((c) => {
+                      structural((c) => {
                         c.ctas.splice(i, 1);
                       })
                     }
@@ -1037,6 +1508,8 @@ export default function HeroStudioEditor({
               placeholder=".promo { … }"
             />
           </Field>
+        </div>
+      </div>
         </div>
       </div>
     </div>
@@ -1398,6 +1871,180 @@ function LayerEditor({
             </Field>
           </Row>
           <Row>
+            <Field label="Police du bloc (vide = globale)">
+              <select
+                value={layer.font ?? ""}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (!e.target.value) delete l.font;
+                    else l.font = e.target.value;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="">Globale du slide</option>
+                {HERO_FONT_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Graisse (vide = auto)">
+              <select
+                value={layer.fontWeight ?? ""}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (!e.target.value) delete l.fontWeight;
+                    else l.fontWeight = Number(e.target.value);
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="">Auto (400)</option>
+                {[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Verrou police (ignore la globale)">
+              <select
+                value={layer.fontLocked ? "yes" : "no"}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (e.target.value === "yes") l.fontLocked = true;
+                    else delete l.fontLocked;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="no">Non (suit la globale)</option>
+                <option value="yes">Oui (verrouillée)</option>
+              </select>
+            </Field>
+            <Field label="Interlignage (0.9–2.0, vide = auto)">              <input
+                type="number"
+                step="0.05"
+                min={0.9}
+                max={2}
+                value={layer.lineHeight ?? ""}
+                placeholder="Auto"
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (e.target.value === "") delete l.lineHeight;
+                    else l.lineHeight = num(e.target.value, 1);
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+            <Field label="Chasse em (−0.05–0.1, vide = auto)">
+              <input
+                type="number"
+                step="0.01"
+                min={-0.05}
+                max={0.1}
+                value={layer.letterSpacing ?? ""}
+                placeholder="Auto"
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (e.target.value === "") delete l.letterSpacing;
+                    else l.letterSpacing = num(e.target.value, 0);
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Alignement">
+              <select
+                value={layer.align ?? ""}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (!e.target.value) delete l.align;
+                    else
+                      l.align = e.target.value as NonNullable<
+                        typeof layer.align
+                      >;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="">Défaut (gauche)</option>
+                <option value="left">Gauche</option>
+                <option value="center">Centre</option>
+                <option value="right">Droite</option>
+                <option value="justify">Justifié</option>
+              </select>
+            </Field>
+            <Field label="Casse">
+              <select
+                value={layer.transform ?? ""}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (!e.target.value) delete l.transform;
+                    else
+                      l.transform = e.target.value as NonNullable<
+                        typeof layer.transform
+                      >;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="">Aucune</option>
+                <option value="uppercase">MAJUSCULES</option>
+                <option value="lowercase">minuscules</option>
+                <option value="capitalize">Capitalisé</option>
+              </select>
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Largeur max (ex. 34ch, 80% — vide = auto)">
+              <input
+                type="text"
+                value={layer.maxWidth ?? ""}
+                placeholder="Auto"
+                maxLength={12}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (!e.target.value.trim()) delete l.maxWidth;
+                    else l.maxWidth = e.target.value.trim();
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+            <Field label="Équilibre des lignes">
+              <select
+                value={layer.balance ? "yes" : "no"}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type !== "text") return;
+                    if (e.target.value === "yes") l.balance = true;
+                    else delete l.balance;
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="no">Non</option>
+                <option value="yes">Oui (balance)</option>
+              </select>
+            </Field>
+          </Row>
+          <Row>
             <Field label="Tag">
               <input
                 type="text"
@@ -1410,8 +2057,7 @@ function LayerEditor({
                 }
                 style={formInputStyle}
               />
-            </Field>
-            <Field label="Afficher le tag">
+            </Field>            <Field label="Afficher le tag">
               <select
                 value={layer.showTag ? "yes" : "no"}
                 onChange={(e) =>
@@ -1594,6 +2240,12 @@ const miniBtn: React.CSSProperties = {
   alignItems: "center",
 };
 
+const miniBtnActive: React.CSSProperties = {
+  background: "var(--color-ink)",
+  color: "var(--color-surface)",
+  borderColor: "var(--color-ink)",
+};
+
 const checkRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -1623,4 +2275,69 @@ const tileRow: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
+};
+
+// ─── Panneau couches 02 ─────────────────────────────────────────────────
+const groupTitle: React.CSSProperties = {
+  fontWeight: 800,
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "var(--color-ink4)",
+  margin: "12px 0 6px 0",
+};
+
+const layerRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 6,
+  width: "100%",
+  padding: "6px 8px",
+  borderRadius: 8,
+  border: "1px solid transparent",
+  background: "transparent",
+  cursor: "pointer",
+  marginBottom: 2,
+};
+
+const layerRowActive: React.CSSProperties = {
+  border: "1px solid #FF6B21",
+  background: "color-mix(in srgb, #FF6B21 8%, transparent)",
+};
+
+const layerName: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  color: "var(--color-ink)",
+  minWidth: 0,
+  flex: 1,
+};
+
+const layerDot: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: "var(--color-accent)",
+  flexShrink: 0,
+};
+
+const ctaBadge: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 800,
+  background: "#FF6B21",
+  color: "#fff",
+  borderRadius: 4,
+  padding: "1px 4px",
+  flexShrink: 0,
+};
+
+const selectedCard: React.CSSProperties = {
+  border: "1px solid #FF6B21",
+  boxShadow: "0 0 0 1px #FF6B21",
 };

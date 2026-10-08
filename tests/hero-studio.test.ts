@@ -8,9 +8,18 @@ import {
   createHeroCta,
   createHeroLayer,
   duplicateItem,
+  heroHistoryInit,
+  heroHistoryPush,
+  heroHistoryRedo,
+  heroHistoryUndo,
   heroStudioCaps,
   moveItem,
 } from "../src/lib/heroStudio.ts";
+import { HERO_TEMPLATES } from "../src/lib/heroTemplates.ts";
+import {
+  heroFontHref,
+  heroFontsInUse,
+} from "../src/lib/heroFonts.ts";
 import { sanitizeHeroConfig } from "../src/lib/heroSchema.ts";
 import { selectHeroSlides } from "../src/lib/heroSelect.ts";
 import { heroShellStyle } from "../src/components/HeroCarousel.tsx";
@@ -69,6 +78,85 @@ test("blankStudioConfig : toile studio valide qui marche d'emblée", () => {
   assert.ok(c.layers.length >= 2);
   assert.equal(c.ctas.length, 1);
   assert.deepEqual(sanitizeHeroConfig(c), c, "idempotent");
+});
+
+test("historique : push/undo/redo, coalescence frappe, cap 20", () => {
+  const a = blankStudioConfig();
+  const b = { ...a, layers: [] };
+  let h = heroHistoryInit(a);
+  assert.equal(heroHistoryUndo(h), h, "undo vide = inchangé");
+  h = heroHistoryPush(h, b, 1000);
+  assert.equal(h.past.length, 1);
+  assert.equal(h.present.layers.length, 0);
+  // Frappe rapide (< 800 ms) : 1 seule entrée.
+  const c = { ...b };
+  h = heroHistoryPush(h, c, 1500);
+  assert.equal(h.past.length, 1, "coalescé");
+  // Après 800 ms : nouvelle entrée.
+  h = heroHistoryPush(h, a, 5000);
+  assert.equal(h.past.length, 2);
+  h = heroHistoryUndo(h);
+  assert.deepEqual(h.present, c);
+  assert.equal(h.future.length, 1);
+  h = heroHistoryRedo(h);
+  assert.deepEqual(h.present, a);
+  assert.equal(h.future.length, 0);
+  // Nouveau commit vide le futur.
+  h = heroHistoryUndo(h);
+  h = heroHistoryPush(h, b, 9000);
+  assert.equal(h.future.length, 0);
+});
+
+test("templates : 4 gabarits valides et idempotents", () => {
+  assert.equal(HERO_TEMPLATES.length, 4);
+  const ids = new Set(HERO_TEMPLATES.map((t) => t.id));
+  assert.equal(ids.size, 4);
+  for (const t of HERO_TEMPLATES) {
+    const c = t.build();
+    assert.equal(c.origin, "studio", t.id);
+    assert.ok(c.layers.length > 0, t.id);
+    assert.deepEqual(sanitizeHeroConfig(c), c, `${t.id} idempotent`);
+  }
+});
+
+test("fonts : href fermé, usage collecté, legacy sans requête", () => {
+  assert.equal(heroFontHref([]), null);
+  assert.equal(heroFontHref(["Comic Sans"]), null);
+  const href = heroFontHref(["Inter", "Sora", "Inter"])!;
+  assert.ok(href.includes("family=Inter:"), "dédupliqué");
+  assert.ok(href.includes("family=Sora:"), "multi");
+  assert.ok(href.includes("display=swap"), "swap forcé");
+  assert.ok(!href.includes("Comic"), "inconnu exclu");
+  const legacy = selectHeroSlides(
+    [
+      {
+        id: "x",
+        productId: "p",
+        order: 0,
+        isActive: true,
+      } as HeroPromotion,
+    ],
+    [{ id: "p", isActive: true, title: "T", description: "D", image: "i" }],
+  );
+  assert.deepEqual(heroFontsInUse(legacy), [], "legacy = zéro requête");
+  const styled = selectHeroSlides(
+    [
+      {
+        id: "y",
+        productId: "",
+        order: 0,
+        isActive: true,
+        config: sanitizeHeroConfig({
+          origin: "studio",
+          fontFamily: "Sora",
+          layers: [{ type: "text", font: "Inter" }],
+          ctas: [],
+        }),
+      } as HeroPromotion,
+    ],
+    [],
+  );
+  assert.deepEqual(heroFontsInUse(styled).sort(), ["Inter", "Sora"]);
 });
 
 test("caps : plafonds schéma respectés", () => {

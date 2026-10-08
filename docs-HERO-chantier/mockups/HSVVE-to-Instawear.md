@@ -9,6 +9,14 @@ Conventions : `tsc` + `node --import tsx --test tests/*.test.ts` + `npm run
 build` verts à chaque lot. Aucun `Set-Content`/`Get-Content` sur les sources
 (encodage). Pas de commit sans demande.
 
+Disposition (décision) : l'éditeur adopte la disposition du mockup 02 —
+barre haute (titre, thème studio, device, undo/redo, sauver), panneau
+couches à gauche (sélection, œil, verrou, pills hide-on, badge TOP sur les
+CTA), canvas central, inspecteur à droite (onglets Slide / Couche /
+Bouton). Mis en place au lot 6, rempli aux lots suivants.
+Périmètre : Vague 1 uniquement (« à prendre »). « À cadrer » et « À
+refuser » restent hors scope jusqu'à nouvel ordre.
+
 ---
 
 ## Rappel schéma actuel (lots 1–5)

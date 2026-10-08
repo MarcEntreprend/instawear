@@ -4,9 +4,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  cleanHeroFont,
+  cleanHeroHidden,
   cleanHeroLink,
   cleanHeroSrc,
   cleanHeroBackground,
+  heroEffectiveFont,
+  isHeroHidden,
   sanitizeHeroConfig,
   parseHeroConfig,
   buildHeroConfigFromLegacy,
@@ -245,6 +249,97 @@ test("budget 50 Ko : mesure en OCTETS UTF-8, plafond inclusif", () => {
     heroPayloadBudget("a".repeat(30000), "b".repeat(21201)).level,
     "over",
   );
+});
+
+test("hidden (02) : que des true explicites, absent sinon", () => {
+  assert.equal(cleanHeroHidden(undefined), undefined);
+  assert.equal(cleanHeroHidden({}), undefined);
+  assert.equal(cleanHeroHidden({ mobile: false }), undefined);
+  assert.deepEqual(cleanHeroHidden({ mobile: true }), { mobile: true });
+  assert.deepEqual(cleanHeroHidden({ mobile: 1 as never }), undefined);
+  assert.equal(isHeroHidden(undefined, false), false);
+  assert.equal(isHeroHidden({ mobile: true }, true), true);
+  assert.equal(isHeroHidden({ mobile: true }, false), false);
+  assert.equal(isHeroHidden({ desktop: true }, false), true);
+  const c = sanitizeHeroConfig({
+    layers: [{ type: "text", hidden: { mobile: true } }],
+    ctas: [{ label: "Go", hidden: { desktop: true } }],
+  });
+  assert.deepEqual((c.layers[0] as { hidden?: unknown }).hidden, {
+    mobile: true,
+  });
+  assert.deepEqual(c.ctas[0].hidden, { desktop: true });
+  // Legacy inchangé : aucune clé hidden ajoutée.
+  const legacy = buildHeroConfigFromLegacy({ kind: "product", image: null });
+  assert.ok(
+    !("hidden" in (legacy.layers[0] as object)),
+    "pas de hidden sur le legacy",
+  );
+});
+
+test("typo (02) : bornes, motifs, absente par défaut", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      {
+        type: "text",
+        lineHeight: 9,
+        letterSpacing: -1,
+        align: "middle" as never,
+        transform: "blink" as never,
+        maxWidth: "10;evil",
+        balance: true,
+        font: "Comic Sans",
+        fontLocked: true,
+        fontWeight: 333,
+      },
+    ],
+    ctas: [],
+    fontFamily: "javascript:alert(1)",
+  });
+  const t = c.layers[0] as unknown as Record<string, unknown>;
+  assert.equal(t.lineHeight, 2);
+  assert.equal(t.letterSpacing, -0.05);
+  assert.equal(t.align, "left");
+  assert.equal(t.transform, "none");
+  assert.equal(t.maxWidth, undefined);
+  assert.equal(t.balance, true);
+  assert.equal(t.font, undefined);
+  assert.equal(t.fontLocked, true);
+  assert.equal(t.fontWeight, 300);
+  assert.equal(c.fontFamily, undefined);
+  const ok = sanitizeHeroConfig({
+    fontFamily: "Sora",
+    layers: [{ type: "text", font: "Inter", maxWidth: "34ch" }],
+    ctas: [],
+  });
+  assert.equal(ok.fontFamily, "Sora");
+  assert.equal(
+    (ok.layers[0] as unknown as Record<string, unknown>).font,
+    "Inter",
+  );
+  assert.equal(
+    (ok.layers[0] as unknown as Record<string, unknown>).maxWidth,
+    "34ch",
+  );
+  assert.equal(cleanHeroFont(" Inter "), "Inter");
+  assert.equal(cleanHeroFont("Comic Sans"), undefined);
+  assert.equal(cleanHeroFont(null), undefined);
+});
+
+test("heroEffectiveFont : bloc > globale sauf verrou", () => {
+  assert.equal(
+    heroEffectiveFont({ fontFamily: "Sora" }, { font: "Inter" }),
+    "Inter",
+  );
+  assert.equal(
+    heroEffectiveFont({ fontFamily: "Sora" }, {}),
+    "Sora",
+  );
+  assert.equal(
+    heroEffectiveFont({ fontFamily: "Sora" }, { fontLocked: true }),
+    undefined,
+  );
+  assert.equal(heroEffectiveFont({}, {}), undefined);
 });
 
 test("planification : fenêtre [starts, ends[", () => {

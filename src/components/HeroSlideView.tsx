@@ -14,8 +14,11 @@ import { heroBackground, isLightHeroBg } from "./HeroCarousel";
 import type {
   HeroConfig,
   HeroCta,
+  HeroHidden,
   HeroTextLayer,
 } from "../lib/heroSchema";
+import { heroEffectiveFont, isHeroHidden } from "../lib/heroSchema";
+import { heroFontStack } from "../lib/heroFonts";
 import type { HeroSlideData } from "../lib/heroSelect";
 
 /** Classe + style par style de CTA (seul "accent" existe en legacy). */
@@ -42,8 +45,36 @@ export function heroCtaClass(style: HeroCta["style"]): {
   }
 }
 
-/** Encre sombre ? (texte sombre sur fond clair). Règle historique :
- *  split + fond clair => adaptatif, sauf tone explicite (studio). */
+/** Styles typo fine (02) : appliqués seulement si définis (legacy intact). */
+function typoTitleStyle(
+  t: HeroTextLayer | undefined,
+  base: React.CSSProperties,
+  cfgFont: { fontFamily?: string },
+): React.CSSProperties {
+  if (!t) return base;
+  const out: React.CSSProperties & { textWrap?: string } = { ...base };
+  if (t.lineHeight !== undefined) out.lineHeight = t.lineHeight;
+  if (t.letterSpacing !== undefined)
+    out.letterSpacing = `${t.letterSpacing}em`;
+  if (t.transform && t.transform !== "none")
+    out.textTransform = t.transform;
+  if (t.balance === true) out.textWrap = "balance";
+  // Police effective (02) : bloc > globale sauf verrou > défaut navigateur.
+  const eff = heroEffectiveFont(cfgFont, t);
+  if (eff) out.fontFamily = heroFontStack(eff);
+  if (t.fontWeight !== undefined) out.fontWeight = t.fontWeight;
+  return out;
+}
+
+function typoWrapStyle(
+  t: HeroTextLayer | undefined,
+): React.CSSProperties | undefined {
+  if (!t) return undefined;
+  const out: React.CSSProperties = {};
+  if (t.align) out.textAlign = t.align;
+  if (t.maxWidth) out.maxWidth = t.maxWidth;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 export function heroTextDark(slide: HeroSlideData): boolean {
   const tone =
     slide.config.layers.find((l) => l.type === "text") &&
@@ -160,7 +191,13 @@ export default function HeroSlideView({
   const product = b.product;
 
   const imageLayer = cfg.layers.find((l) => l.type === "image") as
-    | { src: string | null; srcMobile?: string; dim: number; scrim: string }
+    | {
+        src: string | null;
+        srcMobile?: string;
+        dim: number;
+        scrim: string;
+        hidden?: HeroHidden;
+      }
     | undefined;
   const cardLayer = cfg.layers.find((l) => l.type === "card") as
     | {
@@ -168,6 +205,7 @@ export default function HeroSlideView({
         src: string | null;
         srcMobile?: string;
         productId: string | null;
+        hidden?: HeroHidden;
       }
     | undefined;
   const tilesLayer = cfg.layers.find((l) => l.type === "tiles") as
@@ -179,6 +217,7 @@ export default function HeroSlideView({
           ctaLabel: string;
         } | null;
         items: Array<{ src: string; label: string; link: string | null }>;
+        hidden?: HeroHidden;
       }
     | undefined;
   const textLayer = cfg.layers.find((l) => l.type === "text") as
@@ -216,11 +255,32 @@ export default function HeroSlideView({
   const showSub = !isStudio ? true : textLayer?.showSub !== false;
   const tag = isStudio ? textLayer?.tag || "" : textLayer?.tag || b.tag;
   const showTag = (textLayer ? textLayer.showTag !== false : true) && b.showTag;
-  const inlineCtas = cfg.ctas.filter((c) => !isStudio || c.pos === null);
+  // Hide-on (02) : couche/CTA masqués sur le device courant (aperçu
+  // mobile = device simulé, jamais la fenêtre).
+  const devMobile = mobilePreview ?? isMobile;
+  const hide = (h: HeroHidden | undefined) => isHeroHidden(h, devMobile);
+  // Branche visuelle active : si sa couche est masquée, pas de visuel
+  // (le texte et les CTA suivent leurs propres règles).
+  const visualHidden = hide(
+    kind === "grid"
+      ? tilesLayer?.hidden
+      : kind === "image"
+        ? imageLayer?.hidden
+        : split
+          ? (cardLayer?.hidden ?? imageLayer?.hidden)
+          : imageLayer?.hidden,
+  );
+  const inlineCtas = cfg.ctas.filter(
+    (c) => (!isStudio || c.pos === null) && !hide(c.hidden),
+  );
   const placedCtas = isStudio
     ? cfg.ctas.filter(
-        (c): c is HeroCta & { pos: NonNullable<HeroCta["pos"]> } =>
-          c.pos !== null,
+        (
+          c,
+        ): c is HeroCta & {
+          pos: NonNullable<HeroCta["pos"]>;
+          hidden?: HeroHidden;
+        } => c.pos !== null && !hide(c.hidden),
       )
     : [];
 
@@ -238,7 +298,9 @@ export default function HeroSlideView({
       }}
       data-hero-slide={b.id}
     >
-      {kind === "grid" && tilesLayer ? (
+      {visualHidden
+        ? null
+        : kind === "grid" && tilesLayer ? (
         <div className="absolute inset-0 flex flex-col sm:flex-row gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24">
           {transformHeroSrc(
             tilesLayer.main?.src || product?.image || b.image,
@@ -352,7 +414,10 @@ export default function HeroSlideView({
                   </span>
                 )}
                 {!!imageHeadline && (
-                  <div className="text-white font-extrabold text-xl sm:text-2xl leading-tight drop-shadow">
+                  <div
+                    className="text-white font-extrabold text-xl sm:text-2xl leading-tight drop-shadow"
+                    style={typoTitleStyle(textLayer, {}, cfg)}
+                  >
                     {imageHeadline.split("\n")[0]}
                   </div>
                 )}
@@ -428,11 +493,15 @@ export default function HeroSlideView({
 
       {/* Bloc texte partagé (kinds product) + CTA inline historiques. */}
       {(kind === "product" || (isStudio && textLayer)) &&
-        (!textLayer || textLayer.anchor === "left-middle") && (
+        (!textLayer || textLayer.anchor === "left-middle") &&
+        !hide(textLayer?.hidden) && (
           <div className="absolute inset-0 z-10">
             <div className="h-full max-w-350 mx-auto px-5 sm:px-8 flex flex-col justify-between py-8 sm:py-12">
               <div />
-              <div className={split ? "max-w-[62%] sm:max-w-xl" : "max-w-xl"}>
+              <div
+                className={split ? "max-w-[62%] sm:max-w-xl" : "max-w-xl"}
+                style={typoWrapStyle(textLayer)}
+              >
               {showTag && tag && (
                 <span
                   className="inline-flex items-center gap-2 mb-5 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-[0.16em] animate-fade-up"
@@ -450,11 +519,11 @@ export default function HeroSlideView({
               <h1
                 key={headline}
                 className="font-extrabold leading-[0.95] tracking-tight mb-5 animate-fade-up"
-                style={{
+                style={typoTitleStyle(textLayer, {
                   color: ink,
                   fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
                   animationDelay: "80ms",
-                }}
+                }, cfg)}
               >
                 {(textLayer && textLayer.headlineLines === "first"
                   ? [headline.split("\n")[0]]
@@ -514,7 +583,10 @@ export default function HeroSlideView({
       ) : null}
 
       {/* Ancre non left-middle (studio uniquement) : bloc texte en overlay. */}
-      {isStudio && textLayer && textLayer.anchor !== "left-middle" && (
+      {isStudio &&
+        textLayer &&
+        textLayer.anchor !== "left-middle" &&
+        !hide(textLayer.hidden) && (
         <div
           className={`absolute inset-0 z-10 flex p-5 sm:p-8 ${
             textLayer.anchor === "center"
@@ -524,7 +596,7 @@ export default function HeroSlideView({
                 : "items-end justify-start"
           }`}
         >
-          <div className="max-w-xl">
+          <div className="max-w-xl" style={typoWrapStyle(textLayer)}>
             {showTag && tag && (
               <span
                 className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-[0.16em]"
@@ -535,7 +607,10 @@ export default function HeroSlideView({
             )}
             <div
               className="font-extrabold leading-[0.95] tracking-tight mb-3"
-              style={{ color: ink, fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
+              style={typoTitleStyle(textLayer, {
+                color: ink,
+                fontSize: "clamp(2rem, 5vw, 3.5rem)",
+              }, cfg)}
             >
               {textLayer.headlineLines === "first"
                 ? headline.split("\n")[0]
@@ -553,7 +628,7 @@ export default function HeroSlideView({
       {/* CTA positionnés (studio uniquement) : jamais de débordement. */}
       {placedCtas.map((c) => {
         const s = heroCtaClass(c.style);
-        const mobile = mobilePreview ?? isMobile;
+        const mobile = devMobile;
         const pt = (mobile ? c.pos.mobile : undefined) ?? c.pos.desktop;
         return (
           <button

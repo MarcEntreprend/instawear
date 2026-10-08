@@ -196,4 +196,59 @@ export function heroStudioCaps(config: HeroConfig): {
   };
 }
 
+// ─── Historique undo/redo (pur, l'éditeur ne garde que l'état courant) ──
+export interface HeroHistory {
+  past: HeroConfig[];
+  present: HeroConfig;
+  future: HeroConfig[];
+  /** Dernier push (ms) : coalescence de la frappe rapide. */
+  lastPush: number;
+}
+
+export const HERO_HISTORY_MAX = 20;
+export const HERO_HISTORY_COALESCE_MS = 800;
+
+export function heroHistoryInit(config: HeroConfig): HeroHistory {
+  return { past: [], present: config, future: [], lastPush: 0 };
+}
+
+/** Pousse un état (coalescé si < 800 ms : la frappe reste 1 entrée). */
+export function heroHistoryPush(
+  h: HeroHistory,
+  next: HeroConfig,
+  now: number = Date.now(),
+): HeroHistory {
+  const coalesce =
+    h.past.length > 0 && now - h.lastPush < HERO_HISTORY_COALESCE_MS;
+  const past = coalesce ? h.past : [...h.past, h.present];
+  return {
+    past: past.slice(-HERO_HISTORY_MAX),
+    present: next,
+    future: [],
+    lastPush: now,
+  };
+}
+
+export function heroHistoryUndo(h: HeroHistory): HeroHistory {
+  if (h.past.length === 0) return h;
+  const prev = h.past[h.past.length - 1];
+  return {
+    past: h.past.slice(0, -1),
+    present: prev,
+    future: [h.present, ...h.future].slice(0, HERO_HISTORY_MAX),
+    lastPush: 0,
+  };
+}
+
+export function heroHistoryRedo(h: HeroHistory): HeroHistory {
+  if (h.future.length === 0) return h;
+  const [next, ...rest] = h.future;
+  return {
+    past: [...h.past, h.present].slice(-HERO_HISTORY_MAX),
+    present: next,
+    future: rest,
+    lastPush: 0,
+  };
+}
+
 export { HERO_DEFAULT_SIZING };

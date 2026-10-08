@@ -41,6 +41,12 @@ export type HeroTextAnchor =
   | "bottom-left";
 export type HeroTone = "auto" | "light" | "dark";
 
+/** Visibilité responsive (02 : Hide-on). Absent = visible partout. */
+export interface HeroHidden {
+  mobile?: boolean;
+  desktop?: boolean;
+}
+
 /** Fond plein cadre. src null = image du produit principal (product_id). */
 export interface HeroImageLayer {
   type: "image";
@@ -51,6 +57,7 @@ export interface HeroImageLayer {
   fit: "cover" | "contain";
   dim: number; // 0..1 (opacité de l'image sur le fond ; legacy "full" = 0.55)
   scrim: "none" | "left" | "bottom";
+  hidden?: HeroHidden;
 }
 /** Visuel cadré sur un côté (ex-layout split). productId => infos produit live. */
 export interface HeroCardLayer {
@@ -61,6 +68,7 @@ export interface HeroCardLayer {
   alt: string;
   productId: string | null;
   showMeta: boolean;
+  hidden?: HeroHidden;
 }
 export interface HeroTile {
   src: string;
@@ -79,6 +87,7 @@ export interface HeroTilesLayer {
   type: "tiles";
   main: HeroTilesMain | null;
   items: HeroTile[];
+  hidden?: HeroHidden;
 }
 export interface HeroTextLayer {
   type: "text";
@@ -91,6 +100,18 @@ export interface HeroTextLayer {
   sub: string;
   showSub: boolean;
   fromProduct: boolean; // champs vides => titre / description du produit principal
+  hidden?: HeroHidden;
+  /** Typo fine (02) : absents = rendu historique. */
+  lineHeight?: number; // 0.9..2.0
+  letterSpacing?: number; // em, -0.05..0.1
+  align?: "left" | "center" | "right" | "justify";
+  transform?: "none" | "uppercase" | "lowercase" | "capitalize";
+  maxWidth?: string; // "34ch" | "80%" | "520px" (motif strict)
+  balance?: boolean; // text-wrap: balance sur le titre
+  /** Police du bloc (02) : liste fermée, vide = globale puis défaut. */
+  font?: string;
+  fontLocked?: boolean; // verrouillée : ignore la globale
+  fontWeight?: number; // 100..900 (centaines)
 }
 /** Réservé Phase 4 (contenu dans les colonnes html / css, pas dans config). */
 export interface HeroHtmlLayer {
@@ -116,6 +137,7 @@ export interface HeroCta {
    *  Sinon position libre ; au rendu : left/top = x%/y% + translate(-x%, -y%)
    *  => le bouton ne déborde JAMAIS, même à 0 % ou 100 %. */
   pos: null | { desktop: HeroCtaPoint; mobile?: HeroCtaPoint };
+  hidden?: HeroHidden;
 }
 
 export interface HeroConfig {
@@ -126,6 +148,8 @@ export interface HeroConfig {
   background: { gradient: string };
   layers: HeroLayer[];
   ctas: HeroCta[];
+  /** Police globale (02) : appliquée aux blocs non verrouillés. Liste fermée. */
+  fontFamily?: string;
 }
 
 // ─── Helpers de validation ──────────────────────────────────────────────
@@ -196,6 +220,54 @@ export function cleanHeroBackground(v: unknown): string {
   if (!t) return "";
   if (/url\s*\(|expression\s*\(|@import|[;{}<>]/i.test(t)) return "";
   return /gradient\(|^#|^var\(--|^rgba?\(|^hsla?\(/i.test(t) ? t : "";
+}
+
+/** Polices autorisées (02 Font Library) : liste fermée, display=swap. */
+export const HERO_FONT_FAMILIES = [
+  "Inter",
+  "Sora",
+  "Instrument Serif",
+  "General Sans",
+  "Space Grotesk",
+  "JetBrains Mono",
+] as const;
+
+/** Famille valide ou undefined (jamais d'injection via font-family). */
+export function cleanHeroFont(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return (HERO_FONT_FAMILIES as readonly string[]).includes(t)
+    ? t
+    : undefined;
+}
+
+/** Police effective d'un bloc : bloc > globale (sauf verrou) > défaut. */
+export function heroEffectiveFont(
+  cfg: { fontFamily?: string },
+  layer: { font?: string; fontLocked?: boolean },
+): string | undefined {
+  if (layer.font) return layer.font;
+  if (!layer.fontLocked && cfg.fontFamily) return cfg.fontFamily;
+  return undefined;
+}
+
+/** Hide-on (02) : ne retient que des `true` explicites, sinon absent
+ *  (= visible partout — les configs legacy restent inchangées au byte). */
+export function cleanHeroHidden(raw: unknown): HeroHidden | undefined {
+  if (!isObj(raw)) return undefined;
+  const out: HeroHidden = {};
+  if (raw.mobile === true) out.mobile = true;
+  if (raw.desktop === true) out.desktop = true;
+  return out.mobile || out.desktop ? out : undefined;
+}
+
+/** Couche/CTA masqué sur le device courant ? (pur, testé). */
+export function isHeroHidden(
+  hidden: HeroHidden | undefined,
+  isMobile: boolean,
+): boolean {
+  if (!hidden) return false;
+  return isMobile ? hidden.mobile === true : hidden.desktop === true;
 }
 
 // ─── Sizing ─────────────────────────────────────────────────────────────
@@ -292,7 +364,7 @@ function sanitizeLayer(raw: unknown): HeroLayer | null {
       return { type: "tiles", main, items };
     }
     case "text":
-      return {
+      return withTypo({
         type: "text",
         anchor: pick(
           raw.anchor,
@@ -311,7 +383,7 @@ function sanitizeLayer(raw: unknown): HeroLayer | null {
         sub: str(raw.sub, 400),
         showSub: raw.showSub !== false,
         fromProduct: raw.fromProduct === true,
-      };
+      }, raw);
     case "html":
       return { type: "html" };
     default:
@@ -355,7 +427,11 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
   for (const l of Array.isArray(r.layers) ? r.layers : []) {
     if (layers.length >= HERO_MAX_LAYERS) break;
     const s = sanitizeLayer(l);
-    if (s) layers.push(s);
+    if (!s) continue;
+    // Hide-on (02) : conservé tel quel s'il est présent dans l'entrée.
+    const h = cleanHeroHidden(isObj(l) ? (l as Obj).hidden : undefined);
+    if (h) (s as { hidden?: HeroHidden }).hidden = h;
+    layers.push(s);
   }
 
   const ctas: HeroCta[] = [];
@@ -364,6 +440,8 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
     if (ctas.length >= HERO_MAX_CTAS) break;
     const s = sanitizeCta(c, ctas.length);
     if (!s) continue;
+    const h = cleanHeroHidden(isObj(c) ? (c as Obj).hidden : undefined);
+    if (h) s.hidden = h;
     let id = s.id;
     let n = 2;
     while (seen.has(id)) id = `${s.id}-${n++}`;
@@ -383,6 +461,9 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
     },
     layers,
     ctas,
+    ...(cleanHeroFont(r.fontFamily)
+      ? { fontFamily: cleanHeroFont(r.fontFamily)! }
+      : null),
   };
 }
 
@@ -393,6 +474,46 @@ export function parseHeroConfig(raw: unknown): HeroConfig | null {
   if (raw.v !== HERO_SCHEMA_VERSION) return null;
   if (!Array.isArray(raw.layers)) return null;
   return sanitizeHeroConfig(raw);
+}
+
+/** Typo fine (02) : ne retient que les clés EXPLICITEMENT fournies
+ *  (les configs legacy gardent leur rendu historique au byte). */
+function withTypo(
+  layer: HeroTextLayer,
+  raw: Obj,
+): HeroTextLayer {
+  if (raw.lineHeight !== undefined)
+    layer.lineHeight = round1(num(raw.lineHeight, 0.9, 2, 1));
+  if (raw.letterSpacing !== undefined)
+    layer.letterSpacing = round2(num(raw.letterSpacing, -0.05, 0.1, 0));
+  if (raw.align !== undefined)
+    layer.align = pick(
+      raw.align,
+      ["left", "center", "right", "justify"] as const,
+      "left",
+    );
+  if (raw.transform !== undefined)
+    layer.transform = pick(
+      raw.transform,
+      ["none", "uppercase", "lowercase", "capitalize"] as const,
+      "none",
+    );
+  if (raw.maxWidth !== undefined) {
+    const v = str(raw.maxWidth, 12);
+    layer.maxWidth = /^(\d+(\.\d+)?(ch|%|px|em|rem|vw)|none)$/.test(v)
+      ? v
+      : undefined;
+    if (layer.maxWidth === undefined) delete layer.maxWidth;
+  }
+  if (raw.balance === true) layer.balance = true;
+  const font = cleanHeroFont(raw.font);
+  if (font) layer.font = font;
+  if (raw.fontLocked === true) layer.fontLocked = true;
+  if (raw.fontWeight !== undefined) {
+    const w = Math.round(num(raw.fontWeight, 100, 900, 400) / 100) * 100;
+    if (w !== 400) layer.fontWeight = w;
+  }
+  return layer;
 }
 
 // ─── Legacy → config (miroir TS du backfill SQL) ────────────────────────
