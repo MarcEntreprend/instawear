@@ -107,6 +107,31 @@ function readLeadHero(): HeroSlideData | null {
   }
 }
 
+/** Style de coquille depuis le sizing du slide ACTIF (pur, testé).
+ *  `{}` = sizing historique (78vh pleine largeur) → classes d'origine,
+ *  aucun pixel ne bouge pour les slides legacy. */
+export function heroShellStyle(
+  slide: HeroSlideData | undefined,
+  isMobile: boolean,
+): React.CSSProperties {
+  const s = slide?.config.sizing;
+  if (!s) return {};
+  const style: React.CSSProperties = {};
+  if (s.mode === "auto") {
+    style.aspectRatio = String(isMobile ? s.ratio.mobile : s.ratio.desktop);
+  } else {
+    const h = isMobile && s.heightMobile ? s.heightMobile : s.height;
+    if (!(h.unit === "vh" && h.value === 78)) {
+      style.height = h.unit === "vh" ? `${h.value}vh` : `${h.value}px`;
+    }
+  }
+  if (s.width === "contained") {
+    style.maxWidth = "88rem";
+    style.marginInline = "auto";
+  }
+  return style;
+}
+
 interface HeroCarouselProps {
   banners: HeroSlideData[];
   loading: boolean;
@@ -139,6 +164,17 @@ export default function HeroCarousel({
   // paresseuse unique, try/catch → null (données publiques catalogue).
   const [lead] = useState<HeroSlideData | null>(() => readLeadHero());
   const [leadFailed, setLeadFailed] = useState(false);
+  const [isMobileShell, setIsMobileShell] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 640px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const fn = (e: MediaQueryListEvent) => setIsMobileShell(e.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
   const showLead = !suspended && loading && lead !== null && !leadFailed;
   const slides = showLead && lead !== null ? [lead] : banners;
   const isSingleBanner = slides.length <= 1;
@@ -202,6 +238,9 @@ export default function HeroCarousel({
   // Encre des contrôles (dots/scroll) = celle du slide ACTIF.
   const darkControls = heroTextDark(banner);
   const dotsInk = darkControls ? "var(--color-ink)" : "#fff";
+  // Dimensions = celles du slide ACTIF (vide = gabarit historique).
+  const shellStyle = heroShellStyle(banner, isMobileShell);
+  const shellCustom = Object.keys(shellStyle).length > 0;
 
   return (
     <section
@@ -209,7 +248,14 @@ export default function HeroCarousel({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="relative h-[78vh] min-h-105 max-h-190 w-full">
+      <div
+        className={
+          shellCustom
+            ? "relative w-full"
+            : "relative h-[78vh] min-h-105 max-h-190 w-full"
+        }
+        style={shellCustom ? { ...shellStyle, minHeight: 220 } : undefined}
+      >
         {slides.map((b, i) => (
           <div
             key={b.id}

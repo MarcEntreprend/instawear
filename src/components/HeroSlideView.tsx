@@ -126,6 +126,8 @@ interface HeroSlideViewProps {
   onLink: (link: string) => void;
   /** Slide d'amorçage lead : toute erreur image invalide le lead (swap). */
   leadMode?: boolean;
+  /** Aperçu studio mobile : force les coordonnées CTA mobiles. */
+  mobilePreview?: boolean;
   onImageError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }
 
@@ -135,6 +137,7 @@ export default function HeroSlideView({
   onAction,
   onLink,
   leadMode = false,
+  mobilePreview,
   onImageError,
 }: HeroSlideViewProps) {
   const [isMobile, setIsMobile] = useState(
@@ -200,10 +203,17 @@ export default function HeroSlideView({
   const inkSoft = darkText ? "var(--color-ink2)" : "rgba(255,255,255,.8)";
   const chipBg = darkText ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.14)";
 
-  const headline = textLayer?.headline || b.headline;
-  const sub = textLayer?.sub || b.sub;
+  // Valeurs effectives. Legacy : replis historiques cuits (pixels
+  // identiques à avant). Studio : WYSIWYG depuis config + produit, SANS
+  // les fallbacks legacy (un tag vidé reste vidé dans l'aperçu).
+  const headline = isStudio
+    ? textLayer?.headline || product?.title || ""
+    : textLayer?.headline || b.headline;
+  const sub = isStudio
+    ? textLayer?.sub || product?.description || ""
+    : textLayer?.sub || b.sub;
   const showSub = !isStudio ? true : textLayer?.showSub !== false;
-  const tag = textLayer?.tag || b.tag;
+  const tag = isStudio ? textLayer?.tag || "" : textLayer?.tag || b.tag;
   const showTag = (textLayer ? textLayer.showTag !== false : true) && b.showTag;
   const inlineCtas = cfg.ctas.filter((c) => !isStudio || c.pos === null);
   const placedCtas = isStudio
@@ -215,7 +225,9 @@ export default function HeroSlideView({
 
   // Titre effectif kind image (historique : headline, sinon titre slide).
   const imageHeadline =
-    kind === "image" ? headline || b.title || "" : headline;
+    kind === "image"
+      ? headline || (isStudio ? "" : b.title) || ""
+      : headline;
 
   return (
     <div
@@ -250,17 +262,26 @@ export default function HeroSlideView({
                 eager={eager}
                 variant="visual"
               />
-              {(b.headline || b.cta) && (
+              {(isStudio
+                ? tilesLayer.main?.label ||
+                  product?.title ||
+                  tilesLayer.main?.ctaLabel ||
+                  ""
+                : b.headline || b.cta) && (
                 <span className="absolute left-3 bottom-3 right-3 flex items-end justify-between gap-2">
                   <span className="text-white font-extrabold text-lg leading-tight drop-shadow">
-                    {[b.headline.split("\n")[0], b.sub]
-                      .filter(Boolean)
-                      .join(" — ")
-                      .slice(0, 60)}
+                    {isStudio
+                      ? tilesLayer.main?.label || product?.title || ""
+                      : [b.headline.split("\n")[0], b.sub]
+                          .filter(Boolean)
+                          .join(" — ")
+                          .slice(0, 60)}
                   </span>
-                  {b.cta && (
+                  {(isStudio
+                    ? tilesLayer.main?.ctaLabel || ""
+                    : b.cta) && (
                     <span className="btn btn-accent shrink-0 !py-2 !px-4 text-xs">
-                      {b.cta}
+                      {isStudio ? tilesLayer.main?.ctaLabel || "" : b.cta}
                     </span>
                   )}
                 </span>
@@ -525,7 +546,8 @@ export default function HeroSlideView({
       {/* CTA positionnés (studio uniquement) : jamais de débordement. */}
       {placedCtas.map((c) => {
         const s = heroCtaClass(c.style);
-        const pt = (isMobile ? c.pos.mobile : undefined) ?? c.pos.desktop;
+        const mobile = mobilePreview ?? isMobile;
+        const pt = (mobile ? c.pos.mobile : undefined) ?? c.pos.desktop;
         return (
           <button
             key={c.id}

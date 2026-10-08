@@ -21,6 +21,7 @@ import { formInputStyle, formLabelStyle } from "./adminStyles";
 import ProductQuickViewModal from "./ProductQuickViewModal";
 import { HERO_BG_FALLBACK, heroBackground, isLightHeroBg, normalizeHeroLink } from "../components/HeroCarousel";
 import AdminImageInput from "./ui/AdminImageInput";
+import HeroStudioEditor from "./HeroStudioEditor";
 import type { HeroPromotion, AdminProduct } from "./adminTypes";
 
 // Presets de fond hero (Phase 1 : fini le CSS technique à la main —
@@ -47,6 +48,8 @@ export default function PromotionsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Studio (lot 3) : null = fermé, { id: null } = nouveau, { id } = édition.
+  const [studio, setStudio] = useState<{ id: string | null } | null>(null);
   const [form, setForm] = useState<Partial<HeroPromotion>>({
     productId: "",
     title: "",
@@ -306,6 +309,22 @@ export default function PromotionsPage() {
     );
   }
 
+  // Studio (lot 3) : remplace toute la page pendant l'édition.
+  if (studio) {
+    return (
+      <HeroStudioEditor
+        slideId={studio.id}
+        products={allProducts}
+        nextOrder={promotions.length}
+        onClose={() => setStudio(null)}
+        onSaved={async () => {
+          setStudio(null);
+          await refresh();
+        }}
+      />
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       {/* Header */}
@@ -350,28 +369,37 @@ export default function PromotionsPage() {
             Gérez les produits affichés dans le carrousel Hero de la boutique.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setShowForm(true);
-            setEditingId(null);
-            setForm({
-              productId: "",
-              title: "",
-              headline: "",
-              sub: "",
-              cta: "Voir",
-              bgGradient: HERO_BG_FALLBACK,
-              tag: "Promotion",
-              order: promotions.length,
-              showTag: true,
-              showTitle: true,
-            });
-          }}
-          style={primaryBtn}
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          Nouvelle promotion
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setStudio({ id: null })}
+            style={secondaryBtn}
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Slide studio
+          </button>
+          <button
+            onClick={() => {
+              setShowForm(true);
+              setEditingId(null);
+              setForm({
+                productId: "",
+                title: "",
+                headline: "",
+                sub: "",
+                cta: "Voir",
+                bgGradient: HERO_BG_FALLBACK,
+                tag: "Promotion",
+                order: promotions.length,
+                showTag: true,
+                showTitle: true,
+              });
+            }}
+            style={primaryBtn}
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Nouvelle promotion
+          </button>
+        </div>
       </div>
 
       {/* Formulaire */}
@@ -1327,6 +1355,16 @@ export default function PromotionsPage() {
                       {/* Bouton Activer/Désactiver (œil) */}
                       <button
                         onClick={async () => {
+                          // Slide studio sans produit : bascule simple, ni
+                          // garde produit ni synchro deal (lot 3).
+                          if (!promo.productId) {
+                            const newActive = !(promo.isActive ?? true);
+                            await heroPromotionsApi.update(promo.id, {
+                              isActive: newActive,
+                            } as any);
+                            await refresh();
+                            return;
+                          }
                           const product = getProductById(promo.productId);
                           if (!product || product.isActive === false) {
                             alert(
@@ -1383,6 +1421,17 @@ export default function PromotionsPage() {
                         ) : (
                           <EyeOff size={14} />
                         )}
+                      </button>
+                      <button
+                        onClick={() => setStudio({ id: promo.id })}
+                        style={iconBtn}
+                        title={
+                          promo.config?.origin === "studio"
+                            ? "Ouvrir dans le studio"
+                            : "Ouvrir dans le studio (convertit le slide)"
+                        }
+                      >
+                        Studio
                       </button>
                       <button onClick={() => handleEdit(promo)} style={iconBtn}>
                         Modifier
