@@ -1,4 +1,5 @@
 //src\admin\adminTypes.ts
+import type { HeroConfig } from "../lib/heroSchema";
 
 // ─── Extended Product type for admin (all fields from spec §2.1) ───────────
 export interface AdminProductVariant {
@@ -354,7 +355,7 @@ export interface HeroPromotion {
   order: number;
   showTag?: boolean; // whether to display the tag/badge
   showTitle?: boolean; // whether to display the product title
-  isActive?: Boolean;
+  isActive?: boolean;
   /** Mise en page du slide : full-bleed historique (défaut) ou split. */
   layout?: "full" | "split";
   /** Phase 2 : product (produit imposé, défaut) | image (visuel custom) | grid (tuiles liées). */
@@ -363,6 +364,15 @@ export interface HeroPromotion {
   linkUrl?: string | null;
   /** Tuiles kind grid : [{image, label, link}] (max 3 affichées). */
   tiles?: Array<{ image: string; label?: string; link?: string }> | null;
+  /** Hero Studio : composition v1 (jsonb). null = ligne non migrée → dérivée du legacy
+   *  via resolveHeroConfig(). */
+  config?: HeroConfig | null;
+  /** HTML/CSS collés (Phase 4). undefined = non chargés (liste publique : jamais). */
+  html?: string;
+  css?: string;
+  /** Planification (ISO). null = pas de borne. Filtre appliqué au runtime. */
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 // ─── Product Review (Phase 1) ───────────────────────────────────────────
 export interface ProductReview {

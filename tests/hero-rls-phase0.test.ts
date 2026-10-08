@@ -24,6 +24,28 @@ test("phase0 : select public restreint aux publiés", () => {
   );
 });
 
+test("phase1 : hero_version lisible anon limitée à version + updated_at", () => {
+  const sql1 = readFileSync(
+    join(root, "supabase/migrations/20261034_hero_studio_phase1.sql"),
+    "utf8",
+  );
+  assert.ok(
+    sql1.includes("GRANT SELECT (version, updated_at) ON public.hero_version"),
+    "anon ne voit que version + updated_at",
+  );
+  assert.ok(
+    !sql1.match(/FOR SELECT[^;]*hero_version[^;]*USING\s*\(\s*true\s*\)/) ||
+      sql1.includes("hero_version_select_public"),
+    "pas de lecture large",
+  );
+  // Phase 1 ne rouvre jamais la lecture hero_promotions au-delà des publiés.
+  assert.ok(
+    !sql1.match(
+      /CREATE POLICY "hero_promotions_select_public"[^;]*USING\s*\(\s*true\s*\)/,
+    ),
+    "pas de USING (true) sur hero_promotions",
+  );
+});
 test("phase0 : admin complet + écritures admin-only versionnées", () => {
   assert.ok(
     sql.includes("hero_promotions_select_admin") && sql.includes("is_admin()"),

@@ -6,6 +6,12 @@ import { mapCustomerProfile } from "./customerMapping";
 // Règle CA net canonique (Vague B item 8) : orderStatusLabels n'importe
 // que React — pas de cycle api ↔ admin.
 import { sumRevenue } from "../admin/orderStatusLabels";
+import {
+  parseHeroConfig,
+  sanitizeHeroConfig,
+  buildHeroConfigFromLegacy,
+  type LegacyHeroFields,
+} from "../lib/heroSchema";
 import type {
   AdminProduct,
   Customer,
@@ -233,7 +239,8 @@ function sanitizeHeroPhase2(promo: Partial<HeroPromotion>): {
 
 const mapHeroPromotion = (row: any): HeroPromotion => ({
   id: row.id,
-  productId: row.product_id,
+  // product_id est NULL pour un slide sans produit : "" côté TS (type string inchangé).
+  productId: row.product_id ?? "",
   title: row.title,
   headline: row.headline,
   sub: row.sub,
@@ -246,10 +253,16 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   showTitle: row.show_title,
   isActive: row.is_active,
   layout: row.layout === "split" ? "split" : "full",
-  kind:
-    row.kind === "image" || row.kind === "grid" ? row.kind : "product",
+  kind: row.kind === "image" || row.kind === "grid" ? row.kind : "product",
   linkUrl: typeof row.link_url === "string" ? row.link_url : null,
   tiles: Array.isArray(row.tiles) ? row.tiles : null,
+  config: parseHeroConfig(row.config),
+  // html/css absents des requêtes publiques : undefined (jamais "" → un update
+  // spreadé depuis la liste ne peut PAS écraser un HTML existant).
+  html: typeof row.html === "string" ? row.html : undefined,
+  css: typeof row.css === "string" ? row.css : undefined,
+  startsAt: row.starts_at ?? null,
+  endsAt: row.ends_at ?? null,
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -2481,20 +2494,81 @@ export const adminAuditApi = {
   },
 };
 // ─── Hero Promotions ───────────────────────────────────────────────────
+// Colonnes de la liste (boutique ET admin). html/css EXCLUS : jusqu'à 50 Ko par slide,
+// chargés à la demande (getFull) — jamais dans le chemin LCP public.
+const HERO_LIST_COLUMNS =
+  "id, product_id, title, headline, sub, cta, bg_gradient, tag, image, order, show_tag, show_title, is_active, layout, kind, link_url, tiles, config, starts_at, ends_at";
+
+// Champs "contenu legacy" : si l'ancien formulaire en modifie un, la config
+// (origin "legacy") est régénérée depuis les colonnes legacy fusionnées.
+const HERO_LEGACY_CONTENT_KEYS = [
+  "productId",
+  "title",
+  "headline",
+  "sub",
+  "cta",
+  "bgGradient",
+  "tag",
+  "image",
+  "showTag",
+  "layout",
+  "kind",
+  "linkUrl",
+  "tiles",
+] as const;
+
+function heroLegacyFields(
+  h: Partial<HeroPromotion>,
+  p2: { kind: string; link_url: string | null; tiles: unknown },
+): LegacyHeroFields {
+  return {
+    kind: p2.kind,
+    layout: h.layout,
+    headline: h.headline,
+    sub: h.sub,
+    cta: h.cta,
+    tag: h.tag,
+    showTag: h.showTag,
+    image: h.image,
+    bgGradient: h.bgGradient,
+    linkUrl: p2.link_url,
+    tiles: p2.tiles,
+    productId: h.productId,
+  };
+}
+
 export const heroPromotionsApi = {
   async list(): Promise<HeroPromotion[]> {
     const { data, error } = await supabase
       .from("hero_promotions")
-      .select("*")
-      .order("order", { ascending: true });
+      .select(HERO_LIST_COLUMNS)
+      .order("order", { ascending: true })
+      .order("id", { ascending: true }); // départage les ex æquo : ordre déterministe
     if (error) throw error;
     return (data ?? []).map(mapHeroPromotion);
   },
+  /** Slide complet (html/css inclus) — édition admin uniquement. */
+  async getFull(id: string): Promise<HeroPromotion | null> {
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapHeroPromotion(data);
+  },
   async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
+    const p2 = sanitizeHeroPhase2(promo);
+    const layout = promo.layout === "split" ? "split" : "full";
+    const config = sanitizeHeroConfig(
+      promo.config && promo.config.origin === "studio"
+        ? promo.config
+        : buildHeroConfigFromLegacy(heroLegacyFields({ ...promo, layout }, p2)),
+    );
     const { data, error } = await supabase
       .from("hero_promotions")
       .insert({
-        product_id: promo.productId,
+        product_id: promo.productId || null,
         title: promo.title,
         headline: promo.headline,
         sub: promo.sub,
@@ -2502,44 +2576,96 @@ export const heroPromotionsApi = {
         bg_gradient: promo.bgGradient,
         tag: promo.tag,
         image: promo.image,
-        layout: promo.layout === "split" ? "split" : "full",
-        ...sanitizeHeroPhase2(promo),
+        layout,
+        ...p2,
+        config,
+        starts_at: promo.startsAt ?? null,
+        ends_at: promo.endsAt ?? null,
+        ...(promo.html !== undefined ? { html: promo.html } : {}),
+        ...(promo.css !== undefined ? { css: promo.css } : {}),
         order: promo.order,
         is_active: promo.isActive !== false,
         show_tag: promo.showTag,
         show_title: promo.showTitle,
       })
-      .select()
+      .select(HERO_LIST_COLUMNS)
       .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
+  /**
+   * Update PARTIEL SÛR : seules les clés présentes (≠ undefined) sont écrites.
+   * (Avant : { isActive:false } réécrivait aussi layout/kind/link_url/tiles.)
+   * - Contenu legacy modifié + config origin "legacy" => config régénérée depuis
+   *   les colonnes legacy fusionnées (l'ancien formulaire reste cohérent).
+   * - config origin "studio" fournie => écrite telle quelle (source de vérité).
+   * - config origin "studio" déjà en base => jamais écrasée par le legacy.
+   */
   async update(
     id: string,
     promo: Partial<HeroPromotion>,
   ): Promise<HeroPromotion> {
+    const patch: Record<string, unknown> = {};
+    if (promo.productId !== undefined)
+      patch.product_id = promo.productId || null;
+    if (promo.title !== undefined) patch.title = promo.title;
+    if (promo.headline !== undefined) patch.headline = promo.headline;
+    if (promo.sub !== undefined) patch.sub = promo.sub;
+    if (promo.cta !== undefined) patch.cta = promo.cta;
+    if (promo.bgGradient !== undefined) patch.bg_gradient = promo.bgGradient;
+    if (promo.tag !== undefined) patch.tag = promo.tag;
+    if (promo.image !== undefined) patch.image = promo.image;
+    if (promo.order !== undefined) patch.order = promo.order;
+    if (promo.showTag !== undefined) patch.show_tag = promo.showTag;
+    if (promo.showTitle !== undefined) patch.show_title = promo.showTitle;
+    if (promo.isActive !== undefined) patch.is_active = promo.isActive;
+    if (promo.startsAt !== undefined) patch.starts_at = promo.startsAt;
+    if (promo.endsAt !== undefined) patch.ends_at = promo.endsAt;
+    if (promo.html !== undefined) patch.html = promo.html;
+    if (promo.css !== undefined) patch.css = promo.css;
+
+    const explicit =
+      promo.config && promo.config.origin === "studio" ? promo.config : null;
+    if (explicit) patch.config = sanitizeHeroConfig(explicit);
+
+    if (HERO_LEGACY_CONTENT_KEYS.some((k) => promo[k] !== undefined)) {
+      const { data: cur, error: curErr } = await supabase
+        .from("hero_promotions")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (curErr || !cur) throw curErr || new Error("Slide introuvable");
+      const defined = Object.fromEntries(
+        Object.entries(promo).filter(([, v]) => v !== undefined),
+      ) as Partial<HeroPromotion>;
+      const merged: HeroPromotion = { ...mapHeroPromotion(cur), ...defined };
+      const p2 = sanitizeHeroPhase2(merged);
+      patch.layout = merged.layout === "split" ? "split" : "full";
+      patch.kind = p2.kind;
+      patch.link_url = p2.link_url;
+      patch.tiles = p2.tiles;
+      const curIsStudio = isStudioConfigRow(cur.config);
+      if (!explicit && !curIsStudio) {
+        patch.config = sanitizeHeroConfig(
+          buildHeroConfigFromLegacy(heroLegacyFields(merged, p2)),
+        );
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      const cur = await this.getFull(id);
+      if (!cur) throw new Error("Slide introuvable");
+      return cur;
+    }
+
     const { data, error } = await supabase
       .from("hero_promotions")
-      .update({
-        product_id: promo.productId,
-        title: promo.title,
-        headline: promo.headline,
-        sub: promo.sub,
-        cta: promo.cta,
-        bg_gradient: promo.bgGradient,
-        tag: promo.tag,
-        image: promo.image,
-        layout: promo.layout === "split" ? "split" : "full",
-        ...sanitizeHeroPhase2(promo),
-        order: promo.order,
-        show_tag: promo.showTag,
-        show_title: promo.showTitle,
-        is_active: promo.isActive,
-      })
+      .update(patch)
       .eq("id", id)
-      .select()
+      .select(HERO_LIST_COLUMNS)
       .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error("Slide introuvable ou non modifiable");
     return mapHeroPromotion(data);
   },
   async delete(id: string): Promise<void> {
@@ -2549,15 +2675,23 @@ export const heroPromotionsApi = {
       .eq("id", id);
     if (error) throw error;
   },
+  /** Réordonnancement ATOMIQUE : 1 appel RPC (transaction unique, 1 seul bump de
+   *  version) au lieu de N updates séquentiels non atomiques. */
   async reorder(ids: string[]): Promise<void> {
-    for (let i = 0; i < ids.length; i++) {
-      await supabase
-        .from("hero_promotions")
-        .update({ order: i })
-        .eq("id", ids[i]);
-    }
+    const { error } = await supabase.rpc("reorder_hero_promotions", {
+      p_ids: ids,
+    });
+    if (error) throw error;
   },
 };
+
+function isStudioConfigRow(raw: unknown): boolean {
+  return (
+    typeof raw === "object" &&
+    raw !== null &&
+    (raw as { origin?: unknown }).origin === "studio"
+  );
+}
 
 export const reviewApi = {
   async list(productId: string): Promise<any[]> {
