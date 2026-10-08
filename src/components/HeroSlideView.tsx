@@ -15,6 +15,7 @@ import type {
   HeroConfig,
   HeroCta,
   HeroHidden,
+  HeroMarqueeLayer,
   HeroTextLayer,
 } from "../lib/heroSchema";
 import { heroEffectiveFont, isHeroHidden } from "../lib/heroSchema";
@@ -581,6 +582,63 @@ export default function HeroSlideView({
       {cfg.layers.some((l) => l.type === "html") && (b.html || b.css) ? (
         <HeroHtml html={b.html || ""} css={b.css || ""} onLink={onLink} />
       ) : null}
+
+      {/* Marquee (lot 13) : bandes bas de slide, CSS-only, jamais slide 1
+       *  (garde éditeur + exclu du lead). Moitiés dupliquées = boucle -50 %
+       *  sans couture ; prefers-reduced-motion neutralisé en CSS global. */}
+      {cfg.layers.some((l) => l.type === "marquee") && (
+        <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col">
+          {cfg.layers.map((l, li) => {
+            if (l.type !== "marquee" || hide(l.hidden)) return null;
+            const m = l as HeroMarqueeLayer;
+            const light = m.tone === "light";
+            return (
+              <div
+                key={li}
+                className="ticker-wrap"
+                style={{
+                  background: light ? "#fff" : "#111",
+                  color: light ? "#111" : "#fff",
+                }}
+              >
+                <div
+                  className={`hero-marquee-inner${m.direction === "right" ? " hero-marquee-reverse" : ""}`}
+                  style={
+                    {
+                      "--hero-marquee-duration": `${m.speed}s`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {[0, 1].map((half) => (
+                    <span
+                      key={half}
+                      aria-hidden={half === 1}
+                      style={{
+                        display: "inline-flex",
+                        whiteSpace: "nowrap",
+                        padding: "8px 0",
+                        fontWeight: 800,
+                        fontSize: 13,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        ...(cfg.fontFamily
+                          ? { fontFamily: heroFontStack(cfg.fontFamily) }
+                          : null),
+                      }}
+                    >
+                      {Array.from({ length: 6 }).map((_, k) => (
+                        <span key={k} style={{ padding: "0 24px" }}>
+                          {m.text}
+                        </span>
+                      ))}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Ancre non left-middle (studio uniquement) : bloc texte en overlay. */}
       {isStudio &&

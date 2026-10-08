@@ -138,6 +138,14 @@ export function createHeroLayer(type: HeroLayer["type"]): HeroLayer | null {
         showSub: true,
         fromProduct: true,
       };
+    case "marquee":
+      return {
+        type: "marquee",
+        text: "",
+        speed: 20,
+        direction: "left",
+        tone: "dark",
+      };
     case "html":
     default:
       // Couche HTML : réservée au lot 4 (super_admin + sandbox).

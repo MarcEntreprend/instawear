@@ -154,3 +154,6 @@ Deploy Hook sur `main` uniquement après merge (voir `blocNote.md`).
 - Vague 1 faite (lots 6–11 + disposition 02 : voir commit vague 1).
 - Lot 12 fait : import font URL (css2 Google validé, swap forcé, max
   3 `<link>`, repli système + suppression onError). Tests 865/865.
+- Lot 13 fait : marquee (texte 5–120 s/boucle, direction, ton, CSS
+  transform-only + reduced-motion global, exclu du lead, avertissement
+  slide 1). Aucun slide marquee live → impact LCP nul. Tests 867/867.

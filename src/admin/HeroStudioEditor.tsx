@@ -1230,7 +1230,7 @@ export default function HeroStudioEditor({
           ))}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {(
-              ["image", "card", "tiles", "text"] as const
+              ["image", "card", "tiles", "text", "marquee"] as const
             ).map((t) => (
               <button
                 key={t}
@@ -1593,6 +1593,8 @@ function layerLabel(type: string): string {
       return "Tuiles";
     case "text":
       return "Texte";
+    case "marquee":
+      return "Bandeau";
     default:
       return type;
   }
@@ -2200,6 +2202,77 @@ function LayerEditor({
             />{" "}
             Afficher le sous-titre
           </label>
+        </div>
+      );
+    case "marquee":
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={hint}>
+            Bandeau défilant (CSS seul). Évitez le slide en position 1 (LCP) :
+            le prerender l'exclut du lead de toute façon.
+          </p>
+          <Field label="Texte (vide = couche ignorée)">
+            <input
+              type="text"
+              value={layer.text}
+              maxLength={200}
+              onChange={(e) =>
+                onPatch((l) => {
+                  if (l.type === "marquee") l.text = e.target.value;
+                })
+              }
+              style={formInputStyle}
+            />
+          </Field>
+          <Row>
+            <Field label="Vitesse (secondes/boucle, 5–120)">
+              <input
+                type="number"
+                min={5}
+                max={120}
+                value={layer.speed}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "marquee")
+                      l.speed = num(e.target.value, 20);
+                  })
+                }
+                style={formInputStyle}
+              />
+            </Field>
+            <Field label="Direction">
+              <select
+                value={layer.direction}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "marquee")
+                      l.direction = e.target.value as "left" | "right";
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="left">Gauche</option>
+                <option value="right">Droite</option>
+              </select>
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Ton du bandeau">
+              <select
+                value={layer.tone}
+                onChange={(e) =>
+                  onPatch((l) => {
+                    if (l.type === "marquee")
+                      l.tone = e.target.value as "light" | "dark";
+                  })
+                }
+                style={formInputStyle}
+              >
+                <option value="dark">Sombre (texte clair)</option>
+                <option value="light">Clair (texte sombre)</option>
+              </select>
+            </Field>
+          </Row>
         </div>
       );
     default:

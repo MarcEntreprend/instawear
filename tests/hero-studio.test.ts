@@ -2,6 +2,9 @@
 // dimensions de coquille, aperçu via la vraie sélection.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   HERO_CTA_POSITIONS,
   blankStudioConfig,
@@ -30,8 +33,11 @@ import { selectHeroSlides } from "../src/lib/heroSelect.ts";
 import { heroShellStyle } from "../src/components/HeroCarousel.tsx";
 import type { HeroPromotion } from "../src/admin/adminTypes.ts";
 
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const read = (f: string) => readFileSync(join(root, f), "utf-8");
+
 test("factories : couches valides, CTA numérotés", () => {
-  for (const t of ["image", "card", "tiles", "text"] as const) {
+  for (const t of ["image", "card", "tiles", "text", "marquee"] as const) {
     const l = createHeroLayer(t);
     assert.ok(l && l.type === t, t);
   }
@@ -209,6 +215,42 @@ test("fonts URL (lot 12) : css2 seul, swap forcé, familles parsées", () => {
   );
   assert.deepEqual(heroFontUrlsInUse(slides), [clean]);
   assert.ok(heroFontsInUse(slides).includes("Fraunces"));
+});
+
+test("marquee (lot 13) : sanitize borné, vide écarté", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      { type: "marquee", text: "  Soldes  ", speed: 500, direction: "up", tone: "pink" },
+      { type: "marquee", text: "   " },
+    ],
+    ctas: [],
+  });
+  assert.equal(c.layers.length, 1);
+  assert.deepEqual(c.layers[0], {
+    type: "marquee",
+    text: "Soldes",
+    speed: 120,
+    direction: "left",
+    tone: "dark",
+  });
+  assert.notEqual(createHeroLayer("marquee"), null);
+});
+
+test("marquee : rendu CSS-only, jamais de JS, exclu du lead", () => {
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("hero-marquee-inner"), "piste CSS");
+  assert.ok(view.includes("aria-hidden"), "moitié fantôme a11y");
+  const css = read("src/index.css");
+  assert.ok(css.includes(".hero-marquee-inner"), "animation déclarée");
+  assert.ok(
+    css.includes("--hero-marquee-duration"),
+    "durée variable",
+  );
+  const pre = read("scripts/prerender.ts");
+  assert.ok(pre.includes('"marquee"'), "lead jamais animé");
+  const ed = read("src/admin/HeroStudioEditor.tsx");
+  assert.ok(ed.includes("Bandeau"), "éditeur : couche ajoutable");
+  assert.ok(ed.includes("position 1"), "avertissement LCP");
 });
 
 test("caps : plafonds schéma respectés", () => {

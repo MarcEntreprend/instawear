@@ -117,11 +117,23 @@ export interface HeroTextLayer {
 export interface HeroHtmlLayer {
   type: "html";
 }
+/** Bandeau défilant (lot 13) : animation CSS transform-only, JAMAIS sur le
+ *  slide 1 (garde éditeur + exclu du lead prerender). */
+export interface HeroMarqueeLayer {
+  type: "marquee";
+  text: string;
+  /** secondes par boucle, 5..120 (défaut 20). */
+  speed: number;
+  direction: "left" | "right";
+  tone: "light" | "dark"; // light = barre claire, dark = barre sombre
+  hidden?: HeroHidden;
+}
 export type HeroLayer =
   | HeroImageLayer
   | HeroCardLayer
   | HeroTilesLayer
   | HeroTextLayer
+  | HeroMarqueeLayer
   | HeroHtmlLayer;
 
 export interface HeroCtaPoint {
@@ -432,6 +444,17 @@ function sanitizeLayer(raw: unknown): HeroLayer | null {
         showSub: raw.showSub !== false,
         fromProduct: raw.fromProduct === true,
       }, raw);
+    case "marquee": {
+      const text = str(raw.text, 200);
+      if (!text) return null;
+      return {
+        type: "marquee",
+        text,
+        speed: Math.round(num(raw.speed, 5, 120, 20)),
+        direction: pick(raw.direction, ["left", "right"] as const, "left"),
+        tone: pick(raw.tone, ["light", "dark"] as const, "dark"),
+      };
+    }
     case "html":
       return { type: "html" };
     default:

@@ -290,7 +290,7 @@ if (url && anon && products.length > 0) {
     const { data: promos } = await supabase
       .from("hero_promotions")
       .select(
-        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout, kind, link_url, starts_at, ends_at",
+        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout, kind, link_url, starts_at, ends_at, config",
       )
       .order("order", { ascending: true })
       .order("id", { ascending: true }); // ex æquo : même déterminisme que l'API
@@ -304,6 +304,16 @@ if (url && anon && products.length > 0) {
       const e = (pr as any).ends_at ? Date.parse((pr as any).ends_at) : NaN;
       if (!Number.isNaN(s) && buildNow < s) return false;
       if (!Number.isNaN(e) && buildNow >= e) return false;
+      // Marquee (lot 13) : jamais de lead animé (LCP statique garanti).
+      const cfg = (pr as any).config as { layers?: unknown } | null;
+      const layers = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+      if (
+        layers.some(
+          (l: unknown) =>
+            !!l && typeof l === "object" && (l as { type?: unknown }).type === "marquee",
+        )
+      )
+        return false;
       const prod = products.find(
         (p) => p.id === String((pr as any).product_id),
       );

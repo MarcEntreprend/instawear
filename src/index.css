@@ -624,6 +624,18 @@ body {
   width: max-content;
 }
 
+/* Hero marquee (lot 13) : durée variable, transform-only. Le bloc global
+ * prefers-reduced-motion ci-dessus neutralise déjà l'animation. */
+.hero-marquee-inner {
+  display: flex;
+  width: max-content;
+  animation: ticker var(--hero-marquee-duration, 20s) linear infinite;
+  will-change: transform;
+}
+.hero-marquee-reverse {
+  animation-direction: reverse;
+}
+
 /* Pill badge */
 .badge {
   display: inline-flex;
