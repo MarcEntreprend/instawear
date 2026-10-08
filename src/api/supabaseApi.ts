@@ -2583,12 +2583,14 @@ export const heroPromotionsApi = {
     return out;
   },
   /** Compteur de version hero (lot 5) : 2 colonnes publiques, quelques
-   *  octets, jamais de polling lourd. Anon OK (GRANT version, updated_at). */
+   *  octets, jamais de polling lourd. Anon OK (GRANT version, updated_at).
+   *  SANS filtre sur id : anon n'a aucun droit sur cette colonne (403 sinon).
+   *  La table ne contient qu'une ligne (CHECK id). */
   async getVersion(): Promise<{ version: number; updatedAt: string | null }> {
     const { data, error } = await supabase
       .from("hero_version")
       .select("version,updated_at")
-      .eq("id", true)
+      .limit(1)
       .maybeSingle();
     if (error || !data)
       throw error || new Error("hero_version indisponible");

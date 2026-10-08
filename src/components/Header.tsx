@@ -860,11 +860,11 @@ export default function Header({
           >
             <div className="max-w-350 mx-auto px-4 sm:px-6 overflow-x-auto no-scrollbar w-full h-full flex items-center">
               <div className="flex items-center gap-2 min-w-max">
-                {navLinks.map((link) => {
+                {navLinks.map((link, li) => {
                   const Icon = link.icon;
                   return (
                     <button
-                      key={link.eventType ?? link.label}
+                      key={`${link.eventType ?? link.label}-${li}`}
                       onClick={() => handleNavClick(link)}
                       className="chip"
                     >
