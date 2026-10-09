@@ -77,6 +77,8 @@ export default function PromotionsPage() {
     try {
       const promos = await heroPromotionsApi.list();
       for (const promo of promos) {
+        // Slide SANS produit (créé au Hero Studio) : jamais désactivé ici.
+        if (!promo.productId) continue;
         const product = allProducts.find((p) => p.id === promo.productId);
         if (
           (!product || product.isActive === false) &&
@@ -156,13 +158,16 @@ export default function PromotionsPage() {
             })
             .catch(() => {});
         });
-        // Activer dealActive sur le produit
-        await syncProductDeal(
-          created.productId,
-          true,
-          (form as any).dealPrice,
-          (form as any).dealEndsAt,
-        );
+        // Deal : seulement si coché (créer un slide ne doit plus activer un deal
+        // sans prix, ni le badge "Offre limitée" fantôme).
+        if ((form as any).dealActive) {
+          await syncProductDeal(
+            created.productId,
+            true,
+            (form as any).dealPrice,
+            (form as any).dealEndsAt,
+          );
+        }
       }
       await refresh();
       resetForm();

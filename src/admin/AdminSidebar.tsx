@@ -21,6 +21,7 @@ import {
   Sparkles,
   Activity,
   Wallet,
+  LayoutTemplate,
 } from "lucide-react";
 import { useAdminBadges } from "./useAdminBadges";
 import {
@@ -48,6 +49,7 @@ export type AdminSection =
   | "merchandising"
   | "finances"
   | "reviews"
+  | "hero-studio"
   | "help";
 
 interface NavItem {
@@ -97,6 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Marketing",
     items: [
       { id: "promotions", label: "Promotions & Deals", icon: Tag },
+      { id: "hero-studio", label: "Hero Studio", icon: LayoutTemplate },
       { id: "merchandising", label: "Merchandising", icon: Sparkles },
       { id: "email-marketing", label: "Emails", icon: Mail },
       { id: "reports", label: "Rapports", icon: BarChart3 },

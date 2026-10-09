@@ -92,7 +92,8 @@ import {
   orderApi,
 } from "./api/supabaseApi";
 const ProductPage = lazy(() => import("./pages/ProductPage"));
-import HeroCarousel, { HERO_BG_FALLBACK } from "./components/HeroCarousel";
+import HeroCarousel from "./components/HeroCarousel";
+import { resolveHeroSlides, nextHeroScheduleChange } from "./lib/heroResolve";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -100,7 +101,6 @@ import { rankProducts } from "./utils/productRanking";
 import CatalogSection from "./components/CatalogSection";
 import ForYouSection from "./components/ForYouSection";
 import SitewideCountdownBanner from "./components/SitewideCountdownBanner";
-import { PLACEHOLDER_IMG } from "./constants/assets";
 import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
@@ -1269,40 +1269,20 @@ export default function App() {
     return targetDate.toLocaleDateString("en-US", options);
   };
 
-  // Hero Carousel banners content
-  const heroBanners = React.useMemo(() => {
-    return [...heroPromotions]
-      .filter((promo) => {
-        if (promo.isActive === false) return false;
-        const product = products.find((p) => p.id === promo.productId);
-        if (!product || product.isActive === false) return false;
-        return true;
-      })
-      .sort((a, b) => a.order - b.order)
-      .map((promo) => {
-        const product = products.find((p) => p.id === promo.productId);
-        return {
-          title: promo.title || product?.title || promo.headline || "Promotion",
-          headline: promo.headline || product?.title || "",
-          sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || HERO_BG_FALLBACK,
-          image: promo.image || product?.image || PLACEHOLDER_IMG,
-          tag: promo.tag || "⚡ PROMOTION",
-          productId: promo.productId,
-          showTag: promo.showTag !== false,
-          showTitle: promo.showTitle !== false,
-          layout: (promo.layout === "split" ? "split" : "full") as
-            | "full"
-            | "split",
-          kind: (promo.kind === "image" || promo.kind === "grid"
-            ? promo.kind
-            : "product") as "product" | "image" | "grid",
-          linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
-          tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
-        };
-      });
-  }, [heroPromotions, products]);
+  // Hero : slides résolus (config v1 + replis legacy/produit + planification).
+  // `heroNow` n'est qu'un déclencheur de recalcul aux bornes starts_at / ends_at.
+  const [heroNow, setHeroNow] = useState(() => Date.now());
+  useEffect(() => {
+    const next = nextHeroScheduleChange(heroPromotions, Date.now());
+    if (next == null) return;
+    const delay = Math.min(Math.max(next - Date.now() + 50, 50), 2_000_000_000);
+    const t = setTimeout(() => setHeroNow(Date.now()), delay);
+    return () => clearTimeout(t);
+  }, [heroPromotions, heroNow]);
+  const heroSlides = useMemo(
+    () => resolveHeroSlides(heroPromotions, products, heroNow),
+    [heroPromotions, products, heroNow],
+  );
 
   // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS
   // le paint donc le <img> gagne toujours la course (preload inutile + warnings
@@ -1943,17 +1923,17 @@ export default function App() {
           <SitewideCountdownBanner />
           {/* Dynamic Hero Carousel Banner (suspendu en cold deep-route produit : voir suspendHeroForBootProduct) */}
           <HeroCarousel
-            banners={heroBanners}
+            slides={heroSlides}
             loading={promotionsLoading}
             suspended={suspendHeroForBootProduct}
-            onBannerAction={(banner) => {
-              if (banner.linkUrl && openHeroLink(banner.linkUrl)) return;
-              if (banner.productId) {
-                const target = products.find((p) => p.id === banner.productId);
+            onSlideAction={(slide, link) => {
+              if (link && openHeroLink(link)) return;
+              if (slide.productId) {
+                const target = products.find((p) => p.id === slide.productId);
                 if (target) openProduct(target);
               }
             }}
-            onBannerLink={(link) => {
+            onSlideLink={(link) => {
               openHeroLink(link);
             }}
           />

@@ -1514,3 +1514,41 @@ html:not([data-theme="dark"]) {
 /* * {
   outline: 1px solid red !important;
 } */
+
+/* ── Hero Studio : cadre du carrousel + CTA positionnés ─────────────────
+   Dimensions pilotées par la config du slide n°1 (variables posées inline).
+   Valeurs par défaut = ancien h-[78vh] min-h-105 max-h-190 (LCP/CLS inchangés). */
+.hero-box {
+  position: relative;
+  width: 100%;
+  height: var(--hero-h, clamp(420px, 78vh, 760px));
+}
+.hero-box--auto {
+  height: auto;
+  aspect-ratio: var(--hero-r, 2.4);
+}
+.hero-cta-free {
+  position: absolute;
+  z-index: 15;
+  left: var(--hx);
+  top: var(--hy);
+  /* translate(-x%, -y%) : le bouton ne déborde JAMAIS, même à 0 % ou 100 %. */
+  transform: translate(calc(var(--hx) * -1), calc(var(--hy) * -1));
+}
+@media (max-width: 767px) {
+  .hero-box {
+    height: var(--hero-hm, var(--hero-h, clamp(420px, 78vh, 760px)));
+  }
+  .hero-box--auto {
+    height: auto;
+    aspect-ratio: var(--hero-rm, var(--hero-r, 0.9));
+  }
+  .hero-cta-free {
+    left: var(--hxm, var(--hx));
+    top: var(--hym, var(--hy));
+    transform: translate(
+      calc(var(--hxm, var(--hx)) * -1),
+      calc(var(--hym, var(--hy)) * -1)
+    );
+  }
+}

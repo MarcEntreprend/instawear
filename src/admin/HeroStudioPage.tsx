@@ -1,0 +1,2136 @@
+// src/admin/HeroStudioPage.tsx — Hero Studio : liste des slides · preview fidèle · inspecteur.
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Save,
+  Eye,
+  EyeOff,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Sun,
+  Moon,
+  AlertTriangle,
+  Info,
+  Ruler,
+} from "lucide-react";
+import { heroPromotionsApi, productApi } from "../api/supabaseApi";
+import type { AdminProduct, HeroPromotion } from "./adminTypes";
+import AdminImageInput from "./ui/AdminImageInput";
+import {
+  formInputStyle as inputStyle,
+  formLabelStyle as labelStyle,
+} from "./adminStyles";
+import {
+  sanitizeHeroConfig,
+  resolveHeroConfig,
+  HERO_MAX_CTAS,
+  HERO_MAX_LAYERS,
+  HERO_MAX_TILES,
+  type HeroConfig,
+  type HeroCta,
+  type HeroLayer,
+  type HeroSizing,
+} from "../lib/heroSchema";
+import { normalizeHeroLink } from "../lib/heroStyle";
+import { resolveHeroSlideForPreview } from "../lib/heroResolve";
+import {
+  HERO_BG_PRESETS,
+  HERO_CONFIG_CAP_BYTES,
+  HERO_FRAME_SOURCE,
+  HERO_PREVIEW_PATH,
+  HERO_STUDIO_SOURCE,
+  HERO_TEMPLATES,
+  heroConfigBytes,
+  heroConfigToLegacy,
+  heroReservedBottomPx,
+  heroStudioWarnings,
+  isoToLocalInput,
+  localInputToIso,
+  moveItem,
+  newCta,
+  newLayer,
+  snapHeroPoint,
+} from "../lib/heroStudio";
+
+type DeviceKey = "desktop" | "tablet" | "mobile";
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+interface Draft {
+  id: string | null;
+  productId: string;
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  config: HeroConfig;
+}
+
+const DEVICES: Record<
+  DeviceKey,
+  { label: string; w: number; h: number; Icon: typeof Monitor }
+> = {
+  desktop: { label: "Desktop", w: 1280, h: 800, Icon: Monitor },
+  tablet: { label: "Tablette", w: 820, h: 1000, Icon: Tablet },
+  mobile: { label: "Mobile", w: 390, h: 760, Icon: Smartphone },
+};
+
+const panel: React.CSSProperties = {
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
+  borderRadius: 16,
+};
+const btn: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "7px 12px",
+  borderRadius: 10,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface2)",
+  color: "var(--color-ink2)",
+  fontWeight: 600,
+  fontSize: 12,
+  cursor: "pointer",
+};
+const btnAccent: React.CSSProperties = {
+  ...btn,
+  background: "var(--color-accent)",
+  color: "#fff",
+  border: "none",
+};
+
+const toDraft = (p: HeroPromotion): Draft => ({
+  id: p.id,
+  productId: p.productId || "",
+  isActive: p.isActive !== false,
+  startsAt: p.startsAt ?? null,
+  endsAt: p.endsAt ?? null,
+  config: resolveHeroConfig(p),
+});
+const serialize = (d: Draft) =>
+  JSON.stringify({
+    p: d.productId,
+    a: d.isActive,
+    s: d.startsAt,
+    e: d.endsAt,
+    c: d.config,
+  });
+
+// ─── Petits composants ──────────────────────────────────────────────────
+function Section({
+  title,
+  children,
+  open = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  open?: boolean;
+}) {
+  return (
+    <details
+      open={open}
+      style={{ borderBottom: "1px solid var(--color-border)" }}
+    >
+      <summary
+        style={{
+          cursor: "pointer",
+          padding: "12px 16px",
+          fontWeight: 700,
+          fontSize: 13,
+          color: "var(--color-ink)",
+        }}
+      >
+        {title}
+      </summary>
+      <div
+        style={{
+          padding: "0 16px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        {children}
+      </div>
+    </details>
+  );
+}
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {children}
+    </div>
+  );
+}
+function Seg({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: [string, string][];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 4,
+        padding: 3,
+        borderRadius: 10,
+        background: "var(--color-surface2)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      {options.map(([v, label]) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          style={{
+            flex: 1,
+            padding: "6px 8px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 600,
+            background: value === v ? "var(--color-accent)" : "transparent",
+            color: value === v ? "#fff" : "var(--color-ink2)",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+function Num({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+}) {
+  return (
+    <input
+      type="number"
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => onChange(Number(e.target.value))}
+      style={inputStyle}
+    />
+  );
+}
+
+function measureRatio(src: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () =>
+      resolve(
+        im.naturalHeight
+          ? Math.round((im.naturalWidth / im.naturalHeight) * 100) / 100
+          : null,
+      );
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+}
+
+// ─── Éditeur d'une couche ───────────────────────────────────────────────
+function LayerEditor({
+  layer,
+  onChange,
+}: {
+  layer: HeroLayer;
+  onChange: (l: HeroLayer) => void;
+}) {
+  if (layer.type === "image") {
+    return (
+      <>
+        <AdminImageInput
+          label="Image (vide = image du produit)"
+          value={layer.src ?? ""}
+          onChange={(u) => onChange({ ...layer, src: u || null })}
+          folder="hero"
+          placeholder="https://… (lien, import, dépôt, Ctrl+V)"
+        />
+        <AdminImageInput
+          label="Image mobile (optionnel)"
+          value={layer.srcMobile ?? ""}
+          onChange={(u) => {
+            const { srcMobile, ...rest } = layer;
+            onChange(u ? { ...rest, srcMobile: u } : rest);
+          }}
+          folder="hero"
+          placeholder="Cadrage différent sur mobile"
+        />
+        <Field label="Texte alternatif">
+          <input
+            style={inputStyle}
+            value={layer.alt}
+            onChange={(e) => onChange({ ...layer, alt: e.target.value })}
+          />
+        </Field>
+        <Field label="Cadrage">
+          <Seg
+            value={layer.fit}
+            options={[
+              ["cover", "Remplir"],
+              ["contain", "Contenir"],
+            ]}
+            onChange={(v) =>
+              onChange({ ...layer, fit: v as "cover" | "contain" })
+            }
+          />
+        </Field>
+        <Field label={`Opacité de l'image : ${Math.round(layer.dim * 100)} %`}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={layer.dim}
+            onChange={(e) =>
+              onChange({ ...layer, dim: Number(e.target.value) })
+            }
+          />
+        </Field>
+        <Field label="Voile de lisibilité">
+          <Seg
+            value={layer.scrim}
+            options={[
+              ["none", "Aucun"],
+              ["left", "Gauche"],
+              ["bottom", "Bas"],
+            ]}
+            onChange={(v) =>
+              onChange({ ...layer, scrim: v as "none" | "left" | "bottom" })
+            }
+          />
+        </Field>
+      </>
+    );
+  }
+  if (layer.type === "card") {
+    return (
+      <>
+        <AdminImageInput
+          label="Visuel (vide = image du produit)"
+          value={layer.src ?? ""}
+          onChange={(u) => onChange({ ...layer, src: u || null })}
+          folder="hero"
+          placeholder="https://…"
+        />
+        <Field label="Côté">
+          <Seg
+            value={layer.side}
+            options={[
+              ["left", "Gauche"],
+              ["right", "Droite"],
+            ]}
+            onChange={(v) =>
+              onChange({ ...layer, side: v as "left" | "right" })
+            }
+          />
+        </Field>
+        <Field label="Texte alternatif">
+          <input
+            style={inputStyle}
+            value={layer.alt}
+            onChange={(e) => onChange({ ...layer, alt: e.target.value })}
+          />
+        </Field>
+      </>
+    );
+  }
+  if (layer.type === "tiles") {
+    const main = layer.main ?? {
+      src: null,
+      link: null,
+      label: "",
+      ctaLabel: "",
+      fromProduct: true,
+    };
+    const setItem = (
+      i: number,
+      patch: Partial<{ src: string; label: string; link: string | null }>,
+    ) =>
+      onChange({
+        ...layer,
+        items: layer.items.map((t, ti) => (ti === i ? { ...t, ...patch } : t)),
+      });
+    return (
+      <>
+        <AdminImageInput
+          label="Visuel principal (vide = produit)"
+          value={main.src ?? ""}
+          onChange={(u) =>
+            onChange({ ...layer, main: { ...main, src: u || null } })
+          }
+          folder="hero"
+          placeholder="https://…"
+        />
+        <Field label="Libellé (vide = titre du produit)">
+          <input
+            style={inputStyle}
+            value={main.label}
+            onChange={(e) =>
+              onChange({ ...layer, main: { ...main, label: e.target.value } })
+            }
+          />
+        </Field>
+        <Field label="Bouton">
+          <input
+            style={inputStyle}
+            value={main.ctaLabel}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                main: { ...main, ctaLabel: e.target.value },
+              })
+            }
+          />
+        </Field>
+        <Field label="Lien (/…, vide = produit)">
+          <input
+            style={inputStyle}
+            value={main.link ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                main: { ...main, link: e.target.value || null },
+              })
+            }
+            onBlur={(e) =>
+              onChange({
+                ...layer,
+                main: {
+                  ...main,
+                  link: normalizeHeroLink(e.target.value) || null,
+                },
+              })
+            }
+            placeholder="/promotions"
+          />
+        </Field>
+        <label style={labelStyle}>
+          Tuiles ({layer.items.length}/{HERO_MAX_TILES})
+        </label>
+        {layer.items.map((t, i) => (
+          <div
+            key={i}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid var(--color-border)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <AdminImageInput
+              value={t.src}
+              onChange={(u) => setItem(i, { src: u })}
+              folder="hero"
+              placeholder="Image https://…"
+            />
+            <input
+              style={inputStyle}
+              value={t.label}
+              placeholder="Libellé"
+              onChange={(e) => setItem(i, { label: e.target.value })}
+            />
+            <input
+              style={inputStyle}
+              value={t.link ?? ""}
+              placeholder="Lien /…"
+              onChange={(e) => setItem(i, { link: e.target.value || null })}
+              onBlur={(e) =>
+                setItem(i, { link: normalizeHeroLink(e.target.value) || null })
+              }
+            />
+            <button
+              type="button"
+              style={{ ...btn, color: "#ef4444", alignSelf: "flex-start" }}
+              onClick={() =>
+                onChange({
+                  ...layer,
+                  items: layer.items.filter((_, ti) => ti !== i),
+                })
+              }
+            >
+              <Trash2 size={13} /> Retirer
+            </button>
+          </div>
+        ))}
+        {layer.items.length < HERO_MAX_TILES && (
+          <button
+            type="button"
+            style={btn}
+            onClick={() =>
+              onChange({
+                ...layer,
+                items: [
+                  ...layer.items,
+                  {
+                    src: "https://placehold.co/400x400",
+                    label: "",
+                    link: null,
+                  },
+                ],
+              })
+            }
+          >
+            <Plus size={13} /> Ajouter une tuile
+          </button>
+        )}
+      </>
+    );
+  }
+  if (layer.type === "text") {
+    return (
+      <>
+        <Field label="Position">
+          <select
+            style={inputStyle}
+            value={layer.anchor}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                anchor: e.target.value as typeof layer.anchor,
+              })
+            }
+          >
+            <option value="left-middle">Gauche, centré</option>
+            <option value="center">Centre</option>
+            <option value="right-middle">Droite, centré</option>
+            <option value="bottom-left">Bas gauche (compact)</option>
+          </select>
+        </Field>
+        <Field label="Couleur du texte">
+          <Seg
+            value={layer.tone}
+            options={[
+              ["auto", "Auto"],
+              ["light", "Clair"],
+              ["dark", "Sombre"],
+            ]}
+            onChange={(v) =>
+              onChange({ ...layer, tone: v as "auto" | "light" | "dark" })
+            }
+          />
+        </Field>
+        <Field label="Badge">
+          <input
+            style={inputStyle}
+            value={layer.tag}
+            onChange={(e) => onChange({ ...layer, tag: e.target.value })}
+            placeholder="Nouveau"
+          />
+        </Field>
+        <label
+          style={{
+            ...labelStyle,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={layer.showTag}
+            onChange={(e) => onChange({ ...layer, showTag: e.target.checked })}
+          />{" "}
+          Afficher le badge
+        </label>
+        <Field label="Titre (2e ligne = italique)">
+          <textarea
+            style={{ ...inputStyle, minHeight: 64, resize: "vertical" }}
+            value={layer.headline}
+            onChange={(e) => onChange({ ...layer, headline: e.target.value })}
+          />
+        </Field>
+        <label
+          style={{
+            ...labelStyle,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={layer.headlineLines === "first"}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                headlineLines: e.target.checked ? "first" : "all",
+              })
+            }
+          />{" "}
+          Première ligne seulement
+        </label>
+        <Field label="Sous-titre">
+          <input
+            style={inputStyle}
+            value={layer.sub}
+            onChange={(e) => onChange({ ...layer, sub: e.target.value })}
+          />
+        </Field>
+        <label
+          style={{
+            ...labelStyle,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={layer.showSub}
+            onChange={(e) => onChange({ ...layer, showSub: e.target.checked })}
+          />{" "}
+          Afficher le sous-titre
+        </label>
+        <label
+          style={{
+            ...labelStyle,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={layer.fromProduct}
+            onChange={(e) =>
+              onChange({ ...layer, fromProduct: e.target.checked })
+            }
+          />{" "}
+          Reprendre le produit si vide
+        </label>
+      </>
+    );
+  }
+  return null;
+}
+
+const LAYER_LABEL: Record<string, string> = {
+  image: "Image de fond",
+  card: "Carte visuelle",
+  tiles: "Tuiles",
+  text: "Texte",
+  html: "HTML",
+};
+
+// ─── Page ───────────────────────────────────────────────────────────────
+export default function HeroStudioPage() {
+  const [slides, setSlides] = useState<HeroPromotion[]>([]);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [baseline, setBaseline] = useState("");
+  const [device, setDevice] = useState<DeviceKey>("desktop");
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light",
+  );
+  const [guides, setGuides] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [layerSel, setLayerSel] = useState(0);
+  const [selCta, setSelCta] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [rect, setRect] = useState<Rect | null>(null);
+  const [readyTick, setReadyTick] = useState(0);
+  const [avail, setAvail] = useState(0);
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dragId = useRef<string | null>(null);
+
+  const dirty = !!draft && serialize(draft) !== baseline;
+  const dev = DEVICES[device];
+  const scale = avail ? Math.min(1, (avail - 4) / dev.w) : 1;
+
+  const load = useCallback(async (selectId?: string | null) => {
+    const [list, prods] = await Promise.all([
+      heroPromotionsApi.list(),
+      productApi.list(),
+    ]);
+    setSlides(list);
+    setProducts(prods);
+    const target =
+      (selectId && list.find((s) => s.id === selectId)) || list[0] || null;
+    if (target) {
+      const d = toDraft(target);
+      setDraft(d);
+      setBaseline(serialize(d));
+    }
+  }, []);
+
+  useEffect(() => {
+    load()
+      .catch((e) =>
+        setMsg({ ok: false, text: e?.message || "Chargement impossible." }),
+      )
+      .finally(() => setLoading(false));
+  }, [load]);
+
+  // Largeur disponible pour l'aperçu.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAvail(el.clientWidth));
+    ro.observe(el);
+    setAvail(el.clientWidth);
+    return () => ro.disconnect();
+  }, [loading]);
+
+  // Garde "modifications non enregistrées" + Ctrl/Cmd+S.
+  useEffect(() => {
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  });
+
+  // Messages de l'iframe (ready / rect).
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (
+        e.origin !== window.location.origin ||
+        e.source !== frameRef.current?.contentWindow
+      )
+        return;
+      const m = e.data;
+      if (!m || m.source !== HERO_FRAME_SOURCE) return;
+      if (m.type === "ready") setReadyTick((t) => t + 1);
+      if (m.type === "rect" && m.rect) setRect(m.rect as Rect);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const product = useMemo(
+    () => products.find((p) => p.id === draft?.productId) ?? null,
+    [products, draft?.productId],
+  );
+  const resolved = useMemo(
+    () =>
+      draft
+        ? resolveHeroSlideForPreview(
+            {
+              id: draft.id ?? "preview",
+              order: 0,
+              productId: draft.productId,
+              config: draft.config,
+            },
+            product,
+          )
+        : null,
+    [draft, product],
+  );
+
+  // Envoi de l'état courant à l'aperçu (live, sans passer par la base).
+  useEffect(() => {
+    if (!resolved) return;
+    frameRef.current?.contentWindow?.postMessage(
+      { source: HERO_STUDIO_SOURCE, type: "set", slide: resolved, theme },
+      window.location.origin,
+    );
+  }, [resolved, theme, readyTick, device]);
+
+  const patchConfig = (fn: (c: HeroConfig) => HeroConfig) =>
+    setDraft((d) => (d ? { ...d, config: fn(d.config) } : d));
+  const patchDraft = (p: Partial<Draft>) =>
+    setDraft((d) => (d ? { ...d, ...p } : d));
+
+  const confirmLeave = () =>
+    !dirty || window.confirm("Modifications non enregistrées. Continuer ?");
+
+  const openSlide = (s: HeroPromotion) => {
+    if (!confirmLeave()) return;
+    const d = toDraft(s);
+    setDraft(d);
+    setBaseline(serialize(d));
+    setLayerSel(0);
+    setSelCta(null);
+    setMsg(null);
+  };
+
+  const startNew = (build: () => HeroConfig) => {
+    if (!confirmLeave()) return;
+    const d: Draft = {
+      id: null,
+      productId: "",
+      isActive: false,
+      startsAt: null,
+      endsAt: null,
+      config: build(),
+    };
+    setDraft(d);
+    setBaseline("");
+    setLayerSel(0);
+    setSelCta(null);
+    setShowTemplates(false);
+    setMsg(null);
+  };
+
+  const save = async () => {
+    if (!draft || saving) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const config = sanitizeHeroConfig({ ...draft.config, origin: "studio" });
+      if (heroConfigBytes(config) > HERO_CONFIG_CAP_BYTES)
+        throw new Error("Configuration trop lourde (> 20 000 octets).");
+      const m = heroConfigToLegacy(config);
+      const payload = {
+        productId: draft.productId,
+        isActive: draft.isActive,
+        startsAt: draft.startsAt,
+        endsAt: draft.endsAt,
+        config,
+        // Miroir legacy : le prerender du slide n°1 et les anciennes lectures continuent de marcher.
+        kind: m.kind,
+        layout: m.layout,
+        headline: m.headline,
+        sub: m.sub,
+        tag: m.tag,
+        showTag: m.showTag,
+        cta: m.cta,
+        linkUrl: m.linkUrl,
+        bgGradient: m.bgGradient,
+        image: m.image,
+        tiles: m.tiles,
+      };
+      const saved = draft.id
+        ? await heroPromotionsApi.update(draft.id, payload)
+        : await heroPromotionsApi.create({
+            ...payload,
+            order: slides.length,
+          } as Omit<HeroPromotion, "id">);
+      window.dispatchEvent(new Event("storefront:invalidate"));
+      await load(saved.id);
+      setMsg({
+        ok: true,
+        text: draft.isActive
+          ? "Enregistré — visible en boutique après rechargement."
+          : "Brouillon enregistré (non visible en boutique).",
+      });
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.message || "Enregistrement impossible." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void save();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const remove = async () => {
+    if (!draft?.id || !window.confirm("Supprimer ce slide définitivement ?"))
+      return;
+    try {
+      await heroPromotionsApi.delete(draft.id);
+      window.dispatchEvent(new Event("storefront:invalidate"));
+      setDraft(null);
+      setBaseline("");
+      await load();
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.message || "Suppression impossible." });
+    }
+  };
+
+  const moveSlide = async (i: number, dir: -1 | 1) => {
+    const next = moveItem(slides, i, dir);
+    if (next === slides) return;
+    setSlides(next);
+    try {
+      await heroPromotionsApi.reorder(next.map((s) => s.id));
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.message || "Réordonnancement impossible." });
+      await load(draft?.id);
+    }
+  };
+
+  // ─── CTA : poignées déplaçables sur l'aperçu ───────────────────────────
+  const setCtaPoint = (id: string, x: number, y: number) =>
+    patchConfig((c) => ({
+      ...c,
+      ctas: c.ctas.map((cta) =>
+        cta.id !== id
+          ? cta
+          : {
+              ...cta,
+              pos:
+                device === "mobile"
+                  ? { desktop: cta.pos?.desktop ?? { x, y }, mobile: { x, y } }
+                  : {
+                      desktop: { x, y },
+                      ...(cta.pos?.mobile ? { mobile: cta.pos.mobile } : {}),
+                    },
+            },
+      ),
+    }));
+  const onHandleDown = (
+    e: React.PointerEvent<HTMLButtonElement>,
+    id: string,
+  ) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragId.current = id;
+    setSelCta(id);
+  };
+  const onHandleMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const id = dragId.current;
+    const box = overlayRef.current?.getBoundingClientRect();
+    if (!id || !box || !box.width || !box.height) return;
+    const x = snapHeroPoint(((e.clientX - box.left) / box.width) * 100);
+    const y = snapHeroPoint(((e.clientY - box.top) / box.height) * 100);
+    setDrag({ x, y });
+    setCtaPoint(id, x, y);
+  };
+  const onHandleUp = () => {
+    dragId.current = null;
+    setDrag(null);
+  };
+  const onHandleKey = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    cta: HeroCta,
+  ) => {
+    const step = e.shiftKey ? 5 : 1;
+    const p =
+      device === "mobile"
+        ? (cta.pos?.mobile ?? cta.pos?.desktop)
+        : cta.pos?.desktop;
+    if (!p) return;
+    const d: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const v = d[e.key];
+    if (!v) return;
+    e.preventDefault();
+    setCtaPoint(cta.id, snapHeroPoint(p.x + v[0]), snapHeroPoint(p.y + v[1]));
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{ display: "flex", justifyContent: "center", paddingTop: 60 }}
+      >
+        <div
+          className="animate-spin"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "3px solid var(--color-border)",
+            borderTopColor: "var(--color-accent)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  const config = draft?.config;
+  const warnings =
+    draft && config
+      ? heroStudioWarnings(config, {
+          isFirst:
+            slides.findIndex((s) => s.id === draft.id) === 0 ||
+            (draft.id === null && slides.length === 0),
+          hasProduct: !!draft.productId,
+        })
+      : [];
+  const bytes = config ? heroConfigBytes(config) : 0;
+  const layer = config?.layers[layerSel] ?? null;
+  const reserved = heroReservedBottomPx(dev.w);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <style>{`
+        .hs-grid{display:grid;grid-template-columns:250px minmax(0,1fr) 350px;gap:16px;align-items:start}
+        .hs-panel{max-height:calc(100dvh - 170px);overflow-y:auto}
+        @media(max-width:1180px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}}
+      `}</style>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        <div>
+          <h2
+            style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}
+          >
+            Hero Studio
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
+            Compose le hero de la boutique : couches, dimensions, boutons,
+            aperçu desktop et mobile.
+          </p>
+        </div>
+        {draft && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            {dirty && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--color-accent)",
+                }}
+              >
+                ● Non enregistré
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => patchDraft({ isActive: !draft.isActive })}
+              style={btn}
+              title="Visibilité en boutique"
+            >
+              {draft.isActive ? <Eye size={14} /> : <EyeOff size={14} />}{" "}
+              {draft.isActive ? "Visible en boutique" : "Brouillon"}
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              style={{ ...btnAccent, opacity: saving ? 0.6 : 1 }}
+            >
+              <Save size={14} /> {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {msg && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            background: msg.ok ? "var(--color-success-bg)" : "#fee2e2",
+            color: msg.ok ? "var(--color-success)" : "#991b1b",
+            border: `1px solid ${msg.ok ? "var(--color-border)" : "#fecaca"}`,
+          }}
+        >
+          {msg.text}
+        </div>
+      )}
+
+      <div className="hs-grid">
+        {/* ── Gauche : slides ─────────────────────────────────────────── */}
+        <div
+          className="hs-panel"
+          style={{
+            ...panel,
+            padding: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            style={btnAccent}
+            onClick={() => setShowTemplates((v) => !v)}
+          >
+            <Plus size={14} /> Nouveau slide
+          </button>
+          {showTemplates && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {HERO_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => startNew(t.build)}
+                  style={{
+                    ...btn,
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 2,
+                  }}
+                >
+                  <strong style={{ color: "var(--color-ink)" }}>
+                    {t.label}
+                  </strong>
+                  <span style={{ fontWeight: 400, fontSize: 11 }}>
+                    {t.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {draft && draft.id === null && (
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                border: "1.5px dashed var(--color-accent)",
+                fontSize: 12,
+                color: "var(--color-ink2)",
+              }}
+            >
+              Nouveau slide (non enregistré)
+            </div>
+          )}
+          {slides.map((s, i) => {
+            const sel = draft?.id === s.id;
+            const first =
+              (s.headline || "").split("\n")[0] || "Slide sans titre";
+            return (
+              <div
+                key={s.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: 8,
+                  borderRadius: 12,
+                  border: sel
+                    ? "2px solid var(--color-accent)"
+                    : "1px solid var(--color-border)",
+                  background: sel
+                    ? "var(--color-accent-bg)"
+                    : "var(--color-surface2)",
+                  opacity: s.isActive === false ? 0.6 : 1,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => openSlide(s)}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-ink4)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    #{i + 1} ·{" "}
+                    {s.isActive === false
+                      ? "Brouillon"
+                      : s.startsAt || s.endsAt
+                        ? "Planifié"
+                        : "En ligne"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: "var(--color-ink)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {first}
+                  </div>
+                </button>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 2 }}
+                >
+                  <button
+                    type="button"
+                    aria-label="Monter"
+                    disabled={i === 0}
+                    onClick={() => moveSlide(i, -1)}
+                    style={{ ...btn, padding: 3 }}
+                  >
+                    <ArrowUp size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Descendre"
+                    disabled={i === slides.length - 1}
+                    onClick={() => moveSlide(i, 1)}
+                    style={{ ...btn, padding: 3 }}
+                  >
+                    <ArrowDown size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {slides.length === 0 && !draft && (
+            <p style={{ fontSize: 12, color: "var(--color-ink4)" }}>
+              Aucun slide. Crée le premier avec un modèle.
+            </p>
+          )}
+        </div>
+
+        {/* ── Centre : aperçu ─────────────────────────────────────────── */}
+        <div
+          style={{
+            ...panel,
+            padding: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            {(Object.keys(DEVICES) as DeviceKey[]).map((k) => {
+              const { Icon, label } = DEVICES[k];
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setDevice(k)}
+                  style={{
+                    ...btn,
+                    background:
+                      device === k
+                        ? "var(--color-accent)"
+                        : "var(--color-surface2)",
+                    color: device === k ? "#fff" : "var(--color-ink2)",
+                  }}
+                >
+                  <Icon size={14} /> {label}
+                </button>
+              );
+            })}
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              style={btn}
+              onClick={() =>
+                setTheme((t) => (t === "light" ? "dark" : "light"))
+              }
+              title="Thème de l'aperçu"
+            >
+              {theme === "light" ? <Sun size={14} /> : <Moon size={14} />}{" "}
+              {theme === "light" ? "Clair" : "Sombre"}
+            </button>
+            <label style={{ ...btn, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={guides}
+                onChange={(e) => setGuides(e.target.checked)}
+              />{" "}
+              Zones réservées
+            </label>
+          </div>
+
+          <div
+            ref={canvasRef}
+            style={{
+              width: "100%",
+              overflow: "hidden",
+              background:
+                "repeating-conic-gradient(var(--color-surface2) 0% 25%, var(--color-surface) 0% 50%) 0 0 / 20px 20px",
+              borderRadius: 12,
+              padding: 2,
+            }}
+          >
+            {draft ? (
+              <div
+                style={{
+                  position: "relative",
+                  width: dev.w * scale,
+                  height: dev.h * scale,
+                  margin: "0 auto",
+                }}
+              >
+                <iframe
+                  ref={frameRef}
+                  src={HERO_PREVIEW_PATH}
+                  title="Aperçu du hero"
+                  style={{
+                    width: dev.w,
+                    height: dev.h,
+                    transform: `scale(${scale})`,
+                    transformOrigin: "0 0",
+                    border: 0,
+                    background: "var(--color-bg)",
+                    pointerEvents: "none",
+                  }}
+                />
+                {rect && (
+                  <div
+                    ref={overlayRef}
+                    style={{
+                      position: "absolute",
+                      left: rect.x * scale,
+                      top: rect.y * scale,
+                      width: rect.w * scale,
+                      height: rect.h * scale,
+                    }}
+                  >
+                    {guides && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: reserved * scale,
+                          background:
+                            "repeating-linear-gradient(45deg, rgba(255,92,53,.18) 0 6px, transparent 6px 12px)",
+                          borderTop: "1px dashed var(--color-accent)",
+                          pointerEvents: "none",
+                          fontSize: 10,
+                          color: "var(--color-accent)",
+                          fontWeight: 700,
+                          padding: 2,
+                        }}
+                      >
+                        Contrôles du carrousel
+                      </div>
+                    )}
+                    {drag && drag.x === 50 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: 0,
+                          bottom: 0,
+                          width: 1,
+                          background: "var(--color-accent)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
+                    {config?.ctas.map((cta) => {
+                      if (!cta.pos) return null;
+                      const p =
+                        device === "mobile"
+                          ? (cta.pos.mobile ?? cta.pos.desktop)
+                          : cta.pos.desktop;
+                      return (
+                        <button
+                          key={cta.id}
+                          type="button"
+                          aria-label={`Déplacer le bouton ${cta.label}`}
+                          onPointerDown={(e) => onHandleDown(e, cta.id)}
+                          onPointerMove={onHandleMove}
+                          onPointerUp={onHandleUp}
+                          onKeyDown={(e) => onHandleKey(e, cta)}
+                          style={{
+                            position: "absolute",
+                            left: `${p.x}%`,
+                            top: `${p.y}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            border: "2px solid #fff",
+                            background:
+                              selCta === cta.id
+                                ? "var(--color-accent)"
+                                : "rgba(255,92,53,.75)",
+                            boxShadow: "0 0 0 2px var(--color-accent)",
+                            cursor: "grab",
+                            touchAction: "none",
+                            zIndex: 5,
+                          }}
+                        />
+                      );
+                    })}
+                    {drag && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 6,
+                          top: 6,
+                          background: "rgba(0,0,0,.75)",
+                          color: "#fff",
+                          fontSize: 11,
+                          padding: "2px 8px",
+                          borderRadius: 6,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        x {drag.x}% · y {drag.y}%
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: 60,
+                  textAlign: "center",
+                  color: "var(--color-ink3)",
+                  fontSize: 13,
+                }}
+              >
+                Choisis un slide ou crée-en un avec un modèle.
+              </div>
+            )}
+          </div>
+
+          {warnings.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {warnings.map((w, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    alignItems: "flex-start",
+                    fontSize: 12,
+                    color: w.level === "warn" ? "#92400e" : "var(--color-ink3)",
+                  }}
+                >
+                  {w.level === "warn" ? (
+                    <AlertTriangle
+                      size={13}
+                      style={{ flexShrink: 0, marginTop: 1 }}
+                    />
+                  ) : (
+                    <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                  )}
+                  {w.text}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Droite : inspecteur ─────────────────────────────────────── */}
+        <div className="hs-panel" style={{ ...panel, padding: 0 }}>
+          {!draft || !config ? (
+            <p
+              style={{ padding: 16, fontSize: 13, color: "var(--color-ink3)" }}
+            >
+              Sélectionne un slide pour l'éditer.
+            </p>
+          ) : (
+            <>
+              {config.origin === "legacy" && (
+                <div
+                  style={{
+                    padding: "10px 16px",
+                    fontSize: 12,
+                    background: "var(--color-accent-bg)",
+                    color: "var(--color-ink2)",
+                    borderBottom: "1px solid var(--color-border)",
+                  }}
+                >
+                  Slide hérité : il sera converti au nouveau format à
+                  l'enregistrement.
+                </div>
+              )}
+
+              <Section title="Slide">
+                <Field label="Produit principal">
+                  <select
+                    style={inputStyle}
+                    value={draft.productId}
+                    onChange={(e) => patchDraft({ productId: e.target.value })}
+                  >
+                    <option value="">— Aucun (slide libre) —</option>
+                    {products
+                      .filter((p) => p.isActive)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="Début (optionnel)">
+                  <input
+                    type="datetime-local"
+                    style={inputStyle}
+                    value={isoToLocalInput(draft.startsAt)}
+                    onChange={(e) =>
+                      patchDraft({ startsAt: localInputToIso(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Fin (optionnel)">
+                  <input
+                    type="datetime-local"
+                    style={inputStyle}
+                    value={isoToLocalInput(draft.endsAt)}
+                    onChange={(e) =>
+                      patchDraft({ endsAt: localInputToIso(e.target.value) })
+                    }
+                  />
+                </Field>
+              </Section>
+
+              <Section title="Dimensions">
+                <Seg
+                  value={config.sizing.mode}
+                  options={[
+                    ["fixed", "Fixe"],
+                    ["auto", "Auto"],
+                  ]}
+                  onChange={(m) =>
+                    patchConfig((c) => ({
+                      ...c,
+                      sizing:
+                        m === "auto"
+                          ? {
+                              mode: "auto",
+                              width: c.sizing.width,
+                              ratio: { desktop: 2.4, mobile: 0.9 },
+                            }
+                          : {
+                              mode: "fixed",
+                              width: c.sizing.width,
+                              height: { unit: "vh", value: 78 },
+                            },
+                    }))
+                  }
+                />
+                <Field label="Largeur">
+                  <Seg
+                    value={config.sizing.width}
+                    options={[
+                      ["full", "Pleine"],
+                      ["contained", "Contenue"],
+                    ]}
+                    onChange={(w) =>
+                      patchConfig((c) => ({
+                        ...c,
+                        sizing: {
+                          ...c.sizing,
+                          width: w as "full" | "contained",
+                        } as HeroSizing,
+                      }))
+                    }
+                  />
+                </Field>
+                {config.sizing.mode === "fixed" ? (
+                  <>
+                    <Field label="Hauteur desktop">
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <Num
+                          value={config.sizing.height.value}
+                          min={config.sizing.height.unit === "vh" ? 30 : 200}
+                          max={config.sizing.height.unit === "vh" ? 100 : 1200}
+                          onChange={(n) =>
+                            patchConfig((c) =>
+                              c.sizing.mode === "fixed"
+                                ? {
+                                    ...c,
+                                    sizing: {
+                                      ...c.sizing,
+                                      height: { ...c.sizing.height, value: n },
+                                    },
+                                  }
+                                : c,
+                            )
+                          }
+                        />
+                        <select
+                          style={{ ...inputStyle, width: 80 }}
+                          value={config.sizing.height.unit}
+                          onChange={(e) =>
+                            patchConfig((c) =>
+                              c.sizing.mode === "fixed"
+                                ? {
+                                    ...c,
+                                    sizing: {
+                                      ...c.sizing,
+                                      height: {
+                                        unit: e.target.value as "vh" | "px",
+                                        value:
+                                          e.target.value === "vh" ? 78 : 520,
+                                      },
+                                    },
+                                  }
+                                : c,
+                            )
+                          }
+                        >
+                          <option value="vh">vh</option>
+                          <option value="px">px</option>
+                        </select>
+                      </div>
+                    </Field>
+                    <label
+                      style={{
+                        ...labelStyle,
+                        display: "flex",
+                        gap: 6,
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!config.sizing.heightMobile}
+                        onChange={(e) =>
+                          patchConfig((c) => {
+                            if (c.sizing.mode !== "fixed") return c;
+                            const { heightMobile, ...rest } = c.sizing;
+                            return {
+                              ...c,
+                              sizing: e.target.checked
+                                ? {
+                                    ...rest,
+                                    heightMobile: { ...c.sizing.height },
+                                  }
+                                : rest,
+                            };
+                          })
+                        }
+                      />{" "}
+                      Hauteur mobile différente
+                    </label>
+                    {config.sizing.heightMobile && (
+                      <Field label="Hauteur mobile">
+                        <Num
+                          value={config.sizing.heightMobile.value}
+                          onChange={(n) =>
+                            patchConfig((c) =>
+                              c.sizing.mode === "fixed" && c.sizing.heightMobile
+                                ? {
+                                    ...c,
+                                    sizing: {
+                                      ...c.sizing,
+                                      heightMobile: {
+                                        ...c.sizing.heightMobile,
+                                        value: n,
+                                      },
+                                    },
+                                  }
+                                : c,
+                            )
+                          }
+                        />
+                      </Field>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Field label="Ratio desktop (largeur / hauteur)">
+                      <Num
+                        value={config.sizing.ratio.desktop}
+                        min={0.3}
+                        max={6}
+                        step={0.05}
+                        onChange={(n) =>
+                          patchConfig((c) =>
+                            c.sizing.mode === "auto"
+                              ? {
+                                  ...c,
+                                  sizing: {
+                                    ...c.sizing,
+                                    ratio: { ...c.sizing.ratio, desktop: n },
+                                  },
+                                }
+                              : c,
+                          )
+                        }
+                      />
+                    </Field>
+                    <Field label="Ratio mobile">
+                      <Num
+                        value={config.sizing.ratio.mobile}
+                        min={0.3}
+                        max={6}
+                        step={0.05}
+                        onChange={(n) =>
+                          patchConfig((c) =>
+                            c.sizing.mode === "auto"
+                              ? {
+                                  ...c,
+                                  sizing: {
+                                    ...c.sizing,
+                                    ratio: { ...c.sizing.ratio, mobile: n },
+                                  },
+                                }
+                              : c,
+                          )
+                        }
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      style={btn}
+                      onClick={async () => {
+                        const img = config.layers.find(
+                          (l) => l.type === "image",
+                        ) as Extract<HeroLayer, { type: "image" }> | undefined;
+                        const src = img?.src || product?.image || "";
+                        const sm = img?.srcMobile || "";
+                        if (!src)
+                          return setMsg({
+                            ok: false,
+                            text: "Aucune image à mesurer.",
+                          });
+                        const [rd, rm] = await Promise.all([
+                          measureRatio(src),
+                          sm ? measureRatio(sm) : Promise.resolve(null),
+                        ]);
+                        if (rd == null)
+                          return setMsg({
+                            ok: false,
+                            text: "Mesure impossible (image inaccessible).",
+                          });
+                        patchConfig((c) =>
+                          c.sizing.mode === "auto"
+                            ? {
+                                ...c,
+                                sizing: {
+                                  ...c.sizing,
+                                  ratio: {
+                                    desktop: rd,
+                                    mobile: rm ?? c.sizing.ratio.mobile,
+                                  },
+                                },
+                              }
+                            : c,
+                        );
+                      }}
+                    >
+                      <Ruler size={13} /> Mesurer depuis l'image
+                    </button>
+                  </>
+                )}
+              </Section>
+
+              <Section title="Fond">
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {HERO_BG_PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      title={p.label}
+                      onClick={() =>
+                        patchConfig((c) => ({
+                          ...c,
+                          background: { gradient: p.value },
+                        }))
+                      }
+                      style={{
+                        width: 40,
+                        height: 28,
+                        borderRadius: 8,
+                        background: p.value,
+                        border:
+                          config.background.gradient === p.value
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                </div>
+                <input
+                  style={inputStyle}
+                  value={config.background.gradient}
+                  onChange={(e) =>
+                    patchConfig((c) => ({
+                      ...c,
+                      background: { gradient: e.target.value },
+                    }))
+                  }
+                  placeholder="Dégradé CSS (avancé)"
+                />
+              </Section>
+
+              <Section
+                title={`Couches (${config.layers.length}/${HERO_MAX_LAYERS})`}
+              >
+                {config.layers.map((l, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 8px",
+                      borderRadius: 10,
+                      border:
+                        layerSel === i
+                          ? "2px solid var(--color-accent)"
+                          : "1px solid var(--color-border)",
+                      background: "var(--color-surface2)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setLayerSel(i)}
+                      style={{
+                        flex: 1,
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "var(--color-ink)",
+                      }}
+                    >
+                      {i + 1}. {LAYER_LABEL[l.type] ?? l.type}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Monter"
+                      style={{ ...btn, padding: 3 }}
+                      onClick={() => {
+                        patchConfig((c) => ({
+                          ...c,
+                          layers: moveItem(c.layers, i, -1),
+                        }));
+                        setLayerSel(Math.max(0, i - 1));
+                      }}
+                    >
+                      <ArrowUp size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Descendre"
+                      style={{ ...btn, padding: 3 }}
+                      onClick={() => {
+                        patchConfig((c) => ({
+                          ...c,
+                          layers: moveItem(c.layers, i, 1),
+                        }));
+                        setLayerSel(Math.min(config.layers.length - 1, i + 1));
+                      }}
+                    >
+                      <ArrowDown size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Supprimer"
+                      style={{ ...btn, padding: 3, color: "#ef4444" }}
+                      onClick={() => {
+                        patchConfig((c) => ({
+                          ...c,
+                          layers: c.layers.filter((_, li) => li !== i),
+                        }));
+                        setLayerSel(0);
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                {config.layers.length < HERO_MAX_LAYERS && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {(["image", "card", "tiles", "text"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        style={btn}
+                        onClick={() => {
+                          patchConfig((c) => ({
+                            ...c,
+                            layers: [...c.layers, newLayer(t)],
+                          }));
+                          setLayerSel(config.layers.length);
+                        }}
+                      >
+                        <Plus size={12} /> {LAYER_LABEL[t]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-ink4)",
+                    margin: 0,
+                  }}
+                >
+                  Ordre : la 1re couche est tout au fond. Le texte et les
+                  boutons passent toujours au-dessus.
+                </p>
+                {layer && (
+                  <div
+                    style={{
+                      paddingTop: 8,
+                      borderTop: "1px solid var(--color-border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    <strong
+                      style={{ fontSize: 12, color: "var(--color-ink2)" }}
+                    >
+                      {LAYER_LABEL[layer.type]}
+                    </strong>
+                    <LayerEditor
+                      layer={layer}
+                      onChange={(nl) =>
+                        patchConfig((c) => ({
+                          ...c,
+                          layers: c.layers.map((x, i) =>
+                            i === layerSel ? nl : x,
+                          ),
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </Section>
+
+              <Section
+                title={`Boutons (${config.ctas.length}/${HERO_MAX_CTAS})`}
+              >
+                {config.ctas.map((cta) => {
+                  const setCta = (p: Partial<HeroCta>) =>
+                    patchConfig((c) => ({
+                      ...c,
+                      ctas: c.ctas.map((x) =>
+                        x.id === cta.id ? { ...x, ...p } : x,
+                      ),
+                    }));
+                  return (
+                    <div
+                      key={cta.id}
+                      onClick={() => setSelCta(cta.id)}
+                      style={{
+                        padding: 10,
+                        borderRadius: 12,
+                        border:
+                          selCta === cta.id
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        style={inputStyle}
+                        value={cta.label}
+                        onChange={(e) => setCta({ label: e.target.value })}
+                        placeholder="Texte du bouton"
+                      />
+                      <input
+                        style={inputStyle}
+                        value={cta.link ?? ""}
+                        onChange={(e) =>
+                          setCta({ link: e.target.value || null })
+                        }
+                        onBlur={(e) =>
+                          setCta({
+                            link: normalizeHeroLink(e.target.value) || null,
+                          })
+                        }
+                        placeholder="/promotions (vide = fiche produit)"
+                      />
+                      <Seg
+                        value={cta.style}
+                        options={[
+                          ["accent", "Accent"],
+                          ["light", "Clair"],
+                          ["dark", "Sombre"],
+                          ["ghost", "Contour"],
+                        ]}
+                        onChange={(v) =>
+                          setCta({ style: v as HeroCta["style"] })
+                        }
+                      />
+                      <Seg
+                        value={cta.pos ? "free" : "inline"}
+                        options={[
+                          ["inline", "Sous le texte"],
+                          ["free", "Position libre"],
+                        ]}
+                        onChange={(v) =>
+                          setCta({
+                            pos:
+                              v === "free"
+                                ? { desktop: { x: 50, y: 70 } }
+                                : null,
+                          })
+                        }
+                      />
+                      {cta.pos && (
+                        <>
+                          <p
+                            style={{
+                              fontSize: 11,
+                              color: "var(--color-ink4)",
+                              margin: 0,
+                            }}
+                          >
+                            Glisse la pastille orange sur l'aperçu (flèches
+                            clavier : 1 %, Maj : 5 %). En mode Mobile, tu règles
+                            la position mobile.
+                          </p>
+                          <label
+                            style={{
+                              ...labelStyle,
+                              display: "flex",
+                              gap: 6,
+                              alignItems: "center",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!cta.pos.mobile}
+                              onChange={(e) =>
+                                setCta({
+                                  pos: e.target.checked
+                                    ? {
+                                        desktop: cta.pos!.desktop,
+                                        mobile: { ...cta.pos!.desktop },
+                                      }
+                                    : { desktop: cta.pos!.desktop },
+                                })
+                              }
+                            />{" "}
+                            Position mobile différente
+                          </label>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        style={{
+                          ...btn,
+                          color: "#ef4444",
+                          alignSelf: "flex-start",
+                        }}
+                        onClick={() =>
+                          patchConfig((c) => ({
+                            ...c,
+                            ctas: c.ctas.filter((x) => x.id !== cta.id),
+                          }))
+                        }
+                      >
+                        <Trash2 size={13} /> Retirer
+                      </button>
+                    </div>
+                  );
+                })}
+                {config.ctas.length < HERO_MAX_CTAS && (
+                  <button
+                    type="button"
+                    style={btn}
+                    onClick={() =>
+                      patchConfig((c) => ({
+                        ...c,
+                        ctas: [...c.ctas, newCta()],
+                      }))
+                    }
+                  >
+                    <Plus size={13} /> Ajouter un bouton
+                  </button>
+                )}
+              </Section>
+
+              <Section title="Contrôle qualité" open={false}>
+                <div style={{ fontSize: 12, color: "var(--color-ink2)" }}>
+                  Configuration : <strong>{bytes}</strong> /{" "}
+                  {HERO_CONFIG_CAP_BYTES} octets
+                  <div
+                    style={{
+                      height: 6,
+                      borderRadius: 99,
+                      background: "var(--color-surface2)",
+                      marginTop: 6,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(100, (bytes / HERO_CONFIG_CAP_BYTES) * 100)}%`,
+                        height: "100%",
+                        background:
+                          bytes > HERO_CONFIG_CAP_BYTES
+                            ? "#ef4444"
+                            : bytes > HERO_CONFIG_CAP_BYTES * 0.75
+                              ? "#d97706"
+                              : "var(--color-success)",
+                      }}
+                    />
+                  </div>
+                </div>
+              </Section>
+
+              {draft.id && (
+                <div style={{ padding: 16 }}>
+                  <button
+                    type="button"
+                    style={{ ...btn, color: "#ef4444" }}
+                    onClick={remove}
+                  >
+                    <Trash2 size={13} /> Supprimer ce slide
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
