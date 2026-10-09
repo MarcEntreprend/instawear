@@ -407,6 +407,13 @@ export default function PromotionsPage() {
             Slide studio
           </button>
           <button
+            onClick={() => window.open("/admin/herostudio", "_blank")}
+            style={secondaryBtn}
+            title="Maquette Versatile Engine (page séparée, données fictives)"
+          >
+            Hero Studio 02
+          </button>
+          <button
             onClick={() => {
               setShowForm(true);
               setEditingId(null);

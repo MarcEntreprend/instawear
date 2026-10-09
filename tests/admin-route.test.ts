@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   isAdminPath,
   isAccountPath,
+  isHeroStudioPath,
 } from "../src/utils/routes.ts";import {
   cycleTabKey,
   swipeDir,
@@ -20,6 +21,17 @@ test("isAdminPath : strictement /admin, rien d'autre", () => {
   assert.equal(isAdminPath("/administrateur"), false);
   assert.equal(isAdminPath("/produit/abc"), false);
   assert.equal(isAdminPath(""), false);
+});
+
+test("isHeroStudioPath : strictement /admin/herostudio, rien d'autre", () => {
+  assert.equal(isHeroStudioPath("/admin/herostudio"), true);
+  assert.equal(isHeroStudioPath("/admin"), false);
+  assert.equal(isHeroStudioPath("/"), false);
+  assert.equal(isHeroStudioPath("/admin/herostudio/"), false);
+  assert.equal(isHeroStudioPath("/admin/herostudio/extra"), false);
+  assert.equal(isHeroStudioPath(""), false);
+  // /admin reste strict : la page sœur ne le pollue pas.
+  assert.equal(isAdminPath("/admin/herostudio"), false);
 });
 
 test("isAccountPath : /account (+ alias /compte), rien d'autre", () => {

@@ -1,0 +1,49 @@
+/* src/admin/herostudio/herostudio.css — tokens visuels du mockup 02 (Versatile Engine).
+   Scopé sous .hs-root : aucun effet sur la boutique ni sur l'admin existant. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Sora:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+.hs-root {
+  --hs-bg: #101012;
+  --hs-panel: #18181b;
+  --hs-panel2: #1f1f23;
+  --hs-border: #27272a;
+  --hs-border2: #3f3f46;
+  --hs-text: #fafafa;
+  --hs-muted: #a1a1aa;
+  --hs-faint: #71717a;
+  --hs-accent: #ff6b21;
+  --hs-accent-soft: rgba(255, 107, 33, 0.15);
+  --hs-radius: 12px;
+}
+
+.hs-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+.hs-root ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 999px; }
+.hs-root ::-webkit-scrollbar-track { background: transparent; }
+
+/* Démo container queries / object-fit / clamp du footer mockup */
+.hs-canvas-frame { container-type: inline-size; }
+.hs-hero-title { font-size: clamp(1.6rem, 4.5cqi, 3.2rem); line-height: 0.95; }
+.hs-hero-media img { object-fit: cover; width: 100%; height: 100%; display: block; }
+@container (max-width: 560px) {
+  .hs-hero-split { grid-template-columns: 1fr !important; }
+}
+
+@keyframes hs-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hs-slide-in { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes hs-pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes hs-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes hs-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 33, 0.55); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 107, 33, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 33, 0); }
+}
+
+.hs-anim-fade { animation: hs-fade-in 0.25s ease both; }
+.hs-anim-slide { animation: hs-slide-in 0.3s ease both; }
+.hs-anim-pop { animation: hs-pop-in 0.2s ease both; }
+.hs-marquee-track { animation: hs-marquee 14s linear infinite; }
+.hs-hotspot-pulse { animation: hs-pulse-ring 1.8s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-marquee-track, .hs-hotspot-pulse { animation: none; }
+}

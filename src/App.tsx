@@ -42,6 +42,11 @@ import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 // Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
 const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+// Hero Studio : page séparée /admin/herostudio (maquette Versatile Engine),
+// chunk séparé lui aussi — jamais dans le bundle boutique.
+const HeroStudioPage = lazy(
+  () => import("./admin/herostudio/HeroStudioPage"),
+);
 
 // Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
 function LazyFallback() {
@@ -72,7 +77,7 @@ import {
   pickAvailableVariant,
 } from "./hooks/useProductAvailability";
 import { isDealLive } from "./utils/deals";
-import { isAdminPath, isAccountPath } from "./utils/routes";
+import { isAdminPath, isAccountPath, isHeroStudioPath } from "./utils/routes";
 import { scrollToCatalogTop } from "./utils/scroll";
 import {
   findProductBySlugOrId,
@@ -153,7 +158,9 @@ export default function App() {
   // L'admin est une page (/admin) : l'URL au boot initialise l'état pour que
   // le refresh reste dans l'admin (source de vérité = URL, pas état volatil).
   const [activeTab, setActiveTab] = useState<"store" | "admin">(() =>
-    typeof window !== "undefined" && isAdminPath(window.location.pathname)
+    typeof window !== "undefined" &&
+    (isAdminPath(window.location.pathname) ||
+      isHeroStudioPath(window.location.pathname))
       ? "admin"
       : "store",
   );
@@ -240,11 +247,18 @@ export default function App() {
       const path = window.location.pathname;
       const search = window.location.search;
       // /admin est une page : précédent/suivant navigateur entre/sort de l'admin.
-      if (isAdminPath(path)) {
+      // /admin/herostudio est une page sœur (même garde admin, autre vue).
+      if (isHeroStudioPath(path)) {
+        setActiveTab("admin");
+        setShowNewAdmin(false);
+        setShowHeroStudio(true);
+      } else if (isAdminPath(path)) {
         setActiveTab("admin");
         setShowNewAdmin(true);
+        setShowHeroStudio(false);
       } else {
         setShowNewAdmin(false);
+        setShowHeroStudio(false);
         setActiveTab("store");
       }
       // /account est une page : précédent/suivant l'ouvre/la referme.
@@ -633,6 +647,14 @@ export default function App() {
       isAdminPath(window.location.pathname),
   );
 
+  // Hero Studio : page sœur /admin/herostudio (fichier séparé, pas un tab
+  // AdminSidebar). Même initialisation URL : refresh-safe.
+  const [showHeroStudio, setShowHeroStudio] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      isHeroStudioPath(window.location.pathname),
+  );
+
   const [showNotFound, setShowNotFound] = useState(false); // not found
 
   // Block background swipe/scroll when any fullscreen modal/page is open (mobile)
@@ -654,7 +676,8 @@ export default function App() {
       !!orderSuccessId ||
       trackingOpen ||
       showNotFound ||
-      showNewAdmin;
+      showNewAdmin ||
+      showHeroStudio;
     if (isAnyModalOpen) {
       const prevOverflow = document.body.style.overflow;
       const prevOverscroll = (document.documentElement.style as any)
@@ -695,14 +718,15 @@ export default function App() {
     trackingOpen,
     showNotFound,
     showNewAdmin,
+    showHeroStudio,
   ]);
 
   useEffect(() => {
-    if (showNewAdmin) {
+    if (showNewAdmin || showHeroStudio) {
       setShowProfileModal(false);
       setShowFavoritesOnly(false);
     }
-  }, [showNewAdmin]);
+  }, [showNewAdmin, showHeroStudio]);
 
   // Force back to store if a non‑admin tries to access admin (/admin en
   // lien direct ou session expirée : retour boutique + URL nettoyée).
@@ -712,7 +736,11 @@ export default function App() {
     if (authChecked && activeTab === "admin" && !isAdmin) {
       setActiveTab("store");
       setShowNewAdmin(false);
-      if (isAdminPath(window.location.pathname)) {
+      setShowHeroStudio(false);
+      if (
+        isAdminPath(window.location.pathname) ||
+        isHeroStudioPath(window.location.pathname)
+      ) {
         try {
           history.pushState({}, "", "/");
         } catch {}
@@ -1788,6 +1816,7 @@ export default function App() {
     setTrackingPageCode(null);
     setActiveTab("store");
     setShowNewAdmin(false);
+    setShowHeroStudio(false);
     history.pushState({}, "", "/");
   };
 
@@ -1798,6 +1827,7 @@ export default function App() {
     setUiTick((t) => t + 1);
     setActiveTab("admin");
     setShowNewAdmin(true);
+    setShowHeroStudio(false);
     window.scrollTo({ top: 0 });
     try {
       history.pushState({}, "", "/admin");
@@ -1807,8 +1837,22 @@ export default function App() {
     setUiTick((t) => t + 1);
     setActiveTab("store");
     setShowNewAdmin(false);
+    setShowHeroStudio(false);
     try {
       history.pushState({}, "", "/");
+    } catch {}
+  };
+
+  // ── Hero Studio = page /admin/herostudio (refresh-safe, miroir /admin) ──
+  // Fichier séparé, pas un tab AdminSidebar. Entrée : URL directe (bouton
+  // "Hero Studio 02" côté PromotionsPage, target _blank) ; sortie ci-dessous.
+  const closeHeroStudio = () => {
+    setUiTick((t) => t + 1);
+    setActiveTab("admin");
+    setShowNewAdmin(false);
+    setShowHeroStudio(false);
+    try {
+      history.pushState({}, "", "/admin");
     } catch {}
   };
 
@@ -2388,6 +2432,19 @@ export default function App() {
           <AdminDashboardNew onReturnToStore={closeAdmin} />
         </Suspense>
       )}
+
+      {/* Hero Studio : page séparée /admin/herostudio (fichier dédié, pas un tab).
+          Réserve admin identique à /admin ; URL refresh-safe via popstate. */}
+      {showHeroStudio && isAdmin && (
+        <Suspense fallback={<LazyFallback />}>
+          <HeroStudioPage
+            onBackToAdmin={closeHeroStudio}
+            onReturnToStore={closeAdmin}
+          />
+        </Suspense>
+      )}
+      {/* /admin/herostudio en restauration de session : spinner, comme /admin. */}
+      {showHeroStudio && !isAdmin && <LazyFallback />}
 
       {/* Checkout Flow (Cart → Shipping → Payment → Confirmation) */}
       {checkoutOpen && (

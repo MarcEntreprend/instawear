@@ -9,6 +9,15 @@ export function isAdminPath(path: string): boolean {
   return path === "/admin";
 }
 
+/**
+ * Page Hero Studio (maquette Versatile Engine, fichier séparé
+ * src/admin/herostudio/HeroStudioPage.tsx). Volontairement distincte de
+ * /admin : pas un tab AdminSidebar, URL propre refresh-safe.
+ */
+export function isHeroStudioPath(path: string): boolean {
+  return path === "/admin/herostudio";
+}
+
 /** Page compte (strict, sans PII). /compte gardé en alias (anciens liens). */
 export function isAccountPath(path: string): boolean {
   return path === "/account" || path === "/compte";
