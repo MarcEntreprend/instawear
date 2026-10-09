@@ -41,6 +41,7 @@ import {
   Users,
   Film,
   Gauge,
+  BookOpen,
 } from "lucide-react";
 import "./herostudio.css";
 
@@ -48,7 +49,7 @@ import "./herostudio.css";
 
 type Device = "desktop" | "tablet" | "mobile";
 type StudioTheme = "dark" | "grey" | "light";
-type LayoutId = "immersive" | "split" | "grid" | "bento" | "asym" | "masonry";
+type LayoutId = "immersive" | "split" | "grid" | "bento" | "asym" | "masonry" | "filmstrip" | "lookbook";
 type InspectorTab = "style" | "type" | "effects" | "motion" | "commerce";
 type Selection =
   | { kind: "slide" }
@@ -111,6 +112,8 @@ const LAYOUTS: Array<{ id: LayoutId; label: string; icon: React.FC<{ size?: numb
   { id: "bento", label: "Bento", icon: LayoutDashboard },
   { id: "asym", label: "Asym", icon: PanelRight },
   { id: "masonry", label: "Masonry", icon: Rows3 },
+  { id: "filmstrip", label: "Filmstrip", icon: Film },
+  { id: "lookbook", label: "Lookbook", icon: BookOpen },
 ];
 
 const MOCK_LAYERS: MockLayer[] = [
@@ -148,27 +151,6 @@ const MOCK_SLIDE = {
 };
 
 const MOCK_PRODUCTS = ["FW25 Essential Parka", "Essential Hoodie", "Cargo Pant"] as const;
-
-const MOCK_LIQUID = `<section class="hero-{{ section.id }}">
-  <h1>{{ section.settings.title }}</h1>
-  {{ section.settings.description }}
-</section>
-{% schema %}{"name":"Hero Studio","settings":[{"type":"text","id":"title","label":"Title"}]}{% endschema %}`;
-
-const MOCK_CSS = `.hero-studio {
-  --gap: 24px;
-  --radius: 12px;
-  --accent: #FF6B21;
-  display: grid;
-  gap: var(--gap);
-  border-radius: var(--radius);
-  container-type: inline-size;
-}
-.hero-studio img { object-fit: cover; width: 100%; height: 100%; }
-@container (max-width: 768px) {
-  .hero-studio { grid-template-columns: 1fr; }
-}
-.hero-title { font-size: clamp(2rem, 5vw, 4.5rem); line-height: 0.9; }`;
 
 const ADD_BLOCKS: Array<{ kind: LayerKind; icon: LayerIconKind; label: string; hint: string }> = [
   { kind: "badge", icon: "badge", label: "Badge", hint: "New label" },
@@ -263,7 +245,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
   const [fxGradient, setFxGradient] = useState(60);
   // Motion
   const [parallax, setParallax] = useState(true);
-  const [marqueeSpeed, setMarqueeSpeed] = useState(12);
+  const [marqueeSpeed, setMarqueeSpeed] = useState(18);
   const [marqueeDir, setMarqueeDir] = useState<"left" | "right">("left");
   const [marqueeText, setMarqueeText] = useState(MOCK_SLIDE.marquee);
   const [animIn, setAnimIn] = useState(true);
@@ -276,6 +258,16 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
   const [cdLabel, setCdLabel] = useState("Drop ends soon");
   const [cdMinutes, setCdMinutes] = useState(312);
   const [cdExpired, setCdExpired] = useState("Offer expired");
+  // Améliorations reprises du 03 (V3 Fusion) — additif pur.
+  const [highlightWord, setHighlightWord] = useState(0);
+  const [pretty, setPretty] = useState(true);
+  const [rating, setRating] = useState("★ 4.8 (412)");
+  const [showRating, setShowRating] = useState(true);
+  const [lowStock, setLowStock] = useState(true);
+  const [parallaxAmt, setParallaxAmt] = useState<"1x" | "1.2x" | "1.5x">("1.2x");
+  const [cdHero, setCdHero] = useState(true);
+  const [fxGlass, setFxGlass] = useState(false);
+  const [fxBlend, setFxBlend] = useState(false);
   // UI
   const [fontOpen, setFontOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -297,6 +289,64 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
   function toast(msg: string) {
     setToasts((prev) => [...prev.slice(-2), msg]);
     setTimeout(() => setToasts((prev) => prev.slice(1)), 2600);
+  }
+
+  function buildLiquid(): string {
+    const blocks = layers
+      .filter((l) => l.visible)
+      .map((l) => {
+        if (l.kind === "media")
+          return `      { "type": "image", "settings": { "focal": "${l.fx ?? 50} ${l.fy ?? 50}", "position": "object-position: ${l.fx ?? 50}% ${l.fy ?? 50}%" } }`;
+        if (l.kind === "text")
+          return `      { "type": "text", "settings": { "font": "${l.fontFamily}", "max_width": "${l.maxWidth}" } }`;
+        return `      { "type": "${l.kind}" }`;
+      })
+      .join(",\n");
+    return `<section class="hero-{{ section.id }}">
+  <p>{{ section.settings.kicker }}</p>
+  <h1>{{ section.settings.title }}</h1>
+  {{ section.settings.description }}
+  {% for block in section.blocks %}{{ block }}{% endfor %}
+</section>
+{% schema %}{"name":"Hero Studio","settings":[{"type":"text","id":"title","label":"Title"},{"type":"text","id":"kicker","label":"Kicker"}],"blocks":[
+${blocks}
+]}{% endschema %}`;
+  }
+
+  function buildCss(): string {
+    return `.hero-studio {
+  --gap: ${gap}px;
+  --radius: ${radius}px;
+  --accent: ${accent};
+  display: grid;
+  gap: var(--gap);
+  border-radius: var(--radius);
+  container-type: inline-size;
+}
+.hero-studio img { object-fit: cover; width: 100%; height: 100%; }
+@container (max-width: 768px) {
+  .hero-studio { grid-template-columns: 1fr; }
+}
+.hero-title { font-size: clamp(2rem, 5vw, 4.5rem); line-height: 0.9; }`;
+  }
+
+  async function copyText(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`${label} copié`);
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        toast(`${label} copié`);
+      } catch {
+        toast("Copie impossible (maquette)");
+      }
+    }
   }
 
   function commit(next: MockLayer[]) {
@@ -493,6 +543,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
           margin: 0, fontWeight: 900, letterSpacing: "-0.02em",
           fontSize: autoFit ? `clamp(1.6rem, ${size}cqi, 4.5rem)` : size >= 4 ? "3rem" : "2rem",
           lineHeight: 0.95, textAlign: alignCenter ? "center" : "left",
+          textWrap: pretty ? "pretty" : "balance",
           outline: overflow ? "2px solid #FF6B21" : "2px solid transparent",
           outlineOffset: 6, borderRadius: 8, cursor: "text",
           fontFamily: `'${layers.find((l) => l.id === "l-title")?.fontFamily ?? "Sora"}', sans-serif`,
@@ -502,7 +553,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
           <span
             key={i}
             onDoubleClick={(e) => { e.stopPropagation(); cycleWordFont(i); }}
-            style={{ color: i === 0 ? accent : "inherit", fontFamily: wordFonts[i] ? `'${wordFonts[i]}', sans-serif` : "inherit", cursor: "pointer" }}
+            style={{ color: i === highlightWord ? accent : "inherit", fontFamily: wordFonts[i] ? `'${wordFonts[i]}', sans-serif` : "inherit", cursor: "pointer" }}
           >
             {w}{i === 0 ? " " : ""}
           </span>
@@ -541,9 +592,11 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
   function PriceRow() {
     if (!showPrice) return null;
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ background: darkCard ? "rgba(255,255,255,0.12)" : "#F4F4F5", padding: "5px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700 }}>{price}</span>
         <span style={{ background: "rgba(255,107,33,0.18)", color: accent, border: `1px solid ${accent}55`, padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{stockLabel}</span>
+        {lowStock && <span style={{ background: "rgba(245,158,11,0.2)", color: "#F59E0B", padding: "5px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700 }}>Low stock</span>}
+        {showRating && <span style={{ fontSize: 12, opacity: 0.75 }}>{rating}</span>}
       </div>
     );
   }
@@ -562,6 +615,14 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
   }
   function CountRow() {
     if (!showCount) return null;
+    if (cdHero) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }} role="timer">
+          <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>{expired ? "00:00:00" : countdown}</span>
+          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.8 }}>{expired ? cdExpired : `${cdLabel} • FW25`}</span>
+        </div>
+      );
+    }
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontFamily: "'JetBrains Mono', monospace", opacity: 0.9 }} role="timer">
         <Timer size={13} />
@@ -579,6 +640,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
         {...focalHandlers(id)}
         onClick={(e) => { e.stopPropagation(); const i = layers.findIndex((l) => l.id === id); if (i >= 0) setSelection({ kind: "layer", index: i }); }}
         title={m.locked ? "Lock — prevent drag/edit" : "Drag orange dot on canvas for primary — Click to set focal"}
+        className="hs-zoomable"
         style={{
           position: "relative", minHeight: minH, borderRadius: Math.max(0, radius - 4),
           background: "linear-gradient(135deg, #27272A 0%, #3F3F46 45%, #52525B 100%)",
@@ -586,8 +648,10 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
           opacity: ghost || !m.visible ? 0.3 : 1, touchAction: "none",
         }}
       >
-        {fxMesh && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 70% 20%, ${accent}55 0%, transparent 55%), radial-gradient(circle at 20% 85%, #7C3AED44 0%, transparent 50%)` }} />}
-        {fxNoise && <div className="hs-grain" style={{ position: "absolute", inset: 0, opacity: 0.5 }} />}
+        <div className="hs-zoom" style={{ position: "absolute", inset: 0 }}>
+          {fxMesh && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 70% 20%, ${accent}55 0%, transparent 55%), radial-gradient(circle at 20% 85%, #7C3AED44 0%, transparent 50%)` }} />}
+        </div>
+        {fxNoise && <div className="hs-grain" style={{ position: "absolute", inset: 0, opacity: 0.5, mixBlendMode: fxBlend ? "overlay" : "normal" }} />}
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to top, rgba(0,0,0,${fxGradient / 100}) 0%, transparent 60%)` }} />
         {m.fx !== undefined && m.fy !== undefined && (
           <span style={{ position: "absolute", left: `${m.fx}%`, top: `${m.fy}%`, width: 16, height: 16, borderRadius: "50%", background: accent, border: "2px solid #fff", boxShadow: "0 2px 8px rgba(0,0,0,0.5)", transform: "translate(-50%,-50%)", zIndex: 5 }} />
@@ -604,8 +668,11 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
 
   function HeroCard() {
     const card: React.CSSProperties = {
-      background: cardBg, color: cardInk, borderRadius: radius,
-      border: "1px solid rgba(128,128,128,0.25)", overflow: "hidden",
+      background: fxGlass ? "rgba(255,255,255,0.08)" : cardBg,
+      backdropFilter: fxGlass ? "blur(16px)" : undefined,
+      color: cardInk, borderRadius: radius,
+      border: fxGlass ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(128,128,128,0.25)",
+      overflow: "hidden",
       boxShadow: shadow ? "0 20px 60px rgba(0,0,0,0.35)" : "none",
       cursor: "pointer",
     };
@@ -695,6 +762,55 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
             </div>
           </div>
         );
+      case "filmstrip":
+        return (
+          <div onClick={() => setSelection({ kind: "slide" })} style={{ ...card, padding: 20 }}>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <BadgePill />
+              <TitleBlock size={4} alignCenter />
+            </div>
+            <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+              {(["l-p", "l-s", "l-t", "l-q"] as const).map((mid, k) => (
+                <div key={mid} style={{ minWidth: 220, flexShrink: 0, scrollSnapAlign: "start" }}>
+                  <MediaBox id={mid} minH={260} />
+                  <p style={{ fontSize: 11, margin: "6px 0 0", opacity: 0.7 }}>Look 0{k + 1} — {byId[mid]?.label}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
+              <PriceRow />
+              <CtaRow />
+            </div>
+          </div>
+        );
+      case "lookbook":
+        return (
+          <div onClick={() => setSelection({ kind: "slide" })} style={{ ...card, padding: 28 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16, gap: 12 }}>
+              <div>
+                <BadgePill />
+                <TitleBlock size={4} />
+              </div>
+              <span style={{ fontSize: 11, opacity: 0.6, whiteSpace: "nowrap" }}>FW25 / Editorial 03</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap }}>
+              <div>
+                <MediaBox id="l-p" minH={420} />
+                <p style={{ fontSize: 11, margin: "6px 0 0", opacity: 0.7 }}>Look 01 — {product}</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap }}>
+                <MediaBox id="l-s" minH={200} />
+                <MediaBox id="l-t" minH={200} />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
+              <PriceRow />
+              <SocialRow />
+              <CtaRow />
+            </div>
+            <CountRow />
+          </div>
+        );
       case "immersive":
       default:
         return (
@@ -750,7 +866,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
           </button>
         </div>
 
-        <div className="hs-layoutbar" style={{ display: "flex", alignItems: "center", gap: 2, background: "var(--hs-panel2)", border: "1px solid var(--hs-border)", borderRadius: 999, padding: 3 }}>
+        <div className="hs-layoutbar" style={{ display: "flex", alignItems: "center", gap: 2, background: "var(--hs-panel2)", border: "1px solid var(--hs-border)", borderRadius: 999, padding: 3, overflowX: "auto", maxWidth: "46vw", flexShrink: 1 }}>
           {LAYOUTS.map((l) => (
             <button
               key={l.id}
@@ -867,6 +983,10 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                         style={{ position: "relative", border: active ? "1px solid var(--hs-accent)" : "1px solid var(--hs-border)", borderRadius: 8, background: "linear-gradient(135deg,#27272A,#3F3F46)", minHeight: 64, cursor: "crosshair", overflow: "hidden", padding: 0 }}
                       >
                         <span style={{ position: "absolute", top: 4, left: 6, fontSize: 8, fontWeight: 700, color: "#fff", background: "rgba(0,0,0,0.5)", padding: "1px 6px", borderRadius: 999 }}>{m.label.split(" ")[0]}</span>
+                        <span style={{ position: "absolute", bottom: 4, left: 4, display: "flex", gap: 3 }}>
+                          <span style={{ fontSize: 8, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "1px 5px", borderRadius: 999 }}>Desktop 4/3</span>
+                          <span style={{ fontSize: 8, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "1px 5px", borderRadius: 999 }}>Mobile 9/16</span>
+                        </span>
                         {m.fx !== undefined && (
                           <span style={{ position: "absolute", left: `${m.fx}%`, top: `${m.fy}%`, width: 12, height: 12, borderRadius: "50%", background: accent, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />
                         )}
@@ -928,10 +1048,10 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
             </div>
           </div>
 
-          <div style={{ flexShrink: 0, borderTop: theme === "dark" ? "1px solid var(--hs-border)" : "1px solid #e4e4e7", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, overflowX: "auto" }}>
+          <div style={{ flexShrink: 0, borderTop: theme === "dark" ? "1px solid var(--hs-border)" : "1px solid #e4e4e7", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, overflowX: "auto", scrollSnapType: "x mandatory" }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: theme === "dark" ? "var(--hs-faint)" : "#71717a", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}><Film size={12} /> FILMSTRIP</span>
             {LAYOUTS.map((l) => (
-              <button key={l.id} onClick={() => applyTemplate(l.id)} style={{ flexShrink: 0, width: 120, border: layout === l.id ? "1px solid var(--hs-accent)" : "1px solid rgba(128,128,128,0.3)", borderRadius: 8, background: theme === "dark" ? "#1c1c1f" : "#fff", padding: "10px 6px 8px", cursor: "pointer", color: "inherit" }}>
+              <button key={l.id} onClick={() => applyTemplate(l.id)} style={{ flexShrink: 0, width: 120, scrollSnapAlign: "start", border: layout === l.id ? "1px solid var(--hs-accent)" : "1px solid rgba(128,128,128,0.3)", borderRadius: 8, background: theme === "dark" ? "#1c1c1f" : "#fff", padding: "10px 6px 8px", cursor: "pointer", color: "inherit" }}>
                 <span style={{ display: "flex", justifyContent: "center", marginBottom: 4, opacity: 0.7 }}><l.icon size={15} /></span>
                 <span style={{ display: "block", fontSize: 10, opacity: 0.7 }}>{l.label} live</span>
                 <span style={{ display: "block", height: 3, borderRadius: 999, marginTop: 6, background: layout === l.id ? accent : "rgba(128,128,128,0.3)" }} />
@@ -1065,6 +1185,9 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                         </label>
                       </div>
                       <label style={{ ...checkRow, marginTop: 8 }}><input type="checkbox" checked={selectedLayer.balance} onChange={(e) => patchLayer(layerIndex, { balance: e.target.checked })} /> balance controls — helps avoid orphans</label>
+                      <label style={{ ...checkRow, marginTop: 8 }}><input type="checkbox" checked={pretty} onChange={(e) => setPretty(e.target.checked)} /> Pretty {pretty ? "✓" : ""} (text-wrap)</label>
+                      <label style={labelStyle}>Highlight word — mot {highlightWord + 1} / 2</label>
+                      <input type="range" min={0} max={1} step={1} value={highlightWord} onChange={(e) => setHighlightWord(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--hs-accent)" }} />
                     </Section>
                     <Section title="Hide on" hint="Different from eye visibility: Hide-on respects breakpoint.">
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1089,6 +1212,8 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                   <label style={checkRow}><input type="checkbox" checked={fxMesh} onChange={(e) => setFxMesh(e.target.checked)} /> Gradient Mesh</label>
                   <label style={checkRow}><input type="checkbox" checked={fxNoise} onChange={(e) => setFxNoise(e.target.checked)} /> Noise overlay (grain)</label>
                   <label style={checkRow}><input type="checkbox" checked={fxBlur} onChange={(e) => setFxBlur(e.target.checked)} /> Backdrop blur + transparency</label>
+                  <label style={checkRow}><input type="checkbox" checked={fxGlass} onChange={(e) => setFxGlass(e.target.checked)} /> Glass (carte + CTA)</label>
+                  <label style={checkRow}><input type="checkbox" checked={fxBlend} onChange={(e) => setFxBlend(e.target.checked)} /> Overlay mix-blend</label>
                   <label style={labelStyle}>Gradient strength — {fxGradient}%</label>
                   <input type="range" min={0} max={90} value={fxGradient} onChange={(e) => setFxGradient(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--hs-accent)" }} />
                 </Section>
@@ -1104,6 +1229,17 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 12 }}>Depth on scroll (parallax)</span>
                     <button onClick={() => setParallax((v) => !v)} style={toggleBtn(parallax)}><span style={toggleDot(parallax)} /></button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    {(["1x", "1.2x", "1.5x"] as const).map((a) => (
+                      <button key={a} onClick={() => setParallaxAmt(a)} style={{ flex: 1, padding: "6px 0", borderRadius: 999, border: parallaxAmt === a ? "1px solid var(--hs-accent)" : "1px solid var(--hs-border)", background: parallaxAmt === a ? "var(--hs-accent-soft)" : "transparent", color: parallaxAmt === a ? "#FFB37E" : "var(--hs-muted)", fontSize: 11, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer" }}>{a}</button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--hs-faint)" }}><span>Timeline • 0% → 100%</span><span>Parallax layers at {parallax ? parallaxAmt : "1x"}</span></div>
+                    <div style={{ height: 6, borderRadius: 999, background: "#27272A", marginTop: 4 }}>
+                      <div style={{ width: "62%", height: "100%", borderRadius: 999, background: accent }} />
+                    </div>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                     <span style={{ fontSize: 12 }}>Entrance (fade / slide / pop)</span>
@@ -1128,6 +1264,7 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                   <input type="range" min={5} max={1440} value={cdMinutes} onChange={(e) => setCdMinutes(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--hs-accent)" }} />
                   <label style={labelStyle}>Texte expiré</label>
                   <input value={cdExpired} onChange={(e) => setCdExpired(e.target.value)} style={textInput} />
+                  <label style={{ ...checkRow, marginTop: 8 }}><input type="checkbox" checked={cdHero} onChange={(e) => setCdHero(e.target.checked)} /> Affichage héro (gros chiffres)</label>
                 </Section>
               </>
             )}
@@ -1148,6 +1285,23 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                   <div style={{ display: "flex", gap: 8 }}>
                     <input value={price} onChange={(e) => setPrice(e.target.value)} style={{ ...textInput, flex: 1 }} aria-label="Prix" />
                     <input value={stockLabel} onChange={(e) => setStockLabel(e.target.value)} style={{ ...textInput, flex: 1 }} aria-label="Stock" />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <input value={rating} onChange={(e) => setRating(e.target.value)} style={{ ...textInput, flex: 1 }} aria-label="Rating" />
+                  </div>
+                  <label style={{ ...checkRow, marginTop: 8 }}><input type="checkbox" checked={showRating} onChange={(e) => setShowRating(e.target.checked)} /> Afficher le rating</label>
+                  <label style={checkRow}><input type="checkbox" checked={lowStock} onChange={(e) => setLowStock(e.target.checked)} /> Low stock (pastille amber)</label>
+                </Section>
+                <Section title="Commerce Copy • V1">
+                  <div style={{ border: "1px solid var(--hs-border)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 6, fontSize: 11 }}>
+                    {[["Product", product], ["Price", price], ["Stock", stockLabel], ["Rating", rating], ["Social", socialCount], ["Countdown", cdLabel]].map(([k, v]) => (
+                      <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ opacity: 0.6 }}>{k}</span><span style={{ textAlign: "right" }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <button onClick={() => copyText(`Product: ${product}\nPrice: ${price}\nStock: ${stockLabel}\nRating: ${rating}\nSocial: ${socialCount}\nCountdown: ${cdLabel}`, "Commerce Copy")} style={{ ...ghostBtn, width: "100%" }}>Copier</button>
                   </div>
                 </Section>
                 <Section title="Social Proof">
@@ -1171,9 +1325,18 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
                   <p style={{ fontSize: 11, color: "var(--hs-faint)", margin: "8px 0 0" }}>Hotspots = style de CTA positionné « pastille ». Shows label in canvas.</p>
                 </Section>
                 <Section title="Quick Toggles">
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button onClick={() => toast("Quick Toggles — instantané")} style={ghostBtn}>Quick Toggles</button>
-                    <button onClick={() => toast("Published (maquette)")} style={ghostBtn}>Publish</button>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {[["Price", "l-price"], ["Social", "l-social"], ["Timer", "l-count"], ["Marquee", "l-marquee"], ["Badge", "l-badge"], ["Hotspot", "l-hot"]].map(([label, id]) => {
+                      const on = byId[id]?.visible ?? false;
+                      return (
+                        <button key={id} onClick={() => patchById(id, { visible: !on })} style={{ padding: "7px 0", borderRadius: 8, border: on ? "1px solid var(--hs-accent)" : "1px solid var(--hs-border)", background: on ? "var(--hs-accent-soft)" : "transparent", color: on ? "#FFB37E" : "var(--hs-muted)", fontSize: 11, cursor: "pointer" }}>
+                          {label} {on ? "✓" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    <button onClick={() => toast("Published (maquette)")} style={{ ...ghostBtn, flex: 1 }}>Publish</button>
                   </div>
                 </Section>
               </>
@@ -1233,10 +1396,11 @@ export default function HeroStudioPage({ onBackToAdmin, onReturnToStore }: HeroS
               ))}
             </div>
             <pre style={{ background: "#0A0A0B", border: "1px solid var(--hs-border)", borderRadius: 8, padding: 12, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: "#d4d4d8", overflow: "auto", maxHeight: 260, whiteSpace: "pre-wrap" }}>
-              {exportTab === "liquid" ? MOCK_LIQUID : MOCK_CSS}
+              {exportTab === "liquid" ? buildLiquid() : buildCss()}
             </pre>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
               <button onClick={() => setExportOpen(false)} style={{ ...ghostBtn, padding: "8px 16px" }}>Close</button>
+              <button onClick={() => copyText(exportTab === "liquid" ? buildLiquid() : buildCss(), exportTab === "liquid" ? "Liquid" : "CSS")} style={{ ...ghostBtn, padding: "8px 16px" }}>Copier</button>
               <button onClick={() => toast("Export .zip — maquette, aucun fichier généré")} style={{ height: 32, padding: "0 16px", borderRadius: 999, background: accent, border: "none", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Download .zip</button>
             </div>
           </div>
