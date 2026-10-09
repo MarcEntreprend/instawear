@@ -40,6 +40,10 @@
 
 .hs-anim-fade { animation: hs-fade-in 0.25s ease both; }
 .hs-anim-slide { animation: hs-slide-in 0.3s ease both; }
+.hs-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='20' height='20' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  background-size: 20px 20px;
+}
 .hs-anim-pop { animation: hs-pop-in 0.2s ease both; }
 .hs-marquee-track { animation: hs-marquee 14s linear infinite; }
 .hs-hotspot-pulse { animation: hs-pulse-ring 1.8s ease-out infinite; }
