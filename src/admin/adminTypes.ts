@@ -367,9 +367,6 @@ export interface HeroPromotion {
   /** Hero Studio : composition v1 (jsonb). null = ligne non migrée → dérivée du legacy
    *  via resolveHeroConfig(). */
   config?: HeroConfig | null;
-  /** HTML/CSS collés (Phase 4). undefined = non chargés (liste publique : jamais). */
-  html?: string;
-  css?: string;
   /** Planification (ISO). null = pas de borne. Filtre appliqué au runtime. */
   startsAt?: string | null;
   endsAt?: string | null;

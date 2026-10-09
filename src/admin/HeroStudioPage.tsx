@@ -23,7 +23,11 @@ import {
   Info,
   Ruler,
 } from "lucide-react";
-import { heroPromotionsApi, productApi } from "../api/supabaseApi";
+import {
+  adminUserApi,
+  heroPromotionsApi,
+  productApi,
+} from "../api/supabaseApi";
 import type { AdminProduct, HeroPromotion } from "./adminTypes";
 import AdminImageInput from "./ui/AdminImageInput";
 import {
@@ -42,6 +46,8 @@ import {
   type HeroSizing,
 } from "../lib/heroSchema";
 import { normalizeHeroLink } from "../lib/heroStyle";
+import HeroHtmlPanel, { type HeroHtmlPanelHandle } from "./HeroHtmlPanel";
+import HeroSyncBadge from "./HeroSyncBadge";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
 import {
   HERO_BG_PRESETS,
@@ -679,8 +685,14 @@ export default function HeroStudioPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const dragId = useRef<string | null>(null);
+  const [isSuper, setIsSuper] = useState(false);
+  const [liveHtml, setLiveHtml] = useState<{ html: string; css: string } | null>(
+    null,
+  );
+  const [htmlDirty, setHtmlDirty] = useState(false);
+  const htmlRef = useRef<HeroHtmlPanelHandle>(null);
 
-  const dirty = !!draft && serialize(draft) !== baseline;
+  const dirty = (!!draft && serialize(draft) !== baseline) || htmlDirty;
   const dev = DEVICES[device];
   const scale = avail ? Math.min(1, (avail - 4) / dev.w) : 1;
 
@@ -708,6 +720,36 @@ export default function HeroStudioPage() {
       .finally(() => setLoading(false));
   }, [load]);
 
+  // Rôle : le HTML collé n'est éditable que par un super_admin (RLS en base + garde UI).
+  useEffect(() => {
+    adminUserApi.getMyRole().then(
+      (me) => setIsSuper(me?.role === "super_admin"),
+      () => setIsSuper(false),
+    );
+  }, []);
+
+  // Mesure du HTML dans l'iframe (même rendu que la boutique).
+  const measureSeq = useRef(0);
+  const measurePending = useRef(new Map<number, (h: number | null) => void>());
+  const measureHtml = (html: string, css: string, width: number) =>
+    new Promise<number | null>((resolve) => {
+      const win = frameRef.current?.contentWindow;
+      if (!win) return resolve(null);
+      const id = ++measureSeq.current;
+      const timer = setTimeout(() => {
+        measurePending.current.delete(id);
+        resolve(null);
+      }, 6000);
+      measurePending.current.set(id, (h) => {
+        clearTimeout(timer);
+        resolve(h);
+      });
+      win.postMessage(
+        { source: HERO_STUDIO_SOURCE, type: "measure", id, html, css, width },
+        window.location.origin,
+      );
+    });
+
   // Largeur disponible pour l'aperçu.
   useEffect(() => {
     const el = canvasRef.current;
@@ -727,7 +769,7 @@ export default function HeroStudioPage() {
     return () => window.removeEventListener("beforeunload", onUnload);
   });
 
-  // Messages de l'iframe (ready / rect).
+  // Messages de l'iframe (ready / rect / measured).
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (
@@ -739,6 +781,11 @@ export default function HeroStudioPage() {
       if (!m || m.source !== HERO_FRAME_SOURCE) return;
       if (m.type === "ready") setReadyTick((t) => t + 1);
       if (m.type === "rect" && m.rect) setRect(m.rect as Rect);
+      if (m.type === "measured") {
+        const done = measurePending.current.get(m.id);
+        measurePending.current.delete(m.id);
+        done?.(typeof m.height === "number" ? m.height : null);
+      }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -759,9 +806,10 @@ export default function HeroStudioPage() {
               config: draft.config,
             },
             product,
+            liveHtml,
           )
         : null,
-    [draft, product],
+    [draft, product, liveHtml],
   );
 
   // Envoi de l'état courant à l'aperçu (live, sans passer par la base).
@@ -839,12 +887,23 @@ export default function HeroStudioPage() {
       };
       const saved = draft.id
         ? await heroPromotionsApi.update(draft.id, payload)
-        : await heroPromotionsApi.create({
-            ...payload,
-            order: slides.length,
-          } as Omit<HeroPromotion, "id">);
+        : await heroPromotionsApi.create({ ...payload, order: slides.length } as Omit<
+            HeroPromotion,
+            "id"
+          >);
+      // HTML collé : écrit APRÈS le slide, uniquement si super_admin (garde RLS + API).
+      let htmlErr: string | null = null;
+      try {
+        await htmlRef.current?.save(
+          saved.id,
+          config.layers.some((l) => l.type === "html"),
+        );
+      } catch (e: any) {
+        htmlErr = e?.message || "HTML refusé.";
+      }
       window.dispatchEvent(new Event("storefront:invalidate"));
       await load(saved.id);
+      if (htmlErr) throw new Error(`Slide enregistré, mais ${htmlErr}`);
       setMsg({
         ok: true,
         text: draft.isActive
@@ -1017,6 +1076,7 @@ export default function HeroStudioPage() {
             Compose le hero de la boutique : couches, dimensions, boutons,
             aperçu desktop et mobile.
           </p>
+          <HeroSyncBadge />
         </div>
         {draft && (
           <div
@@ -1867,6 +1927,7 @@ export default function HeroStudioPage() {
                     <button
                       type="button"
                       aria-label="Supprimer"
+                      disabled={l.type === "html" && !isSuper}
                       style={{ ...btn, padding: 3, color: "#ef4444" }}
                       onClick={() => {
                         patchConfig((c) => ({
@@ -1900,6 +1961,24 @@ export default function HeroStudioPage() {
                     ))}
                   </div>
                 )}
+                {
+                  isSuper &&
+                    !config.layers.some((l) => l.type === "html") &&
+                    config.layers.length < HERO_MAX_LAYERS && (
+                      <button
+                        type="button"
+                        style={btn}
+                        onClick={() => {
+                          patchConfig((c) => ({
+                            ...c,
+                            layers: [...c.layers, { type: "html" }],
+                          }));
+                          setLayerSel(config.layers.length);
+                        }}
+                      >
+                        <Plus size={12} /> HTML collé
+                      </button>
+                    )}
                 <p
                   style={{
                     fontSize: 11,
@@ -2085,6 +2164,29 @@ export default function HeroStudioPage() {
                     <Plus size={13} /> Ajouter un bouton
                   </button>
                 )}
+              </Section>
+
+              <Section title="HTML collé">
+                <HeroHtmlPanel
+                  key={draft.id ?? "new"}
+                  ref={htmlRef}
+                  slideId={draft.id}
+                  hasLayer={config.layers.some((l) => l.type === "html")}
+                  isSuper={isSuper}
+                  isFirst={
+                    slides.findIndex((s) => s.id === draft.id) === 0 ||
+                    (draft.id === null && slides.length === 0)
+                  }
+                  onLive={setLiveHtml}
+                  onDirty={setHtmlDirty}
+                  measure={measureHtml}
+                  onRatios={(r) =>
+                    patchConfig((c) => ({
+                      ...c,
+                      sizing: { mode: "auto", width: c.sizing.width, ratio: r },
+                    }))
+                  }
+                />
               </Section>
 
               <Section title="Contrôle qualité" open={false}>

@@ -4,9 +4,59 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import HeroCarousel from "../components/HeroCarousel";
+import { mountHeroHtml } from "../components/HeroHtmlBlock";
 import { sanitizeHeroConfig } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
 import { HERO_FRAME_SOURCE, HERO_STUDIO_SOURCE } from "../lib/heroStudio";
+
+/** Mesure la hauteur du HTML à une largeur donnée (dans un conteneur hors écran). */
+async function measureHtml(m: {
+  id: number;
+  html: string;
+  css: string;
+  width: number;
+}) {
+  const reply = (height: number | null) =>
+    window.parent.postMessage(
+      { source: HERO_FRAME_SOURCE, type: "measured", id: m.id, height },
+      window.location.origin,
+    );
+  const w = Math.max(200, Math.min(2400, Number(m.width) || 1280));
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;visibility:hidden;pointer-events:none;`;
+  const inner = document.createElement("div");
+  // Les styles posés ici l'emportent sur les règles :host du shadow root.
+  inner.style.cssText =
+    "position:relative;inset:auto;overflow:visible;contain:none;width:100%;";
+  wrap.appendChild(inner);
+  document.body.appendChild(wrap);
+  try {
+    await mountHeroHtml(inner, String(m.html ?? ""), String(m.css ?? ""));
+    const imgs = Array.from(inner.shadowRoot?.querySelectorAll("img") ?? []);
+    imgs.forEach((im) => {
+      im.loading = "eager"; // hors écran, un lazy ne se chargerait jamais
+    });
+    await Promise.race([
+      Promise.all(
+        imgs.map((im) =>
+          im.complete
+            ? null
+            : new Promise<void>((r) => {
+                im.addEventListener("load", () => r(), { once: true });
+                im.addEventListener("error", () => r(), { once: true });
+              }),
+        ),
+      ),
+      new Promise((r) => setTimeout(r, 1500)),
+    ]);
+    const h = Math.round(inner.getBoundingClientRect().height);
+    reply(h > 0 ? h : null);
+  } catch {
+    reply(null);
+  } finally {
+    wrap.remove();
+  }
+}
 
 export default function HeroPreviewFrame() {
   const [ok, setOk] = useState<boolean | null>(null);
@@ -25,8 +75,12 @@ export default function HeroPreviewFrame() {
       if (e.origin !== window.location.origin || e.source !== window.parent)
         return;
       const m = e.data;
-      if (!m || m.source !== HERO_STUDIO_SOURCE || m.type !== "set" || !m.slide)
+      if (!m || m.source !== HERO_STUDIO_SOURCE) return;
+      if (m.type === "measure") {
+        void measureHtml(m);
         return;
+      }
+      if (m.type !== "set" || !m.slide) return;
       setSlide({ ...m.slide, config: sanitizeHeroConfig(m.slide.config) });
       const dark = m.theme === "dark";
       document.documentElement.setAttribute(

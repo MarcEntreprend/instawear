@@ -43,9 +43,11 @@ test("latch global supprimé (fini le flicker + la contagion)", () => {
 });
 
 test("Hero layout au choix (défaut full = avant)", () => {
-  const hero = read("src/components/HeroCarousel.tsx");
-  assert.ok(hero.includes('(b.layout ?? "full") === "split"'), "branche par slide");
-  assert.ok(hero.includes("linear-gradient(90deg, rgba(15,13,10,.68)"), "full restauré");
+  const schema = read("src/lib/heroSchema.ts");
+  assert.ok(schema.includes('const split = l.layout === "split";'), "branche par slide");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("config.layers.map((layer, i) => {"), "rendu par couches");
+  assert.ok(view.includes("linear-gradient(90deg, rgba(15,13,10,.68)"), "full restauré");
   const admin = read("src/admin/PromotionsPage.tsx");
   assert.ok(admin.includes("Plein écran (image de fond)"), "choix full");
   assert.ok(admin.includes("Partagé (fond + visuel cadré)"), "choix split");
@@ -92,11 +94,11 @@ test("normalizeHeroLink : absolue same-origin -> chemin, jamais de perte silenci
 });
 
 test("Hero Phase 2 : kinds image/grid + liens internes + tuiles", () => {
-  const hero = read("src/components/HeroCarousel.tsx");
-  assert.ok(hero.includes('b.kind ?? "product"'), "kind par défaut");
-  assert.ok(hero.includes("activeIsProduct"), "texte partagé = product seul");
-  assert.ok(hero.includes("b.tiles ?? []"), "tuiles");
-  assert.ok(hero.includes("onBannerLink"), "clics liés");
+  const schema = read("src/lib/heroSchema.ts");
+  assert.ok(schema.includes('const kind = l.kind === "image" || l.kind === "grid" ? l.kind : "product";'), "kind par défaut");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes('layer.type === "tiles"'), "tuiles");
+  assert.ok(view.includes("onLink"), "clics liés");
   const app = read("src/App.tsx");
   assert.ok(app.includes("openHeroLink"), "dispatcher");
   assert.ok(app.includes('startsWith("//")'), "anti open-redirect");
@@ -124,6 +126,6 @@ test("Hero Phase 1 : image custom + presets + preview", () => {
   // Le champ image traverse jusqu'au rendu (zéro backend : colonne déjà là).
   const api = read("src/api/supabaseApi.ts");
   assert.ok(api.includes("image: promo.image"), "persisté create/update");
-  const app = read("src/App.tsx");
-  assert.ok(app.includes("promo.image || product?.image"), "prioritaire au rendu");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("layer.src || p?.image || null"), "prioritaire au rendu");
 });

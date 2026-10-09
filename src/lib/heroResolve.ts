@@ -1,4 +1,4 @@
-// src/lib/heroResolve.ts — PUR. Promos + produits → slides prêts à rendre.
+// src/lib/heroResolve.ts — PUR. Promos + produits (+ HTML publié) → slides prêts à rendre.
 import {
   buildHeroConfigFromLegacy,
   isHeroScheduledLive,
@@ -14,6 +14,11 @@ export interface HeroProductLite {
   description?: string | null;
   image?: string | null;
   isActive?: boolean | null;
+}
+
+export interface HeroHtmlPayload {
+  html: string;
+  css: string;
 }
 
 export interface HeroPromoLike extends LegacyHeroFields {
@@ -35,6 +40,8 @@ export interface ResolvedHeroSlide {
   bg: string;
   /** true = encre sombre pour les contrôles (fond clair, aucune image plein cadre). */
   lightBg: boolean;
+  /** HTML/CSS de la couche "html" (chargés à part, jamais dans la liste publique). */
+  html?: HeroHtmlPayload | null;
 }
 
 function make(
@@ -42,6 +49,7 @@ function make(
   productId: string | null,
   product: HeroProductLite | null,
   config: HeroConfig,
+  html: HeroHtmlPayload | null = null,
 ): ResolvedHeroSlide {
   const bg = heroBackground(config.background.gradient);
   const hasFill = config.layers.some((l) => l.type === "image");
@@ -52,7 +60,13 @@ function make(
     config,
     bg,
     lightBg: !hasFill && isLightHeroBg(bg),
+    html,
   };
+}
+
+/** Le slide porte-t-il une couche HTML ? (décide s'il faut aller chercher son HTML) */
+export function heroHasHtml(p: { config?: HeroConfig | null }): boolean {
+  return !!p.config && p.config.layers.some((l) => l.type === "html");
 }
 
 /** Un slide SANS produit doit porter son propre visuel, sinon il est vide. */
@@ -71,12 +85,14 @@ function hasStandaloneContent(c: HeroConfig): boolean {
  *  - slide actif et dans sa fenêtre de planification ;
  *  - avec produit : le produit doit exister ET être actif (règle historique) ;
  *  - sans produit : seulement si origin "studio" ET un visuel propre ;
+ *  - couche HTML : le slide n'apparaît qu'une fois son HTML chargé (htmlById) ;
  *  - tri par order puis id (déterministe).
  */
 export function resolveHeroSlides(
   promos: HeroPromoLike[],
   products: HeroProductLite[],
   now: number = Date.now(),
+  htmlById: Record<string, HeroHtmlPayload> = {},
 ): ResolvedHeroSlide[] {
   const byId = new Map(products.map((p) => [p.id, p]));
   return [...promos]
@@ -94,7 +110,10 @@ export function resolveHeroSlides(
       const config = resolveHeroConfig(p);
       if (!pid && (config.origin === "legacy" || !hasStandaloneContent(config)))
         return [];
-      return [make(p.id, pid, product, config)];
+      const wantsHtml = config.layers.some((l) => l.type === "html");
+      const html = wantsHtml ? (htmlById[p.id] ?? null) : null;
+      if (wantsHtml && !html) return [];
+      return [make(p.id, pid, product, config, html)];
     });
 }
 
@@ -102,12 +121,14 @@ export function resolveHeroSlides(
 export function resolveHeroSlideForPreview(
   p: HeroPromoLike,
   product: HeroProductLite | null,
+  html: HeroHtmlPayload | null = null,
 ): ResolvedHeroSlide {
   return make(
     p.id || "preview",
     p.productId || null,
     product,
     resolveHeroConfig(p),
+    html,
   );
 }
 

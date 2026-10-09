@@ -88,12 +88,18 @@ import {
 import {
   productApi,
   heroPromotionsApi,
+  heroHtmlApi,
   customerApi,
   orderApi,
 } from "./api/supabaseApi";
 const ProductPage = lazy(() => import("./pages/ProductPage"));
 import HeroCarousel from "./components/HeroCarousel";
-import { resolveHeroSlides, nextHeroScheduleChange } from "./lib/heroResolve";
+import {
+  resolveHeroSlides,
+  nextHeroScheduleChange,
+  heroHasHtml,
+} from "./lib/heroResolve";
+import { useHeroSync } from "./hooks/useHeroSync";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -772,21 +778,44 @@ export default function App() {
     }
   };
 
-  // Promotions
+  // Hero : version + slides en UNE requête atomique (RPC), puis le HTML des seuls slides concernés.
+  const heroVersionRef = useRef<number | null>(null);
+  const [heroHtml, setHeroHtml] = useState<
+    Record<string, { html: string; css: string }>
+  >({});
+  const loadHero = async () => {
+    try {
+      const snap = await heroPromotionsApi.getSnapshot();
+      heroVersionRef.current = snap.version;
+      setHeroPromotions(snap.slides);
+      const ids = snap.slides.filter((p) => heroHasHtml(p)).map((p) => p.id);
+      if (ids.length === 0) setHeroHtml({});
+      else
+        heroHtmlApi
+          .getPublished(ids)
+          .then(setHeroHtml)
+          .catch(() => {});
+    } catch {
+      /* on garde l'état précédent */
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
-    // fetchSettings();
-    heroPromotionsApi
-      .list()
-      .then(setHeroPromotions)
-      .catch(() => setHeroPromotions([]))
-      .finally(() => setPromotionsLoading(false));
+    loadHero().finally(() => setPromotionsLoading(false));
   }, []);
 
-  // Refresh catalog when admin modifies a product
+  // Visiteurs : contrôle de version au retour de focus (≤ 1 fois / min, sans timer).
+  useHeroSync(async () => {
+    const v = await heroPromotionsApi.getVersion();
+    if (v != null && v !== heroVersionRef.current) await loadHero();
+  });
+
+  // Refresh catalog + hero when admin modifies a product / a slide
   useEffect(() => {
     const handler = () => {
       fetchProducts();
+      void loadHero();
     };
     window.addEventListener("storefront:invalidate", handler);
     return () => window.removeEventListener("storefront:invalidate", handler);
@@ -1280,8 +1309,8 @@ export default function App() {
     return () => clearTimeout(t);
   }, [heroPromotions, heroNow]);
   const heroSlides = useMemo(
-    () => resolveHeroSlides(heroPromotions, products, heroNow),
-    [heroPromotions, products, heroNow],
+    () => resolveHeroSlides(heroPromotions, products, heroNow, heroHtml),
+    [heroPromotions, products, heroNow, heroHtml],
   );
 
   // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS

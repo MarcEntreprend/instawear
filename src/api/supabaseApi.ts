@@ -8,6 +8,7 @@ import { mapCustomerProfile } from "./customerMapping";
 import { sumRevenue } from "../admin/orderStatusLabels";
 import {
   parseHeroConfig,
+  heroPayloadBudget,
   sanitizeHeroConfig,
   buildHeroConfigFromLegacy,
   type LegacyHeroFields,
@@ -257,10 +258,6 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   linkUrl: typeof row.link_url === "string" ? row.link_url : null,
   tiles: Array.isArray(row.tiles) ? row.tiles : null,
   config: parseHeroConfig(row.config),
-  // html/css absents des requêtes publiques : undefined (jamais "" → un update
-  // spreadé depuis la liste ne peut PAS écraser un HTML existant).
-  html: typeof row.html === "string" ? row.html : undefined,
-  css: typeof row.css === "string" ? row.css : undefined,
   startsAt: row.starts_at ?? null,
   endsAt: row.ends_at ?? null,
 });
@@ -2557,6 +2554,31 @@ export const heroPromotionsApi = {
     if (error || !data) return null;
     return mapHeroPromotion(data);
   },
+  /** Boutique : version + slides publiés en UNE requête atomique (RPC). Repli : list(). */
+  async getSnapshot(): Promise<{ version: number | null; slides: HeroPromotion[] }> {
+    const { data, error } = await supabase.rpc("get_hero_snapshot");
+    const snap = data as { version?: unknown; slides?: unknown } | null;
+    if (!error && snap && Array.isArray(snap.slides)) {
+      const v = Number(snap.version);
+      return {
+        version: Number.isFinite(v) ? v : null,
+        slides: (snap.slides as any[]).map(mapHeroPromotion),
+      };
+    }
+    return { version: null, slides: await this.list() };
+  },
+  /** Compteur de version (trigger Postgres) : ~100 octets, contrôle de fraîcheur. */
+  async getVersion(): Promise<number | null> {
+    // Pas de filtre sur `id` : anon n'a le droit de lire que version et updated_at.
+    const { data, error } = await supabase
+      .from("hero_version")
+      .select("version")
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const n = Number((data as { version: unknown }).version);
+    return Number.isFinite(n) ? n : null;
+  },
   async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
     const p2 = sanitizeHeroPhase2(promo);
     const layout = promo.layout === "split" ? "split" : "full";
@@ -2581,8 +2603,6 @@ export const heroPromotionsApi = {
         config,
         starts_at: promo.startsAt ?? null,
         ends_at: promo.endsAt ?? null,
-        ...(promo.html !== undefined ? { html: promo.html } : {}),
-        ...(promo.css !== undefined ? { css: promo.css } : {}),
         order: promo.order,
         is_active: promo.isActive !== false,
         show_tag: promo.showTag,
@@ -2621,8 +2641,6 @@ export const heroPromotionsApi = {
     if (promo.isActive !== undefined) patch.is_active = promo.isActive;
     if (promo.startsAt !== undefined) patch.starts_at = promo.startsAt;
     if (promo.endsAt !== undefined) patch.ends_at = promo.endsAt;
-    if (promo.html !== undefined) patch.html = promo.html;
-    if (promo.css !== undefined) patch.css = promo.css;
 
     const explicit =
       promo.config && promo.config.origin === "studio" ? promo.config : null;
@@ -2692,6 +2710,117 @@ function isStudioConfigRow(raw: unknown): boolean {
     (raw as { origin?: unknown }).origin === "studio"
   );
 }
+
+// ─── Hero : HTML/CSS collé (table hero_slide_html) ────────────────────────
+// Écriture : super_admin (RLS) + garde ici. Lecture publique = HTML des slides PUBLIÉS
+// uniquement (RLS) ; le brouillon n'est lisible que par un super_admin (RLS).
+export interface HeroHtmlRow {
+  slideId: string;
+  html: string;
+  css: string;
+}
+
+async function requireSuperAdmin(): Promise<string> {
+  const me = await adminUserApi.getMyRole();
+  if (!me || me.role !== "super_admin") {
+    throw new Error("HTML collé : réservé aux super-administrateurs.");
+  }
+  return me.email;
+}
+
+export const heroHtmlApi = {
+  /** Boutique : HTML des slides publiés. Jamais appelé sans ids. */
+  async getPublished(
+    ids: string[],
+  ): Promise<Record<string, { html: string; css: string }>> {
+    if (ids.length === 0) return {};
+    const { data, error } = await supabase
+      .from("hero_slide_html")
+      .select("slide_id, html, css")
+      .in("slide_id", ids);
+    if (error) throw error;
+    return Object.fromEntries(
+      (data ?? []).map((r: any) => [
+        r.slide_id,
+        { html: r.html ?? "", css: r.css ?? "" },
+      ]),
+    );
+  },
+  /** Studio : source brute (brouillon inclus). super_admin uniquement. */
+  async getForEdit(slideId: string): Promise<HeroHtmlRow | null> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_slide_html")
+      .select("slide_id, html, css")
+      .eq("slide_id", slideId)
+      .maybeSingle();
+    if (error) throw error;
+    return data
+      ? { slideId: data.slide_id, html: data.html ?? "", css: data.css ?? "" }
+      : null;
+  },
+  async save(slideId: string, html: string, css: string): Promise<void> {
+    const email = await requireSuperAdmin();
+    const budget = heroPayloadBudget(html, css);
+    if (budget.level === "over") {
+      throw new Error(
+        `HTML + CSS trop lourds (${budget.bytes} / ${budget.capBytes} octets).`,
+      );
+    }
+    const { error } = await supabase
+      .from("hero_slide_html")
+      .upsert({ slide_id: slideId, html, css }, { onConflict: "slide_id" });
+    if (error) throw error;
+    adminAuditApi
+      .create({
+        actorEmail: email,
+        action: "hero_html_save",
+        targetType: "hero_slide",
+        targetId: slideId,
+        after: { bytes: budget.bytes },
+      })
+      .catch(() => {});
+  },
+  async remove(slideId: string): Promise<void> {
+    const email = await requireSuperAdmin();
+    const { error } = await supabase
+      .from("hero_slide_html")
+      .delete()
+      .eq("slide_id", slideId);
+    if (error) throw error;
+    adminAuditApi
+      .create({
+        actorEmail: email,
+        action: "hero_html_remove",
+        targetType: "hero_slide",
+        targetId: slideId,
+      })
+      .catch(() => {});
+  },
+};
+
+// ─── Hero : état du déploiement (Deploy Hook) ───────────────────────────────
+export interface HeroSyncStatus {
+  version: number;
+  lastHookAt: string | null;
+  /** true = le public voit autre chose que le dernier build. */
+  pending: boolean;
+  hookConfigured: boolean;
+}
+
+export const heroSyncApi = {
+  async status(): Promise<HeroSyncStatus | null> {
+    const { data, error } = await supabase.rpc("hero_sync_status");
+    if (error || !data) return null;
+    return data as HeroSyncStatus;
+  },
+  /** Force un build maintenant (ignore le débounce). Renvoie le code du flush. */
+  async rebuild(): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_request_rebuild");
+    if (error) throw error;
+    return String(data);
+  },
+};
 
 export const reviewApi = {
   async list(productId: string): Promise<any[]> {

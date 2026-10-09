@@ -2,6 +2,7 @@
 // Utilisé par la boutique (HeroCarousel) ET par la preview du studio.
 import { Fragment, type CSSProperties, type SyntheticEvent } from "react";
 import { ArrowRight } from "lucide-react";
+import HeroHtmlBlock from "./HeroHtmlBlock";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import type { HeroCta, HeroTextLayer } from "../lib/heroSchema";
@@ -409,7 +410,18 @@ export default function HeroSlideView({
             </div>
           );
         }
-        return null; // "text" rendu après ; "html" = lot 4
+        if (layer.type === "html") {
+          if (!slide.html) return null;
+          return (
+            <HeroHtmlBlock
+              key={i}
+              html={slide.html.html}
+              css={slide.html.css}
+              onLink={onLink}
+            />
+          );
+        }
+        return null; // "text" : rendu après les couches
       })}
 
       {textLayers.map((l, i) => renderText(l, i, i === 0))}
