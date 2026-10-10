@@ -25,8 +25,11 @@ import {
 } from "lucide-react";
 import {
   adminUserApi,
+  heroHtmlApi,
   heroPromotionsApi,
+  heroTemplatesApi,
   productApi,
+  type HeroUserTemplate,
 } from "../api/supabaseApi";
 import type { AdminProduct, HeroPromotion } from "./adminTypes";
 import AdminImageInput from "./ui/AdminImageInput";
@@ -47,6 +50,7 @@ import {
 } from "../lib/heroSchema";
 import { normalizeHeroLink } from "../lib/heroStyle";
 import HeroHtmlPanel, { type HeroHtmlPanelHandle } from "./HeroHtmlPanel";
+import HeroFlagButtons from "./HeroFlagButtons";
 import HeroSyncBadge from "./HeroSyncBadge";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
 import {
@@ -691,6 +695,11 @@ export default function HeroStudioPage() {
   );
   const [htmlDirty, setHtmlDirty] = useState(false);
   const htmlRef = useRef<HeroHtmlPanelHandle>(null);
+  const [userTpls, setUserTpls] = useState<HeroUserTemplate[]>([]);
+  const [seedHtml, setSeedHtml] = useState<{ html: string; css: string } | null>(
+    null,
+  );
+  const [draftSeq, setDraftSeq] = useState(0);
 
   const dirty = (!!draft && serialize(draft) !== baseline) || htmlDirty;
   const dev = DEVICES[device];
@@ -726,6 +735,13 @@ export default function HeroStudioPage() {
       (me) => setIsSuper(me?.role === "super_admin"),
       () => setIsSuper(false),
     );
+  }, []);
+
+  // Modèles perso (config seule, sans HTML).
+  const reloadTemplates = () =>
+    heroTemplatesApi.list().then(setUserTpls, () => setUserTpls([]));
+  useEffect(() => {
+    void reloadTemplates();
   }, []);
 
   // Mesure du HTML dans l'iframe (même rendu que la boutique).
@@ -854,6 +870,8 @@ export default function HeroStudioPage() {
     setLayerSel(0);
     setSelCta(null);
     setShowTemplates(false);
+    setSeedHtml(null);
+    setDraftSeq((n) => n + 1);
     setMsg(null);
   };
 
@@ -928,6 +946,89 @@ export default function HeroStudioPage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const duplicate = async () => {
+    if (!draft || !confirmLeave()) return;
+    // HTML : on emporte ce qui est dans le panneau (modifs non enregistrées incluses).
+    let seed = liveHtml;
+    if (
+      !seed &&
+      isSuper &&
+      draft.id &&
+      draft.config.layers.some((l) => l.type === "html")
+    ) {
+      try {
+        const r = await heroHtmlApi.getForEdit(draft.id);
+        if (r) seed = { html: r.html, css: r.css };
+      } catch {
+        /* copie sans HTML */
+      }
+    }
+    setSeedHtml(seed);
+    setDraftSeq((n) => n + 1);
+    setDraft({
+      ...draft,
+      id: null,
+      isActive: false,
+      startsAt: null,
+      endsAt: null,
+      config: { ...draft.config, origin: "studio" },
+    });
+    setBaseline("");
+    setMsg({
+      ok: true,
+      text: "Copie créée en brouillon : enregistre-la pour la conserver.",
+    });
+  };
+
+  const saveAsTemplate = async () => {
+    if (!draft) return;
+    const name = window.prompt("Nom du modèle ?", "")?.trim();
+    if (!name) return;
+    try {
+      await heroTemplatesApi.create(name, draft.config);
+      await reloadTemplates();
+      setMsg({
+        ok: true,
+        text: `Modèle « ${name} » enregistré (structure et réglages, sans HTML ni produit).`,
+      });
+    } catch (e: any) {
+      setMsg({
+        ok: false,
+        text: e?.message || "Enregistrement du modèle impossible.",
+      });
+    }
+  };
+
+  const applySizingToAll = async () => {
+    if (!draft) return;
+    if (dirty) {
+      setMsg({
+        ok: false,
+        text: "Enregistre d'abord le slide courant, puis applique ses dimensions à tous.",
+      });
+      return;
+    }
+    if (!window.confirm(`Appliquer ces dimensions aux ${slides.length} slides ?`))
+      return;
+    try {
+      for (const s of slides) {
+        if (s.id === draft.id) continue;
+        await heroPromotionsApi.update(s.id, {
+          config: sanitizeHeroConfig({
+            ...resolveHeroConfig(s),
+            origin: "studio",
+            sizing: draft.config.sizing,
+          }),
+        });
+      }
+      window.dispatchEvent(new Event("storefront:invalidate"));
+      await load(draft.id);
+      setMsg({ ok: true, text: "Dimensions appliquées à tous les slides." });
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.message || "Application impossible." });
+    }
+  };
+
   const remove = async () => {
     if (!draft?.id || !window.confirm("Supprimer ce slide définitivement ?"))
       return;
@@ -973,13 +1074,11 @@ export default function HeroStudioPage() {
             },
       ),
     }));
-  const onHandleDown = (
-    e: React.PointerEvent<HTMLButtonElement>,
-    id: string,
-  ) => {
+  const onHandleDown = (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    setSelCta(id);
+    if (config?.ctas.find((x) => x.id === id)?.lock) return; // verrouillé : sélection seule
     e.currentTarget.setPointerCapture(e.pointerId);
     dragId.current = id;
-    setSelCta(id);
   };
   const onHandleMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const id = dragId.current;
@@ -998,6 +1097,7 @@ export default function HeroStudioPage() {
     e: React.KeyboardEvent<HTMLButtonElement>,
     cta: HeroCta,
   ) => {
+    if (cta.lock) return;
     const step = e.shiftKey ? 5 : 1;
     const p =
       device === "mobile"
@@ -1087,6 +1187,12 @@ export default function HeroStudioPage() {
               flexWrap: "wrap",
             }}
           >
+            <button type="button" onClick={duplicate} style={btn} title="Créer une copie en brouillon">
+              Dupliquer
+            </button>
+            <button type="button" onClick={saveAsTemplate} style={btn} title="Réutiliser cette structure pour de futurs slides">
+              Enregistrer comme modèle
+            </button>
             {dirty && (
               <span
                 style={{
@@ -1175,6 +1281,53 @@ export default function HeroStudioPage() {
                     {t.desc}
                   </span>
                 </button>
+              ))}
+              {userTpls.length > 0 && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--color-ink4)",
+                    marginTop: 4,
+                  }}
+                >
+                  MES MODÈLES
+                </div>
+              )}
+              {userTpls.map((t) => (
+                <div key={t.id} style={{ display: "flex", gap: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startNew(() =>
+                        sanitizeHeroConfig({ ...t.config, origin: "studio" }),
+                      )
+                    }
+                    style={{ ...btn, flex: 1, justifyContent: "flex-start" }}
+                  >
+                    <strong style={{ color: "var(--color-ink)" }}>{t.name}</strong>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Supprimer le modèle ${t.name}`}
+                    style={{ ...btn, padding: 6, color: "#ef4444" }}
+                    onClick={async () => {
+                      if (!window.confirm(`Supprimer le modèle « ${t.name} » ?`))
+                        return;
+                      try {
+                        await heroTemplatesApi.remove(t.id);
+                        await reloadTemplates();
+                      } catch (e: any) {
+                        setMsg({
+                          ok: false,
+                          text: e?.message || "Suppression impossible.",
+                        });
+                      }
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -1820,6 +1973,14 @@ export default function HeroStudioPage() {
                 )}
               </Section>
 
+              <Section title="Tous les slides" open={false}>
+                <p style={{ fontSize: 12, color: "var(--color-ink3)", margin: 0 }}>
+                  Le cadre du carrousel suit le slide n°1. Pour des dimensions homogènes :
+                </p>
+                <button type="button" style={btn} onClick={applySizingToAll}>
+                  <Ruler size={13} /> Appliquer ces dimensions à tous les slides
+                </button>
+              </Section>
               <Section title="Fond">
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {HERO_BG_PRESETS.map((p) => (
@@ -1864,83 +2025,104 @@ export default function HeroStudioPage() {
               <Section
                 title={`Couches (${config.layers.length}/${HERO_MAX_LAYERS})`}
               >
-                {config.layers.map((l, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 8px",
-                      borderRadius: 10,
-                      border:
-                        layerSel === i
-                          ? "2px solid var(--color-accent)"
-                          : "1px solid var(--color-border)",
-                      background: "var(--color-surface2)",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setLayerSel(i)}
+                {config.layers.map((l, i) => {
+                  const patchLayer = (p: {
+                    off?: boolean;
+                    lock?: boolean;
+                    hide?: "desktop" | "mobile";
+                  }) =>
+                    patchConfig((c) => ({
+                      ...c,
+                      layers: c.layers.map((x, li) =>
+                        li === i ? ({ ...x, ...p } as HeroLayer) : x,
+                      ),
+                    }));
+                  return (
+                    <div
+                      key={i}
                       style={{
-                        flex: 1,
-                        textAlign: "left",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "var(--color-ink)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "6px 8px",
+                        borderRadius: 10,
+                        border:
+                          layerSel === i
+                            ? "2px solid var(--color-accent)"
+                            : "1px solid var(--color-border)",
+                        background: "var(--color-surface2)",
+                        opacity: l.off ? 0.5 : 1,
                       }}
                     >
-                      {i + 1}. {LAYER_LABEL[l.type] ?? l.type}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Monter"
-                      style={{ ...btn, padding: 3 }}
-                      onClick={() => {
-                        patchConfig((c) => ({
-                          ...c,
-                          layers: moveItem(c.layers, i, -1),
-                        }));
-                        setLayerSel(Math.max(0, i - 1));
-                      }}
-                    >
-                      <ArrowUp size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Descendre"
-                      style={{ ...btn, padding: 3 }}
-                      onClick={() => {
-                        patchConfig((c) => ({
-                          ...c,
-                          layers: moveItem(c.layers, i, 1),
-                        }));
-                        setLayerSel(Math.min(config.layers.length - 1, i + 1));
-                      }}
-                    >
-                      <ArrowDown size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Supprimer"
-                      disabled={l.type === "html" && !isSuper}
-                      style={{ ...btn, padding: 3, color: "#ef4444" }}
-                      onClick={() => {
-                        patchConfig((c) => ({
-                          ...c,
-                          layers: c.layers.filter((_, li) => li !== i),
-                        }));
-                        setLayerSel(0);
-                      }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => setLayerSel(i)}
+                        style={{
+                          flex: 1,
+                          textAlign: "left",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "var(--color-ink)",
+                        }}
+                      >
+                        {i + 1}. {LAYER_LABEL[l.type] ?? l.type}
+                        {l.hide
+                          ? l.hide === "mobile"
+                            ? " · masquée mobile"
+                            : " · masquée desktop"
+                          : ""}
+                      </button>
+                      <HeroFlagButtons
+                        off={l.off}
+                        lock={l.lock}
+                        hide={l.hide}
+                        onChange={patchLayer}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Monter"
+                        disabled={!!l.lock}
+                        style={{ ...btn, padding: 3 }}
+                        onClick={() => {
+                          patchConfig((c) => ({ ...c, layers: moveItem(c.layers, i, -1) }));
+                          setLayerSel(Math.max(0, i - 1));
+                        }}
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Descendre"
+                        disabled={!!l.lock}
+                        style={{ ...btn, padding: 3 }}
+                        onClick={() => {
+                          patchConfig((c) => ({ ...c, layers: moveItem(c.layers, i, 1) }));
+                          setLayerSel(Math.min(config.layers.length - 1, i + 1));
+                        }}
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Supprimer"
+                        disabled={!!l.lock || (l.type === "html" && !isSuper)}
+                        style={{ ...btn, padding: 3, color: "#ef4444" }}
+                        onClick={() => {
+                          patchConfig((c) => ({
+                            ...c,
+                            layers: c.layers.filter((_, li) => li !== i),
+                          }));
+                          setLayerSel(0);
+                        }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
                 {config.layers.length < HERO_MAX_LAYERS && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {(["image", "card", "tiles", "text"] as const).map((t) => (
@@ -2004,17 +2186,30 @@ export default function HeroStudioPage() {
                     >
                       {LAYER_LABEL[layer.type]}
                     </strong>
-                    <LayerEditor
-                      layer={layer}
-                      onChange={(nl) =>
-                        patchConfig((c) => ({
-                          ...c,
-                          layers: c.layers.map((x, i) =>
-                            i === layerSel ? nl : x,
-                          ),
-                        }))
-                      }
-                    />
+                    <fieldset
+                      disabled={!!layer.lock}
+                      style={{
+                        border: 0,
+                        padding: 0,
+                        margin: 0,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                      }}
+                    >
+                      <LayerEditor
+                        layer={layer}
+                        onChange={(nl) =>
+                          patchConfig((c) => ({
+                            ...c,
+                            layers: c.layers.map((x, i) =>
+                              i === layerSel ? nl : x,
+                            ),
+                          }))
+                        }
+                      />
+                    </fieldset>
                   </div>
                 )}
               </Section>
@@ -2046,6 +2241,12 @@ export default function HeroStudioPage() {
                         gap: 8,
                       }}
                     >
+                      <HeroFlagButtons
+                        off={cta.off}
+                        lock={cta.lock}
+                        hide={cta.hide}
+                        onChange={(p) => setCta(p as Partial<HeroCta>)}
+                      />
                       <input
                         style={inputStyle}
                         value={cta.label}
@@ -2133,6 +2334,7 @@ export default function HeroStudioPage() {
                       )}
                       <button
                         type="button"
+                        disabled={!!cta.lock}
                         style={{
                           ...btn,
                           color: "#ef4444",
@@ -2168,7 +2370,8 @@ export default function HeroStudioPage() {
 
               <Section title="HTML collé">
                 <HeroHtmlPanel
-                  key={draft.id ?? "new"}
+                  key={`${draft.id ?? "new"}-${draftSeq}`}
+                  seed={draft.id ? null : seedHtml}
                   ref={htmlRef}
                   slideId={draft.id}
                   hasLayer={config.layers.some((l) => l.type === "html")}

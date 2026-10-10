@@ -8,9 +8,10 @@ import { mapCustomerProfile } from "./customerMapping";
 import { sumRevenue } from "../admin/orderStatusLabels";
 import {
   parseHeroConfig,
-  heroPayloadBudget,
   sanitizeHeroConfig,
   buildHeroConfigFromLegacy,
+  heroPayloadBudget,
+  type HeroConfig,
   type LegacyHeroFields,
 } from "../lib/heroSchema";
 import type {
@@ -2819,6 +2820,58 @@ export const heroSyncApi = {
     const { data, error } = await supabase.rpc("hero_request_rebuild");
     if (error) throw error;
     return String(data);
+  },
+  /** Build seulement si le public a changé ET hors débounce (le serveur décide). */
+  async flush(): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_flush_if_changed");
+    if (error) throw error;
+    return String(data);
+  },
+};
+
+// ─── Hero : modèles perso (config seule, jamais de HTML) ─────────────────────
+export interface HeroUserTemplate {
+  id: string;
+  name: string;
+  config: HeroConfig;
+  createdAt: string;
+}
+
+export const heroTemplatesApi = {
+  async list(): Promise<HeroUserTemplate[]> {
+    const { data, error } = await supabase
+      .from("hero_templates")
+      .select("id, name, config, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      config: sanitizeHeroConfig(r.config),
+      createdAt: r.created_at,
+    }));
+  },
+  async create(name: string, config: HeroConfig): Promise<void> {
+    const clean = sanitizeHeroConfig({ ...config, origin: "studio" });
+    // Un modèle est générique : pas de couche HTML (contenu non enregistré), pas de produit lié.
+    const layers = clean.layers
+      .filter((l) => l.type !== "html")
+      .map((l) => (l.type === "card" ? { ...l, productId: null } : l));
+    const me = await adminUserApi.getMyRole();
+    const { error } = await supabase.from("hero_templates").insert({
+      name: name.trim().slice(0, 60),
+      config: sanitizeHeroConfig({ ...clean, layers }),
+      created_by: me?.email ?? null,
+    });
+    if (error) throw error;
+  },
+  async remove(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("hero_templates")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   },
 };
 

@@ -46,7 +46,7 @@ test("Hero layout au choix (défaut full = avant)", () => {
   const schema = read("src/lib/heroSchema.ts");
   assert.ok(schema.includes('const split = l.layout === "split";'), "branche par slide");
   const view = read("src/components/HeroSlideView.tsx");
-  assert.ok(view.includes("config.layers.map((layer, i) => {"), "rendu par couches");
+  assert.ok(view.includes("{layers.map((layer, i) => {"), "rendu par couches");
   assert.ok(view.includes("linear-gradient(90deg, rgba(15,13,10,.68)"), "full restauré");
   const admin = read("src/admin/PromotionsPage.tsx");
   assert.ok(admin.includes("Plein écran (image de fond)"), "choix full");

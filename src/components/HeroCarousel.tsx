@@ -7,7 +7,13 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { ChevronLeft, ChevronRight, ArrowDown } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ArrowDown,
+  Pause,
+  Play,
+} from "lucide-react";
 import HeroSlideView from "./HeroSlideView";
 import type { HeroSizing } from "../lib/heroSchema";
 import { parseLeadHero, type ResolvedHeroSlide } from "../lib/heroResolve";
@@ -71,6 +77,19 @@ export default function HeroCarousel({
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [armed, setArmed] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    const on = () => setReduced(mq.matches);
+    mq.addEventListener?.("change", on);
+    return () => mq.removeEventListener?.("change", on);
+  }, []);
   const autoPlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Slide d'amorçage : rendu pendant le chargement (image déjà en cache), swap invisible.
@@ -89,10 +108,10 @@ export default function HeroCarousel({
   );
 
   useEffect(() => {
-    if (suspended || isPaused || count === 0) return;
+    if (suspended || isPaused || userPaused || reduced || count === 0) return;
     const timer = setInterval(() => setIndex((i) => (i + 1) % count), 6000);
     return () => clearInterval(timer);
-  }, [suspended, isPaused, count]);
+  }, [suspended, isPaused, userPaused, reduced, count]);
 
   // Les voisins ne se montent qu'après le LCP (pas de concurrence de bande passante).
   useEffect(() => {
@@ -159,12 +178,18 @@ export default function HeroCarousel({
           contained ? "overflow-hidden rounded-3xl" : ""
         }`}
         style={frameVars(sizing)}
+        aria-roledescription="carousel"
+        aria-label="Promotions"
+        aria-live={isPaused || userPaused || reduced ? "polite" : "off"}
       >
         {list.map((s, i) =>
           mounted(i) ? (
             <div
               key={i}
               className="absolute inset-0 transition-opacity duration-700"
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${i + 1} / ${count}`}
               style={{
                 opacity: i === cur ? 1 : 0,
                 pointerEvents: i === cur ? "auto" : "none",
@@ -211,6 +236,22 @@ export default function HeroCarousel({
         <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
           <div className="max-w-350 mx-auto px-5 sm:px-8 pb-8 sm:pb-12 flex items-center justify-between">
             <div className="flex items-center gap-2 pointer-events-auto">
+              {
+                !isSingle && !reduced && (
+                  <button
+                    type="button"
+                    onClick={() => setUserPaused((p) => !p)}
+                    aria-pressed={userPaused}
+                    aria-label={
+                      userPaused ? "Reprendre le défilement" : "Mettre le défilement en pause"
+                    }
+                    className="flex items-center justify-center min-w-[24px] min-h-[24px]"
+                    style={{ color: ink }}
+                  >
+                    {userPaused ? <Play size={14} /> : <Pause size={14} />}
+                  </button>
+                )
+              }
               {!isSingle &&
                 list.map((_, i) => (
                   <button

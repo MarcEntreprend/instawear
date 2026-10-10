@@ -5,8 +5,10 @@ import { ArrowRight } from "lucide-react";
 import HeroHtmlBlock from "./HeroHtmlBlock";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
-import type { HeroCta, HeroTextLayer } from "../lib/heroSchema";
+import type { HeroCta, HeroLayer } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
+
+type TextL = Extract<HeroLayer, { type: "text" }>;
 
 export interface HeroSlideViewProps {
   slide: ResolvedHeroSlide;
@@ -27,6 +29,10 @@ const U = {
   mobile: (s: string) => supabaseImageUrl(s, { width: 800, quality: 75 }),
   tile: (s: string) => supabaseImageUrl(s, { width: 400, quality: 70 }),
 };
+
+// Masquage par appareil : CSS pur (breakpoint 768 px), aucun JS, aucun layout shift.
+const hideCls = (h?: "desktop" | "mobile") =>
+  h === "mobile" ? "max-md:hidden" : h === "desktop" ? "md:hidden" : "";
 
 const SCRIM: Record<"left" | "bottom", CSSProperties> = {
   left: {
@@ -125,7 +131,7 @@ function CtaButton({
 }
 
 const ANCHOR: Record<
-  HeroTextLayer["anchor"],
+  TextL["anchor"],
   { wrap: string; align?: "right" | "center" }
 > = {
   "left-middle": { wrap: "items-center" },
@@ -145,12 +151,13 @@ export default function HeroSlideView({
 }: HeroSlideViewProps) {
   const { config, product: p } = slide;
   const eager = index === 0;
-  const inline = config.ctas.filter((c) => !c.pos);
-  const free = config.ctas.filter((c) => c.pos);
-  const hasCard = config.layers.some((l) => l.type === "card");
-  const textLayers = config.layers.filter(
-    (l): l is HeroTextLayer => l.type === "text",
-  );
+  // Œil fermé : ni rendu, ni compté.
+  const layers = config.layers.filter((l) => !l.off);
+  const ctas = config.ctas.filter((c) => !c.off);
+  const inline = ctas.filter((c) => !c.pos);
+  const free = ctas.filter((c) => c.pos);
+  const hasCard = layers.some((l) => l.type === "card");
+  const textLayers = layers.filter((l): l is TextL => l.type === "text");
   // Un seul h1 par page : seul le slide actif porte le titre principal.
   const H = active ? "h1" : "p";
   const fire = (cta: HeroCta) => onAction(slide, cta.link);
@@ -166,7 +173,7 @@ export default function HeroSlideView({
     el.src = PLACEHOLDER_IMG;
   };
 
-  const renderText = (l: HeroTextLayer, key: number, withCtas: boolean) => {
+  const renderText = (l: TextL, key: number, withCtas: boolean) => {
     const dark = l.tone === "dark" || (l.tone === "auto" && slide.lightBg);
     const ink = dark ? "var(--color-ink)" : "#fff";
     const inkSoft = dark ? "var(--color-ink2)" : "rgba(255,255,255,.8)";
@@ -192,7 +199,7 @@ export default function HeroSlideView({
     return (
       <div
         key={key}
-        className={`absolute inset-0 z-10 flex pointer-events-none pt-8 sm:pt-12 pb-19 sm:pb-23 ${a.wrap}`}
+        className={`absolute inset-0 z-10 flex pointer-events-none pt-8 sm:pt-12 pb-19 sm:pb-23 ${a.wrap} ${hideCls(l.hide)}`}
       >
         <div className="w-full max-w-350 mx-auto px-5 sm:px-8">
           <div
@@ -265,7 +272,7 @@ export default function HeroSlideView({
                     key={c.id}
                     cta={c}
                     ink={ink}
-                    className="animate-fade-up"
+                    className={`animate-fade-up ${hideCls(c.hide)}`}
                     style={{ animationDelay: "240ms" }}
                     onClick={() => fire(c)}
                   />
@@ -285,7 +292,7 @@ export default function HeroSlideView({
       aria-hidden={!active}
       {...({ inert: !active } as object)}
     >
-      {config.layers.map((layer, i) => {
+      {layers.map((layer, i) => {
         if (layer.type === "image") {
           const src = layer.src || p?.image || null;
           if (!src) return null;
@@ -299,17 +306,22 @@ export default function HeroSlideView({
                   layer.srcMobile ? U.mobile(layer.srcMobile) : undefined
                 }
                 alt={layer.alt}
-                className="absolute inset-0 w-full h-full"
+                className={`absolute inset-0 w-full h-full ${hideCls(layer.hide)}`}
                 style={{ objectFit: layer.fit, opacity: layer.dim }}
                 eager={eager}
                 onError={imgError}
               />
-              {layer.scrim !== "none" && <div style={SCRIM[layer.scrim]} />}
+              {layer.scrim !== "none" && (
+                <div
+                  style={SCRIM[layer.scrim]}
+                  className={hideCls(layer.hide)}
+                />
+              )}
             </Fragment>
           );
         }
         if (layer.type === "card") {
-          // Lot studio : layer.productId (autre produit) et showMeta (prix) ne sont pas encore rendus.
+          // layer.productId (autre produit) et showMeta (prix) : pas encore rendus.
           const src = layer.src || p?.image || null;
           if (!src) return null;
           const side =
@@ -317,7 +329,7 @@ export default function HeroSlideView({
           return (
             <div
               key={i}
-              className={`absolute ${side} top-1/2 -translate-y-1/2 w-[34vw] sm:w-[38vw] max-w-105`}
+              className={`absolute ${side} top-1/2 -translate-y-1/2 w-[34vw] sm:w-[38vw] max-w-105 ${hideCls(layer.hide)}`}
             >
               <Pic
                 src={U.fill(src)}
@@ -346,7 +358,7 @@ export default function HeroSlideView({
           return (
             <div
               key={i}
-              className="absolute inset-0 flex flex-col sm:flex-row gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24"
+              className={`absolute inset-0 flex flex-col sm:flex-row gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24 ${hideCls(layer.hide)}`}
             >
               {main && mainSrc && (
                 <button
@@ -412,13 +424,20 @@ export default function HeroSlideView({
         }
         if (layer.type === "html") {
           if (!slide.html) return null;
-          return (
+          const block = (
             <HeroHtmlBlock
               key={i}
               html={slide.html.html}
               css={slide.html.css}
               onLink={onLink}
             />
+          );
+          return layer.hide ? (
+            <div key={i} className={`absolute inset-0 ${hideCls(layer.hide)}`}>
+              {block}
+            </div>
+          ) : (
+            block
           );
         }
         return null; // "text" : rendu après les couches
@@ -435,6 +454,7 @@ export default function HeroSlideView({
                   key={c.id}
                   cta={c}
                   ink={slide.lightBg ? "var(--color-ink)" : "#fff"}
+                  className={hideCls(c.hide)}
                   onClick={() => fire(c)}
                 />
               ))}
@@ -452,7 +472,11 @@ export default function HeroSlideView({
           ...(m ? { "--hxm": `${m.x}%`, "--hym": `${m.y}%` } : {}),
         } as CSSProperties;
         return (
-          <div key={c.id} className="hero-cta-free" style={vars}>
+          <div
+            key={c.id}
+            className={`hero-cta-free ${hideCls(c.hide)}`}
+            style={vars}
+          >
             <CtaButton
               cta={c}
               ink={slide.lightBg ? "var(--color-ink)" : "#fff"}

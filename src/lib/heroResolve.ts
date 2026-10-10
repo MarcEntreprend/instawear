@@ -52,7 +52,7 @@ function make(
   html: HeroHtmlPayload | null = null,
 ): ResolvedHeroSlide {
   const bg = heroBackground(config.background.gradient);
-  const hasFill = config.layers.some((l) => l.type === "image");
+  const hasFill = config.layers.some((l) => l.type === "image" && !l.off);
   return {
     id,
     productId,
@@ -66,17 +66,18 @@ function make(
 
 /** Le slide porte-t-il une couche HTML ? (décide s'il faut aller chercher son HTML) */
 export function heroHasHtml(p: { config?: HeroConfig | null }): boolean {
-  return !!p.config && p.config.layers.some((l) => l.type === "html");
+  return !!p.config && p.config.layers.some((l) => l.type === "html" && !l.off);
 }
 
 /** Un slide SANS produit doit porter son propre visuel, sinon il est vide. */
 function hasStandaloneContent(c: HeroConfig): boolean {
   return c.layers.some(
     (l) =>
-      l.type === "html" ||
-      (l.type === "image" && !!l.src) ||
-      (l.type === "card" && !!l.src) ||
-      (l.type === "tiles" && (!!l.main?.src || l.items.length > 0)),
+      !l.off &&
+      (l.type === "html" ||
+        (l.type === "image" && !!l.src) ||
+        (l.type === "card" && !!l.src) ||
+        (l.type === "tiles" && (!!l.main?.src || l.items.length > 0))),
   );
 }
 
@@ -110,7 +111,7 @@ export function resolveHeroSlides(
       const config = resolveHeroConfig(p);
       if (!pid && (config.origin === "legacy" || !hasStandaloneContent(config)))
         return [];
-      const wantsHtml = config.layers.some((l) => l.type === "html");
+      const wantsHtml = config.layers.some((l) => l.type === "html" && !l.off);
       const html = wantsHtml ? (htmlById[p.id] ?? null) : null;
       if (wantsHtml && !html) return [];
       return [make(p.id, pid, product, config, html)];

@@ -12,7 +12,7 @@ import { heroHtmlApi } from "../api/supabaseApi";
 import { formInputStyle } from "./adminStyles";
 import { heroPayloadBudget } from "../lib/heroSchema";
 import { sanitizeHeroCss } from "../lib/heroCss";
-import { sanitizeHeroHtml } from "../lib/heroHtml";
+import { heroHtmlSelfTest, sanitizeHeroHtml } from "../lib/heroHtml";
 
 export interface HeroHtmlPanelHandle {
   /** Appelé par le studio APRÈS l'enregistrement du slide. Lève une Error lisible si refus. */
@@ -24,6 +24,8 @@ interface Props {
   hasLayer: boolean;
   isSuper: boolean;
   isFirst: boolean;
+  /** HTML initial d'une copie (Dupliquer) : utilisé seulement quand slideId est null. */
+  seed?: { html: string; css: string } | null;
   onLive: (v: { html: string; css: string } | null) => void;
   onDirty: (d: boolean) => void;
   measure: (html: string, css: string, width: number) => Promise<number | null>;
@@ -72,9 +74,10 @@ const HeroHtmlPanel = forwardRef<HeroHtmlPanelHandle, Props>(
       onDirty,
       measure,
       onRatios,
+      seed,
     } = props;
-    const [html, setHtml] = useState("");
-    const [css, setCss] = useState("");
+    const [html, setHtml] = useState(seed?.html ?? "");
+    const [css, setCss] = useState(seed?.css ?? "");
     const [base, setBase] = useState({ html: "", css: "" });
     const [existed, setExisted] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -237,6 +240,27 @@ const HeroHtmlPanel = forwardRef<HeroHtmlPanelHandle, Props>(
 
     if (!hasLayer && !isSuper) return null;
 
+    const selfTest = async () => {
+      setBusy(true);
+      try {
+        const r = await heroHtmlSelfTest();
+        const fails = r.filter((x) => !x.ok);
+        setNote({
+          ok: fails.length === 0,
+          lines:
+            fails.length === 0
+              ? [
+                  `Filtre OK : ${r.length}/${r.length} vecteurs d'attaque neutralisés dans ce navigateur.`,
+                ]
+              : fails.map((f) => `⛔ ÉCHEC : ${f.name}`),
+        });
+      } catch (e: any) {
+        setNote({ ok: false, lines: [e?.message || "Auto-test impossible."] });
+      } finally {
+        setBusy(false);
+      }
+    };
+
     const pct = Math.min(100, (budget.bytes / budget.capBytes) * 100);
     const color =
       budget.level === "over"
@@ -370,6 +394,9 @@ const HeroHtmlPanel = forwardRef<HeroHtmlPanelHandle, Props>(
                   onClick={doMeasure}
                 >
                   <Ruler size={13} /> Mesurer pour le mode Auto
+                </button>
+                <button type="button" style={smallBtn} disabled={busy} onClick={selfTest}>
+                  <ShieldCheck size={13} /> Tester le filtre
                 </button>
               </div>
             )}

@@ -7,7 +7,8 @@ const MSG: Record<string, string> = {
   triggered: "Build lancé : la boutique sera à jour dans quelques minutes.",
   "no-secret": "Deploy Hook non configuré (secret Vault manquant).",
   unchanged: "Rien à republier : la boutique est déjà à jour.",
-  debounced: "Un build récent est déjà en cours.",
+  debounced:
+    "Un build récent est déjà passé : le suivant partira à la prochaine ouverture ou « Republier ».",
 };
 
 export default function HeroSyncBadge() {
@@ -22,10 +23,28 @@ export default function HeroSyncBadge() {
 
   useEffect(() => {
     void refresh();
-    const on = () => setTimeout(() => void refresh(), 1500);
+    // Après chaque enregistrement du studio : le serveur décide (empreinte + débounce).
+    const on = () =>
+      setTimeout(() => {
+        heroSyncApi
+          .flush()
+          .catch(() => {})
+          .finally(() => void refresh());
+      }, 1500);
     window.addEventListener("storefront:invalidate", on);
     return () => window.removeEventListener("storefront:invalidate", on);
   }, [refresh]);
+
+  // Build resté en attente (débounce) : on retente UNE fois à l'ouverture du studio.
+  const pending = st ? st.pending : false;
+  const configured = st ? st.hookConfigured : false;
+  useEffect(() => {
+    if (!pending || !configured) return;
+    heroSyncApi
+      .flush()
+      .catch(() => {})
+      .finally(() => void refresh());
+  }, [pending, configured, refresh]);
 
   if (st === undefined) return null;
   const base: React.CSSProperties = {

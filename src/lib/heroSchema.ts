@@ -96,12 +96,23 @@ export interface HeroTextLayer {
 export interface HeroHtmlLayer {
   type: "html";
 }
-export type HeroLayer =
+/** Drapeaux communs à toutes les couches (optionnels : absents = comportement historique). */
+export interface HeroLayerFlags {
+  /** Œil fermé : non rendue (boutique ET aperçu). */
+  off?: boolean;
+  /** Verrou : studio uniquement (aucun effet au rendu). */
+  lock?: boolean;
+  /** Masquée sur cet appareil (breakpoint 768 px). */
+  hide?: "desktop" | "mobile";
+}
+export type HeroLayer = (
   | HeroImageLayer
   | HeroCardLayer
   | HeroTilesLayer
   | HeroTextLayer
-  | HeroHtmlLayer;
+  | HeroHtmlLayer
+) &
+  HeroLayerFlags;
 
 export interface HeroCtaPoint {
   x: number; // % de la largeur, 0..100
@@ -116,6 +127,9 @@ export interface HeroCta {
    *  Sinon position libre ; au rendu : left/top = x%/y% + translate(-x%, -y%)
    *  => le bouton ne déborde JAMAIS, même à 0 % ou 100 %. */
   pos: null | { desktop: HeroCtaPoint; mobile?: HeroCtaPoint };
+  off?: boolean;
+  lock?: boolean;
+  hide?: "desktop" | "mobile";
 }
 
 export interface HeroConfig {
@@ -169,7 +183,13 @@ const SITE_HOSTS = ["instawear.vercel.app", "localhost", "127.0.0.1"];
 export function cleanHeroLink(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
-  if (t.startsWith("/") && !t.startsWith("//") && t.length <= 200) return t;
+  if (
+    t.startsWith("/") &&
+    !t.startsWith("//") &&
+    !t.includes("\\") &&
+    t.length <= 200
+  )
+    return t;
   const m = t.match(
     /^https?:\/\/([^/:?#]+)(?::\d+)?(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i,
   );
@@ -186,7 +206,7 @@ export function cleanHeroSrc(v: unknown): string | null {
   const t = v.trim();
   if (!t || t.length > 1000) return null;
   if (/^https?:\/\//i.test(t)) return t;
-  if (t.startsWith("/") && !t.startsWith("//")) return t;
+  if (t.startsWith("/") && !t.startsWith("//") && !t.includes("\\")) return t;
   return null;
 }
 
@@ -236,7 +256,7 @@ function sanitizeSizing(raw: unknown): HeroSizing {
 }
 
 // ─── Couches ────────────────────────────────────────────────────────────
-function sanitizeLayer(raw: unknown): HeroLayer | null {
+function sanitizeLayerCore(raw: unknown): HeroLayer | null {
   if (!isObj(raw)) return null;
   switch (raw.type) {
     case "image": {
@@ -324,7 +344,7 @@ function sanitizePoint(raw: unknown): HeroCtaPoint {
   return { x: round1(num(o.x, 0, 100, 50)), y: round1(num(o.y, 0, 100, 50)) };
 }
 
-function sanitizeCta(raw: unknown, index: number): HeroCta | null {
+function sanitizeCtaCore(raw: unknown, index: number): HeroCta | null {
   if (!isObj(raw)) return null;
   const label = str(raw.label, 40);
   if (!label) return null;
@@ -344,6 +364,24 @@ function sanitizeCta(raw: unknown, index: number): HeroCta | null {
     ),
     pos,
   };
+}
+
+// ─── Drapeaux (œil / verrou / masquage appareil) : ajoutés SEULEMENT s'ils sont posés,
+// donc les configs existantes et le backfill restent strictement identiques. ──────────
+function withFlags<T extends HeroLayerFlags>(target: T, raw: Obj): T {
+  if (raw.off === true) target.off = true;
+  if (raw.lock === true) target.lock = true;
+  const h = pick(raw.hide, ["none", "desktop", "mobile"] as const, "none");
+  if (h !== "none") target.hide = h;
+  return target;
+}
+function sanitizeLayer(raw: unknown): HeroLayer | null {
+  const l = sanitizeLayerCore(raw);
+  return l && isObj(raw) ? withFlags(l, raw) : l;
+}
+function sanitizeCta(raw: unknown, index: number): HeroCta | null {
+  const c = sanitizeCtaCore(raw, index);
+  return c && isObj(raw) ? withFlags(c, raw) : c;
 }
 
 // ─── API publique du schéma ─────────────────────────────────────────────
