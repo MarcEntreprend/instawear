@@ -94,8 +94,7 @@ test("garde : le suivi ignore le slide d'amorçage, dédoublonne, et la preview 
   assert.ok(read("src/App.tsx").includes("noTrack={isAdmin}"));
 });
 
-test("SQL lot 10 : CHECK étendu sans perdre les anciennes valeurs ; RPC admin, jamais anon", () => {
-  const sql = read("supabase/migrations/20261042_hero_stats.sql");
+test("SQL lot 10 : CHECK étendu sans perdre les anciennes valeurs ; RPC admin, jamais anon", () => {  const sql = read("supabase/migrations/20261042_hero_stats.sql");
   for (const v of [
     "section_impression",
     "product_click",
@@ -117,4 +116,24 @@ test("SQL lot 10 : CHECK étendu sans perdre les anciennes valeurs ; RPC admin, 
   );
   assert.ok(sql.includes("SET search_path = public"));
   assert.ok(!/TO\s+anon/i.test(sql.replace(/REVOKE[^;]*;/gi, "")));
+});
+
+test("heure 24h : migration 43 ajoute hourly sans toucher au reste", () => {
+  const sql43 = read("supabase/migrations/20261043_hero_stats_hourly.sql");
+  assert.ok(sql43.includes("per_hour"), "CTE horaire");
+  assert.ok(sql43.includes("date_trunc('hour'"), "buckets heure UTC");
+  assert.ok(sql43.includes("interval '24 hours'"), "fenêtre 24 h");
+  assert.ok(sql43.includes("'hourly'"), "clé de sortie");
+  assert.ok(
+    !/DROP CONSTRAINT|DROP TABLE|DELETE FROM/i.test(sql43),
+    "additif seul",
+  );
+});
+
+test("heure 24h : panneau horodaté + heure en cours surlignée", () => {
+  const panel = read("src/admin/HeroStatsPanel.tsx");
+  assert.ok(panel.includes("setRefreshedAt"), "horodatage au chargement");
+  assert.ok(panel.includes("Actualisé à"), "label visible");
+  assert.ok(panel.includes("Hourly"), "mini-graphe 24 h");
+  assert.ok(panel.includes("(heure en cours)"), "heure encadrée");
 });

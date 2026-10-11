@@ -3027,6 +3027,8 @@ export interface HeroStats {
   lastEventAt: string | null;
   slides: HeroStatsSlide[];
   daily: { date: string; impressions: number; clicks: number }[];
+  /** Grain horaire, 24 dernières heures UTC (absent = RPC antérieur). */
+  hourly: { hour: string; impressions: number; clicks: number }[];
 }
 
 const num0 = (v: unknown) => Number(v) || 0;
@@ -3058,6 +3060,11 @@ export const heroStatsApi = {
       })),
       daily: ((d.daily as any[]) ?? []).map((x) => ({
         date: String(x.date),
+        impressions: num0(x.impressions),
+        clicks: num0(x.clicks),
+      })),
+      hourly: ((d.hourly as any[]) ?? []).map((x) => ({
+        hour: String(x.hour),
         impressions: num0(x.impressions),
         clicks: num0(x.clicks),
       })),

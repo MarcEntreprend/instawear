@@ -117,13 +117,76 @@ const note: CSSProperties = {
   lineHeight: 1.5,
 };
 
-function Daily({ daily }: { daily: HeroStats["daily"] }) {
-  if (daily.length === 0)
+/** Dernières 24 h (UTC) : barres par heure, heure en cours encadrée. */
+function Hourly({ hourly }: { hourly: HeroStats["hourly"] }) {
+  if (hourly.length === 0)
+    return <p style={note}>Aucun événement sur les dernières 24 h.</p>;
+  const W = 600;
+  const H = 46;
+  const max = Math.max(1, ...hourly.map((d) => d.impressions));
+  const bw = W / 24;
+  const curHour = new Date().toISOString().slice(0, 13);
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ width: "100%", height: 60 }}
+      role="img"
+      aria-label="Impressions et clics par heure, dernières 24 heures"
+    >
+      {hourly.map((d) => {
+        const h = (d.impressions / max) * (H - 4);
+        const hc = (d.clicks / max) * (H - 4);
+        const idx = hourIndex(d.hour);
+        const x = idx * bw + bw * 0.15;
+        const w = bw * 0.7;
+        const isCur = d.hour.slice(0, 13) === curHour;
+        const label = `${d.hour.slice(11, 13)}h : ${d.impressions} impressions, ${d.clicks} clics${isCur ? " (heure en cours)" : ""}`;
+        return (
+          <g key={d.hour}>
+            <title>{label}</title>
+            <rect
+              x={x}
+              y={H - h}
+              width={w}
+              height={Math.max(h, 1)}
+              fill="var(--color-border2)"
+              rx={1}
+              stroke={isCur ? "var(--color-accent)" : "none"}
+              strokeWidth={isCur ? 1.5 : 0}
+            />
+            <rect
+              x={x}
+              y={H - hc}
+              width={w}
+              height={hc}
+              fill="var(--color-accent)"
+              rx={1}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Position 0..23 d'après l'heure UTC (repli : hash stable). */
+function hourIndex(iso: string): number {
+  const m = iso.match(/T(\d{2}):/);
+  if (m) return Math.max(0, Math.min(23, Number(m[1])));
+  let h = 0;
+  for (const ch of iso) h = (h * 31 + ch.charCodeAt(0)) % 24;
+  return h;
+}
+
+function Daily({ daily }: { daily: HeroStats["daily"] }) {  if (daily.length === 0)
     return <p style={note}>Aucune donnée sur la période.</p>;
   const W = 600;
   const H = 70;
   const max = Math.max(1, ...daily.map((d) => d.impressions));
   const bw = W / daily.length;
+  // Jour UTC (même référentiel que le RPC) ; repli : dernière barre.
+  const today = new Date().toISOString().slice(0, 10);
+  const hasToday = daily.some((d) => d.date === today);
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -136,9 +199,10 @@ function Daily({ daily }: { daily: HeroStats["daily"] }) {
         const hc = (d.clicks / max) * (H - 4);
         const x = i * bw + bw * 0.15;
         const w = bw * 0.7;
+        const isToday = hasToday ? d.date === today : i === daily.length - 1;
         return (
           <g key={d.date}>
-            <title>{`${d.date} : ${d.impressions} impressions, ${d.clicks} clics`}</title>
+            <title>{`${d.date} : ${d.impressions} impressions, ${d.clicks} clics${isToday ? " (aujourd'hui, en cours)" : ""}`}</title>
             <rect
               x={x}
               y={H - h}
@@ -146,6 +210,8 @@ function Daily({ daily }: { daily: HeroStats["daily"] }) {
               height={Math.max(h, 1)}
               fill="var(--color-border2)"
               rx={2}
+              stroke={isToday ? "var(--color-accent)" : "none"}
+              strokeWidth={isToday ? 2 : 0}
             />
             <rect
               x={x}
@@ -174,6 +240,7 @@ export default function HeroStatsPanel({
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [cmpA, setCmpA] = useState("");
   const [cmpB, setCmpB] = useState("");
@@ -185,7 +252,11 @@ export default function HeroStatsPanel({
     heroStatsApi
       .get(days)
       .then(
-        (d) => alive && setData(d),
+        (d) => {
+          if (!alive) return;
+          setData(d);
+          setRefreshedAt(Date.now());
+        },
         (e) =>
           alive &&
           setErr(
@@ -319,6 +390,16 @@ export default function HeroStatsPanel({
           >
             <RefreshCw size={13} /> Actualiser
           </button>
+          {refreshedAt !== null && (
+            <span style={{ ...note, margin: 0 }}>
+              Actualisé à{" "}
+              {new Date(refreshedAt).toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </span>
+          )}
           <button
             type="button"
             style={btn}
@@ -373,6 +454,11 @@ export default function HeroStatsPanel({
             <Daily daily={data.daily} />
             <p style={note}>
               Gris : impressions · Orange : clics (par jour, tous slides).
+            </p>
+
+            <Hourly hourly={data.hourly} />
+            <p style={note}>
+              Dernières 24 heures UTC (barre encadrée = heure en cours).
             </p>
 
             <div
