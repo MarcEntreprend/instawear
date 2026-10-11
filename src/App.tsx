@@ -1309,7 +1309,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, [heroPromotions, heroNow]);
   const heroSlides = useMemo(
-    () => resolveHeroSlides(heroPromotions, products, heroNow, heroHtml),
+    () => resolveHeroSlides(heroPromotions, products, heroNow, heroHtml, getVariant()),
     [heroPromotions, products, heroNow, heroHtml],
   );
 
@@ -1955,6 +1955,7 @@ export default function App() {
             slides={heroSlides}
             loading={promotionsLoading}
             suspended={suspendHeroForBootProduct}
+            noTrack={isAdmin}
             onSlideAction={(slide, link) => {
               if (link && openHeroLink(link)) return;
               if (slide.productId) {

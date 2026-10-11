@@ -136,6 +136,8 @@ export interface HeroConfig {
   v: 1;
   /** legacy = régénérée depuis les colonnes legacy ; studio = source de vérité. */
   origin: "legacy" | "studio";
+  /** Test A/B : slide montré seulement à cette variante (absent = tous les visiteurs). */
+  ab?: "A" | "B";
   sizing: HeroSizing;
   background: { gradient: string };
   layers: HeroLayer[];
@@ -413,6 +415,7 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
   return {
     v: HERO_SCHEMA_VERSION,
     origin: r.origin === "studio" ? "studio" : "legacy",
+    ...(r.ab === "A" || r.ab === "B" ? { ab: r.ab as "A" | "B" } : {}),
     sizing: sanitizeSizing(r.sizing),
     background: {
       gradient: cleanHeroBackground(

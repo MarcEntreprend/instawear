@@ -129,7 +129,12 @@ export default function HeroPreviewFrame() {
   if (!ok || !slide) return null;
   return (
     <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
-      <HeroCarousel slides={[slide]} loading={false} onSlideAction={() => {}} />
+      <HeroCarousel
+        slides={[slide]}
+        loading={false}
+        onSlideAction={() => {}}
+        noTrack
+      />
     </div>
   );
 }

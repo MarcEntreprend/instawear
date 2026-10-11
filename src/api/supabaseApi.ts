@@ -3008,6 +3008,63 @@ export const heroHistoryApi = {
     return { html: data.html ?? "", css: data.css ?? "" };
   },
 };
+// ─── Hero : statistiques (RPC admin) ─────────────────────────────────────────
+export interface HeroStatsArm {
+  impressions: number;
+  clicks: number;
+  /** Visiteurs (sessions distinctes). */
+  impSessions: number;
+  clickSessions: number;
+}
+export interface HeroStatsSlide extends HeroStatsArm {
+  slideId: string;
+  byVariant: Record<string, HeroStatsArm>;
+  byCta: Record<string, number>;
+}
+export interface HeroStats {
+  days: number;
+  since: string;
+  lastEventAt: string | null;
+  slides: HeroStatsSlide[];
+  daily: { date: string; impressions: number; clicks: number }[];
+}
+
+const num0 = (v: unknown) => Number(v) || 0;
+const toArm = (r: any): HeroStatsArm => ({
+  impressions: num0(r?.impressions),
+  clicks: num0(r?.clicks),
+  impSessions: num0(r?.impSessions),
+  clickSessions: num0(r?.clickSessions),
+});
+
+export const heroStatsApi = {
+  async get(days = 14): Promise<HeroStats> {
+    const { data, error } = await supabase.rpc("hero_stats", { p_days: days });
+    if (error) throw error;
+    const d: any = data ?? {};
+    return {
+      days: num0(d.days) || days,
+      since: String(d.since ?? ""),
+      lastEventAt: d.lastEventAt ?? null,
+      slides: ((d.slides as any[]) ?? []).map((s) => ({
+        ...toArm(s),
+        slideId: String(s.slideId),
+        byVariant: Object.fromEntries(
+          Object.entries(s.byVariant ?? {}).map(([k, v]) => [k, toArm(v)]),
+        ),
+        byCta: Object.fromEntries(
+          Object.entries(s.byCta ?? {}).map(([k, v]) => [k, num0(v)]),
+        ),
+      })),
+      daily: ((d.daily as any[]) ?? []).map((x) => ({
+        date: String(x.date),
+        impressions: num0(x.impressions),
+        clicks: num0(x.clicks),
+      })),
+    };
+  },
+};
+
 export const reviewApi = {
   async list(productId: string): Promise<any[]> {
     const { data, error } = await supabase

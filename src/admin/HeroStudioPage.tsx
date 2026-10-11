@@ -24,6 +24,7 @@ import {
   Ruler,
   Undo2,
   Redo2,
+  BarChart3,
 } from "lucide-react";
 import {
   adminUserApi,
@@ -54,6 +55,7 @@ import {
 import { normalizeHeroLink } from "../lib/heroStyle";
 import HeroHtmlPanel, { type HeroHtmlPanelHandle } from "./HeroHtmlPanel";
 import HeroHistoryPanel, { HeroTrashPanel } from "./HeroHistoryPanel";
+import HeroStatsPanel from "./HeroStatsPanel";
 import HeroFlagButtons from "./HeroFlagButtons";
 import HeroSyncBadge from "./HeroSyncBadge";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
@@ -705,6 +707,7 @@ export default function HeroStudioPage() {
   );
   const [draftSeq, setDraftSeq] = useState(0);
   const [histTick, setHistTick] = useState(0);
+  const [showStats, setShowStats] = useState(false);
   const [restoreBackup, setRestoreBackup] = useState<Draft | null>(null);
   const seenVersion = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
@@ -1317,6 +1320,13 @@ export default function HeroStudioPage() {
             aperçu desktop et mobile.
           </p>
           <HeroSyncBadge />
+          <button
+            type="button"
+            onClick={() => setShowStats(true)}
+            style={{ ...btn, marginTop: 8 }}
+          >
+            <BarChart3 size={14} /> Statistiques
+          </button>
         </div>
         {draft && (
           <div
@@ -1402,6 +1412,11 @@ export default function HeroStudioPage() {
         </div>
       )}
 
+      {
+        showStats && (
+          <HeroStatsPanel slides={slides} onClose={() => setShowStats(false)} />
+        )
+      }
       <div className="hs-grid">
         {/* ── Gauche : slides ─────────────────────────────────────────── */}
         <div
@@ -1909,6 +1924,24 @@ export default function HeroStudioPage() {
                       patchDraft({ endsAt: localInputToIso(e.target.value) })
                     }
                   />
+                </Field>
+                <Field label="Audience (test A/B)">
+                  <select
+                    style={inputStyle}
+                    value={config.ab ?? ""}
+                    onChange={(e) =>
+                      patchConfig((c) => {
+                        const { ab: _old, ...rest } = c;
+                        return (
+                          e.target.value ? { ...rest, ab: e.target.value as "A" | "B" } : rest
+                        ) as HeroConfig;
+                      })
+                    }
+                  >
+                    <option value="">Tous les visiteurs</option>
+                    <option value="A">Variante A seulement (≈ 50 %)</option>
+                    <option value="B">Variante B seulement (≈ 50 %)</option>
+                  </select>
                 </Field>
               </Section>
 

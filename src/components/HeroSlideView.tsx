@@ -20,6 +20,8 @@ export interface HeroSlideViewProps {
   onLeadImageError?: () => void;
   onAction: (slide: ResolvedHeroSlide, link: string | null) => void;
   onLink?: (link: string) => void;
+  /** Stats : clic sur un bouton, une tuile ou un lien du HTML collé. */
+  onTrack?: (slideId: string, kind: "cta" | "tile" | "main" | "html", key?: string) => void;
 }
 
 // URLs : identiques à l'ancien HeroCarousel pour que le slide 0 réutilise l'image du
@@ -148,6 +150,7 @@ export default function HeroSlideView({
   onLeadImageError,
   onAction,
   onLink,
+  onTrack,
 }: HeroSlideViewProps) {
   const { config, product: p } = slide;
   const eager = index === 0;
@@ -160,7 +163,10 @@ export default function HeroSlideView({
   const textLayers = layers.filter((l): l is TextL => l.type === "text");
   // Un seul h1 par page : seul le slide actif porte le titre principal.
   const H = active ? "h1" : "p";
-  const fire = (cta: HeroCta) => onAction(slide, cta.link);
+  const fire = (cta: HeroCta) => {
+  onTrack?.(slide.id, "cta", cta.id);
+  onAction(slide, cta.link);
+};
 
   const imgError = (e: SyntheticEvent<HTMLImageElement>) => {
     if (isLead && onLeadImageError) {
@@ -351,7 +357,8 @@ export default function HeroSlideView({
           const label = main
             ? main.label || (main.fromProduct && p ? p.title : "")
             : "";
-          const click = (link: string | null) => {
+          const click = (link: string | null, key: string) => {
+            onTrack?.(slide.id, key === "main" ? "main" : "tile", key);
             if (link && onLink) onLink(link);
             else onAction(slide, null);
           };
@@ -363,7 +370,7 @@ export default function HeroSlideView({
               {main && mainSrc && (
                 <button
                   type="button"
-                  onClick={() => click(main.link)}
+                  onClick={() => click(main.link, "main")}
                   className="relative flex-1 min-h-0 rounded-2xl overflow-hidden text-left"
                   style={{ boxShadow: "var(--shadow-xl)" }}
                   aria-label={label || main.ctaLabel ? undefined : "Voir"}
@@ -396,7 +403,7 @@ export default function HeroSlideView({
                   <button
                     key={ti}
                     type="button"
-                    onClick={() => click(t.link || main?.link || null)}
+                    onClick={() => click(t.link || main?.link || null, `tile-${ti}`)}
                     className="relative flex-1 min-w-[38vw] sm:min-w-0 sm:min-h-0 rounded-2xl overflow-hidden text-left"
                     style={{ boxShadow: "var(--shadow-lg)" }}
                     aria-label={t.label || `Voir ${ti + 1}`}
@@ -429,7 +436,10 @@ export default function HeroSlideView({
               key={i}
               html={slide.html.html}
               css={slide.html.css}
-              onLink={onLink}
+              onLink={(l) => {
+                onTrack?.(slide.id, "html", "html");
+                onLink?.(l);
+              }}
             />
           );
           return layer.hide ? (

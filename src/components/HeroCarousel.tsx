@@ -15,6 +15,7 @@ import {
   Play,
 } from "lucide-react";
 import HeroSlideView from "./HeroSlideView";
+import { trackHeroClick, trackHeroImpression } from "../lib/heroTracking";
 import type { HeroSizing } from "../lib/heroSchema";
 import { parseLeadHero, type ResolvedHeroSlide } from "../lib/heroResolve";
 
@@ -65,6 +66,8 @@ interface HeroCarouselProps {
   onSlideLink?: (link: string) => void;
   /** Suspendu (cold deep-route produit) : squelette au même gabarit, AUCUNE <img>. */
   suspended?: boolean;
+  /** Preview admin / admin connecté : aucun événement de stats. */
+  noTrack?: boolean;
 }
 
 export default function HeroCarousel({
@@ -73,6 +76,7 @@ export default function HeroCarousel({
   onSlideAction,
   onSlideLink,
   suspended = false,
+  noTrack = false,
 }: HeroCarouselProps) {
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -127,6 +131,27 @@ export default function HeroCarousel({
     [],
   );
 
+  // Stats : carrousel visible (≥ 50 %) + impression après 1 s de présence du slide actif.
+  const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    if (!rootEl || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), {
+      threshold: 0.5,
+    });
+    io.observe(rootEl);
+    return () => io.disconnect();
+  }, [rootEl]);
+  const trackedId = count > 0 ? list[index % count]?.id : undefined;
+  useEffect(() => {
+    if (noTrack || suspended || showLead || !inView || !trackedId) return;
+    const t = setTimeout(
+      () => trackHeroImpression(trackedId, index % count),
+      1000,
+    );
+    return () => clearTimeout(t);
+  }, [noTrack, suspended, showLead, inView, trackedId]);
+
   const pauseAutoPlay = (duration = 8000) => {
     setIsPaused(true);
     if (autoPlayTimeoutRef.current) clearTimeout(autoPlayTimeoutRef.current);
@@ -165,6 +190,7 @@ export default function HeroCarousel({
 
   return (
     <section
+      ref={setRootEl}
       className={
         contained
           ? "relative max-w-350 mx-auto px-4 sm:px-6 pt-4"
@@ -203,6 +229,7 @@ export default function HeroCarousel({
                 onLeadImageError={() => setLeadFailed(true)}
                 onAction={onSlideAction}
                 onLink={onSlideLink}
+                onTrack={noTrack ? undefined : trackHeroClick}
               />
             </div>
           ) : null,

@@ -281,6 +281,12 @@ export function heroStudioWarnings(
       level: "info",
       text: "Les dimensions du slide n°1 s'appliquent à tout le carrousel.",
     });
+    if (c.ab) {
+      w.push({
+        level: "info",
+        text: "Slide n°1 limité à une variante A/B : le slide d'amorçage du prerender peut apparaître un instant chez l'autre variante.",
+      });
+    }
     if (!c.layers.some((l) => l.type === "image")) {
       w.push({
         level: "info",

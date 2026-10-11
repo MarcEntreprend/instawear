@@ -2,7 +2,8 @@
 // Aucun changement visuel. Batch + fetch keepalive + requestIdleCallback :
 // jamais sur le chemin critique du rendu. Gate consentement : sans
 // acceptation des non-essentiels, rien n'est envoyé (panier/session seuls).
-import { supabase } from "./supabaseClient";
+// NOTE : pas d'import statique de supabaseClient (import.meta.env au
+// chargement) — import paresseux dans flush() uniquement.
 
 const SID_KEY = "instawear-engagement-sid";
 const CONSENT_KEY = "instawear-cookie-consent";
@@ -15,11 +16,13 @@ export type EngagementEventType =
   | "search"
   | "filter_applied"
   | "add_to_cart"
-  | "favourite";
+  | "favourite"
+  | "hero_impression"
+  | "hero_click";
 
 interface QueuedEvent {
   event_type: EngagementEventType;
-  entity_type: "product" | "category" | "event_type" | "section";
+  entity_type: "product" | "category" | "event_type" | "section" | "hero_slide";
   entity_id: string;
   context: Record<string, unknown>;
 }
@@ -83,6 +86,10 @@ async function flush() {
   }
   const batch = queue.splice(0, queue.length);
   try {
+    // Import paresseux : le module client lit import.meta.env au chargement
+    // (navigateur) ; les tests node qui importent la chaîne HeroCarousel →
+    // heroTracking → engagement ne doivent pas exploser à l'import.
+    const { supabase } = await import("./supabaseClient");
     const {
       data: { user },
     } = await supabase.auth.getUser();

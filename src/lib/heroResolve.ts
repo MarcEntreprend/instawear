@@ -94,6 +94,7 @@ export function resolveHeroSlides(
   products: HeroProductLite[],
   now: number = Date.now(),
   htmlById: Record<string, HeroHtmlPayload> = {},
+  variant: "A" | "B" | null = null,
 ): ResolvedHeroSlide[] {
   const byId = new Map(products.map((p) => [p.id, p]));
   return [...promos]
@@ -109,6 +110,7 @@ export function resolveHeroSlides(
       const product = pid ? (byId.get(pid) ?? null) : null;
       if (pid && (!product || product.isActive === false)) return [];
       const config = resolveHeroConfig(p);
+      if (variant && config.ab && config.ab !== variant) return [];
       if (!pid && (config.origin === "legacy" || !hasStandaloneContent(config)))
         return [];
       const wantsHtml = config.layers.some((l) => l.type === "html" && !l.off);
