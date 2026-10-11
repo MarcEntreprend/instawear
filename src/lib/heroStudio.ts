@@ -9,6 +9,7 @@ import {
   type HeroLayer,
 } from "./heroSchema.ts";
 import { HERO_BG_FALLBACK } from "./heroStyle.ts";
+import { heroQualityWarnings } from "./heroQuality.ts";
 
 export const HERO_PREVIEW_PATH = "/admin/hero-preview";
 export const HERO_STUDIO_SOURCE = "hero-studio";
@@ -321,6 +322,7 @@ export function heroStudioWarnings(
       text: `Configuration lourde (${bytes} / ${HERO_CONFIG_CAP_BYTES} octets).`,
     });
   }
+  w.push(...heroQualityWarnings(c));
   return w;
 }
 

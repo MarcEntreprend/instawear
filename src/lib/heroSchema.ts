@@ -79,6 +79,8 @@ export interface HeroTilesLayer {
   type: "tiles";
   main: HeroTilesMain | null;
   items: HeroTile[];
+  /** Disposition ≥ 640 px. Absent = "split" (historique, rendu inchangé). Jamais écrit si "split". */
+  variant?: "split" | "bento" | "asym" | "strip" | "mosaic";
 }
 export interface HeroTextLayer {
   type: "text";
@@ -311,7 +313,17 @@ function sanitizeLayerCore(raw: unknown): HeroLayer | null {
           link: cleanHeroLink(t.link),
         });
       }
-      return { type: "tiles", main, items };
+      const variant = pick(
+        raw.variant,
+        ["split", "bento", "asym", "strip", "mosaic"] as const,
+        "split",
+      );
+      return {
+        type: "tiles",
+        main,
+        items,
+        ...(variant !== "split" ? { variant } : {}),
+      };
     }
     case "text":
       return {

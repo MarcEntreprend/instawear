@@ -183,7 +183,7 @@ export default function HeroCarousel({
   // Le cadre suit le slide n°1 (évite le CLS entre slides de tailles différentes).
   const sizing = list[0].config.sizing;
   const contained = sizing.width === "contained";
-  const ink = active.lightBg ? "var(--color-ink)" : "#fff";
+  const ink = active.lightBg ? "#1a1916" : "#fff";
   const mounted = (i: number) =>
     i === cur ||
     (armed && (i === (cur + 1) % count || i === (cur - 1 + count) % count));

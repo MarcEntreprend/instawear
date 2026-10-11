@@ -56,6 +56,7 @@ import { normalizeHeroLink } from "../lib/heroStyle";
 import HeroHtmlPanel, { type HeroHtmlPanelHandle } from "./HeroHtmlPanel";
 import HeroHistoryPanel, { HeroTrashPanel } from "./HeroHistoryPanel";
 import HeroStatsPanel from "./HeroStatsPanel";
+import HeroGridPicker from "./HeroGridPicker";
 import HeroFlagButtons from "./HeroFlagButtons";
 import HeroSyncBadge from "./HeroSyncBadge";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
@@ -406,6 +407,17 @@ function LayerEditor({
       });
     return (
       <>
+        <Field label="Disposition (écrans ≥ 640 px)">
+          <HeroGridPicker
+            value={layer.variant ?? "split"}
+            onChange={(v) => {
+              const { variant: _old, ...rest } = layer;
+              onChange(
+                (v === "split" ? rest : { ...rest, variant: v }) as typeof layer,
+              );
+            }}
+          />
+        </Field>
         <AdminImageInput
           label="Visuel principal (vide = produit)"
           value={main.src ?? ""}

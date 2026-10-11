@@ -7,6 +7,7 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import type { HeroCta, HeroLayer } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
+import { tilesLayout } from "../lib/heroGrid";
 
 type TextL = Extract<HeroLayer, { type: "text" }>;
 
@@ -112,7 +113,7 @@ function CtaButton({
         : "btn";
   const look: CSSProperties =
     cta.style === "light"
-      ? { background: "#fff", color: "var(--color-ink)" }
+      ? { background: "#fff", color: "#1a1916" }
       : cta.style === "ghost"
         ? {
             background: "transparent",
@@ -181,8 +182,8 @@ export default function HeroSlideView({
 
   const renderText = (l: TextL, key: number, withCtas: boolean) => {
     const dark = l.tone === "dark" || (l.tone === "auto" && slide.lightBg);
-    const ink = dark ? "var(--color-ink)" : "#fff";
-    const inkSoft = dark ? "var(--color-ink2)" : "rgba(255,255,255,.8)";
+    const ink = dark ? "#1a1916" : "#fff";
+    const inkSoft = dark ? "#3d3b38" : "rgba(255,255,255,.8)";
     const chipBg = dark ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.14)";
     const chipFg = dark ? "var(--color-accent-strong, #c2452a)" : "#fff";
     // Replis produit (comportement historique) : seulement si fromProduct.
@@ -351,84 +352,118 @@ export default function HeroSlideView({
             </div>
           );
         }
-        if (layer.type === "tiles") {
-          const main = layer.main;
-          const mainSrc = main ? main.src || p?.image || null : null;
-          const label = main
-            ? main.label || (main.fromProduct && p ? p.title : "")
-            : "";
-          const click = (link: string | null, key: string) => {
-            onTrack?.(slide.id, key === "main" ? "main" : "tile", key);
-            if (link && onLink) onLink(link);
-            else onAction(slide, null);
-          };
-          return (
-            <div
-              key={i}
-              className={`absolute inset-0 flex flex-col sm:flex-row gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24 ${hideCls(layer.hide)}`}
-            >
-              {main && mainSrc && (
-                <button
-                  type="button"
-                  onClick={() => click(main.link, "main")}
-                  className="relative flex-1 min-h-0 rounded-2xl overflow-hidden text-left"
-                  style={{ boxShadow: "var(--shadow-xl)" }}
-                  aria-label={label || main.ctaLabel ? undefined : "Voir"}
-                >
-                  <img
-                    src={U.fill(mainSrc)}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading={eager ? "eager" : "lazy"}
-                    fetchPriority={eager ? "high" : "auto"}
-                    decoding="async"
-                    onError={imgError}
-                  />
-                  {(label || main.ctaLabel) && (
-                    <span className="absolute left-3 bottom-3 right-3 flex items-end justify-between gap-2">
-                      <span className="text-white font-extrabold text-lg leading-tight drop-shadow">
-                        {label}
-                      </span>
-                      {main.ctaLabel && (
-                        <span className="btn btn-accent shrink-0 !py-2 !px-4 text-xs">
-                          {main.ctaLabel}
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </button>
-              )}
-              <div className="flex sm:flex-col gap-3 sm:w-[30%] shrink-0 overflow-x-auto sm:overflow-visible no-scrollbar">
-                {layer.items.map((t, ti) => (
-                  <button
-                    key={ti}
-                    type="button"
-                    onClick={() => click(t.link || main?.link || null, `tile-${ti}`)}
-                    className="relative flex-1 min-w-[38vw] sm:min-w-0 sm:min-h-0 rounded-2xl overflow-hidden text-left"
-                    style={{ boxShadow: "var(--shadow-lg)" }}
-                    aria-label={t.label || `Voir ${ti + 1}`}
-                  >
-                    <img
-                      src={U.tile(t.src)}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {t.label && (
-                      <span
-                        className="absolute left-2 bottom-2 text-white text-xs font-bold drop-shadow px-2 py-1 rounded-lg"
-                        style={{ background: "rgba(0,0,0,.55)" }}
-                      >
-                        {t.label}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        }
+if (layer.type === "tiles") {
+  const main = layer.main;
+  const mainSrc = main ? main.src || p?.image || null : null;
+  const label = main
+    ? main.label || (main.fromProduct && p ? p.title : "")
+    : "";
+  const click = (link: string | null, key: string) => {
+    onTrack?.(slide.id, key === "main" ? "main" : "tile", key);
+    if (link && onLink) onLink(link);
+    else onAction(slide, null);
+  };
+  const variant = layer.variant ?? "split";
+  // null = disposition historique (code inchangé) ; sinon grille CSS à partir de 640 px.
+  const L =
+    variant === "split"
+      ? null
+      : tilesLayout(variant, layer.items.length, !!(main && mainSrc));
+  const cellStyle = (c?: { col: string; row: string }): CSSProperties =>
+    c ? { gridColumn: c.col, gridRow: c.row } : {};
+
+  const mainBtn =
+    main && mainSrc ? (
+      <button
+        type="button"
+        onClick={() => click(main.link, "main")}
+        className={`relative flex-1 min-h-0 ${L ? "min-w-0 " : ""}rounded-2xl overflow-hidden text-left`}
+        style={{ boxShadow: "var(--shadow-xl)", ...cellStyle(L?.main) }}
+        aria-label={label || main.ctaLabel ? undefined : "Voir"}
+      >
+        <img
+          src={U.fill(mainSrc)}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : "auto"}
+          decoding="async"
+          onError={imgError}
+        />
+        {(label || main.ctaLabel) && (
+          <span className="absolute left-3 bottom-3 right-3 flex items-end justify-between gap-2">
+            <span className="text-white font-extrabold text-lg leading-tight drop-shadow">
+              {label}
+            </span>
+            {main.ctaLabel && (
+              <span className="btn btn-accent shrink-0 !py-2 !px-4 text-xs">
+                {main.ctaLabel}
+              </span>
+            )}
+          </span>
+        )}
+      </button>
+    ) : null;
+
+  const itemBtn = (
+    t: { src: string; label: string; link: string | null },
+    ti: number,
+  ) => (
+    <button
+      key={ti}
+      type="button"
+      onClick={() => click(t.link || main?.link || null, `tile-${ti}`)}
+      className="relative flex-1 min-w-[38vw] sm:min-w-0 sm:min-h-0 rounded-2xl overflow-hidden text-left"
+      style={{ boxShadow: "var(--shadow-lg)", ...cellStyle(L?.items[ti]) }}
+      aria-label={t.label || `Voir ${ti + 1}`}
+    >
+      <img
+        src={U.tile(t.src)}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
+      {t.label && (
+        <span
+          className="absolute left-2 bottom-2 text-white text-xs font-bold drop-shadow px-2 py-1 rounded-lg"
+          style={{ background: "rgba(0,0,0,.55)" }}
+        >
+          {t.label}
+        </span>
+      )}
+    </button>
+  );
+
+  if (!L) {
+    return (
+      <div
+        key={i}
+        className={`absolute inset-0 flex flex-col sm:flex-row gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24 ${hideCls(layer.hide)}`}
+      >
+        {mainBtn}
+        <div className="flex sm:flex-col gap-3 sm:w-[30%] shrink-0 overflow-x-auto sm:overflow-visible no-scrollbar">
+          {layer.items.map(itemBtn)}
+        </div>
+      </div>
+    );
+  }
+  // Variantes : le masquage vit sur une enveloppe (aucun conflit avec sm:grid).
+  // Mobile : colonne (principal + rangée de tuiles) ; ≥ 640 px : grille, la rangée devient `contents`.
+  return (
+    <div key={i} className={`absolute inset-0 ${hideCls(layer.hide)}`}>
+      <div
+        className="absolute inset-0 flex flex-col sm:grid gap-3 p-4 sm:p-8 pt-20 sm:pt-24 pb-24"
+        style={{ gridTemplateColumns: L.cols, gridTemplateRows: L.rows }}
+      >
+        {mainBtn}
+        <div className="flex gap-3 overflow-x-auto no-scrollbar shrink-0 max-sm:h-28 sm:contents">
+          {layer.items.map(itemBtn)}
+        </div>
+      </div>
+    </div>
+  );
+}
         if (layer.type === "html") {
           if (!slide.html) return null;
           const block = (
@@ -463,7 +498,7 @@ export default function HeroSlideView({
                 <CtaButton
                   key={c.id}
                   cta={c}
-                  ink={slide.lightBg ? "var(--color-ink)" : "#fff"}
+                  ink={slide.lightBg ? "#1a1916" : "#fff"}
                   className={hideCls(c.hide)}
                   onClick={() => fire(c)}
                 />
@@ -489,7 +524,7 @@ export default function HeroSlideView({
           >
             <CtaButton
               cta={c}
-              ink={slide.lightBg ? "var(--color-ink)" : "#fff"}
+              ink={slide.lightBg ? "#1a1916" : "#fff"}
               onClick={() => fire(c)}
             />
           </div>
