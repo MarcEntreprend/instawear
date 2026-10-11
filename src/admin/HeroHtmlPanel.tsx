@@ -7,8 +7,18 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { AlertTriangle, FileUp, Ruler, ShieldCheck } from "lucide-react";
-import { heroHtmlApi } from "../api/supabaseApi";
+import {
+  AlertTriangle,
+  FileUp,
+  History,
+  Ruler,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  heroHistoryApi,
+  heroHtmlApi,
+  type HeroHtmlVersionRow,
+} from "../api/supabaseApi";
 import { formInputStyle } from "./adminStyles";
 import { heroPayloadBudget } from "../lib/heroSchema";
 import { sanitizeHeroCss } from "../lib/heroCss";
@@ -85,6 +95,46 @@ const HeroHtmlPanel = forwardRef<HeroHtmlPanelHandle, Props>(
       null,
     );
     const readOnly = !isSuper;
+
+    const [hist, setHist] = useState<HeroHtmlVersionRow[] | null>(null);
+    const [histOpen, setHistOpen] = useState(false);
+
+    const toggleHist = async () => {
+      if (histOpen) {
+        setHistOpen(false);
+        return;
+      }
+      setHistOpen(true);
+      if (!slideId) {
+        setHist([]);
+        return;
+      }
+      try {
+        setHist(await heroHistoryApi.htmlList(slideId));
+      } catch (e: any) {
+        setNote({ ok: false, lines: [e?.message || "Historique indisponible."] });
+      }
+    };
+
+    const loadHtmlVersion = async (id: string) => {
+      setBusy(true);
+      try {
+        const v = await heroHistoryApi.htmlGet(id);
+        if (!v) throw new Error("Version introuvable.");
+        setHtml(v.html);
+        setCss(v.css);
+        setNote({
+          ok: true,
+          lines: [
+            "Version chargée dans les champs. Enregistre le slide pour la restaurer.",
+          ],
+        });
+      } catch (e: any) {
+        setNote({ ok: false, lines: [e?.message || "Chargement impossible."] });
+      } finally {
+        setBusy(false);
+      }
+    };
 
     // Chargement : super_admin = source (brouillon inclus, garde RLS) ; autres = HTML publié.
     useEffect(() => {
@@ -400,6 +450,56 @@ const HeroHtmlPanel = forwardRef<HeroHtmlPanelHandle, Props>(
                 </button>
               </div>
             )}
+
+            {
+              isSuper && slideId && (
+                <div>
+                  <button type="button" style={smallBtn} onClick={toggleHist}>
+                    <History size={13} /> Historique HTML
+                  </button>
+                  {histOpen && (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      {hist === null
+                        ? "Chargement…"
+                        : hist.length === 0
+                          ? "Aucune version enregistrée."
+                          : hist.map((v) => (
+                              <div
+                                key={v.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: 8,
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span>
+                                  {new Date(v.createdAt).toLocaleString("fr-FR")} ·{" "}
+                                  {v.createdBy ?? "—"} · {v.bytes} o
+                                  {v.op === "delete" ? " · avant suppression" : ""}
+                                </span>
+                                <button
+                                  type="button"
+                                  style={smallBtn}
+                                  disabled={busy}
+                                  onClick={() => loadHtmlVersion(v.id)}
+                                >
+                                  Charger
+                                </button>
+                              </div>
+                            ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
             {note && (
               <div

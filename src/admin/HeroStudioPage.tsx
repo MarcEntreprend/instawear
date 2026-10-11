@@ -22,9 +22,12 @@ import {
   AlertTriangle,
   Info,
   Ruler,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import {
   adminUserApi,
+  heroHistoryApi,
   heroHtmlApi,
   heroPromotionsApi,
   heroTemplatesApi,
@@ -50,6 +53,7 @@ import {
 } from "../lib/heroSchema";
 import { normalizeHeroLink } from "../lib/heroStyle";
 import HeroHtmlPanel, { type HeroHtmlPanelHandle } from "./HeroHtmlPanel";
+import HeroHistoryPanel, { HeroTrashPanel } from "./HeroHistoryPanel";
 import HeroFlagButtons from "./HeroFlagButtons";
 import HeroSyncBadge from "./HeroSyncBadge";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
@@ -700,6 +704,15 @@ export default function HeroStudioPage() {
     null,
   );
   const [draftSeq, setDraftSeq] = useState(0);
+  const [histTick, setHistTick] = useState(0);
+  const [restoreBackup, setRestoreBackup] = useState<Draft | null>(null);
+  const seenVersion = useRef<string | null>(null);
+  const draftRef = useRef<Draft | null>(null);
+  draftRef.current = draft;
+  const undoStack = useRef<HeroConfig[]>([]);
+  const redoStack = useRef<HeroConfig[]>([]);
+  const lastPush = useRef(0);
+  const [, setUndoTick] = useState(0);
 
   const dirty = (!!draft && serialize(draft) !== baseline) || htmlDirty;
   const dev = DEVICES[device];
@@ -837,8 +850,120 @@ export default function HeroStudioPage() {
     );
   }, [resolved, theme, readyTick, device]);
 
-  const patchConfig = (fn: (c: HeroConfig) => HeroConfig) =>
-    setDraft((d) => (d ? { ...d, config: fn(d.config) } : d));
+  const patchConfig = (fn: (c: HeroConfig) => HeroConfig) => {
+    const d = draftRef.current;
+    if (!d) return;
+    const next = fn(d.config);
+    if (next === d.config) return;
+    pushUndo(d.config);
+    const nd = { ...d, config: next };
+    draftRef.current = nd;
+    setDraft(nd);
+  };
+  // ── Annuler / Rétablir (session) : les modifs rapprochées (≤ 600 ms) = un seul pas. ──
+  const pushUndo = (c: HeroConfig) => {
+    const now = Date.now();
+    if (now - lastPush.current > 600) {
+      undoStack.current.push(c);
+      if (undoStack.current.length > 60) undoStack.current.shift();
+    }
+    lastPush.current = now;
+    redoStack.current = [];
+    setUndoTick((n) => n + 1);
+  };
+  const undo = () => {
+    const d = draftRef.current;
+    const prev = undoStack.current.pop();
+    if (!d || !prev) return;
+    redoStack.current.push(d.config);
+    lastPush.current = 0;
+    const nd = { ...d, config: prev };
+    draftRef.current = nd;
+    setDraft(nd);
+    setUndoTick((n) => n + 1);
+  };
+  const redo = () => {
+    const d = draftRef.current;
+    const next = redoStack.current.pop();
+    if (!d || !next) return;
+    undoStack.current.push(d.config);
+    lastPush.current = 0;
+    const nd = { ...d, config: next };
+    draftRef.current = nd;
+    setDraft(nd);
+    setUndoTick((n) => n + 1);
+  };
+
+  // Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z) — jamais pendant la saisie dans un champ.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (k === "y" || (k === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // Changer de slide : piles d'annulation et sauvegarde de restauration repartent à zéro.
+  useEffect(() => {
+    undoStack.current = [];
+    redoStack.current = [];
+    lastPush.current = 0;
+    setUndoTick((n) => n + 1);
+    setRestoreBackup(null);
+  }, [draft?.id, draftSeq]);
+
+  // Détection de conflit : dernière version vue à l'ouverture du slide.
+  useEffect(() => {
+    seenVersion.current = null;
+    if (!draft?.id) return;
+    let alive = true;
+    heroHistoryApi.latest(draft.id).then(
+      (l) => {
+        if (alive) seenVersion.current = l?.id ?? null;
+      },
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [draft?.id]);
+
+  // Charge une version de l'historique dans l'éditeur (non enregistrée).
+  const loadVersion = (
+    parts: { productId: string; config: HeroConfig },
+    when: string,
+  ) => {
+    const cur = draftRef.current;
+    if (!cur) return;
+    setRestoreBackup(cur);
+    pushUndo(cur.config);
+    const nd = { ...cur, productId: parts.productId, config: parts.config };
+    draftRef.current = nd;
+    setDraft(nd);
+    setLayerSel(0);
+    setSelCta(null);
+    setMsg({
+      ok: true,
+      text: `Version du ${when} chargée (visibilité et planification inchangées). Enregistre pour la restaurer, ou « Annuler la restauration ».`,
+    });
+  };
   const patchDraft = (p: Partial<Draft>) =>
     setDraft((d) => (d ? { ...d, ...p } : d));
 
@@ -880,6 +1005,16 @@ export default function HeroStudioPage() {
     setSaving(true);
     setMsg(null);
     try {
+      // Conflit : un autre admin a-t-il enregistré ce slide depuis ton ouverture ?
+      if (draft.id) {
+        const latest = await heroHistoryApi.latest(draft.id).catch(() => null);
+        if (latest && seenVersion.current && latest.id !== seenVersion.current) {
+          const ok = window.confirm(
+            `Ce slide a été modifié par ${latest.createdBy ?? "un autre administrateur"} le ${new Date(latest.createdAt).toLocaleString("fr-FR")} depuis ton ouverture.\nÉcraser ses changements ?`,
+          );
+          if (!ok) return;
+        }
+      }
       const config = sanitizeHeroConfig({ ...draft.config, origin: "studio" });
       if (heroConfigBytes(config) > HERO_CONFIG_CAP_BYTES)
         throw new Error("Configuration trop lourde (> 20 000 octets).");
@@ -921,6 +1056,10 @@ export default function HeroStudioPage() {
       }
       window.dispatchEvent(new Event("storefront:invalidate"));
       await load(saved.id);
+      seenVersion.current =
+        (await heroHistoryApi.latest(saved.id).catch(() => null))?.id ?? null;
+      setRestoreBackup(null);
+      setHistTick((n) => n + 1);
       if (htmlErr) throw new Error(`Slide enregistré, mais ${htmlErr}`);
       setMsg({
         ok: true,
@@ -1038,6 +1177,7 @@ export default function HeroStudioPage() {
       setDraft(null);
       setBaseline("");
       await load();
+      setHistTick((n) => n + 1);
     } catch (e: any) {
       setMsg({ ok: false, text: e?.message || "Suppression impossible." });
     }
@@ -1187,6 +1327,27 @@ export default function HeroStudioPage() {
               flexWrap: "wrap",
             }}
           >
+            <button type="button" onClick={undo} disabled={undoStack.current.length === 0} style={btn} title="Annuler (Ctrl+Z)" aria-label="Annuler">
+              <Undo2 size={14} />
+            </button>
+            <button type="button" onClick={redo} disabled={redoStack.current.length === 0} style={btn} title="Rétablir (Ctrl+Y)" aria-label="Rétablir">
+              <Redo2 size={14} />
+            </button>
+            {restoreBackup && (
+              <button
+                type="button"
+                style={btn}
+                onClick={() => {
+                  const bk = restoreBackup;
+                  draftRef.current = bk;
+                  setDraft(bk);
+                  setRestoreBackup(null);
+                  setMsg({ ok: true, text: "Restauration annulée." });
+                }}
+              >
+                Annuler la restauration
+              </button>
+            )}
             <button type="button" onClick={duplicate} style={btn} title="Créer une copie en brouillon">
               Dupliquer
             </button>
@@ -1436,6 +1597,17 @@ export default function HeroStudioPage() {
               Aucun slide. Crée le premier avec un modèle.
             </p>
           )}
+          <HeroTrashPanel
+            refreshKey={histTick}
+            onRecovered={async (id) => {
+              await load(id);
+              setHistTick((n) => n + 1);
+              setMsg({
+                ok: true,
+                text: "Slide récupéré en brouillon (le HTML, s'il y en avait, se restaure via l'historique HTML).",
+              });
+            }}
+          />
         </div>
 
         {/* ── Centre : aperçu ─────────────────────────────────────────── */}
@@ -2389,6 +2561,16 @@ export default function HeroStudioPage() {
                       sizing: { mode: "auto", width: c.sizing.width, ratio: r },
                     }))
                   }
+                />
+              </Section>
+
+              <Section title="Historique" open={false}>
+                <HeroHistoryPanel
+                  slideId={draft.id}
+                  current={config}
+                  currentProductId={draft.productId}
+                  refreshKey={histTick}
+                  onLoad={loadVersion}
                 />
               </Section>
 

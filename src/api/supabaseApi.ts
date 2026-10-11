@@ -14,6 +14,8 @@ import {
   type HeroConfig,
   type LegacyHeroFields,
 } from "../lib/heroSchema";
+import type { HeroVersionSnapshot } from "../lib/heroHistory";
+
 import type {
   AdminProduct,
   Customer,
@@ -2875,6 +2877,137 @@ export const heroTemplatesApi = {
   },
 };
 
+// ─── Hero : historique, corbeille, historique HTML (super_admin) ──────────────
+export interface HeroVersionRow {
+  id: string;
+  slideId: string;
+  reason: "create" | "update" | "delete";
+  createdBy: string | null;
+  createdAt: string;
+  meta: {
+    headline?: string;
+    layers?: number;
+    ctas?: number;
+    active?: boolean;
+    origin?: string;
+  };
+}
+export interface HeroDeletedRow {
+  versionId: string;
+  slideId: string;
+  createdBy: string | null;
+  createdAt: string;
+  meta: HeroVersionRow["meta"];
+}
+export interface HeroHtmlVersionRow {
+  id: string;
+  op: "save" | "delete";
+  createdBy: string | null;
+  createdAt: string;
+  bytes: number;
+}
+
+const mapVersionRow = (r: any): HeroVersionRow => ({
+  id: r.id,
+  slideId: r.slide_id,
+  reason: r.reason,
+  createdBy: r.created_by ?? null,
+  createdAt: r.created_at,
+  meta: r.meta && typeof r.meta === "object" ? r.meta : {},
+});
+
+export const heroHistoryApi = {
+  /** Versions d'un slide (légères : sans snapshot). Admin (RLS). */
+  async list(slideId: string, limit = 30): Promise<HeroVersionRow[]> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("id, slide_id, reason, meta, created_by, created_at")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 50)));
+    if (error) throw error;
+    return (data ?? []).map(mapVersionRow);
+  },
+  /** Dernière version (détection de conflit d'édition). */
+  async latest(
+    slideId: string,
+  ): Promise<{
+    id: string;
+    createdBy: string | null;
+    createdAt: string;
+  } | null> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("id, created_by, created_at")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      id: data.id,
+      createdBy: data.created_by ?? null,
+      createdAt: data.created_at,
+    };
+  },
+  async getSnapshot(versionId: string): Promise<HeroVersionSnapshot | null> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("snapshot")
+      .eq("id", versionId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.snapshot as HeroVersionSnapshot;
+  },
+  /** Corbeille : slides supprimés (RPC admin). */
+  async deleted(): Promise<HeroDeletedRow[]> {
+    const { data, error } = await supabase.rpc("hero_deleted_slides");
+    if (error) throw error;
+    return ((data as any[]) ?? []).map((r) => ({
+      versionId: r.version_id,
+      slideId: r.slide_id,
+      createdBy: r.created_by ?? null,
+      createdAt: r.created_at,
+      meta: r.meta && typeof r.meta === "object" ? r.meta : {},
+    }));
+  },
+  /** Recrée le slide supprimé (même id, TOUJOURS en brouillon). Renvoie son id. */
+  async restoreDeleted(versionId: string): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_restore_deleted", {
+      p_version_id: versionId,
+    });
+    if (error) throw error;
+    return String(data);
+  },
+  // ── HTML : super_admin (garde ici + RLS super_admin sur hero_html_versions) ──
+  async htmlList(slideId: string): Promise<HeroHtmlVersionRow[]> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_html_versions")
+      .select("id, op, created_by, created_at, bytes")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(15);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      op: r.op,
+      createdBy: r.created_by ?? null,
+      createdAt: r.created_at,
+      bytes: Number(r.bytes) || 0,
+    }));
+  },
+  async htmlGet(id: string): Promise<{ html: string; css: string } | null> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_html_versions")
+      .select("html, css")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { html: data.html ?? "", css: data.css ?? "" };
+  },
+};
 export const reviewApi = {
   async list(productId: string): Promise<any[]> {
     const { data, error } = await supabase
