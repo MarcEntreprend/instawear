@@ -4,7 +4,10 @@
 //   (heroHtmlPolicy) ; on reconstruit une chaîne neuve, rien n'est re-sérialisé par le parseur ;
 // - slide n°1 en HTML => Declarative Shadow DOM (<template shadowrootmode>).
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseHeroConfig } from "../src/lib/heroSchema.ts";
+import {
+  HERO_PAYLOAD_CAP_BYTES,
+  parseHeroConfig,
+} from "../src/lib/heroSchema.ts";
 import {
   heroHasHtml,
   resolveHeroSlides,
@@ -26,6 +29,7 @@ import { BASE_CSS } from "../src/lib/heroHtmlBase.ts";
 import {
   HERO_IMG_OPTS,
   buildSupabaseRenderUrl,
+  heroImageIsRaw,
 } from "../src/lib/heroImages.ts";
 import { heroFrameVars } from "../src/lib/heroFrame.ts";
 import {
@@ -125,7 +129,7 @@ function build(src: P5, ctx: Ctx, depth: number): string {
   return out;
 }
 
-/** null si parse5 est absent ou si le résultat dépasse 60 Ko : l'appelant n'émet alors aucun DSD. */
+/** null si parse5 est absent ou si html + css dépasse le plafond de la base (51 200 octets) : pas de DSD. */
 export async function sanitizeHeroHtmlNode(
   rawHtml: string,
   rawCss: string,
@@ -146,7 +150,7 @@ export async function sanitizeHeroHtmlNode(
   const c = sanitizeHeroCss(merged);
   const css = c.errors.length ? "" : c.css;
   const bytes = new TextEncoder().encode(html + css).length;
-  if (bytes > 60_000) return null;
+  if (bytes > HERO_PAYLOAD_CAP_BYTES) return null;
   return { html, css, firstImg: ctx.firstImg };
 }
 
@@ -156,14 +160,29 @@ export interface PreparedLead {
   clean: NodeSanitized | null;
 }
 
-/** Slide HTML : filtre le HTML (sinon null = pas d'amorçage). Autres slides : tels quels. */
+/** Slide HTML : filtre le HTML ; si impossible, dégrade vers les couches visuelles (image, carte, tuiles)
+ *  sans la couche HTML (null seulement s'il n'y a aucun visuel). Autres slides : tels quels. */
 export async function prepareLeadSlide(
   slide: ResolvedHeroSlide | null,
 ): Promise<PreparedLead | null> {
   if (!slide) return null;
   if (!slide.html) return { slide, clean: null };
   const clean = await sanitizeHeroHtmlNode(slide.html.html, slide.html.css);
-  if (!clean) return null;
+  if (!clean) {
+    // parse5 absent ou HTML trop lourd : jamais de HTML non filtré dans la page.
+    const degraded: ResolvedHeroSlide = {
+      ...slide,
+      html: null,
+      config: {
+        ...slide.config,
+        layers: slide.config.layers.filter((l) => l.type !== "html"),
+      },
+    };
+    console.warn(
+      "prerender: HTML du slide n°1 non assaini (parse5 absent ou > plafond) : amorçage visuel seul.",
+    );
+    return staticVisual(degraded, null) ? { slide: degraded, clean: null } : null;
+  }
   return {
     slide: { ...slide, html: { html: clean.html, css: clean.css } },
     clean,
@@ -209,7 +228,7 @@ function staticVisual(slide: ResolvedHeroSlide, host: string | null): string {
     if (l.type === "image") {
       const src = l.src || p?.image || null;
       if (!src) continue;
-      const raw = l.scrim === "left" && l.dim < 1; // même règle que HeroSlideView
+      const raw = heroImageIsRaw(l);
       return (
         pic(
           raw ? src : fill(src),

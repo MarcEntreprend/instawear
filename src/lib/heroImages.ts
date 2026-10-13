@@ -37,3 +37,9 @@ export function buildSupabaseRenderUrl(
   params.set("format", opts.format ?? "webp");
   return `https://${h}/storage/v1/render/image/public/${m[1]}?${params.toString()}`;
 }
+
+/** Fond « full » historique (image + voile gauche) : URL brute, pour partager le cache avec le prerender.
+ *  SOURCE UNIQUE de la règle : HeroSlideView, scripts/hero-lead.ts et le contrôle de poids du studio. */
+export function heroImageIsRaw(l: { scrim: string; dim: number }): boolean {
+  return l.scrim === "left" && l.dim < 1;
+}

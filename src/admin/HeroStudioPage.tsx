@@ -59,6 +59,7 @@ import HeroStatsPanel from "./HeroStatsPanel";
 import HeroGridPicker from "./HeroGridPicker";
 import HeroFlagButtons from "./HeroFlagButtons";
 import HeroSyncBadge from "./HeroSyncBadge";
+import HeroWeightCheck from "./HeroWeightCheck";
 import { resolveHeroSlideForPreview } from "../lib/heroResolve";
 import {
   HERO_BG_PRESETS,
@@ -2620,6 +2621,14 @@ export default function HeroStudioPage() {
               </Section>
 
               <Section title="Contrôle qualité" open={false}>
+                <HeroWeightCheck
+                  config={config}
+                  productImage={product?.image ?? null}
+                  isFirst={
+                    slides.findIndex((s) => s.id === draft.id) === 0 ||
+                    (draft.id === null && slides.length === 0)
+                  }
+                />
                 <div style={{ fontSize: 12, color: "var(--color-ink2)" }}>
                   Configuration : <strong>{bytes}</strong> /{" "}
                   {HERO_CONFIG_CAP_BYTES} octets

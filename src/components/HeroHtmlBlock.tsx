@@ -32,8 +32,9 @@ export async function mountHeroHtml(
   const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   const c = sanitizeHeroCss(css);
   const cssText = BASE_CSS + (c.errors.length ? "" : c.css);
-  // Contenu déjà identique (slide d'amorçage posé par le prerender) : on ne recrée rien,
-  // donc aucun clignotement d'image quand le filtre navigateur repasse derrière.
+// Contenu déjà identique (montage instantané du slide d'amorçage, ou HTML inchangé entre
+// l'amorçage et le vrai slide) : on ne recrée rien, donc aucun clignotement d'image quand le
+// filtre navigateur repasse derrière. (Le nœud DSD du prerender, lui, est reconstruit par createRoot.)
   const cur = root.firstChild;
   if (cur instanceof HTMLStyleElement && cur.textContent === cssText) {
     const a = document.createElement("div");

@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 import HeroHtmlBlock from "./HeroHtmlBlock";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
-import { HERO_IMG_OPTS } from "../lib/heroImages";
+import { HERO_IMG_OPTS, heroImageIsRaw } from "../lib/heroImages";
 import type { HeroCta, HeroLayer } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
 import { tilesLayout } from "../lib/heroGrid";
@@ -305,7 +305,7 @@ export default function HeroSlideView({
           const src = layer.src || p?.image || null;
           if (!src) return null;
           // Fond "full" historique (image + voile gauche) : URL brute (cache prerender).
-          const raw = layer.scrim === "left" && layer.dim < 1;
+          const raw = heroImageIsRaw(layer);
           return (
             <Fragment key={i}>
               <Pic
