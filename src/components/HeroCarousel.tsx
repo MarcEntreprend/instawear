@@ -17,7 +17,10 @@ import {
 import HeroSlideView from "./HeroSlideView";
 import { trackHeroClick, trackHeroImpression } from "../lib/heroTracking";
 import type { HeroSizing } from "../lib/heroSchema";
-import { parseLeadHero, type ResolvedHeroSlide } from "../lib/heroResolve";
+import type { ResolvedHeroSlide } from "../lib/heroResolve";
+import { readLeadSlide } from "../lib/heroLead";
+import { heroFrameVars } from "../lib/heroFrame";
+import { getVariant } from "../lib/engagement";
 
 // Compat : PromotionsPage importe ces 4 helpers depuis ce fichier.
 export {
@@ -27,35 +30,8 @@ export {
   heroBackground,
 } from "../lib/heroStyle";
 
-/** Lit le slide d'amorçage embarqué par le prerender. Jamais d'exception. */
-function readLeadHero(): ResolvedHeroSlide | null {
-  try {
-    if (typeof document === "undefined") return null;
-    const node = document.getElementById("lead-hero-data");
-    if (!node || !node.textContent) return null;
-    return parseLeadHero(JSON.parse(node.textContent));
-  } catch {
-    return null;
-  }
-}
-
-function heightCss(h: { unit: "vh" | "px"; value: number }): string {
-  // vh : mêmes bornes que l'ancien h-[78vh] min-h-105 max-h-190 (420px / 760px).
-  return h.unit === "vh" ? `clamp(420px, ${h.value}vh, 760px)` : `${h.value}px`;
-}
-
-function frameVars(s: HeroSizing): CSSProperties {
-  if (s.mode === "auto") {
-    return {
-      "--hero-r": s.ratio.desktop,
-      "--hero-rm": s.ratio.mobile,
-    } as CSSProperties;
-  }
-  return {
-    "--hero-h": heightCss(s.height),
-    "--hero-hm": heightCss(s.heightMobile ?? s.height),
-  } as CSSProperties;
-}
+const frameVars = (s: HeroSizing): CSSProperties =>
+  heroFrameVars(s) as CSSProperties;
 
 interface HeroCarouselProps {
   slides: ResolvedHeroSlide[];
@@ -97,7 +73,9 @@ export default function HeroCarousel({
   const autoPlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Slide d'amorçage : rendu pendant le chargement (image déjà en cache), swap invisible.
-  const [lead] = useState<ResolvedHeroSlide | null>(() => readLeadHero());
+const [lead] = useState<ResolvedHeroSlide | null>(() =>
+  readLeadSlide(getVariant()),
+);
   const [leadFailed, setLeadFailed] = useState(false);
   const showLead = !suspended && loading && lead !== null && !leadFailed;
   const list = showLead && lead !== null ? [lead] : slides;

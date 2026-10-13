@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import HeroHtmlBlock from "./HeroHtmlBlock";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
+import { HERO_IMG_OPTS } from "../lib/heroImages";
 import type { HeroCta, HeroLayer } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
 import { tilesLayout } from "../lib/heroGrid";
@@ -28,9 +29,9 @@ export interface HeroSlideViewProps {
 // URLs : identiques à l'ancien HeroCarousel pour que le slide 0 réutilise l'image du
 // snapshot prerender (même URL = cache). Ne changer qu'avec prerender.ts (phase 2).
 const U = {
-  fill: (s: string) => supabaseImageUrl(s, { width: 1280, quality: 75 }),
-  mobile: (s: string) => supabaseImageUrl(s, { width: 800, quality: 75 }),
-  tile: (s: string) => supabaseImageUrl(s, { width: 400, quality: 70 }),
+  fill: (s: string) => supabaseImageUrl(s, HERO_IMG_OPTS.fill),
+  mobile: (s: string) => supabaseImageUrl(s, HERO_IMG_OPTS.mobile),
+  tile: (s: string) => supabaseImageUrl(s, HERO_IMG_OPTS.tile),
 };
 
 // Masquage par appareil : CSS pur (breakpoint 768 px), aucun JS, aucun layout shift.
@@ -471,6 +472,7 @@ if (layer.type === "tiles") {
               key={i}
               html={slide.html.html}
               css={slide.html.css}
+              instant={!!isLead}
               onLink={(l) => {
                 onTrack?.(slide.id, "html", "html");
                 onLink?.(l);

@@ -1,14 +1,10 @@
 // src/components/HeroHtmlBlock.tsx — rendu ISOLÉ du HTML collé (Shadow DOM).
 // Le CSS du site n'entre pas, le CSS collé ne sort pas ; les variables (--color-*) traversent
 // la frontière : le HTML peut s'adapter au thème avec var(--color-ink) etc.
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type MouseEvent } from "react";
 import { sanitizeHeroCss } from "../lib/heroCss";
 import { cleanHeroLink } from "../lib/heroSchema";
-
-const BASE_CSS =
-  ":host{display:block;position:absolute;inset:0;overflow:hidden;contain:layout paint style;" +
-  "color:var(--color-ink);font-family:var(--font-sans);line-height:1.4}" +
-  "*,*::before,*::after{box-sizing:border-box}img,svg,picture{max-width:100%}";
+import { BASE_CSS } from "../lib/heroHtmlBase";
 
 // Cache du fragment nettoyé (un slide démonté/remonté ne re-passe pas le filtre).
 const cache = new Map<string, Promise<DocumentFragment>>();
@@ -35,8 +31,21 @@ export async function mountHeroHtml(
   if (!isCurrent()) return;
   const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   const c = sanitizeHeroCss(css);
+  const cssText = BASE_CSS + (c.errors.length ? "" : c.css);
+  // Contenu déjà identique (slide d'amorçage posé par le prerender) : on ne recrée rien,
+  // donc aucun clignotement d'image quand le filtre navigateur repasse derrière.
+  const cur = root.firstChild;
+  if (cur instanceof HTMLStyleElement && cur.textContent === cssText) {
+    const a = document.createElement("div");
+    const b = document.createElement("div");
+    root.childNodes.forEach((n, i) => {
+      if (i > 0) a.appendChild(n.cloneNode(true));
+    });
+    b.appendChild(frag.cloneNode(true));
+    if (a.innerHTML === b.innerHTML) return;
+  }
   const st = document.createElement("style");
-  st.textContent = BASE_CSS + (c.errors.length ? "" : c.css);
+  st.textContent = cssText;
   root.replaceChildren(st, frag.cloneNode(true));
 }
 
@@ -44,12 +53,35 @@ export default function HeroHtmlBlock({
   html,
   css,
   onLink,
+  instant = false,
 }: {
   html: string;
   css: string;
   onLink?: (link: string) => void;
+  /** Slide d'amorçage : html/css viennent du prerender (déjà filtrés AU BUILD par la même
+   *  politique). Montés avant la peinture ; le filtre navigateur re-vérifie ensuite. */
+  instant?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  // Montage synchrone, une seule fois (jamais pour le HTML saisi dans le studio / la preview).
+  useLayoutEffect(() => {
+    if (!instant) return;
+    const host = ref.current;
+    if (!host) return;
+    try {
+      const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+      const c = sanitizeHeroCss(css);
+      const st = document.createElement("style");
+      st.textContent = BASE_CSS + (c.errors.length ? "" : c.css);
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html; // artefact de build, filtré par heroHtmlPolicy (voir scripts/hero-lead.ts)
+      root.replaceChildren(st, tpl.content);
+    } catch {
+      /* le chemin asynchrone ci-dessous prend le relais */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const host = ref.current;

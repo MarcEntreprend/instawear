@@ -100,6 +100,7 @@ import {
   heroHasHtml,
 } from "./lib/heroResolve";
 import { useHeroSync } from "./hooks/useHeroSync";
+import { leadHtmlSeed } from "./lib/heroLead";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -780,9 +781,11 @@ export default function App() {
 
   // Hero : version + slides en UNE requête atomique (RPC), puis le HTML des seuls slides concernés.
   const heroVersionRef = useRef<number | null>(null);
+  // Amorcé avec le HTML du slide d'amorçage : le slide n°1 en HTML ne disparaît pas entre le
+  // chargement du snapshot et celui de son HTML (puis getPublished prend la main).
   const [heroHtml, setHeroHtml] = useState<
     Record<string, { html: string; css: string }>
-  >({});
+  >(() => leadHtmlSeed(getVariant()));
   const loadHero = async () => {
     try {
       const snap = await heroPromotionsApi.getSnapshot();

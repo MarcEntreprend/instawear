@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { FAQS } from "../src/data/faq";
 import { DOCS } from "../src/data/legal";
+import { buildHeroLead, type HeroLead } from "./hero-lead";
 
 const SITE = "https://instawear.vercel.app";
 const LOGO = `${SITE}/InstaWear-logo.webp`;
@@ -151,40 +152,11 @@ function setRoot(html: string, snapshot: string): string {
 // Dans <noscript> : les navigateurs AVEC JS ne l'affichent pas (zéro flash,
 // React remplace le contenu au boot), les bots SANS JS voient le contenu réel
 // (SEO/LLM préservés, même contenu que l'app = pas de cloaking).
-// leadHero (accueil uniquement) : image LCP VISIBLE peinte avant même le JS
-// (mêmes dimensions que le carrousel : swap quasi invisible au boot).
-function shell(
-  inner: string,
-  leadHero?: { src: string; alt: string },
-  leadData?: Record<string, unknown>,
-): string {
-  // Espaceurs haut (accueil seul, quand leadHero) : la barre promo + le header
-  // React s'insèrent AU-DESSUS au boot — sans réserve, le hero saute vers le
-  // bas (~100px). Hauteurs approchées (34px promo, 64px header mobile), fonds
-  // via variables (résolues dès le CSS arrivé, transparentes avant : pas de
-  // flash, pas de saut).
-  const topSpacers = leadHero
-    ? `<div style="height:34px;background:var(--color-accent-strong);"></div>` +
-      `<div style="height:64px;background:var(--color-bg);"></div>`
-    : "";
-  const heroFigure = leadHero
-    ? `<div data-lead-hero style="height:78vh;min-height:420px;max-height:760px;overflow:hidden;background:#eceae6;">` +
-      `<img src="${leadHero.src}" alt="${leadHero.alt}" fetchpriority="high" decoding="async" ` +
-      `style="width:100%;height:100%;object-fit:cover;display:block;" ` +
-      `onerror="this.closest('div').style.display='none'" /></div>`
-    : "";
-  // Données du slide d'amorçage (P4b) : mêmes règles que App.tsx (voir plus
-  // bas). JSON public catalogue (lisible en anonyme), `<` neutralisés contre
-  // toute sortie de balise. HeroCarousel les rend pendant le chargement puis
-  // bascule sur les vraies bannières (pixels identiques → swap invisible).
-  const leadJson =
-    leadHero && leadData
-      ? `<script id="lead-hero-data" type="application/json">${JSON.stringify(leadData).replace(/</g, "\\u003c")}</script>`
-      : "";
+function shell(inner: string, lead?: HeroLead | null): string {
+  // `lead.markup` (accueil seul) : espaceurs haut + slide(s) d'amorçage visibles AVANT le JS
+  // + JSON lu par HeroCarousel. Voir scripts/hero-lead.ts.
   return (
-    topSpacers +
-    heroFigure +
-    leadJson +
+    (lead ? lead.markup : "") +
     `<noscript><main style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;color:#1a1a1a;">` +
     `<p><a href="${SITE}/" style="font-weight:800;font-size:20px;color:#ff5c35;text-decoration:none;">InstaWear</a></p>` +
     inner +
@@ -279,60 +251,15 @@ const legacyPaths = (p: { id: string; slug?: string | null }): string[] => {
   return paths;
 };
 
-// 1b) 1re bannière hero (P4b — mêmes règles que App.tsx : 1re promo active
-// avec produit actif, sinon rien). Image peinte en visible avant le JS (LCP
-// instantané) + JSON embarqué pour le slide d'amorçage React (swap invisible).
-let leadHero: { src: string; alt: string } | undefined;
-let leadData: Record<string, unknown> | undefined;
+// 1b) Slide d'amorçage du hero (P4b) : MÊMES règles que la boutique (actif, planifié, produit
+// actif, variante A/B, HTML publié) via resolveHeroSlides — voir scripts/hero-lead.ts.
+let heroLead: HeroLead | null = null;
 if (url && anon && products.length > 0) {
   try {
-    const supabase = createClient(url, anon);
-    const { data: promos } = await supabase
-      .from("hero_promotions")
-      .select(
-        "image, product_id, title, headline, sub, cta, bg_gradient, tag, show_tag, show_title, is_active, order, layout, kind, link_url",
-      )
-      .order("order", { ascending: true });
-    const first = (promos ?? []).find((pr: any) => {
-      if (pr == null) return false;
-      if ((pr as any).is_active === false) return false;
-      const prod = products.find(
-        (p) => p.id === String((pr as any).product_id),
-      );
-      return !!prod;
+    heroLead = await buildHeroLead(createClient(url, anon), {
+      supabaseUrl: url,
     });
-    if (first) {
-      const prod = products.find(
-        (p) => p.id === String((first as any).product_id),
-      )!;
-      const src = String((first as any).image || prod.image || "");
-      if (src && !src.includes("missing-item")) {
-        // Miroir exact des résolutions App.tsx (useMemo heroBanners).
-        const title = String(
-          (first as any).title || prod.title || (first as any).headline || "Promotion",
-        );
-        const headline = String((first as any).headline || prod.title || "");
-        leadHero = { src: esc(src), alt: esc(title) };
-        leadData = {
-          title,
-          headline,
-          sub: String((first as any).sub || prod.description || ""),
-          cta: String((first as any).cta || "Discover"),
-          bgGradient: String((first as any).bg_gradient || ""),
-          image: src,
-          tag: String((first as any).tag || "⚡ PROMOTION"),
-          productId: prod.id,
-          showTag: (first as any).show_tag !== false,
-          showTitle: (first as any).show_title !== false,
-          layout: (first as any).layout === "split" ? "split" : "full",
-          kind: ["product", "image", "grid"].includes((first as any).kind)
-            ? (first as any).kind
-            : "product",
-          linkUrl:
-            typeof (first as any).link_url === "string" ? (first as any).link_url : null,
-        };
-      }
-    }
+    if (heroLead) console.log(`prerender: ${heroLead.info}`);
   } catch (e: any) {
     console.error("prerender: hero query failed:", e?.message || e);
   }
@@ -358,10 +285,12 @@ if (url && anon && products.length > 0) {
             )
             .join("")}</ul>`
         : ""),
-    leadHero,
-    leadData,
+    heroLead,
   );
-  write("index.html", setRoot(template, snap));
+  const homeHead = heroLead?.preload
+    ? template.replace("</head>", `    ${heroLead.preload}\n  </head>`)
+    : template;
+  write("index.html", setRoot(homeHead, snap));
 }
 
 // 3) Pages statiques

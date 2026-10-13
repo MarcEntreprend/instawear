@@ -285,7 +285,7 @@ export function heroStudioWarnings(
     if (c.ab) {
       w.push({
         level: "info",
-        text: "Slide n°1 limité à une variante A/B : le slide d'amorçage du prerender peut apparaître un instant chez l'autre variante.",
+        text: "Slide n°1 limité à une variante A/B : le prerender prépare un slide d'amorçage par variante (choisi avant la peinture). Republie pour qu'il soit pris en compte.",
       });
     }
     if (!c.layers.some((l) => l.type === "image")) {
