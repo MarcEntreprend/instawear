@@ -3,6 +3,10 @@
 // l'exact équivalent TS du backfill SQL (si l'un change, l'autre doit changer).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { newLayer } from "../src/lib/heroStudio.ts";
 import {
   cleanHeroFont,
   cleanHeroFontUrl,
@@ -384,4 +388,56 @@ test("heroFonts (PORT-15B P3) : href fermé, usage, zéro legacy", async () => {
     heroFontUrlsInUse([{ config: { fontUrl: "https://evil.com/x" } }]),
     [],
   );
+});
+
+test("marquee (PORT-15B P4) : sanitize borné, vide écarté", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      { type: "marquee", text: "  Soldes  ", speed: 500, direction: "up", tone: "pink" },
+      { type: "marquee", text: "   " },
+    ],
+    ctas: [],
+  });
+  assert.equal(c.layers.length, 1);
+  assert.deepEqual(c.layers[0], {
+    type: "marquee",
+    text: "Soldes",
+    speed: 120,
+    direction: "left",
+    tone: "dark",
+  });
+  assert.notEqual(newLayer("marquee"), null);
+  assert.equal(newLayer("marquee").type, "marquee");
+});
+
+test("marquee (PORT-15B P4) : rendu CSS-only, jamais de JS, exclu du lead", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (p: string) => readFileSync(join(root, p), "utf8");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("hero-marquee-inner"), "piste CSS");
+  assert.ok(view.includes("aria-hidden"), "moitié fantôme a11y");
+  const css = read("src/index.css");
+  assert.ok(css.includes(".hero-marquee-inner"), "animation déclarée");
+  assert.ok(css.includes("--hero-marquee-duration"), "durée variable");
+  const lead = read("scripts/hero-lead.ts");
+  assert.ok(lead.includes('"marquee"'), "lead jamais animé");
+  const ed = read("src/admin/HeroStudioPage.tsx");
+  assert.ok(ed.includes("Bandeau"), "éditeur : couche ajoutable");
+  assert.ok(ed.includes("position 1"), "avertissement LCP");
+});
+
+test("PORT-15B P0-P3 : anti-effacement (typo, fonts, theme, header)", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (p: string) => readFileSync(join(root, p), "utf8");
+  const schema = read("src/lib/heroSchema.ts");
+  assert.ok(schema.includes("cleanHeroFont"), "P3 validateurs fonts");
+  assert.ok(schema.includes("heroEffectiveFont"), "P3 effectif");
+  assert.ok(schema.includes("withTypo"), "P1-P2 typo fine");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("heroFontStack"), "P3 rendu fonts");
+  const page = read("src/admin/HeroStudioPage.tsx");
+  assert.ok(page.includes("fontUrlDraft"), "P3 import URL");
+  assert.ok(page.includes("studioTheme"), "P0 theme studio");
+  const header = read("src/components/Header.tsx");
+  assert.ok(header.includes("musicfestival"), "P0 clé header");
 });

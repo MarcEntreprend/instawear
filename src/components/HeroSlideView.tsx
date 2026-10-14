@@ -509,6 +509,58 @@ if (layer.type === "tiles") {
         return null; // "text" : rendu après les couches
       })}
 
+      {/* Marquee (PORT-15B P4) : bandes bas de slide, CSS-only, jamais de JS.
+       *  Moitiés dupliquées = boucle -50 % sans couture ; la 2e est aria-hidden.
+       *  prefers-reduced-motion neutralisé en CSS global. */}
+      {layers.some((l) => l.type === "marquee") && (
+        <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col">
+          {layers.map((l, li) => {
+            if (l.type !== "marquee") return null;
+            const light = l.tone === "light";
+            return (
+              <div
+                key={li}
+                className={`ticker-wrap ${hideCls(l.hide)}`}
+                style={{
+                  background: light ? "#fff" : "#111",
+                  color: light ? "#111" : "#fff",
+                }}
+              >
+                <div
+                  className={`hero-marquee-inner${l.direction === "right" ? " hero-marquee-reverse" : ""}`}
+                  style={{ "--hero-marquee-duration": `${l.speed}s` } as CSSProperties}
+                >
+                  {[0, 1].map((half) => (
+                    <span
+                      key={half}
+                      aria-hidden={half === 1}
+                      style={{
+                        display: "inline-flex",
+                        whiteSpace: "nowrap",
+                        padding: "8px 0",
+                        fontWeight: 800,
+                        fontSize: 13,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        ...(config.fontFamily
+                          ? { fontFamily: heroFontStack(config.fontFamily) }
+                          : null),
+                      }}
+                    >
+                      {Array.from({ length: 6 }).map((_, k) => (
+                        <span key={k} style={{ padding: "0 24px" }}>
+                          {l.text}
+                        </span>
+                      ))}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {textLayers.map((l, i) => renderText(l, i, i === 0))}
 
       {textLayers.length === 0 && inline.length > 0 && (

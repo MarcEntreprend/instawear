@@ -184,7 +184,9 @@ export const HERO_TILES_TEMPLATES: HeroTemplate[] = [
   },
 ];
 
-export function newLayer(type: "image" | "card" | "tiles" | "text"): HeroLayer {
+export function newLayer(
+  type: "image" | "card" | "tiles" | "text" | "marquee",
+): HeroLayer {
   switch (type) {
     case "image":
       return {
@@ -214,8 +216,17 @@ export function newLayer(type: "image" | "card" | "tiles" | "text"): HeroLayer {
           ctaLabel: "Découvrir",
           fromProduct: true,
         },
-        items: [],
-      };
+          items: [],
+        };
+      case "marquee":
+        // PORT-15B P4 : texte vide à la création (sanitize l'écartera si non rempli).
+        return {
+          type: "marquee",
+          text: "",
+          speed: 20,
+          direction: "left",
+          tone: "dark",
+        };
     default:
       return {
         type: "text",

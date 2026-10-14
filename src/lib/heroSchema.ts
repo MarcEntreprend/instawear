@@ -121,6 +121,15 @@ export interface HeroTextLayer {
 export interface HeroHtmlLayer {
   type: "html";
 }
+/** Bandeau défilant (PORT-15B P4) : CSS seul, jamais de JS.
+ *  Texte 1..200, vitesse 5..120 s/boucle (défaut 20). */
+export interface HeroMarqueeLayer {
+  type: "marquee";
+  text: string;
+  speed: number;
+  direction: "left" | "right";
+  tone: "light" | "dark"; // light = barre claire, dark = barre sombre
+}
 /** Drapeaux communs à toutes les couches (optionnels : absents = comportement historique). */
 export interface HeroLayerFlags {
   /** Œil fermé : non rendue (boutique ET aperçu). */
@@ -135,6 +144,7 @@ export type HeroLayer = (
   | HeroCardLayer
   | HeroTilesLayer
   | HeroTextLayer
+  | HeroMarqueeLayer
   | HeroHtmlLayer
 ) &
   HeroLayerFlags;
@@ -451,6 +461,18 @@ function sanitizeLayerCore(raw: unknown): HeroLayer | null {
         },
         raw,
       );
+    case "marquee": {
+      // PORT-15B P4 : texte vide = couche écartée ; bornes 5..120.
+      const text = str(raw.text, 200);
+      if (!text) return null;
+      return {
+        type: "marquee",
+        text,
+        speed: Math.round(num(raw.speed, 5, 120, 20)),
+        direction: pick(raw.direction, ["left", "right"] as const, "left"),
+        tone: pick(raw.tone, ["light", "dark"] as const, "dark"),
+      };
+    }
     case "html":
       return { type: "html" };
     default:

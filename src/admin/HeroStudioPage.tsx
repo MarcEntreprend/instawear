@@ -864,6 +864,66 @@ function LayerEditor({
       </>
     );
   }
+  if (layer.type === "marquee") {
+    // PORT-15B P4 : bandeau CSS-only. Éviter le slide en position 1 (LCP) :
+    // le prerender l'exclut du lead de toute façon.
+    return (
+      <>
+        <p style={{ fontSize: 11, color: "var(--color-ink4)" }}>
+          Bandeau défilant (CSS seul). Évitez le slide en position 1 (LCP) :
+          le prerender l'exclut du lead de toute façon.
+        </p>
+        <Field label="Texte (vide = couche ignorée)">
+          <input
+            type="text"
+            style={inputStyle}
+            value={layer.text}
+            onChange={(e) => onChange({ ...layer, text: e.target.value })}
+          />
+        </Field>
+        <Field label="Vitesse (secondes/boucle, 5–120)">
+          <Num
+            value={layer.speed}
+            min={5}
+            max={120}
+            onChange={(n) =>
+              onChange({
+                ...layer,
+                speed: Math.min(120, Math.max(5, Math.round(n || 20))),
+              })
+            }
+          />
+        </Field>
+        <Field label="Direction">
+          <select
+            style={inputStyle}
+            value={layer.direction}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                direction: e.target.value as "left" | "right",
+              })
+            }
+          >
+            <option value="left">Gauche</option>
+            <option value="right">Droite</option>
+          </select>
+        </Field>
+        <Field label="Ton">
+          <select
+            style={inputStyle}
+            value={layer.tone}
+            onChange={(e) =>
+              onChange({ ...layer, tone: e.target.value as "light" | "dark" })
+            }
+          >
+            <option value="dark">Sombre (texte clair)</option>
+            <option value="light">Clair (texte sombre)</option>
+          </select>
+        </Field>
+      </>
+    );
+  }
   return null;
 }
 
@@ -872,6 +932,7 @@ const LAYER_LABEL: Record<string, string> = {
   card: "Carte visuelle",
   tiles: "Tuiles",
   text: "Texte",
+  marquee: "Bandeau",
   html: "HTML",
 };
 
@@ -2727,7 +2788,7 @@ export default function HeroStudioPage() {
                 })}
                 {config.layers.length < HERO_MAX_LAYERS && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {(["image", "card", "tiles", "text"] as const).map((t) => (
+                    {(["image", "card", "tiles", "text", "marquee"] as const).map((t) => (
                       <button
                         key={t}
                         type="button"
