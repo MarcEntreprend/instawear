@@ -586,6 +586,131 @@ function LayerEditor({
             }
           />
         </Field>
+        {/* Typo fine (PORT-15B) : vide = rendu historique. */}
+        <Field label="Interlignage (0.9–2.0, vide = auto)">
+          <input
+            style={inputStyle}
+            type="number"
+            step="0.05"
+            min={0.9}
+            max={2}
+            value={layer.lineHeight ?? ""}
+            placeholder="Auto"
+            onChange={(e) => {
+              const { lineHeight: _d, ...rest } = layer;
+              onChange(
+                e.target.value === ""
+                  ? rest
+                  : { ...rest, lineHeight: Number(e.target.value) },
+              );
+            }}
+          />
+        </Field>
+        <Field label="Chasse em (−0.05–0.1, vide = auto)">
+          <input
+            style={inputStyle}
+            type="number"
+            step="0.01"
+            min={-0.05}
+            max={0.1}
+            value={layer.letterSpacing ?? ""}
+            placeholder="Auto"
+            onChange={(e) => {
+              const { letterSpacing: _d, ...rest } = layer;
+              onChange(
+                e.target.value === ""
+                  ? rest
+                  : { ...rest, letterSpacing: Number(e.target.value) },
+              );
+            }}
+          />
+        </Field>
+        <Field label="Alignement (vide = ancre)">
+          <select
+            style={inputStyle}
+            value={layer.align ?? ""}
+            onChange={(e) => {
+              const { align: _d, ...rest } = layer;
+              onChange(
+                e.target.value
+                  ? {
+                      ...rest,
+                      align: e.target.value as NonNullable<
+                        typeof layer.align
+                      >,
+                    }
+                  : rest,
+              );
+            }}
+          >
+            <option value="">Ancre</option>
+            <option value="left">Gauche</option>
+            <option value="center">Centre</option>
+            <option value="right">Droite</option>
+            <option value="justify">Justifié</option>
+          </select>
+        </Field>
+        <Field label="Casse (vide = aucune)">
+          <select
+            style={inputStyle}
+            value={layer.transform ?? ""}
+            onChange={(e) => {
+              const { transform: _d, ...rest } = layer;
+              onChange(
+                e.target.value
+                  ? {
+                      ...rest,
+                      transform: e.target.value as NonNullable<
+                        typeof layer.transform
+                      >,
+                    }
+                  : rest,
+              );
+            }}
+          >
+            <option value="">Aucune</option>
+            <option value="uppercase">MAJUSCULES</option>
+            <option value="lowercase">minuscules</option>
+            <option value="capitalize">Capitalisé</option>
+          </select>
+        </Field>
+        <Field label="Largeur max (ex. 34ch, 80% — vide = auto)">
+          <input
+            style={inputStyle}
+            type="text"
+            maxLength={12}
+            value={layer.maxWidth ?? ""}
+            placeholder="Auto"
+            onChange={(e) => {
+              const { maxWidth: _d, ...rest } = layer;
+              onChange(
+                e.target.value.trim()
+                  ? { ...rest, maxWidth: e.target.value.trim() }
+                  : rest,
+              );
+            }}
+          />
+        </Field>
+        <label
+          style={{
+            ...labelStyle,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={layer.balance === true}
+            onChange={(e) => {
+              const { balance: _d, ...rest } = layer;
+              onChange(
+                e.target.checked ? { ...rest, balance: true } : rest,
+              );
+            }}
+          />{" "}
+          Équilibrer les lignes (balance)
+        </label>
         <Field label="Badge">
           <input
             style={inputStyle}
@@ -729,6 +854,23 @@ export default function HeroStudioPage() {
   const [draftSeq, setDraftSeq] = useState(0);
   const [histTick, setHistTick] = useState(0);
   const [showStats, setShowStats] = useState(false);
+  // Thème du studio (PORT-15B) : chrome de l'outil seul (fond du conteneur),
+  // jamais le hero ni le reste de l'admin. Persisté en local.
+  const [studioTheme, setStudioTheme] = useState<"light" | "grey" | "dark">(
+    () => {
+      const v =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem("hero-studio-theme")
+          : null;
+      return v === "light" || v === "dark" ? v : "grey";
+    },
+  );
+  const studioThemeBg =
+    studioTheme === "dark"
+      ? "#0A0A0B"
+      : studioTheme === "light"
+        ? "#FFFFFF"
+        : "#F4F4F5";
   // Groupes repliés en bloc (02) : null = état initial par section, sinon tout replié/déplié.
   // Appliqué via clé de remontage (les <details> natifs ne sont pas contrôlés).
   const [secMode, setSecMode] = useState<"all" | "none" | null>(null);
@@ -1317,7 +1459,16 @@ export default function HeroStudioPage() {
   const reserved = heroReservedBottomPx(dev.w);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+        background: studioThemeBg,
+        borderRadius: 16,
+        padding: 12,
+      }}
+    >
       <style>{`
         .hs-grid{display:grid;grid-template-columns:250px minmax(0,1fr) 350px;gap:16px;align-items:start}
         .hs-panel{max-height:calc(100dvh - 170px);overflow-y:auto}
@@ -1351,6 +1502,54 @@ export default function HeroStudioPage() {
           >
             <BarChart3 size={14} /> Statistiques
           </button>
+          <div
+            style={{ display: "flex", gap: 4, marginTop: 8 }}
+            title="Thème du studio (outil seul, jamais le hero)"
+          >
+            {(
+              [
+                { id: "light", label: "Studio clair", bg: "#FFFFFF" },
+                { id: "grey", label: "Studio neutre (calibrage)", bg: "#F4F4F5" },
+                { id: "dark", label: "Studio sombre", bg: "#0A0A0B" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.label}
+                aria-pressed={studioTheme === t.id}
+                onClick={() => {
+                  setStudioTheme(t.id);
+                  try {
+                    localStorage.setItem("hero-studio-theme", t.id);
+                  } catch {
+                    /* stockage indisponible : thème session seule */
+                  }
+                }}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  border:
+                    studioTheme === t.id
+                      ? "2px solid #FF6B21"
+                      : "1px solid var(--color-border2)",
+                  background: t.bg,
+                  color: t.id === "dark" ? "#fff" : "#111",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {t.id === "light" ? (
+                  <Sun size={13} />
+                ) : t.id === "dark" ? (
+                  <Moon size={13} />
+                ) : null}
+              </button>
+            ))}
+          </div>
         </div>
         {draft && (
           <div

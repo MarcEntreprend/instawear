@@ -257,3 +257,54 @@ test("planification : fenêtre [starts, ends[", () => {
     true,
   );
 });
+
+test("typo fine (PORT-15B) : bornes, motifs, absente par défaut", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      {
+        type: "text",
+        lineHeight: 9,
+        letterSpacing: -1,
+        align: "middle",
+        transform: "blink",
+        maxWidth: "10;evil",
+        balance: true,
+      },
+    ],
+    ctas: [],
+  });
+  const t = c.layers[0] as Record<string, unknown>;
+  assert.equal(t.lineHeight, 2);
+  assert.equal(t.letterSpacing, -0.05);
+  assert.equal(t.align, "left");
+  assert.equal(t.transform, "none");
+  assert.equal(t.maxWidth, undefined);
+  assert.equal(t.balance, true);
+  const ok = sanitizeHeroConfig({
+    layers: [
+      {
+        type: "text",
+        lineHeight: 1.5,
+        letterSpacing: 0.02,
+        align: "center",
+        transform: "uppercase",
+        maxWidth: "34ch",
+      },
+    ],
+    ctas: [],
+  });
+  const o = ok.layers[0] as Record<string, unknown>;
+  assert.equal(o.lineHeight, 1.5);
+  assert.equal(o.letterSpacing, 0.02);
+  assert.equal(o.align, "center");
+  assert.equal(o.transform, "uppercase");
+  assert.equal(o.maxWidth, "34ch");
+  assert.equal(o.balance, undefined);
+  // Legacy byte-clean : aucune clé typo sans saisie.
+  const legacy = buildHeroConfigFromLegacy({ kind: "product", image: null });
+  for (const l of legacy.layers) {
+    assert.ok(!("lineHeight" in (l as object)));
+    assert.ok(!("align" in (l as object)));
+  }
+  assert.deepEqual(sanitizeHeroConfig(legacy), legacy);
+});

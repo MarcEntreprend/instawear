@@ -204,6 +204,18 @@ export default function HeroSlideView({
         : "max-w-xl";
     const side =
       a.align === "right" ? "ml-auto" : a.align === "center" ? "mx-auto" : "";
+    // Typo fine (PORT-15B) : styles appliqués seulement si définis.
+    const titleExtra: React.CSSProperties & { textWrap?: string } = {};
+    if (l.lineHeight !== undefined) titleExtra.lineHeight = l.lineHeight;
+    if (l.letterSpacing !== undefined)
+      titleExtra.letterSpacing = `${l.letterSpacing}em`;
+    if (l.transform && l.transform !== "none")
+      titleExtra.textTransform = l.transform;
+    if (l.balance === true) titleExtra.textWrap = "balance";
+    const wrapExtra: React.CSSProperties = {
+      textAlign: l.align ?? a.align,
+    };
+    if (l.maxWidth) wrapExtra.maxWidth = l.maxWidth;
     return (
       <div
         key={key}
@@ -213,7 +225,7 @@ export default function HeroSlideView({
           <div
             key={active ? "on" : "off"}
             className={`pointer-events-auto ${maxW} ${side}`}
-            style={{ textAlign: a.align }}
+            style={{ textAlign: a.align, ...wrapExtra }}
           >
             {l.showTag && tag && (
               <span
@@ -235,7 +247,7 @@ export default function HeroSlideView({
               (compact ? (
                 <H
                   className="font-extrabold text-xl sm:text-2xl leading-tight drop-shadow"
-                  style={{ color: ink }}
+                  style={{ color: ink, ...titleExtra }}
                 >
                   {lines.join(" ")}
                 </H>
@@ -246,6 +258,7 @@ export default function HeroSlideView({
                     color: ink,
                     fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
                     animationDelay: "80ms",
+                    ...titleExtra,
                   }}
                 >
                   {lines.map((line, li) => (

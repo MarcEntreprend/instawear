@@ -43,6 +43,12 @@ export type HeroTextAnchor =
   | "bottom-left";
 export type HeroTone = "auto" | "light" | "dark";
 
+/** Visibilité responsive (PORT-15B, cf. hide 02). Absent = visible partout. */
+export interface HeroHidden {
+  mobile?: boolean;
+  desktop?: boolean;
+}
+
 /** Fond plein cadre. src null = image du produit principal (product_id). */
 export interface HeroImageLayer {
   type: "image";
@@ -53,6 +59,7 @@ export interface HeroImageLayer {
   fit: "cover" | "contain";
   dim: number; // 0..1 (opacité de l'image sur le fond ; legacy "full" = 0.55)
   scrim: "none" | "left" | "bottom";
+  hidden?: HeroHidden;
 }
 /** Visuel cadré sur un côté (ex-layout split). productId => infos produit live. */
 export interface HeroCardLayer {
@@ -63,6 +70,7 @@ export interface HeroCardLayer {
   alt: string;
   productId: string | null;
   showMeta: boolean;
+  hidden?: HeroHidden;
 }
 export interface HeroTile {
   src: string;
@@ -83,6 +91,7 @@ export interface HeroTilesLayer {
   items: HeroTile[];
   /** Disposition ≥ 640 px. Absent = "split" (historique, rendu inchangé). Jamais écrit si "split". */
   variant?: "split" | "bento" | "asym" | "strip" | "mosaic";
+  hidden?: HeroHidden;
 }
 export interface HeroTextLayer {
   type: "text";
@@ -95,6 +104,14 @@ export interface HeroTextLayer {
   sub: string;
   showSub: boolean;
   fromProduct: boolean; // champs vides => titre / description du produit principal
+  hidden?: HeroHidden;
+  /** Typo fine (PORT-15B) : absents = rendu historique. */
+  lineHeight?: number; // 0.9..2.0
+  letterSpacing?: number; // em, -0.05..0.1
+  align?: "left" | "center" | "right" | "justify";
+  transform?: "none" | "uppercase" | "lowercase" | "capitalize";
+  maxWidth?: string; // "34ch" | "80%" | "520px" (motif strict)
+  balance?: boolean; // text-wrap: balance sur le titre
 }
 /** Réservé Phase 4 (contenu dans les colonnes html / css, pas dans config). */
 export interface HeroHtmlLayer {
@@ -142,6 +159,10 @@ export interface HeroConfig {
   origin: "legacy" | "studio";
   /** Test A/B : slide montré seulement à cette variante (absent = tous les visiteurs). */
   ab?: "A" | "B";
+  /** Police globale (PORT-15B) : appliquée aux blocs non verrouillés. Liste fermée. */
+  fontFamily?: string;
+  /** Import custom (PORT-15B) : URL css2 Google Fonts validée (swap forcé). */
+  fontUrl?: string;
   sizing: HeroSizing;
   background: { gradient: string };
   layers: HeroLayer[];
@@ -328,31 +349,64 @@ function sanitizeLayerCore(raw: unknown): HeroLayer | null {
       };
     }
     case "text":
-      return {
-        type: "text",
-        anchor: pick(
-          raw.anchor,
-          ["left-middle", "right-middle", "center", "bottom-left"] as const,
-          "left-middle",
-        ),
-        tone: pick(raw.tone, ["auto", "light", "dark"] as const, "auto"),
-        tag: str(raw.tag, 40),
-        showTag: raw.showTag !== false,
-        headline: str(raw.headline, 200),
-        headlineLines: pick(
-          raw.headlineLines,
-          ["all", "first"] as const,
-          "all",
-        ),
-        sub: str(raw.sub, 400),
-        showSub: raw.showSub !== false,
-        fromProduct: raw.fromProduct === true,
-      };
+      return withTypo(
+        {
+          type: "text",
+          anchor: pick(
+            raw.anchor,
+            ["left-middle", "right-middle", "center", "bottom-left"] as const,
+            "left-middle",
+          ),
+          tone: pick(raw.tone, ["auto", "light", "dark"] as const, "auto"),
+          tag: str(raw.tag, 40),
+          showTag: raw.showTag !== false,
+          headline: str(raw.headline, 200),
+          headlineLines: pick(
+            raw.headlineLines,
+            ["all", "first"] as const,
+            "all",
+          ),
+          sub: str(raw.sub, 400),
+          showSub: raw.showSub !== false,
+          fromProduct: raw.fromProduct === true,
+        },
+        raw,
+      );
     case "html":
       return { type: "html" };
     default:
       return null;
   }
+}
+
+/** Typo fine (PORT-15B) : ne retient que les clés EXPLICITEMENT fournies
+ *  (les configs existantes gardent leur rendu historique au byte). */
+function withTypo(layer: HeroTextLayer, raw: Obj): HeroTextLayer {
+  if (raw.lineHeight !== undefined)
+    layer.lineHeight = round1(num(raw.lineHeight, 0.9, 2, 1));
+  if (raw.letterSpacing !== undefined)
+    layer.letterSpacing = round2(num(raw.letterSpacing, -0.05, 0.1, 0));
+  if (raw.align !== undefined)
+    layer.align = pick(
+      raw.align,
+      ["left", "center", "right", "justify"] as const,
+      "left",
+    );
+  if (raw.transform !== undefined)
+    layer.transform = pick(
+      raw.transform,
+      ["none", "uppercase", "lowercase", "capitalize"] as const,
+      "none",
+    );
+  if (raw.maxWidth !== undefined) {
+    const v = str(raw.maxWidth, 12);
+    layer.maxWidth = /^(\d+(\.\d+)?(ch|%|px|em|rem|vw)|none)$/.test(v)
+      ? v
+      : undefined;
+    if (layer.maxWidth === undefined) delete layer.maxWidth;
+  }
+  if (raw.balance === true) layer.balance = true;
+  return layer;
 }
 
 function sanitizePoint(raw: unknown): HeroCtaPoint {
