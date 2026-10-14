@@ -1692,6 +1692,10 @@ export default function HeroStudioPage() {
         .hs-iconbtn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--color-border);background:var(--color-surface2);color:var(--color-ink2);cursor:pointer}
         .hs-iconbtn[aria-pressed="true"]{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
         .hs-iconbtn:disabled{opacity:.4;cursor:default}
+        .hs-seclabel{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--color-ink4)}
+        .hs-slidecard:hover{border-color:var(--color-accent)}
+        .hs-layerrow:hover{border-color:var(--color-accent)}
+        .hs-pill{display:inline-block;font-size:10px;font-weight:800;padding:1px 8px;border-radius:99px;white-space:nowrap}
         @media(max-width:1024px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}.hs-slidetitle{display:none}}
       `}</style>
 
@@ -1911,14 +1915,7 @@ export default function HeroStudioPage() {
                 </button>
               ))}
               {userTpls.length > 0 && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "var(--color-ink4)",
-                    marginTop: 4,
-                  }}
-                >
+                <div className="hs-seclabel" style={{ marginTop: 4 }}>
                   MES MODÈLES
                 </div>
               )}
@@ -1972,13 +1969,23 @@ export default function HeroStudioPage() {
               Nouveau slide (non enregistré)
             </div>
           )}
+          {slides.length > 0 && (
+            <div className="hs-seclabel">Slides</div>
+          )}
           {slides.map((s, i) => {
             const sel = draft?.id === s.id;
             const first =
               (s.headline || "").split("\n")[0] || "Slide sans titre";
+            const status =
+              s.isActive === false
+                ? "Brouillon"
+                : s.startsAt || s.endsAt
+                  ? "Planifié"
+                  : "En ligne";
             return (
               <div
                 key={s.id}
+                className="hs-slidecard"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -2009,17 +2016,41 @@ export default function HeroStudioPage() {
                 >
                   <div
                     style={{
-                      fontSize: 11,
-                      color: "var(--color-ink4)",
-                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
-                    #{i + 1} ·{" "}
-                    {s.isActive === false
-                      ? "Brouillon"
-                      : s.startsAt || s.endsAt
-                        ? "Planifié"
-                        : "En ligne"}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--color-ink4)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      #{i + 1}
+                    </span>
+                    <span
+                      className="hs-pill"
+                      style={
+                        status === "En ligne"
+                          ? {
+                              background: "rgba(16,185,129,.15)",
+                              color: "#10B981",
+                            }
+                          : status === "Planifié"
+                            ? {
+                                background: "rgba(245,158,11,.15)",
+                                color: "#F59E0B",
+                              }
+                            : {
+                                background: "rgba(161,161,170,.2)",
+                                color: "var(--color-ink3)",
+                              }
+                      }
+                    >
+                      {status}
+                    </span>
                   </div>
                   <div
                     style={{
@@ -2804,6 +2835,7 @@ export default function HeroStudioPage() {
                   return (
                     <div
                       key={i}
+                      className="hs-layerrow"
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -2851,6 +2883,7 @@ export default function HeroStudioPage() {
                       <button
                         type="button"
                         aria-label="Monter"
+                        title="Monter (vers le fond)"
                         disabled={!!l.lock}
                         style={{ ...btn, padding: 3 }}
                         onClick={() => {
@@ -2863,6 +2896,7 @@ export default function HeroStudioPage() {
                       <button
                         type="button"
                         aria-label="Descendre"
+                        title="Descendre (vers l'avant)"
                         disabled={!!l.lock}
                         style={{ ...btn, padding: 3 }}
                         onClick={() => {
@@ -2897,6 +2931,7 @@ export default function HeroStudioPage() {
                       <button
                         type="button"
                         aria-label="Supprimer"
+                        title="Supprimer la couche"
                         disabled={l.type === "html" && !isSuper}
                         style={{ ...btn, padding: 3, color: "#ef4444" }}
                         onClick={() => {
