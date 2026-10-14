@@ -91,6 +91,7 @@ src/
                       AuthSocial, Footer, MobileTabBar…)
     HeroCarousel.tsx / HeroSlideView.tsx / HeroHtmlBlock.tsx
                       Unified hero rendering (config-driven, lazy slides)
+                      + HeroCountdown.tsx (client-only countdown)
     product/          PDP blocks (gallery, reviews, FBT, lightbox…)
     skeletons/        Loading placeholders (cards, product page)
   pages/              Route pages (product, search, FAQ, legal, tracking,
@@ -100,7 +101,8 @@ src/
   data/               Static data (categories, materials, countries…)
   utils/ lib/         Pure helpers (colors, slugs, filters, routes, scroll,
                       imagekit, supabaseImage… + heroSchema/resolve/style/
-                      grid/quality/history/stats/tracking/lead/frame…) —
+                      grid/quality/history/stats/tracking/lead/frame/fonts/
+                      images/css/html/policy/weight…) —
                       unit-tested
   config/ constants/  Env readers, assets, order statuses
 supabase/
@@ -110,7 +112,7 @@ supabase/
                       studio phases 0/1, html table, sync, history…)
 scripts/              Sitemap + llms.txt, prerender (+ hero-lead), edge
                       env/live checks
-tests/                Unit tests, static guards (node:test, ~900 cases)
+tests/                Unit tests, static guards (node:test, ~920 cases)
 public/               Assets, robots/sitemap/llms.txt, manifest, unsubscribe
 docs-*/               API refs, protocols, audits, Lighthouse reports,
                       HERO chantier (lots, checkpoints, mockups…)
@@ -149,6 +151,7 @@ docs-*/               API refs, protocols, audits, Lighthouse reports,
 │   ├── 📁 components/                 # Storefront UI
 │   │   ├── Header.tsx / Footer.tsx / MobileTabBar.tsx
 │   │   ├── HeroCarousel.tsx / HeroSlideView.tsx / HeroHtmlBlock.tsx
+│   │   ├── HeroCountdown.tsx          # Client-only countdown (1 s tick)
 │   │   ├── DealsSection.tsx / CatalogSection.tsx
 │   │   ├── StoreProductCard.tsx / ForYouSection.tsx
 │   │   ├── CartDrawer.tsx / CheckoutFlow.tsx / OrderTrackingModal.tsx
@@ -164,14 +167,14 @@ docs-*/               API refs, protocols, audits, Lighthouse reports,
 │   ├── 📁 utils/ 📁 lib/              # Pure helpers + clients (unit-tested)
 │   │   └── lib/hero*.ts               # schema/resolve/style/grid/quality/
 │   │                                   # history/stats/tracking/lead/frame/
-│   │                                   # images/css/html/policy/weight…
+│   │                                   # fonts/images/css/html/policy/weight…
 │   └── 📁 config/ 📁 constants/       # Env readers, assets, order statuses
 ├── 📁 supabase/
 │   ├── 📁 functions/                  # 22 Edge Functions + _shared/
 │   └── 📁 migrations/                 # Versioned SQL (RLS, seeds, slugs,
 │                                       # hero phases + html/sync/history…)
 ├── 📁 scripts/                       # sitemap, prerender (+ hero-lead.ts), edge checks
-├── 📁 tests/                         # ~900 cases (node:test)
+├── 📁 tests/                         # ~920 cases (node:test)
 ├── 📁 public/                        # Assets, robots/sitemap/llms.txt, manifest
 ├── 📁 docs-API/ 📁 docs-front-back/ 📁 docs-lighthouse-reports/ 📁 docs-POD/
 ├── 📁 docs-HERO-chantier/             # Hero lots, checkpoints, mockups…
