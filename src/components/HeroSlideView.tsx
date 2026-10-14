@@ -137,6 +137,57 @@ function CtaButton({
   );
 }
 
+/** Classe + style par style de CTA (PORT-15B P6 : "hotspot" = pastille). */
+export function heroCtaClass(style: HeroCta["style"]): {
+  className: string;
+  extra?: CSSProperties;
+} {
+  switch (style) {
+    case "ghost":
+      return { className: "btn btn-ghost" };
+    case "light":
+      return {
+        className: "btn btn-ghost",
+        extra: { background: "#fff", color: "#111", borderColor: "#fff" },
+      };
+    case "dark":
+      return {
+        className: "btn btn-ghost",
+        extra: { background: "#111", color: "#fff", borderColor: "#111" },
+      };
+    case "hotspot":
+      return { className: "hero-hotspot" };
+    case "accent":
+    default:
+      return { className: "btn btn-accent" };
+  }
+}
+
+/** Pastille hotspot (PORT-15B P6) : point d'intérêt pulsant, label en
+ *  aria-label + title (pas de texte visible). Même cible que le CTA. */
+function HotspotDot({
+  label,
+  onClick,
+  className,
+  style,
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`hero-hotspot${className ? ` ${className}` : ""}`}
+      style={style}
+    />
+  );
+}
+
 const ANCHOR: Record<
   TextL["anchor"],
   { wrap: string; align?: "right" | "center" }
@@ -293,18 +344,27 @@ export default function HeroSlideView({
                 {sub}
               </p>
             )}
-            {withCtas && inline.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                {inline.map((c) => (
-                  <CtaButton
-                    key={c.id}
-                    cta={c}
-                    ink={ink}
-                    className={`animate-fade-up ${hideCls(c.hide)}`}
-                    style={{ animationDelay: "240ms" }}
-                    onClick={() => fire(c)}
-                  />
-                ))}
+              {withCtas && inline.length > 0 && (
+                <div className="flex flex-wrap gap-3">
+                  {inline.map((c) =>
+                    heroCtaClass(c.style).className === "hero-hotspot" ? (
+                      <HotspotDot
+                        key={c.id}
+                        label={c.label}
+                        onClick={() => fire(c)}
+                        className={`animate-fade-up ${hideCls(c.hide)}`}
+                      />
+                    ) : (
+                      <CtaButton
+                        key={c.id}
+                        cta={c}
+                        ink={ink}
+                        className={`animate-fade-up ${hideCls(c.hide)}`}
+                        style={{ animationDelay: "240ms" }}
+                        onClick={() => fire(c)}
+                      />
+                    ),
+                  )}
               </div>
             )}
           </div>
@@ -587,15 +647,24 @@ if (layer.type === "tiles") {
         <div className="absolute inset-0 z-10 flex items-end pointer-events-none pt-8 sm:pt-12 pb-19 sm:pb-23">
           <div className="w-full max-w-350 mx-auto px-5 sm:px-8">
             <div className="pointer-events-auto flex flex-wrap gap-3">
-              {inline.map((c) => (
-                <CtaButton
-                  key={c.id}
-                  cta={c}
-                  ink={slide.lightBg ? "#1a1916" : "#fff"}
-                  className={hideCls(c.hide)}
-                  onClick={() => fire(c)}
-                />
-              ))}
+              {inline.map((c) =>
+                heroCtaClass(c.style).className === "hero-hotspot" ? (
+                  <HotspotDot
+                    key={c.id}
+                    label={c.label}
+                    onClick={() => fire(c)}
+                    className={hideCls(c.hide)}
+                  />
+                ) : (
+                  <CtaButton
+                    key={c.id}
+                    cta={c}
+                    ink={slide.lightBg ? "#1a1916" : "#fff"}
+                    className={hideCls(c.hide)}
+                    onClick={() => fire(c)}
+                  />
+                ),
+              )}
             </div>
           </div>
         </div>
@@ -615,11 +684,19 @@ if (layer.type === "tiles") {
             className={`hero-cta-free ${hideCls(c.hide)}`}
             style={vars}
           >
-            <CtaButton
-              cta={c}
-              ink={slide.lightBg ? "#1a1916" : "#fff"}
-              onClick={() => fire(c)}
-            />
+            {heroCtaClass(c.style).className === "hero-hotspot" ? (
+              <HotspotDot
+                label={c.label}
+                onClick={() => fire(c)}
+                className="absolute z-20"
+              />
+            ) : (
+              <CtaButton
+                cta={c}
+                ink={slide.lightBg ? "#1a1916" : "#fff"}
+                onClick={() => fire(c)}
+              />
+            )}
           </div>
         );
       })}

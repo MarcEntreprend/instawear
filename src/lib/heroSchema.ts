@@ -168,7 +168,7 @@ export interface HeroCta {
   id: string;
   label: string;
   link: string | null; // null = fiche du produit principal
-  style: "accent" | "light" | "dark" | "ghost";
+  style: "accent" | "light" | "dark" | "ghost" | "hotspot";
   /** null = "inline" (dans le flux du bloc texte, comportement legacy).
    *  Sinon position libre ; au rendu : left/top = x%/y% + translate(-x%, -y%)
    *  => le bouton ne déborde JAMAIS, même à 0 % ou 100 %. */
@@ -262,11 +262,23 @@ export function cleanHeroSrc(v: unknown): string | null {
   return null;
 }
 
-/** Fond CSS : dégradé / couleur uniquement. url(), @import, ;{}<> => rejeté. */
+/** Fond CSS (PORT-15B P6) : dégradé / couleur, plus data-SVG inline
+ *  (grain) sans script. Tout url() externe, expression, @import, ;{}<> => rejeté. */
 export function cleanHeroBackground(v: unknown): string {
-  const t = str(v, 600);
+  const t = str(v, 1200);
   if (!t) return "";
-  if (/url\s*\(|expression\s*\(|@import|[;{}<>]/i.test(t)) return "";
+  if (/expression\s*\(|@import/i.test(t)) return "";
+  if (/url\s*\(/i.test(t)) {
+    const rest = t.replace(
+      /url\(\s*["']?data:image\/svg\+xml,[\s\S]*?["']?\s*\)/gi,
+      "",
+    );
+    if (/url\s*\(/i.test(rest)) return "";
+    if (/<script|javascript\s*:|\son[a-z]+\s*=|<foreignobject/i.test(t))
+      return "";
+    return t;
+  }
+  if (/[;{}<>]/i.test(t)) return "";
   return /gradient\(|^#|^var\(--|^rgba?\(|^hsla?\(/i.test(t) ? t : "";
 }
 
@@ -559,11 +571,11 @@ function sanitizeCtaCore(raw: unknown, index: number): HeroCta | null {
     id: str(raw.id, 40) || `cta-${index + 1}`,
     label,
     link: cleanHeroLink(raw.link),
-    style: pick(
-      raw.style,
-      ["accent", "light", "dark", "ghost"] as const,
-      "accent",
-    ),
+      style: pick(
+        raw.style,
+        ["accent", "light", "dark", "ghost", "hotspot"] as const,
+        "accent",
+      ),
     pos,
   };
 }

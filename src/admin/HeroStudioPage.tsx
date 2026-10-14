@@ -2984,14 +2984,15 @@ export default function HeroStudioPage() {
                         }
                         placeholder="/promotions (vide = fiche produit)"
                       />
-                      <Seg
-                        value={cta.style}
-                        options={[
-                          ["accent", "Accent"],
-                          ["light", "Clair"],
-                          ["dark", "Sombre"],
-                          ["ghost", "Contour"],
-                        ]}
+                        <Seg
+                          value={cta.style}
+                          options={[
+                            ["accent", "Accent"],
+                            ["light", "Clair"],
+                            ["dark", "Sombre"],
+                            ["ghost", "Contour"],
+                            ["hotspot", "Pastille"],
+                          ]}
                         onChange={(v) =>
                           setCta({ style: v as HeroCta["style"] })
                         }

@@ -437,6 +437,7 @@ test("PORT-15B P0-P3 : anti-effacement (typo, fonts, theme, header)", () => {
   const view = read("src/components/HeroSlideView.tsx");
   assert.ok(view.includes("heroFontStack"), "P3 rendu fonts");
   assert.ok(view.includes("hero-marquee-inner"), "P4 rendu marquee");
+  assert.ok(view.includes("HeroCountdown"), "P5 rendu countdown");
   const page = read("src/admin/HeroStudioPage.tsx");
   assert.ok(page.includes("fontUrlDraft"), "P3 import URL");
   assert.ok(page.includes("studioTheme"), "P0 theme studio");
@@ -503,4 +504,63 @@ test("countdown (PORT-15B P5) : parties exactes + rendu client-only + exclu du l
   assert.ok(lead.includes('"countdown"'), "lead jamais daté");
   const ed = read("src/admin/HeroStudioPage.tsx");
   assert.ok(ed.includes("Compte à rebours"), "éditeur : couche ajoutable");
+});
+
+test("hotspot (PORT-15B P6) : style gardé, pastille a11y, pulse réutilisé", async () => {
+  const { heroCtaClass } = await import(
+    "../src/components/HeroSlideView.tsx"
+  );
+  const c = sanitizeHeroConfig({
+    layers: [],
+    ctas: [
+      { label: "Voir", style: "hotspot", pos: { desktop: { x: 50, y: 50 } } },
+      { label: "X", style: "blink" },
+    ],
+  });
+  assert.equal(c.ctas.length, 2);
+  assert.equal(c.ctas[0].style, "hotspot");
+  assert.equal(c.ctas[1].style, "accent");
+  assert.equal(heroCtaClass("hotspot").className, "hero-hotspot");
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (p: string) => readFileSync(join(root, p), "utf8");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("HotspotDot"), "pastille dédiée");
+  assert.ok(view.includes("aria-label"), "nom accessible (pas de texte)");
+  const css = read("src/index.css");
+  assert.ok(css.includes(".hero-hotspot"), "style pastille");
+  assert.ok(
+    css.includes("pulse-ring 1.5s"),
+    "pulse réutilisé (pas de keyframes neuves)",
+  );
+});
+
+test("fonds glass/mesh/noise (PORT-15B P6) : presets valides, pisteurs refusés", async () => {
+  const { HERO_BG_PRESETS } = await import("../src/lib/heroStudio.ts");
+  const extra = HERO_BG_PRESETS.slice(6);
+  assert.equal(extra.length, 3);
+  for (const p of extra) {
+    assert.equal(
+      cleanHeroBackground(p.value),
+      p.value,
+      `${p.label} accepté`,
+    );
+  }
+  const noise = extra.find((p) => p.label.startsWith("Grain"))!;
+  assert.ok(noise.value.length <= 1200, "grain léger");
+  assert.ok(noise.value.length < 2048, "bien sous 2 Ko");
+  for (const bad of [
+    "url(https://track.me/x.png)",
+    "url(\"data:image/svg+xml,<script>alert(1)</script>\")",
+    "url(\"data:image/svg+xml,<svg onload=alert(1)></svg>\")",
+    "url(\"data:image/svg+xml,<svg><a href='javascript:alert(1)'>x</a></svg>\")",
+    "url(data:text/html,<b>hi</b>)",
+    "linear-gradient(red; background:url(x))",
+  ]) {
+    assert.equal(cleanHeroBackground(bad), "", `refusé : ${bad.slice(0, 40)}`);
+  }
+  // Règle historique intacte.
+  assert.equal(
+    cleanHeroBackground("linear-gradient(135deg, #fff 0%, #000 100%)"),
+    "linear-gradient(135deg, #fff 0%, #000 100%)",
+  );
 });
