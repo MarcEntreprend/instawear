@@ -433,11 +433,74 @@ test("PORT-15B P0-P3 : anti-effacement (typo, fonts, theme, header)", () => {
   assert.ok(schema.includes("cleanHeroFont"), "P3 validateurs fonts");
   assert.ok(schema.includes("heroEffectiveFont"), "P3 effectif");
   assert.ok(schema.includes("withTypo"), "P1-P2 typo fine");
+  assert.ok(schema.includes("HeroMarqueeLayer"), "P4 marquee");
   const view = read("src/components/HeroSlideView.tsx");
   assert.ok(view.includes("heroFontStack"), "P3 rendu fonts");
+  assert.ok(view.includes("hero-marquee-inner"), "P4 rendu marquee");
   const page = read("src/admin/HeroStudioPage.tsx");
   assert.ok(page.includes("fontUrlDraft"), "P3 import URL");
   assert.ok(page.includes("studioTheme"), "P0 theme studio");
   const header = read("src/components/Header.tsx");
   assert.ok(header.includes("musicfestival"), "P0 clé header");
+});
+
+test("countdown (PORT-15B P5) : ISO normalisé, invalide écarté", () => {
+  const c = sanitizeHeroConfig({
+    layers: [
+      {
+        type: "countdown",
+        targetAt: "2026-12-31T23:59:00",
+        label: "  Go  ",
+        tone: "pink",
+        expiredText: "",
+      },
+      { type: "countdown", targetAt: "n'importe quoi" },
+      { type: "countdown" },
+    ],
+    ctas: [],
+  });
+  assert.equal(c.layers.length, 1);
+  assert.deepEqual(c.layers[0], {
+    type: "countdown",
+    targetAt: new Date("2026-12-31T23:59:00").toISOString(),
+    label: "Go",
+    tone: "dark",
+    expiredText: "C'est parti !",
+  });
+  const f = newLayer("countdown") as { targetAt: string };
+  assert.ok(Number.isFinite(Date.parse(f.targetAt)), "factory valide");
+});
+
+test("countdown (PORT-15B P5) : parties exactes + rendu client-only + exclu du lead", async () => {
+  const { heroCountdownParts } = await import(
+    "../src/components/HeroCountdown.tsx"
+  );
+  assert.deepEqual(heroCountdownParts(100000, 1000), {
+    d: 0,
+    h: 0,
+    m: 1,
+    s: 39,
+    expired: false,
+  });
+  assert.deepEqual(heroCountdownParts(90061000, 0), {
+    d: 1,
+    h: 1,
+    m: 1,
+    s: 1,
+    expired: false,
+  });
+  assert.equal(heroCountdownParts(1000, 1000).expired, true);
+  assert.equal(heroCountdownParts(NaN, 0).expired, true);
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (p: string) => readFileSync(join(root, p), "utf8");
+  const view = read("src/components/HeroSlideView.tsx");
+  assert.ok(view.includes("HeroCountdown"), "rendu dédié");
+  const cd = read("src/components/HeroCountdown.tsx");
+  assert.ok(cd.includes("setInterval"), "tick 1 s");
+  assert.ok(cd.includes("clearInterval"), "nettoyé");
+  assert.ok(cd.includes('role="timer"'), "a11y timer");
+  const lead = read("scripts/hero-lead.ts");
+  assert.ok(lead.includes('"countdown"'), "lead jamais daté");
+  const ed = read("src/admin/HeroStudioPage.tsx");
+  assert.ok(ed.includes("Compte à rebours"), "éditeur : couche ajoutable");
 });

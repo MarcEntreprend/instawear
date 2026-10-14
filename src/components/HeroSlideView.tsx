@@ -3,6 +3,7 @@
 import { Fragment, type CSSProperties, type SyntheticEvent } from "react";
 import { ArrowRight } from "lucide-react";
 import HeroHtmlBlock from "./HeroHtmlBlock";
+import HeroCountdown from "./HeroCountdown";
 import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import { HERO_IMG_OPTS, heroImageIsRaw } from "../lib/heroImages";
@@ -562,6 +563,25 @@ if (layer.type === "tiles") {
       )}
 
       {textLayers.map((l, i) => renderText(l, i, i === 0))}
+
+      {/* Countdown (PORT-15B P5) : hydratation cliente, centré, non cliquable.
+       *  Jamais dans le lead prerender (exclu côté build). */}
+      {layers.some((l) => l.type === "countdown") && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          {layers.map((l, li) =>
+            l.type !== "countdown" ? null : (
+              <div key={li} className={hideCls(l.hide)}>
+                <HeroCountdown
+                  targetAt={l.targetAt}
+                  label={l.label}
+                  tone={l.tone}
+                  expiredText={l.expiredText}
+                />
+              </div>
+            ),
+          )}
+        </div>
+      )}
 
       {textLayers.length === 0 && inline.length > 0 && (
         <div className="absolute inset-0 z-10 flex items-end pointer-events-none pt-8 sm:pt-12 pb-19 sm:pb-23">

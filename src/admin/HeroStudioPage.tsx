@@ -924,6 +924,60 @@ function LayerEditor({
       </>
     );
   }
+  if (layer.type === "countdown") {
+    // PORT-15B P5 : hydratation cliente (jamais figé au build) et exclu du lead.
+    return (
+      <>
+        <p style={{ fontSize: 11, color: "var(--color-ink4)" }}>
+          Hydratation cliente (jamais figé au build) et exclu du lead.
+          Fuseau : heure locale du navigateur.
+        </p>
+        <Field label="Échéance">
+          <input
+            type="datetime-local"
+            style={inputStyle}
+            value={isoToLocalInput(layer.targetAt)}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const iso = localInputToIso(e.target.value);
+              if (iso) onChange({ ...layer, targetAt: iso });
+            }}
+          />
+        </Field>
+        <Field label="Étiquette (vide = aucune)">
+          <input
+            type="text"
+            style={inputStyle}
+            value={layer.label}
+            onChange={(e) => onChange({ ...layer, label: e.target.value })}
+          />
+        </Field>
+        <Field label="Texte une fois expiré">
+          <input
+            type="text"
+            style={inputStyle}
+            value={layer.expiredText}
+            maxLength={60}
+            onChange={(e) =>
+              onChange({ ...layer, expiredText: e.target.value })
+            }
+          />
+        </Field>
+        <Field label="Ton">
+          <select
+            style={inputStyle}
+            value={layer.tone}
+            onChange={(e) =>
+              onChange({ ...layer, tone: e.target.value as "light" | "dark" })
+            }
+          >
+            <option value="dark">Sombre (texte clair)</option>
+            <option value="light">Clair (texte sombre)</option>
+          </select>
+        </Field>
+      </>
+    );
+  }
   return null;
 }
 
@@ -933,6 +987,7 @@ const LAYER_LABEL: Record<string, string> = {
   tiles: "Tuiles",
   text: "Texte",
   marquee: "Bandeau",
+  countdown: "Compte à rebours",
   html: "HTML",
 };
 
@@ -2788,7 +2843,7 @@ export default function HeroStudioPage() {
                 })}
                 {config.layers.length < HERO_MAX_LAYERS && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {(["image", "card", "tiles", "text", "marquee"] as const).map((t) => (
+                    {(["image", "card", "tiles", "text", "marquee", "countdown"] as const).map((t) => (
                       <button
                         key={t}
                         type="button"

@@ -185,7 +185,7 @@ export const HERO_TILES_TEMPLATES: HeroTemplate[] = [
 ];
 
 export function newLayer(
-  type: "image" | "card" | "tiles" | "text" | "marquee",
+  type: "image" | "card" | "tiles" | "text" | "marquee" | "countdown",
 ): HeroLayer {
   switch (type) {
     case "image":
@@ -226,6 +226,15 @@ export function newLayer(
           speed: 20,
           direction: "left",
           tone: "dark",
+        };
+      case "countdown":
+        // PORT-15B P5 : échéance J+7 par défaut (ISO valide garanti).
+        return {
+          type: "countdown",
+          targetAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+          label: "",
+          tone: "dark",
+          expiredText: "C'est parti !",
         };
     default:
       return {

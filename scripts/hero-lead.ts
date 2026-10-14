@@ -1,6 +1,6 @@
 // scripts/hero-lead.ts — slide d'amorçage du hero, côté BUILD (Node). Utilisé par scripts/prerender.ts.
 // - mêmes règles de sélection que la boutique (resolveHeroSlides) pour chaque variante A/B ;
-// - marquee (PORT-15B P4) : jamais de lead animé (LCP statique garanti) ;
+// - marquee/countdown (PORT-15B P4-P5) : jamais de lead animé ou daté (LCP statique garanti) ;
 // - HTML collé : parse5 (parseur HTML5 conforme) + MÊME politique que le navigateur
 //   (heroHtmlPolicy) ; on reconstruit une chaîne neuve, rien n'est re-sérialisé par le parseur ;
 // - slide n°1 en HTML => Declarative Shadow DOM (<template shadowrootmode>).
@@ -427,9 +427,12 @@ export async function buildHeroLead(
   }
 
   const first = (v: "A" | "B") =>
-    // PORT-15B P4 : jamais de lead animé (LCP statique garanti).
+    // PORT-15B P4-P5 : jamais de lead animé ou daté (LCP statique garanti).
     resolveHeroSlides(promos, products, now, htmlRaw, v).find(
-      (s) => !s.config.layers.some((l) => l.type === "marquee"),
+      (s) =>
+        !s.config.layers.some(
+          (l) => l.type === "marquee" || l.type === "countdown",
+        ),
     ) ?? null;
   const a = await prepareLeadSlide(first("A"));
   const b = await prepareLeadSlide(first("B"));

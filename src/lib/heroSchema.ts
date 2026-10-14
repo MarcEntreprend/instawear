@@ -130,6 +130,16 @@ export interface HeroMarqueeLayer {
   direction: "left" | "right";
   tone: "light" | "dark"; // light = barre claire, dark = barre sombre
 }
+/** Compte à rebours (PORT-15B P5) : hydratation cliente uniquement
+ *  (jamais dans le HTML prerender : placeholder statique), exclu du lead. */
+export interface HeroCountdownLayer {
+  type: "countdown";
+  /** ISO UTC. Invalide => couche écartée. */
+  targetAt: string;
+  label: string;
+  tone: "light" | "dark";
+  expiredText: string;
+}
 /** Drapeaux communs à toutes les couches (optionnels : absents = comportement historique). */
 export interface HeroLayerFlags {
   /** Œil fermé : non rendue (boutique ET aperçu). */
@@ -145,6 +155,7 @@ export type HeroLayer = (
   | HeroTilesLayer
   | HeroTextLayer
   | HeroMarqueeLayer
+  | HeroCountdownLayer
   | HeroHtmlLayer
 ) &
   HeroLayerFlags;
@@ -471,6 +482,19 @@ function sanitizeLayerCore(raw: unknown): HeroLayer | null {
         speed: Math.round(num(raw.speed, 5, 120, 20)),
         direction: pick(raw.direction, ["left", "right"] as const, "left"),
         tone: pick(raw.tone, ["light", "dark"] as const, "dark"),
+      };
+    }
+    case "countdown": {
+      // PORT-15B P5 : ISO invalide = couche écartée ; ISO normalisé UTC.
+      const ms =
+        typeof raw.targetAt === "string" ? Date.parse(raw.targetAt) : NaN;
+      if (!Number.isFinite(ms)) return null;
+      return {
+        type: "countdown",
+        targetAt: new Date(ms).toISOString(),
+        label: str(raw.label, 60),
+        tone: pick(raw.tone, ["light", "dark"] as const, "dark"),
+        expiredText: str(raw.expiredText, 60) || "C'est parti !",
       };
     }
     case "html":
