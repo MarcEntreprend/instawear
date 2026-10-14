@@ -31,7 +31,7 @@ const span = (v: string, total: number): [number, number] => {
 
 test("grilles : chaque disposition pave la grille (aucune case vide ni chevauchement)", () => {
   for (const v of TILES_VARIANTS) {
-    for (let n = 0; n <= 3; n++) {
+    for (let n = 0; n <= 5; n++) {
       const L = tilesLayout(v.value, n, true);
       const C = tracks(L.cols);
       const R = tracks(L.rows);

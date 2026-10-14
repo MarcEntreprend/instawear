@@ -7,9 +7,12 @@ import {
 
 export default function HeroGridPicker({
   value,
+  count = 3,
   onChange,
 }: {
   value: HeroTilesVariant;
+  /** Nombre de tuiles du slide : les vignettes montrent la disposition réelle (1 à 5). */
+  count?: number;
   onChange: (v: HeroTilesVariant) => void;
 }) {
   const current = TILES_VARIANTS.find((t) => t.value === value);
@@ -23,7 +26,7 @@ export default function HeroGridPicker({
         }}
       >
         {TILES_VARIANTS.map((v) => {
-          const L = tilesLayout(v.value, 3, true);
+          const L = tilesLayout(v.value, count, true);
           const on = v.value === value;
           return (
             <button

@@ -103,7 +103,7 @@ test("CTA : sans label écarté, positions bornées, ids uniques, max 4", () => 
   assert.equal(new Set(c.ctas.map((x) => x.id)).size, 4);
 });
 
-test("tiles : 3 max, image invalide écartée, lien externe vidé", () => {
+test("tiles : image invalide écartée, lien externe vidé (plafond testé au lot 15)", () => {
   const c = sanitizeHeroConfig({
     layers: [
       {
@@ -120,7 +120,7 @@ test("tiles : 3 max, image invalide écartée, lien externe vidé", () => {
     ],
   });
   const t: any = c.layers[0];
-  assert.equal(t.items.length, 3);
+  assert.equal(t.items.length, 4); // 5 saisies, 1 image invalide écartée
   assert.equal(t.items[1].link, null);
 });
 

@@ -109,5 +109,24 @@ export function heroQualityWarnings(c: HeroConfig): QualityWarning[] {
       });
     }
   }
+  // Tuiles nombreuses : trop petites si le hero est bas (zone utile ≈ hauteur − 190 px de marges).
+  const manyTiles = layers.find(
+    (l): l is Extract<HeroLayer, { type: "tiles" }> => l.type === "tiles" && l.items.length >= 4,
+  );
+  if (manyTiles) {
+    const s = c.sizing;
+    const low =
+      s.mode === "fixed"
+        ? s.height.unit === "vh"
+          ? s.height.value < 70
+          : s.height.value < 600
+        : s.ratio.desktop > 2.2;
+    if (low) {
+      w.push({
+        level: "info",
+        text: "Quatre tuiles ou plus : prévois au moins 70 vh (ou 600 px) de hauteur pour qu'elles restent lisibles.",
+      });
+    }
+  }
   return w;
 }

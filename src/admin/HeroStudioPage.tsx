@@ -411,6 +411,7 @@ function LayerEditor({
         <Field label="Disposition (écrans ≥ 640 px)">
           <HeroGridPicker
             value={layer.variant ?? "split"}
+            count={Math.min(5, Math.max(1, layer.items.length))}
             onChange={(v) => {
               const { variant: _old, ...rest } = layer;
               onChange(

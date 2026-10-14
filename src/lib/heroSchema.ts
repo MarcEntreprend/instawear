@@ -11,7 +11,9 @@ export const HERO_PAYLOAD_CAP_BYTES = 51200; // = CHECK SQL hero_promotions_payl
 export const HERO_PAYLOAD_WARN_BYTES = 35840; // 35 Ko : avertissement orange
 export const HERO_MAX_LAYERS = 8;
 export const HERO_MAX_CTAS = 4;
-export const HERO_MAX_TILES = 3;
+export const HERO_MAX_TILES = 5;
+/** Colonne legacy `tiles` + backfill SQL 20261034 : 3 au plus. Le miroir TS reste l'équivalent exact du SQL. */
+export const HERO_MAX_TILES_LEGACY = 3;
 
 // ─── Types ──────────────────────────────────────────────────────────────
 export type HeroWidth = "full" | "contained";
@@ -482,7 +484,7 @@ export function buildHeroConfigFromLegacy(l: LegacyHeroFields): HeroConfig {
   if (kind === "grid") {
     const items: HeroTile[] = [];
     for (const t of Array.isArray(l.tiles) ? l.tiles : []) {
-      if (items.length >= HERO_MAX_TILES) break;
+      if (items.length >= HERO_MAX_TILES_LEGACY) break;
       if (!isObj(t)) continue;
       const src = cleanHeroSrc(t.image);
       if (!src) continue;

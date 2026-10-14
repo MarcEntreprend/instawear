@@ -51,13 +51,13 @@ export interface TilesLayout {
 
 const cell = (col: string, row: string): TileCell => ({ col, row });
 
-/** n = nombre de tuiles (0..3) ; hasMain = visuel principal présent. */
+/** n = nombre de tuiles (0..5) ; hasMain = visuel principal présent. */
 export function tilesLayout(
   variant: HeroTilesVariant,
   n: number,
   hasMain: boolean,
 ): TilesLayout {
-  const count = Math.max(0, Math.min(3, Math.floor(n)));
+  const count = Math.max(0, Math.min(5, Math.floor(n)));
 
   // Pas de visuel principal : les tuiles se partagent la largeur.
   if (!hasMain) {
@@ -71,6 +71,8 @@ export function tilesLayout(
   }
   if (count === 0)
     return { cols: "1fr", rows: "1fr", main: cell("1", "1"), items: [] };
+  // 4 et 5 tuiles : tracés dédiés (les cas 1 à 3 restent traités par le switch ci-dessous, inchangé).
+  if (count >= 4) return tilesLayoutMany(variant, count);
 
   switch (variant) {
     case "bento": {
@@ -138,6 +140,104 @@ export function tilesLayout(
         items,
       };
     }
+    default: // "split" : vignettes du sélecteur uniquement (le rendu garde le code historique)
+      return {
+        cols: "2fr 1fr",
+        rows: `repeat(${count}, 1fr)`,
+        main: cell("1", `1 / span ${count}`),
+        items: Array.from({ length: count }, (_, i) =>
+          cell("2", String(i + 1)),
+        ),
+      };
+  }
+}
+
+/** 4 ou 5 tuiles avec visuel principal. Chaque tracé couvre toute la grille, sans trou ni chevauchement. */
+function tilesLayoutMany(
+  variant: HeroTilesVariant,
+  count: number,
+): TilesLayout {
+  const five = count >= 5;
+  switch (variant) {
+    case "bento":
+      return five
+        ? {
+            cols: "repeat(4, 1fr)",
+            rows: "repeat(3, 1fr)",
+            main: cell("1 / span 2", "1 / span 3"),
+            items: [
+              cell("3 / span 2", "1"),
+              cell("3", "2"),
+              cell("4", "2"),
+              cell("3", "3"),
+              cell("4", "3"),
+            ],
+          }
+        : {
+            cols: "repeat(4, 1fr)",
+            rows: "repeat(2, 1fr)",
+            main: cell("1 / span 2", "1 / span 2"),
+            items: [
+              cell("3", "1"),
+              cell("4", "1"),
+              cell("3", "2"),
+              cell("4", "2"),
+            ],
+          };
+    case "asym":
+      return five
+        ? {
+            cols: "1.6fr 1fr 1fr",
+            rows: "repeat(3, 1fr)",
+            main: cell("1", "1 / span 3"),
+            items: [
+              cell("2", "1 / span 2"),
+              cell("2", "3"),
+              cell("3", "1"),
+              cell("3", "2"),
+              cell("3", "3"),
+            ],
+          }
+        : {
+            cols: "1.6fr 1fr 1fr",
+            rows: "repeat(2, 1fr)",
+            main: cell("1", "1 / span 2"),
+            items: [
+              cell("2", "1"),
+              cell("3", "1"),
+              cell("2", "2"),
+              cell("3", "2"),
+            ],
+          };
+    case "strip":
+      return {
+        cols: `repeat(${count}, 1fr)`,
+        rows: "2fr 1fr",
+        main: cell("1 / -1", "1"),
+        items: Array.from({ length: count }, (_, i) =>
+          cell(String(i + 1), "2"),
+        ),
+      };
+    case "mosaic":
+      return {
+        cols: "repeat(6, 1fr)",
+        rows: "repeat(2, 1fr)",
+        main: cell("1 / span 3", "1 / span 2"),
+        items: five
+          ? [
+              cell("4", "1"),
+              cell("5", "1"),
+              cell("6", "1"),
+              cell("4 / span 2", "2"),
+              cell("6", "2"),
+            ]
+          : [
+              cell("4 / span 2", "1"),
+              cell("6", "1"),
+              cell("4", "2"),
+              cell("5 / span 2", "2"),
+            ],
+      };
     default: // "split" : vignettes du sélecteur uniquement (le rendu garde le code historique)
       return {
         cols: "2fr 1fr",
