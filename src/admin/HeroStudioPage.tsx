@@ -162,17 +162,22 @@ function Section({
   children,
   open = true,
   id,
+  hidden,
 }: {
   title: string;
   children: React.ReactNode;
   open?: boolean;
   id?: string;
+  hidden?: boolean;
 }) {
   return (
     <details
       open={open}
       id={id}
-      style={{ borderBottom: "1px solid var(--color-border)" }}
+      style={{
+        borderBottom: "1px solid var(--color-border)",
+        display: hidden ? "none" : undefined,
+      }}
     >
       <summary
         style={{
@@ -1067,6 +1072,10 @@ export default function HeroStudioPage() {
   // Groupes repliés en bloc (02) : null = état initial par section, sinon tout replié/déplié.
   // Appliqué via clé de remontage (les <details> natifs ne sont pas contrôlés).
   const [secMode, setSecMode] = useState<"all" | "none" | null>(null);
+  // Onglets inspecteur V4 (maquette 02) : visuel seul, sections inchangées.
+  const [inspTab, setInspTab] = useState<"contenu" | "style" | "suivi">(
+    "contenu",
+  );
   const [restoreBackup, setRestoreBackup] = useState<Draft | null>(null);
   const seenVersion = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
@@ -1696,6 +1705,9 @@ export default function HeroStudioPage() {
         .hs-slidecard:hover{border-color:var(--color-accent)}
         .hs-layerrow:hover{border-color:var(--color-accent)}
         .hs-pill{display:inline-block;font-size:10px;font-weight:800;padding:1px 8px;border-radius:99px;white-space:nowrap}
+        .hs-tabs{display:flex;gap:4;padding:10px 12px 0}
+        .hs-tab{flex:1;padding:7px 4px;border-radius:8px;border:1px solid transparent;background:none;color:var(--color-ink3);font-size:12px;font-weight:700;cursor:pointer}
+        .hs-tab[aria-selected="true"]{background:var(--color-surface2);color:var(--color-ink);border-color:var(--color-border)}
         .hs-canvas{background-image:radial-gradient(var(--color-border2) 1px, transparent 1px);background-size:14px 14px;border-radius:20px;border:1px solid var(--color-border)}
         .hs-live{font-size:11px;color:var(--color-ink4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         @media(max-width:1024px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}.hs-slidetitle{display:none}}
@@ -2401,8 +2413,29 @@ export default function HeroStudioPage() {
                   </div>
                 )}
 
+                <div className="hs-tabs" role="tablist" aria-label="Inspecteur">
+                  {(
+                    [
+                      { id: "contenu", label: "Contenu" },
+                      { id: "style", label: "Style" },
+                      { id: "suivi", label: "Suivi" },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={inspTab === t.id}
+                      className="hs-tab"
+                      onClick={() => setInspTab(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
                 <Section
                   title="Slide"
+                  hidden={inspTab !== "contenu"}
                   id="hero-slide"
                   key={`sec-${secMode ?? "init"}-slide`}
                 open={secMode === null ? true : secMode === "all"}
@@ -2538,6 +2571,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title="Dimensions"
+                hidden={inspTab !== "style"}
                 key={`sec-${secMode ?? "init"}-dimensions`}
                 open={secMode === null ? true : secMode === "all"}
               >
@@ -2775,6 +2809,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title="Tous les slides"
+                hidden={inspTab !== "style"}
                 open={secMode === null ? false : secMode === "all"}
                 key={`sec-${secMode ?? "init"}-all`}
               >
@@ -2787,6 +2822,7 @@ export default function HeroStudioPage() {
               </Section>
               <Section
                 title="Fond"
+                hidden={inspTab !== "style"}
                 key={`sec-${secMode ?? "init"}-fond`}
                 open={secMode === null ? true : secMode === "all"}
               >
@@ -2832,6 +2868,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title={`Couches (${config.layers.length}/${HERO_MAX_LAYERS})`}
+                hidden={inspTab !== "contenu"}
               >
                 {config.layers.map((l, i) => {
                   const patchLayer = (p: {
@@ -3054,6 +3091,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title={`Boutons (${config.ctas.length}/${HERO_MAX_CTAS})`}
+                hidden={inspTab !== "contenu"}
               >
                 {config.ctas.map((cta) => {
                   const setCta = (p: Partial<HeroCta>) =>
@@ -3227,6 +3265,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title="HTML collé"
+                hidden={inspTab !== "contenu"}
                 key={`sec-${secMode ?? "init"}-html`}
                 open={secMode === null ? true : secMode === "all"}
               >
@@ -3255,6 +3294,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title="Historique"
+                hidden={inspTab !== "suivi"}
                 open={secMode === null ? false : secMode === "all"}
                 key={`sec-${secMode ?? "init"}-historique`}
               >
@@ -3269,6 +3309,7 @@ export default function HeroStudioPage() {
 
               <Section
                 title="Contrôle qualité"
+                hidden={inspTab !== "suivi"}
                 open={secMode === null ? false : secMode === "all"}
                 key={`sec-${secMode ?? "init"}-qualite`}
               >
