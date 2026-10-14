@@ -1670,6 +1670,7 @@ export default function HeroStudioPage() {
 
   return (
     <div
+      className="hs-root"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -1680,10 +1681,99 @@ export default function HeroStudioPage() {
       }}
     >
       <style>{`
-        .hs-grid{display:grid;grid-template-columns:250px minmax(0,1fr) 350px;gap:16px;align-items:start}
+        .hs-root{--hs-accent:#FF6B21}
+        .hs-grid{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:16px;align-items:start}
         .hs-panel{max-height:calc(100dvh - 170px);overflow-y:auto}
-        @media(max-width:1180px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}}
+        .hs-topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10;height:56px;padding:0 12px;border-radius:12px;background:var(--color-surface);border:1px solid var(--color-border)}
+        .hs-brand{display:flex;align-items:center;gap:8;font-weight:800;font-size:15px;color:var(--color-ink);white-space:nowrap}
+        .hs-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:rgba(255,107,33,.15);color:#FF8A4D;white-space:nowrap}
+        .hs-slidetitle{font-size:12px;color:var(--color-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .hs-cluster{display:flex;align-items:center;gap:6;margin-left:auto}
+        .hs-iconbtn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--color-border);background:var(--color-surface2);color:var(--color-ink2);cursor:pointer}
+        .hs-iconbtn[aria-pressed="true"]{background:var(--color-accent);border-color:var(--color-accent);color:#fff}
+        .hs-iconbtn:disabled{opacity:.4;cursor:default}
+        @media(max-width:1024px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}.hs-slidetitle{display:none}}
       `}</style>
+
+      {/* Barre haute V1 (maquette 02) : marque + slide courant + contrôles déplacés, handlers inchangés. */}
+      <div className="hs-topbar">
+        <span className="hs-brand">
+          <span style={{ color: "var(--hs-accent)" }}>◉</span> Hero Studio
+          <span className="hs-badge">Versatile Engine</span>
+        </span>
+        <span className="hs-slidetitle">
+          {draft
+            ? draft.id && slides.some((s) => s.id === draft.id)
+              ? `Slide ${slides.findIndex((s) => s.id === draft.id) + 1} / ${slides.length}`
+              : "Nouveau slide"
+            : "Sélectionne un slide"}
+        </span>
+        <div className="hs-cluster">
+          {(Object.keys(DEVICES) as DeviceKey[]).map((k) => {
+            const { Icon, label } = DEVICES[k];
+            return (
+              <button
+                key={k}
+                type="button"
+                title={`Aperçu ${label}`}
+                aria-pressed={device === k}
+                onClick={() => setDevice(k)}
+                className="hs-iconbtn"
+              >
+                <Icon size={15} />
+              </button>
+            );
+          })}
+          {(
+            [
+              { id: "light", label: "Studio clair", bg: "#FFFFFF" },
+              { id: "grey", label: "Studio neutre (calibrage)", bg: "#F4F4F5" },
+              { id: "dark", label: "Studio sombre", bg: "#0A0A0B" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              title={t.label}
+              aria-pressed={studioTheme === t.id}
+              onClick={() => {
+                setStudioTheme(t.id);
+                try {
+                  localStorage.setItem("hero-studio-theme", t.id);
+                } catch {
+                  /* stockage indisponible : thème session seule */
+                }
+              }}
+              className="hs-iconbtn"
+              style={{ borderRadius: "50%", background: t.bg }}
+            >
+              {t.id === "light" ? (
+                <Sun size={13} color="#111" />
+              ) : t.id === "dark" ? (
+                <Moon size={13} color="#fff" />
+              ) : null}
+            </button>
+          ))}
+          {draft && (
+            <>
+              <button type="button" onClick={undo} disabled={undoStack.current.length === 0} className="hs-iconbtn" title="Annuler (Ctrl+Z)" aria-label="Annuler">
+                <Undo2 size={15} />
+              </button>
+              <button type="button" onClick={redo} disabled={redoStack.current.length === 0} className="hs-iconbtn" title="Rétablir (Ctrl+Y)" aria-label="Rétablir">
+                <Redo2 size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                style={{ ...btnAccent, opacity: saving ? 0.6 : 1 }}
+              >
+                <Save size={14} /> {saving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       <div
         style={{
@@ -1695,15 +1785,6 @@ export default function HeroStudioPage() {
         }}
       >
         <div>
-          <h2
-            style={{ fontSize: 20, fontWeight: 700, color: "var(--color-ink)" }}
-          >
-            Hero Studio
-          </h2>
-          <p style={{ fontSize: 13, color: "var(--color-ink3)" }}>
-            Compose le hero de la boutique : couches, dimensions, boutons,
-            aperçu desktop et mobile.
-          </p>
           <HeroSyncBadge />
           <button
             type="button"
@@ -1712,54 +1793,6 @@ export default function HeroStudioPage() {
           >
             <BarChart3 size={14} /> Statistiques
           </button>
-          <div
-            style={{ display: "flex", gap: 4, marginTop: 8 }}
-            title="Thème du studio (outil seul, jamais le hero)"
-          >
-            {(
-              [
-                { id: "light", label: "Studio clair", bg: "#FFFFFF" },
-                { id: "grey", label: "Studio neutre (calibrage)", bg: "#F4F4F5" },
-                { id: "dark", label: "Studio sombre", bg: "#0A0A0B" },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                title={t.label}
-                aria-pressed={studioTheme === t.id}
-                onClick={() => {
-                  setStudioTheme(t.id);
-                  try {
-                    localStorage.setItem("hero-studio-theme", t.id);
-                  } catch {
-                    /* stockage indisponible : thème session seule */
-                  }
-                }}
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  border:
-                    studioTheme === t.id
-                      ? "2px solid #FF6B21"
-                      : "1px solid var(--color-border2)",
-                  background: t.bg,
-                  color: t.id === "dark" ? "#fff" : "#111",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {t.id === "light" ? (
-                  <Sun size={13} />
-                ) : t.id === "dark" ? (
-                  <Moon size={13} />
-                ) : null}
-              </button>
-            ))}
-          </div>
         </div>
         {draft && (
           <div
@@ -1770,12 +1803,6 @@ export default function HeroStudioPage() {
               flexWrap: "wrap",
             }}
           >
-            <button type="button" onClick={undo} disabled={undoStack.current.length === 0} style={btn} title="Annuler (Ctrl+Z)" aria-label="Annuler">
-              <Undo2 size={14} />
-            </button>
-            <button type="button" onClick={redo} disabled={redoStack.current.length === 0} style={btn} title="Rétablir (Ctrl+Y)" aria-label="Rétablir">
-              <Redo2 size={14} />
-            </button>
             {restoreBackup && (
               <button
                 type="button"
@@ -1816,14 +1843,6 @@ export default function HeroStudioPage() {
             >
               {draft.isActive ? <Eye size={14} /> : <EyeOff size={14} />}{" "}
               {draft.isActive ? "Visible en boutique" : "Brouillon"}
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              style={{ ...btnAccent, opacity: saving ? 0.6 : 1 }}
-            >
-              <Save size={14} /> {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>
         )}
@@ -2077,26 +2096,6 @@ export default function HeroStudioPage() {
               flexWrap: "wrap",
             }}
           >
-            {(Object.keys(DEVICES) as DeviceKey[]).map((k) => {
-              const { Icon, label } = DEVICES[k];
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setDevice(k)}
-                  style={{
-                    ...btn,
-                    background:
-                      device === k
-                        ? "var(--color-accent)"
-                        : "var(--color-surface2)",
-                    color: device === k ? "#fff" : "var(--color-ink2)",
-                  }}
-                >
-                  <Icon size={14} /> {label}
-                </button>
-              );
-            })}
             <span style={{ flex: 1 }} />
             <button
               type="button"
