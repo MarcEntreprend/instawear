@@ -1696,6 +1696,8 @@ export default function HeroStudioPage() {
         .hs-slidecard:hover{border-color:var(--color-accent)}
         .hs-layerrow:hover{border-color:var(--color-accent)}
         .hs-pill{display:inline-block;font-size:10px;font-weight:800;padding:1px 8px;border-radius:99px;white-space:nowrap}
+        .hs-canvas{background-image:radial-gradient(var(--color-border2) 1px, transparent 1px);background-size:14px 14px;border-radius:20px;border:1px solid var(--color-border)}
+        .hs-live{font-size:11px;color:var(--color-ink4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         @media(max-width:1024px){.hs-grid{grid-template-columns:1fr}.hs-panel{max-height:none}.hs-slidetitle{display:none}}
       `}</style>
 
@@ -2127,6 +2129,14 @@ export default function HeroStudioPage() {
               flexWrap: "wrap",
             }}
           >
+            <span className="hs-live">
+              ● Live Preview · {dev.w}×{dev.h} ·{" "}
+              {selCta
+                ? `bouton ${selCta}`
+                : layer
+                  ? `couche ${layerSel + 1} ${LAYER_LABEL[layer.type] ?? layer.type}`
+                  : "slide"}
+            </span>
             <span style={{ flex: 1 }} />
             <button
               type="button"
@@ -2151,13 +2161,11 @@ export default function HeroStudioPage() {
 
           <div
             ref={canvasRef}
+            className="hs-canvas"
             style={{
               width: "100%",
               overflow: "hidden",
-              background:
-                "repeating-conic-gradient(var(--color-surface2) 0% 25%, var(--color-surface) 0% 50%) 0 0 / 20px 20px",
-              borderRadius: 12,
-              padding: 2,
+              padding: 12,
             }}
           >
             {draft ? (
@@ -2167,6 +2175,11 @@ export default function HeroStudioPage() {
                   width: dev.w * scale,
                   height: dev.h * scale,
                   margin: "0 auto",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  background: "var(--color-bg)",
+                  boxShadow: "var(--shadow-lg)",
                 }}
               >
                 <iframe
