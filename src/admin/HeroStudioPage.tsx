@@ -6,12 +6,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Plus,
-  Trash2,
-  ArrowUp,
-  ArrowDown,
-  Save,
+  import {
+    Plus,
+    Trash2,
+    ArrowUp,
+    ArrowDown,
+    Copy,
+    Save,
   Eye,
   EyeOff,
   Monitor,
@@ -45,6 +46,7 @@ import {
 import {
   sanitizeHeroConfig,
   resolveHeroConfig,
+  heroPayloadBudget,
   HERO_FONT_FAMILIES,
   HERO_MAX_CTAS,
   HERO_MAX_LAYERS,
@@ -68,6 +70,7 @@ import { resolveHeroSlideForPreview } from "../lib/heroResolve";
 import {
   HERO_BG_PRESETS,
   HERO_CONFIG_CAP_BYTES,
+  HERO_CTA_POSITIONS,
   HERO_FRAME_SOURCE,
   HERO_PREVIEW_PATH,
   HERO_STUDIO_SOURCE,
@@ -79,6 +82,7 @@ import {
   heroStudioWarnings,
   isoToLocalInput,
   localInputToIso,
+  matchCtaPresetId,
   moveItem,
   newCta,
   newLayer,
@@ -157,14 +161,17 @@ function Section({
   title,
   children,
   open = true,
+  id,
 }: {
   title: string;
   children: React.ReactNode;
   open?: boolean;
+  id?: string;
 }) {
   return (
     <details
       open={open}
+      id={id}
       style={{ borderBottom: "1px solid var(--color-border)" }}
     >
       <summary
@@ -289,6 +296,13 @@ function measureRatio(src: string): Promise<number | null> {
 }
 
 // ─── Éditeur d'une couche ───────────────────────────────────────────────
+// Fait défiler l'inspecteur vers la sélection (15-b : scrollToId).
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({
+    behavior: "smooth",
+    block: "nearest",
+  });
+}
 function LayerEditor({
   layer,
   onChange,
@@ -1367,9 +1381,17 @@ export default function HeroStudioPage() {
           if (!ok) return;
         }
       }
-      const config = sanitizeHeroConfig({ ...draft.config, origin: "studio" });
-      if (heroConfigBytes(config) > HERO_CONFIG_CAP_BYTES)
-        throw new Error("Configuration trop lourde (> 20 000 octets).");
+        const config = sanitizeHeroConfig({ ...draft.config, origin: "studio" });
+        if (heroConfigBytes(config) > HERO_CONFIG_CAP_BYTES)
+          throw new Error("Configuration trop lourde (> 20 000 octets).");
+        const htmlBudget = heroPayloadBudget(
+          liveHtml?.html ?? "",
+          liveHtml?.css ?? "",
+        );
+        if (htmlBudget.level === "over")
+          throw new Error(
+            `HTML+CSS trop lourds (${htmlBudget.bytes} > plafond ${htmlBudget.capBytes} octets) — réduisez avant d'enregistrer.`,
+          );
       const m = heroConfigToLegacy(config);
       const payload = {
         productId: draft.productId,
@@ -1638,6 +1660,11 @@ export default function HeroStudioPage() {
         })
       : [];
   const bytes = config ? heroConfigBytes(config) : 0;
+  // Budget HTML+CSS (15-b) : compteur + blocage save si dépassement.
+  const budget = heroPayloadBudget(
+    liveHtml?.html ?? "",
+    liveHtml?.css ?? "",
+  );
   const layer = config?.layers[layerSel] ?? null;
   const reserved = heroReservedBottomPx(dev.w);
 
@@ -2312,14 +2339,29 @@ export default function HeroStudioPage() {
                     borderBottom: "1px solid var(--color-border)",
                   }}
                 >
-                  Slide hérité : il sera converti au nouveau format à
-                  l'enregistrement.
-                </div>
-              )}
+                    Slide hérité : il sera converti au nouveau format à
+                    l'enregistrement.
+                  </div>
+                )}
+                {!draft.isActive && (
+                  <div
+                    style={{
+                      padding: "10px 16px",
+                      fontSize: 12,
+                      background: "var(--color-surface2)",
+                      color: "var(--color-ink2)",
+                      borderBottom: "1px solid var(--color-border)",
+                    }}
+                  >
+                    Slide désactivé : invisible en boutique (l'aperçu ci-dessous
+                    le montre quand même).
+                  </div>
+                )}
 
-              <Section
-                title="Slide"
-                key={`sec-${secMode ?? "init"}-slide`}
+                <Section
+                  title="Slide"
+                  id="hero-slide"
+                  key={`sec-${secMode ?? "init"}-slide`}
                 open={secMode === null ? true : secMode === "all"}
               >
                 <Field label="Produit principal">
@@ -2444,6 +2486,11 @@ export default function HeroStudioPage() {
                         : "Vide = aucune. Domaine fonts.googleapis.com uniquement.")}
                   </span>
                 </Field>
+                <p style={{ fontSize: 11, color: budget.level === "over" ? "#ef4444" : budget.level === "warn" ? "#d97706" : "var(--color-ink4)", margin: 0 }}>
+                  HTML+CSS : {budget.bytes} / {budget.capBytes} octets
+                  ({budget.pct} %)
+                  {budget.level === "over" ? " — TROP LOURD" : ""}
+                </p>
               </Section>
 
               <Section
@@ -2774,7 +2821,10 @@ export default function HeroStudioPage() {
                     >
                       <button
                         type="button"
-                        onClick={() => setLayerSel(i)}
+                        onClick={() => {
+                          setLayerSel(i);
+                          scrollToId(`hero-layer-${i}`);
+                        }}
                         style={{
                           flex: 1,
                           textAlign: "left",
@@ -2825,8 +2875,30 @@ export default function HeroStudioPage() {
                       </button>
                       <button
                         type="button"
+                        aria-label="Dupliquer"
+                        title="Dupliquer la couche"
+                        disabled={!!l.lock || config.layers.length >= HERO_MAX_LAYERS}
+                        style={{ ...btn, padding: 3 }}
+                        onClick={() => {
+                          patchConfig((c) => {
+                            if (c.layers.length >= HERO_MAX_LAYERS) return c;
+                            const next = [...c.layers];
+                            next.splice(
+                              i + 1,
+                              0,
+                              JSON.parse(JSON.stringify(c.layers[i])),
+                            );
+                            return { ...c, layers: next };
+                          });
+                          setLayerSel(Math.min(config.layers.length, i + 1));
+                        }}
+                      >
+                        <Copy size={12} />
+                      </button>
+                      <button
+                        type="button"
                         aria-label="Supprimer"
-                        disabled={!!l.lock || (l.type === "html" && !isSuper)}
+                        disabled={l.type === "html" && !isSuper}
                         style={{ ...btn, padding: 3, color: "#ef4444" }}
                         onClick={() => {
                           patchConfig((c) => ({
@@ -2889,16 +2961,17 @@ export default function HeroStudioPage() {
                   Ordre : la 1re couche est tout au fond. Le texte et les
                   boutons passent toujours au-dessus.
                 </p>
-                {layer && (
-                  <div
-                    style={{
-                      paddingTop: 8,
-                      borderTop: "1px solid var(--color-border)",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
+                  {layer && (
+                    <div
+                      id={`hero-layer-${layerSel}`}
+                      style={{
+                        paddingTop: 8,
+                        borderTop: "1px solid var(--color-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                      }}
+                    >
                     <strong
                       style={{ fontSize: 12, color: "var(--color-ink2)" }}
                     >
@@ -2946,7 +3019,11 @@ export default function HeroStudioPage() {
                   return (
                     <div
                       key={cta.id}
-                      onClick={() => setSelCta(cta.id)}
+                      id={`hero-cta-${cta.id}`}
+                      onClick={() => {
+                        setSelCta(cta.id);
+                        scrollToId(`hero-cta-${cta.id}`);
+                      }}
                       style={{
                         padding: 10,
                         borderRadius: 12,
@@ -2997,21 +3074,36 @@ export default function HeroStudioPage() {
                           setCta({ style: v as HeroCta["style"] })
                         }
                       />
-                      <Seg
-                        value={cta.pos ? "free" : "inline"}
-                        options={[
-                          ["inline", "Sous le texte"],
-                          ["free", "Position libre"],
-                        ]}
-                        onChange={(v) =>
-                          setCta({
-                            pos:
-                              v === "free"
-                                ? { desktop: { x: 50, y: 70 } }
+                      <Field label="Position">
+                        <select
+                          style={inputStyle}
+                          value={matchCtaPresetId(cta.pos)}
+                          onChange={(e) => {
+                            const p = HERO_CTA_POSITIONS.find(
+                              (x) => x.id === e.target.value,
+                            );
+                            if (!p) return;
+                            if (p.pos === "custom") {
+                              // Personnalisée : garde la position actuelle
+                              // (drag sur l'aperçu), ou centre par défaut.
+                              if (!cta.pos)
+                                setCta({ pos: { desktop: { x: 50, y: 70 } } });
+                              return;
+                            }
+                            setCta({
+                              pos: p.pos
+                                ? JSON.parse(JSON.stringify(p.pos))
                                 : null,
-                          })
-                        }
-                      />
+                            });
+                          }}
+                        >
+                          {HERO_CTA_POSITIONS.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
                       {cta.pos && (
                         <>
                           <p
@@ -3053,7 +3145,6 @@ export default function HeroStudioPage() {
                       )}
                       <button
                         type="button"
-                        disabled={!!cta.lock}
                         style={{
                           ...btn,
                           color: "#ef4444",

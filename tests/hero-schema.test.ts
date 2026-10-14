@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { newLayer } from "../src/lib/heroStudio.ts";
+import { newLayer, HERO_CTA_POSITIONS, matchCtaPresetId } from "../src/lib/heroStudio.ts";
 import {
   cleanHeroFont,
   cleanHeroFontUrl,
@@ -563,4 +563,30 @@ test("fonds glass/mesh/noise (PORT-15B P6) : presets valides, pisteurs refusés"
     cleanHeroBackground("linear-gradient(135deg, #fff 0%, #000 100%)"),
     "linear-gradient(135deg, #fff 0%, #000 100%)",
   );
+});
+
+test("presets position CTA (F1) : match exact, custom sinon, round-trip sanitize", () => {
+  assert.equal(matchCtaPresetId(null), "inline");
+  for (const p of HERO_CTA_POSITIONS) {
+    if (p.pos === "custom") continue;
+    assert.equal(matchCtaPresetId(p.pos), p.id, p.id);
+  }
+  assert.equal(matchCtaPresetId({ desktop: { x: 13, y: 77 } }), "custom");
+  // Les presets survivent à sanitize sans changer de forme.
+  for (const p of HERO_CTA_POSITIONS) {
+    if (p.pos === null || p.pos === "custom") continue;
+    const c = sanitizeHeroConfig({
+      layers: [],
+      ctas: [{ label: "Go", pos: p.pos }],
+    });
+    assert.deepEqual(c.ctas[0].pos, p.pos, p.id);
+  }
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const read = (f: string) => readFileSync(join(root, f), "utf8");
+  const ed = read("src/admin/HeroStudioPage.tsx");
+  assert.ok(ed.includes("HERO_CTA_POSITIONS"), "éditeur : presets 1-clic");
+  assert.ok(ed.includes("Dupliquer"), "éditeur : dupliquer couche");
+  assert.ok(ed.includes("scrollToId"), "éditeur : scroll sélection");
+  assert.ok(ed.includes("HTML+CSS"), "éditeur : compteur payload");
+  assert.ok(ed.includes("Slide désactivé"), "éditeur : notice inactif");
 });

@@ -278,6 +278,41 @@ export function newCta(): HeroCta {
   };
 }
 
+/** Positions CTA nommées 1-clic (15-b) : null = dans le flux du texte
+ *  (comportement legacy). % bornés 0..100 par sanitize, rendu
+ *  translate(-x%,-y%) => zéro débordement même à 0/100. */
+export const HERO_CTA_POSITIONS: {
+  id: string;
+  label: string;
+  pos: HeroCta["pos"] | "custom";
+}[] = [
+  { id: "inline", label: "Sous le texte (dans le flux)", pos: null },
+  {
+    id: "bottom-right",
+    label: "Bas · droite",
+    pos: { desktop: { x: 96, y: 82 }, mobile: { x: 96, y: 84 } },
+  },
+  {
+    id: "bottom-left",
+    label: "Bas · gauche",
+    pos: { desktop: { x: 4, y: 84 }, mobile: { x: 4, y: 86 } },
+  },
+  { id: "center", label: "Centre", pos: { desktop: { x: 50, y: 50 } } },
+  { id: "top-right", label: "Haut · droite", pos: { desktop: { x: 96, y: 16 } } },
+  { id: "custom", label: "Personnalisée…", pos: "custom" },
+];
+
+/** Id du preset correspondant à pos (comparaison exacte), sinon "custom". */
+export function matchCtaPresetId(pos: HeroCta["pos"]): string {
+  if (pos === null) return "inline";
+  const key = JSON.stringify(pos);
+  for (const p of HERO_CTA_POSITIONS) {
+    if (p.pos !== null && p.pos !== "custom" && JSON.stringify(p.pos) === key)
+      return p.id;
+  }
+  return "custom";
+}
+
 function layerOf<T extends HeroLayer["type"]>(c: HeroConfig, type: T) {
   return c.layers.find(
     (l): l is Extract<HeroLayer, { type: T }> => l.type === type,
