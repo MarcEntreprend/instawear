@@ -80,28 +80,40 @@ src/
   App.tsx             Storefront shell (routing, cart, auth, overlays)
   admin/              Back office (dashboard, orders, products, reviews,
                       customers, marketing, reports, settings…)
+                      + Hero Studio (/admin → Marketing → Hero Studio :
+                      HeroStudioPage, iframe preview HeroPreviewFrame,
+                      HTML/stats/history/weight panels, grid picker…)
   api/                Supabase client + typed API layers (products, orders,
-                      merch, customer mapping…)
+                      merch, customer mapping… + heroPromotionsApi,
+                      heroHtmlApi, heroSyncApi, heroStatsApi…)
   components/         Storefront UI (Header, Hero, Catalog, ProductCard,
                       CartDrawer, CheckoutFlow, AccountPage, AuthModal,
                       AuthSocial, Footer, MobileTabBar…)
+    HeroCarousel.tsx / HeroSlideView.tsx / HeroHtmlBlock.tsx
+                      Unified hero rendering (config-driven, lazy slides)
     product/          PDP blocks (gallery, reviews, FBT, lightbox…)
     skeletons/        Loading placeholders (cards, product page)
   pages/              Route pages (product, search, FAQ, legal, tracking,
                       promotions, order success…)
-  hooks/              Shared hooks (currency, taxonomy, overlays, badges…)
+  hooks/              Shared hooks (currency, taxonomy, overlays, badges…,
+                      useHeroSync…)
   data/               Static data (categories, materials, countries…)
   utils/ lib/         Pure helpers (colors, slugs, filters, routes, scroll,
-                      imagekit, supabaseImage…) — unit-tested
+                      imagekit, supabaseImage… + heroSchema/resolve/style/
+                      grid/quality/history/stats/tracking/lead/frame…) —
+                      unit-tested
   config/ constants/  Env readers, assets, order statuses
 supabase/
-  functions/          21 Edge Functions (stripe-*, printful-*, send-email,
+  functions/          22 Edge Functions (stripe-*, printful-*, send-email,
                       sync-printful, merch-scorer…) + _shared/
-  migrations/         Versioned SQL (RLS, taxonomy seeds, slugs…)
-scripts/              Sitemap + llms.txt, prerender, edge env/live checks
-tests/                Unit tests, static guards (node:test, ~800 cases)
+  migrations/         Versioned SQL (RLS, taxonomy seeds, slugs, hero
+                      studio phases 0/1, html table, sync, history…)
+scripts/              Sitemap + llms.txt, prerender (+ hero-lead), edge
+                      env/live checks
+tests/                Unit tests, static guards (node:test, ~900 cases)
 public/               Assets, robots/sitemap/llms.txt, manifest, unsubscribe
-docs-*/               API refs, protocols, audits, Lighthouse reports
+docs-*/               API refs, protocols, audits, Lighthouse reports,
+                      HERO chantier (lots, checkpoints, mockups…)
 ```
 
 ## Project structure (tree)
@@ -118,6 +130,11 @@ docs-*/               API refs, protocols, audits, Lighthouse reports
 │   │   ├── ReviewsPage.tsx            # Review moderation
 │   │   ├── FinancesPage.tsx / ReportsPage.tsx / MerchandisingPage.tsx
 │   │   ├── EmailMarketingPage.tsx / NotificationsPage.tsx / PromotionsPage.tsx
+│   │   ├── HeroStudioPage.tsx         # Hero Studio (Marketing section)
+│   │   ├── HeroPreviewFrame.tsx       # Studio preview iframe (/admin/hero-preview)
+│   │   ├── HeroHtmlPanel.tsx / HeroHistoryPanel.tsx / HeroStatsPanel.tsx
+│   │   ├── HeroSyncBadge.tsx / HeroWeightCheck.tsx / HeroGridPicker.tsx
+│   │   ├── HeroFlagButtons.tsx        # Eye/lock/hide per layer
 │   │   ├── MockupStudio.tsx / GalleryPicker.tsx / ProductFormPanel.tsx
 │   │   ├── SettingsPage.tsx / IntegrationsPage.tsx / ErrorMonitoringPage.tsx
 │   │   ├── AdminUsersPage.tsx / HelpPage.tsx / ShippedDeliveredPage.tsx
@@ -126,12 +143,13 @@ docs-*/               API refs, protocols, audits, Lighthouse reports
 │   │   ├── emailMarketing/            # Templates, prefs, events sections
 │   │   └── adminTypes.ts / adminHooks.ts / adminStyles.ts / adminGuards.ts
 │   ├── 📁 api/                        # Typed Supabase layers
-│   │   ├── supabaseApi.ts             # products, orders, merch, prefs…
+│   │   ├── supabaseApi.ts             # products, orders, merch, prefs… + hero*
 │   │   ├── customerMapping.ts         # Pure RPC mapping (tested)
 │   │   └── storageApi.ts
 │   ├── 📁 components/                 # Storefront UI
 │   │   ├── Header.tsx / Footer.tsx / MobileTabBar.tsx
-│   │   ├── HeroCarousel.tsx / DealsSection.tsx / CatalogSection.tsx
+│   │   ├── HeroCarousel.tsx / HeroSlideView.tsx / HeroHtmlBlock.tsx
+│   │   ├── DealsSection.tsx / CatalogSection.tsx
 │   │   ├── StoreProductCard.tsx / ForYouSection.tsx
 │   │   ├── CartDrawer.tsx / CheckoutFlow.tsx / OrderTrackingModal.tsx
 │   │   ├── AccountPage.tsx / AccountTabToolbar.tsx
@@ -141,16 +159,22 @@ docs-*/               API refs, protocols, audits, Lighthouse reports
 │   │   └── 📁 skeletons/              # Loading placeholders
 │   ├── 📁 pages/                      # Route pages (/item, /search, /faq…)
 │   ├── 📁 hooks/                      # useTaxonomy, useCurrency, useTimidBar…
+│   │   └── useHeroSync.ts             # Hero freshness (focus ≤1/min)
 │   ├── 📁 data/                       # categories, materials, countries…
 │   ├── 📁 utils/ 📁 lib/              # Pure helpers + clients (unit-tested)
+│   │   └── lib/hero*.ts               # schema/resolve/style/grid/quality/
+│   │                                   # history/stats/tracking/lead/frame/
+│   │                                   # images/css/html/policy/weight…
 │   └── 📁 config/ 📁 constants/       # Env readers, assets, order statuses
 ├── 📁 supabase/
-│   ├── 📁 functions/                  # 21 Edge Functions + _shared/
-│   └── 📁 migrations/                 # Versioned SQL (RLS, seeds, slugs…)
-├── 📁 scripts/                       # sitemap, prerender, edge checks
-├── 📁 tests/                         # ~800 cases (node:test)
+│   ├── 📁 functions/                  # 22 Edge Functions + _shared/
+│   └── 📁 migrations/                 # Versioned SQL (RLS, seeds, slugs,
+│                                       # hero phases + html/sync/history…)
+├── 📁 scripts/                       # sitemap, prerender (+ hero-lead.ts), edge checks
+├── 📁 tests/                         # ~900 cases (node:test)
 ├── 📁 public/                        # Assets, robots/sitemap/llms.txt, manifest
 ├── 📁 docs-API/ 📁 docs-front-back/ 📁 docs-lighthouse-reports/ 📁 docs-POD/
+├── 📁 docs-HERO-chantier/             # Hero lots, checkpoints, mockups…
 ├── vercel.json / server.ts / index.html / package.json
 └── README.md / AGENT.md / *.md        # Audits & notes
 ```
