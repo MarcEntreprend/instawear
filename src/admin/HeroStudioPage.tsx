@@ -25,6 +25,7 @@ import {
   Undo2,
   Redo2,
   BarChart3,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   adminUserApi,
@@ -722,6 +723,9 @@ export default function HeroStudioPage() {
   const [draftSeq, setDraftSeq] = useState(0);
   const [histTick, setHistTick] = useState(0);
   const [showStats, setShowStats] = useState(false);
+  // Groupes repliés en bloc (02) : null = état initial par section, sinon tout replié/déplié.
+  // Appliqué via clé de remontage (les <details> natifs ne sont pas contrôlés).
+  const [secMode, setSecMode] = useState<"all" | "none" | null>(null);
   const [restoreBackup, setRestoreBackup] = useState<Draft | null>(null);
   const seenVersion = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
@@ -1879,6 +1883,29 @@ export default function HeroStudioPage() {
 
         {/* ── Droite : inspecteur ─────────────────────────────────────── */}
         <div className="hs-panel" style={{ ...panel, padding: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              padding: "8px 12px 0",
+            }}
+          >
+            <button
+              type="button"
+              title={
+                secMode === "none"
+                  ? "Tout déplier"
+                  : "Tout replier"
+              }
+              onClick={() =>
+                setSecMode((m) => (m === "none" ? "all" : "none"))
+              }
+              style={btn}
+            >
+              <ChevronsUpDown size={13} />{" "}
+              {secMode === "none" ? "Tout déplier" : "Tout replier"}
+            </button>
+          </div>
           {!draft || !config ? (
             <p
               style={{ padding: 16, fontSize: 13, color: "var(--color-ink3)" }}
@@ -1902,7 +1929,11 @@ export default function HeroStudioPage() {
                 </div>
               )}
 
-              <Section title="Slide">
+              <Section
+                title="Slide"
+                key={`sec-${secMode ?? "init"}-slide`}
+                open={secMode === null ? true : secMode === "all"}
+              >
                 <Field label="Produit principal">
                   <select
                     style={inputStyle}
@@ -1959,7 +1990,11 @@ export default function HeroStudioPage() {
                 </Field>
               </Section>
 
-              <Section title="Dimensions">
+              <Section
+                title="Dimensions"
+                key={`sec-${secMode ?? "init"}-dimensions`}
+                open={secMode === null ? true : secMode === "all"}
+              >
                 <Seg
                   value={config.sizing.mode}
                   options={[
@@ -2192,7 +2227,11 @@ export default function HeroStudioPage() {
                 )}
               </Section>
 
-              <Section title="Tous les slides" open={false}>
+              <Section
+                title="Tous les slides"
+                open={secMode === null ? false : secMode === "all"}
+                key={`sec-${secMode ?? "init"}-all`}
+              >
                 <p style={{ fontSize: 12, color: "var(--color-ink3)", margin: 0 }}>
                   Le cadre du carrousel suit le slide n°1. Pour des dimensions homogènes :
                 </p>
@@ -2200,7 +2239,11 @@ export default function HeroStudioPage() {
                   <Ruler size={13} /> Appliquer ces dimensions à tous les slides
                 </button>
               </Section>
-              <Section title="Fond">
+              <Section
+                title="Fond"
+                key={`sec-${secMode ?? "init"}-fond`}
+                open={secMode === null ? true : secMode === "all"}
+              >
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {HERO_BG_PRESETS.map((p) => (
                     <button
@@ -2587,7 +2630,11 @@ export default function HeroStudioPage() {
                 )}
               </Section>
 
-              <Section title="HTML collé">
+              <Section
+                title="HTML collé"
+                key={`sec-${secMode ?? "init"}-html`}
+                open={secMode === null ? true : secMode === "all"}
+              >
                 <HeroHtmlPanel
                   key={`${draft.id ?? "new"}-${draftSeq}`}
                   seed={draft.id ? null : seedHtml}
@@ -2611,7 +2658,11 @@ export default function HeroStudioPage() {
                 />
               </Section>
 
-              <Section title="Historique" open={false}>
+              <Section
+                title="Historique"
+                open={secMode === null ? false : secMode === "all"}
+                key={`sec-${secMode ?? "init"}-historique`}
+              >
                 <HeroHistoryPanel
                   slideId={draft.id}
                   current={config}
@@ -2621,7 +2672,11 @@ export default function HeroStudioPage() {
                 />
               </Section>
 
-              <Section title="Contrôle qualité" open={false}>
+              <Section
+                title="Contrôle qualité"
+                open={secMode === null ? false : secMode === "all"}
+                key={`sec-${secMode ?? "init"}-qualite`}
+              >
                 <HeroWeightCheck
                   config={config}
                   productImage={product?.image ?? null}
