@@ -494,6 +494,11 @@ function LayerEditor({
               folder="hero"
               placeholder="Image https://…"
             />
+            {!(t.src || "").trim() && (
+              <span style={{ fontSize: 11, color: "#92400e" }}>
+                Sans image, cette tuile sera ignorée à l'enregistrement.
+              </span>
+            )}
             <input
               style={inputStyle}
               value={t.label}

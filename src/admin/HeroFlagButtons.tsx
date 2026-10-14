@@ -29,7 +29,7 @@ const b: React.CSSProperties = {
 const on: React.CSSProperties = {
   ...b,
   color: "var(--color-accent)",
-  borderColor: "var(--color-accent)",
+  border: "1px solid var(--color-accent)",
 };
 
 export default function HeroFlagButtons({
