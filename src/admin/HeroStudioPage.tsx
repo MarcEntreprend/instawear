@@ -1691,6 +1691,14 @@ export default function HeroStudioPage() {
     >
       <style>{`
         .hs-root{--hs-accent:#FF6B21}
+        .hs-panel{scrollbar-width:thin;scrollbar-color:var(--color-border2) transparent}
+        .hs-panel::-webkit-scrollbar{width:8px}
+        .hs-panel::-webkit-scrollbar-thumb{background:var(--color-border2);border-radius:99px}
+        .hs-panel::-webkit-scrollbar-track{background:transparent}
+        .hs-root button:focus-visible,.hs-root summary:focus-visible,.hs-root input:focus-visible,.hs-root select:focus-visible{outline:2px solid var(--hs-accent);outline-offset:1px}
+        .hs-slidecard,.hs-layerrow,.hs-tab,.hs-iconbtn{transition:border-color .15s ease,background-color .15s ease}
+        .hs-empty{border:1.5px dashed var(--color-border2);border-radius:12px;text-align:center}
+        @media (prefers-reduced-motion: reduce){.hs-slidecard,.hs-layerrow,.hs-tab,.hs-iconbtn{transition:none}}
         .hs-grid{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:16px;align-items:start}
         .hs-panel{max-height:calc(100dvh - 170px);overflow-y:auto}
         .hs-topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10;height:56px;padding:0 12px;border-radius:12px;background:var(--color-surface);border:1px solid var(--color-border)}
@@ -2104,11 +2112,11 @@ export default function HeroStudioPage() {
               </div>
             );
           })}
-          {slides.length === 0 && !draft && (
-            <p style={{ fontSize: 12, color: "var(--color-ink4)" }}>
-              Aucun slide. Crée le premier avec un modèle.
-            </p>
-          )}
+            {slides.length === 0 && !draft && (
+              <p className="hs-empty" style={{ fontSize: 12, color: "var(--color-ink4)", padding: 14 }}>
+                Aucun slide. Crée le premier avec un modèle.
+              </p>
+            )}
           <HeroTrashPanel
             refreshKey={histTick}
             onRecovered={async (id) => {
@@ -2376,13 +2384,14 @@ export default function HeroStudioPage() {
               {secMode === "none" ? "Tout déplier" : "Tout replier"}
             </button>
           </div>
-          {!draft || !config ? (
-            <p
-              style={{ padding: 16, fontSize: 13, color: "var(--color-ink3)" }}
-            >
-              Sélectionne un slide pour l'éditer.
-            </p>
-          ) : (
+            {!draft || !config ? (
+              <p
+                className="hs-empty"
+                style={{ padding: 16, fontSize: 13, color: "var(--color-ink3)" }}
+              >
+                Sélectionne un slide pour l'éditer.
+              </p>
+            ) : (
             <>
               {config.origin === "legacy" && (
                 <div
