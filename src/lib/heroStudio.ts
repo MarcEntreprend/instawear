@@ -10,6 +10,7 @@ import {
 } from "./heroSchema.ts";
 import { HERO_BG_FALLBACK } from "./heroStyle.ts";
 import { heroQualityWarnings } from "./heroQuality.ts";
+import type { HeroTilesVariant } from "./heroGrid.ts";
 
 export const HERO_PREVIEW_PATH = "/admin/hero-preview";
 export const HERO_STUDIO_SOURCE = "hero-studio";
@@ -120,6 +121,66 @@ export const HERO_TEMPLATES: HeroTemplate[] = [
         ],
         ctas: [],
       }),
+  },
+];
+
+// ─── Gabarits « grilles » : couche Tuiles complète (visuel principal + tuiles d'exemple) ────────
+const PLACEHOLDER_TILE = "https://placehold.co/400x400";
+
+function tilesTemplate(
+  variant: HeroTilesVariant,
+  n: number,
+  vh = 78,
+): HeroConfig {
+  return sanitizeHeroConfig({
+    origin: "studio",
+    sizing: { mode: "fixed", width: "full", height: { unit: "vh", value: vh } },
+    layers: [
+      {
+        type: "tiles",
+        main: {
+          src: null,
+          link: null,
+          label: SAMPLE.headline.split("\n")[0],
+          ctaLabel: SAMPLE.cta,
+          fromProduct: true,
+        },
+        items: Array.from({ length: n }, (_, i) => ({
+          src: PLACEHOLDER_TILE,
+          label: `Tuile ${i + 1}`,
+          link: null,
+        })),
+        ...(variant === "split" ? {} : { variant }),
+      },
+    ],
+    ctas: [],
+  });
+}
+
+export const HERO_TILES_TEMPLATES: HeroTemplate[] = [
+  {
+    id: "bento",
+    label: "Bento",
+    desc: "Visuel principal en grand + 3 tuiles de tailles différentes.",
+    build: () => tilesTemplate("bento", 3),
+  },
+  {
+    id: "asym",
+    label: "Asymétrique",
+    desc: "Visuel principal + colonne de 3 tuiles, la centrale plus haute.",
+    build: () => tilesTemplate("asym", 3),
+  },
+  {
+    id: "mosaic",
+    label: "Mosaïque",
+    desc: "Grille de 6 colonnes, tuiles de largeurs inégales (effet masonry).",
+    build: () => tilesTemplate("mosaic", 3),
+  },
+  {
+    id: "tiles5",
+    label: "Grille 5 tuiles",
+    desc: "Bento à 5 tuiles (hero plus haut : 85 vh).",
+    build: () => tilesTemplate("bento", 5, 85),
   },
 ];
 
@@ -309,6 +370,19 @@ export function heroStudioWarnings(
         text: `« ${cta.label} » est proche des contrôles du carrousel.`,
       });
     }
+  }
+  if (
+    c.layers.some(
+      (l) =>
+        !l.off &&
+        l.type === "tiles" &&
+        l.items.some((t) => (t.src || "").includes("placehold.co")),
+    )
+  ) {
+    w.push({
+      level: "warn",
+      text: "Une tuile utilise encore l'image d'exemple (placehold.co) : remplace-la avant de publier.",
+    });
   }
   const bytes = heroConfigBytes(c);
   if (bytes > HERO_CONFIG_CAP_BYTES) {

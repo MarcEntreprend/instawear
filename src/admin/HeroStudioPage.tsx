@@ -69,6 +69,7 @@ import {
   HERO_PREVIEW_PATH,
   HERO_STUDIO_SOURCE,
   HERO_TEMPLATES,
+  HERO_TILES_TEMPLATES,
   heroConfigBytes,
   heroConfigToLegacy,
   heroReservedBottomPx,
@@ -1461,7 +1462,7 @@ export default function HeroStudioPage() {
           </button>
           {showTemplates && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {HERO_TEMPLATES.map((t) => (
+              {[...HERO_TEMPLATES, ...HERO_TILES_TEMPLATES].map((t) => (
                 <button
                   key={t.id}
                   type="button"
