@@ -4,9 +4,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  cleanHeroFont,
+  cleanHeroFontUrl,
   cleanHeroLink,
   cleanHeroSrc,
   cleanHeroBackground,
+  heroEffectiveFont,
+  parseHeroFontUrlFamilies,
   sanitizeHeroConfig,
   parseHeroConfig,
   buildHeroConfigFromLegacy,
@@ -273,7 +277,7 @@ test("typo fine (PORT-15B) : bornes, motifs, absente par défaut", () => {
     ],
     ctas: [],
   });
-  const t = c.layers[0] as Record<string, unknown>;
+  const t = c.layers[0] as unknown as Record<string, unknown>;
   assert.equal(t.lineHeight, 2);
   assert.equal(t.letterSpacing, -0.05);
   assert.equal(t.align, "left");
@@ -293,7 +297,7 @@ test("typo fine (PORT-15B) : bornes, motifs, absente par défaut", () => {
     ],
     ctas: [],
   });
-  const o = ok.layers[0] as Record<string, unknown>;
+  const o = ok.layers[0] as unknown as Record<string, unknown>;
   assert.equal(o.lineHeight, 1.5);
   assert.equal(o.letterSpacing, 0.02);
   assert.equal(o.align, "center");
@@ -307,4 +311,77 @@ test("typo fine (PORT-15B) : bornes, motifs, absente par défaut", () => {
     assert.ok(!("align" in (l as object)));
   }
   assert.deepEqual(sanitizeHeroConfig(legacy), legacy);
+});
+
+test("fonts (PORT-15B P3) : liste fermée, URL css2, effective", () => {
+  assert.equal(cleanHeroFont(" Inter "), "Inter");
+  assert.equal(cleanHeroFont("Comic Sans"), undefined);
+  assert.equal(cleanHeroFont(null), undefined);
+  const good =
+    "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;700";
+  const clean = cleanHeroFontUrl(good)!;
+  assert.ok(clean.includes("display=swap"));
+  assert.deepEqual(parseHeroFontUrlFamilies(good), ["Fraunces", "Inter"]);
+  for (const bad of [
+    "https://evil.com/css2?family=Inter",
+    "http://fonts.googleapis.com/css2?family=Inter",
+    "javascript:alert(1)",
+    "https://fonts.googleapis.com/css?family=Inter",
+    "https://fonts.googleapis.com/css2?foo=bar",
+    "",
+    null,
+  ]) {
+    assert.equal(cleanHeroFontUrl(bad), undefined);
+  }
+  assert.equal(
+    heroEffectiveFont({ fontFamily: "Sora" }, { font: "Inter" }),
+    "Inter",
+  );
+  assert.equal(heroEffectiveFont({ fontFamily: "Sora" }, {}), "Sora");
+  assert.equal(
+    heroEffectiveFont({ fontFamily: "Sora" }, { fontLocked: true }),
+    undefined,
+  );
+  assert.equal(
+    heroEffectiveFont({ fontUrl: good }, {}),
+    "Fraunces",
+  );
+  const c = sanitizeHeroConfig({
+    fontFamily: "Sora",
+    fontUrl: good,
+    layers: [{ type: "text", font: "Inter", fontLocked: true, fontWeight: 333 }],
+    ctas: [],
+  });
+  assert.equal(c.fontFamily, "Sora");
+  assert.equal(c.fontUrl, clean);
+  const t = c.layers[0] as unknown as Record<string, unknown>;
+  assert.equal(t.font, "Inter");
+  assert.equal(t.fontLocked, true);
+  assert.equal(t.fontWeight, 300);
+  const bad = sanitizeHeroConfig({
+    fontFamily: "Comic Sans",
+    layers: [{ type: "text", fontWeight: 400 }],
+    ctas: [],
+  });
+  assert.equal(bad.fontFamily, undefined);
+  assert.equal(
+    (bad.layers[0] as unknown as Record<string, unknown>).fontWeight,
+    undefined,
+  );
+});
+
+test("heroFonts (PORT-15B P3) : href fermé, usage, zéro legacy", async () => {
+  const { heroFontHref, heroFontsInUse, heroFontUrlsInUse } = await import(
+    "../src/lib/heroFonts.ts"
+  );
+  assert.equal(heroFontHref([]), null);
+  assert.equal(heroFontHref(["Comic Sans"]), null);
+  const href = heroFontHref(["Inter", "Sora", "Inter"])!;
+  assert.ok(href.includes("family=Inter:"));
+  assert.ok(href.includes("display=swap"));
+  assert.deepEqual(heroFontsInUse([{ config: null }]), []);
+  assert.deepEqual(
+    heroFontUrlsInUse([{ config: { fontUrl: "https://evil.com/x" } }]),
+    [],
+  );
 });

@@ -45,9 +45,12 @@ import {
 import {
   sanitizeHeroConfig,
   resolveHeroConfig,
+  HERO_FONT_FAMILIES,
   HERO_MAX_CTAS,
   HERO_MAX_LAYERS,
   HERO_MAX_TILES,
+  cleanHeroFontUrl,
+  parseHeroFontUrlFamilies,
   type HeroConfig,
   type HeroCta,
   type HeroLayer,
@@ -711,6 +714,64 @@ function LayerEditor({
           />{" "}
           Équilibrer les lignes (balance)
         </label>
+        {/* Police du bloc (PORT-15B P3) : vide = globale puis défaut. */}
+        <Field label="Police du bloc (vide = globale)">
+          <select
+            style={inputStyle}
+            value={layer.font ?? ""}
+            onChange={(e) => {
+              const { font: _d, ...rest } = layer;
+              onChange(
+                e.target.value ? { ...rest, font: e.target.value } : rest,
+              );
+            }}
+          >
+            <option value="">Globale du slide</option>
+            {HERO_FONT_FAMILIES.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Graisse (vide = auto)">
+          <select
+            style={inputStyle}
+            value={layer.fontWeight ?? ""}
+            onChange={(e) => {
+              const { fontWeight: _d, ...rest } = layer;
+              onChange(
+                e.target.value
+                  ? { ...rest, fontWeight: Number(e.target.value) }
+                  : rest,
+              );
+            }}
+          >
+            <option value="">Auto (400)</option>
+            {[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Verrou police (ignore la globale)">
+          <select
+            style={inputStyle}
+            value={layer.fontLocked ? "yes" : "no"}
+            onChange={(e) => {
+              const { fontLocked: _d, ...rest } = layer;
+              onChange(
+                e.target.value === "yes"
+                  ? { ...rest, fontLocked: true }
+                  : rest,
+              );
+            }}
+          >
+            <option value="no">Non (suit la globale)</option>
+            <option value="yes">Oui (verrouillée)</option>
+          </select>
+        </Field>
         <Field label="Badge">
           <input
             style={inputStyle}
@@ -820,6 +881,8 @@ export default function HeroStudioPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [fontUrlDraft, setFontUrlDraft] = useState("");
+  const [fontUrlError, setFontUrlError] = useState<string | null>(null);
   const [baseline, setBaseline] = useState("");
   const [device, setDevice] = useState<DeviceKey>("desktop");
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -1144,6 +1207,8 @@ export default function HeroStudioPage() {
     const d = toDraft(s);
     setDraft(d);
     setBaseline(serialize(d));
+    setFontUrlDraft(d.config.fontUrl ?? "");
+    setFontUrlError(null);
     setLayerSel(0);
     setSelCta(null);
     setMsg(null);
@@ -1161,6 +1226,8 @@ export default function HeroStudioPage() {
     };
     setDraft(d);
     setBaseline("");
+    setFontUrlDraft("");
+    setFontUrlError(null);
     setLayerSel(0);
     setSelCta(null);
     setShowTemplates(false);
@@ -2192,6 +2259,74 @@ export default function HeroStudioPage() {
                     <option value="A">Variante A seulement (≈ 50 %)</option>
                     <option value="B">Variante B seulement (≈ 50 %)</option>
                   </select>
+                </Field>
+                <Field
+                  label="Police globale (blocs non verrouillés)"
+                >
+                  <select
+                    style={inputStyle}
+                    value={config.fontFamily ?? ""}
+                    onChange={(e) =>
+                      patchConfig((c) => {
+                        if (!e.target.value) {
+                          const { fontFamily: _d, ...rest } = c;
+                          return rest as HeroConfig;
+                        }
+                        return { ...c, fontFamily: e.target.value };
+                      })
+                    }
+                  >
+                    <option value="">Défaut navigateur</option>
+                    {HERO_FONT_FAMILIES.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Import custom (URL Google Fonts css2)"
+                >
+                  <input
+                    style={{
+                      ...inputStyle,
+                      ...(fontUrlError ? { borderColor: "#ef4444" } : null),
+                    }}
+                    type="url"
+                    value={fontUrlDraft}
+                    placeholder="https://fonts.googleapis.com/css2?family=…&display=swap"
+                    onChange={(e) => {
+                      setFontUrlDraft(e.target.value);
+                      if (e.target.value.trim() === "")
+                        setFontUrlError(null);
+                    }}
+                    onBlur={() => {
+                      const v = fontUrlDraft.trim();
+                      if (v === "") {
+                        patchConfig((c) => {
+                          const { fontUrl: _d, ...rest } = c;
+                          return rest as HeroConfig;
+                        });
+                        setFontUrlError(null);
+                        return;
+                      }
+                      const clean = cleanHeroFontUrl(v);
+                      if (!clean) {
+                        setFontUrlError(
+                          "URL refusée : collez une URL https://fonts.googleapis.com/css2?family=…",
+                        );
+                        return;
+                      }
+                      setFontUrlError(null);
+                      patchConfig((c) => ({ ...c, fontUrl: clean }));
+                    }}
+                  />
+                  <span style={{ fontSize: 11, color: fontUrlError ? "#ef4444" : "var(--color-ink4)" }}>
+                    {fontUrlError ??
+                      (config.fontUrl
+                        ? `Familles : ${parseHeroFontUrlFamilies(config.fontUrl).join(", ")}`
+                        : "Vide = aucune. Domaine fonts.googleapis.com uniquement.")}
+                  </span>
                 </Field>
               </Section>
 

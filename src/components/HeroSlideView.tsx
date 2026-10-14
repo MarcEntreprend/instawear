@@ -7,6 +7,8 @@ import { PLACEHOLDER_IMG } from "../constants/assets";
 import { supabaseImageUrl } from "../lib/supabaseImage";
 import { HERO_IMG_OPTS, heroImageIsRaw } from "../lib/heroImages";
 import type { HeroCta, HeroLayer } from "../lib/heroSchema";
+import { heroEffectiveFont } from "../lib/heroSchema";
+import { heroFontStack } from "../lib/heroFonts";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
 import { tilesLayout } from "../lib/heroGrid";
 
@@ -205,6 +207,7 @@ export default function HeroSlideView({
     const side =
       a.align === "right" ? "ml-auto" : a.align === "center" ? "mx-auto" : "";
     // Typo fine (PORT-15B) : styles appliqués seulement si définis.
+    // Police effective (PORT-15B P3) : bloc > globale sauf verrou.
     const titleExtra: React.CSSProperties & { textWrap?: string } = {};
     if (l.lineHeight !== undefined) titleExtra.lineHeight = l.lineHeight;
     if (l.letterSpacing !== undefined)
@@ -212,6 +215,9 @@ export default function HeroSlideView({
     if (l.transform && l.transform !== "none")
       titleExtra.textTransform = l.transform;
     if (l.balance === true) titleExtra.textWrap = "balance";
+    const effFont = heroEffectiveFont(slide.config, l);
+    if (effFont) titleExtra.fontFamily = heroFontStack(effFont);
+    if (l.fontWeight !== undefined) titleExtra.fontWeight = l.fontWeight;
     const wrapExtra: React.CSSProperties = {
       textAlign: l.align ?? a.align,
     };

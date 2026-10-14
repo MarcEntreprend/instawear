@@ -112,6 +112,10 @@ export interface HeroTextLayer {
   transform?: "none" | "uppercase" | "lowercase" | "capitalize";
   maxWidth?: string; // "34ch" | "80%" | "520px" (motif strict)
   balance?: boolean; // text-wrap: balance sur le titre
+  /** Police du bloc (PORT-15B) : liste fermée, vide = globale puis défaut. */
+  font?: string;
+  fontLocked?: boolean; // verrouillée : ignore la globale
+  fontWeight?: number; // 100..900 (centaines)
 }
 /** Réservé Phase 4 (contenu dans les colonnes html / css, pas dans config). */
 export interface HeroHtmlLayer {
@@ -243,6 +247,81 @@ export function cleanHeroBackground(v: unknown): string {
   if (!t) return "";
   if (/url\s*\(|expression\s*\(|@import|[;{}<>]/i.test(t)) return "";
   return /gradient\(|^#|^var\(--|^rgba?\(|^hsla?\(/i.test(t) ? t : "";
+}
+
+/** Polices autorisées (PORT-15B, Font Library 02) : liste fermée, display=swap. */
+export const HERO_FONT_FAMILIES = [
+  "Inter",
+  "Sora",
+  "Instrument Serif",
+  "General Sans",
+  "Space Grotesk",
+  "JetBrains Mono",
+] as const;
+
+/** Famille valide ou undefined (jamais d'injection via font-family). */
+export function cleanHeroFont(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return (HERO_FONT_FAMILIES as readonly string[]).includes(t)
+    ? t
+    : undefined;
+}
+
+/** URL d'import de fonte (PORT-15B) : uniquement le css2 Google Fonts
+ *  (même discipline que les liens hero : domaine fermé), display=swap
+ *  forcé, familles valides requises. Tout le reste => undefined. */
+export function cleanHeroFontUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  if (t.length === 0 || t.length > 500) return undefined;
+  let u: URL;
+  try {
+    u = new URL(t);
+  } catch {
+    return undefined;
+  }
+  if (u.protocol !== "https:") return undefined;
+  if (u.hostname.toLowerCase() !== "fonts.googleapis.com") return undefined;
+  if (!u.pathname.startsWith("/css2")) return undefined;
+  const families = parseHeroFontUrlFamilies(t);
+  if (families.length === 0) return undefined;
+  u.searchParams.set("display", "swap");
+  return u.toString();
+}
+
+/** Noms de familles déclarés par une URL css2 (tokens sûrs uniquement). */
+export function parseHeroFontUrlFamilies(url: string): string[] {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const f of u.searchParams.getAll("family")) {
+    const name = f.split(":")[0].replace(/\+/g, " ").trim();
+    if (/^[A-Za-z][A-Za-z0-9 ]{1,39}$/.test(name) && !out.includes(name))
+      out.push(name);
+  }
+  return out;
+}
+
+/** Police effective d'un bloc : bloc > globale (nom ou URL, sauf verrou).
+ *  Retourne un NOM de famille (l'URL est résolue vers sa 1re famille). */
+export function heroEffectiveFont(
+  cfg: { fontFamily?: string; fontUrl?: string },
+  layer: { font?: string; fontLocked?: boolean },
+): string | undefined {
+  if (layer.font) return layer.font;
+  if (!layer.fontLocked) {
+    if (cfg.fontFamily) return cfg.fontFamily;
+    if (cfg.fontUrl) {
+      const fams = parseHeroFontUrlFamilies(cfg.fontUrl);
+      if (fams.length > 0) return fams[0];
+    }
+  }
+  return undefined;
 }
 
 // ─── Sizing ─────────────────────────────────────────────────────────────
@@ -406,6 +485,13 @@ function withTypo(layer: HeroTextLayer, raw: Obj): HeroTextLayer {
     if (layer.maxWidth === undefined) delete layer.maxWidth;
   }
   if (raw.balance === true) layer.balance = true;
+  const font = cleanHeroFont(raw.font);
+  if (font) layer.font = font;
+  if (raw.fontLocked === true) layer.fontLocked = true;
+  if (raw.fontWeight !== undefined) {
+    const w = Math.round(num(raw.fontWeight, 100, 900, 400) / 100) * 100;
+    if (w !== 400) layer.fontWeight = w;
+  }
   return layer;
 }
 
@@ -492,6 +578,12 @@ export function sanitizeHeroConfig(raw: unknown): HeroConfig {
     },
     layers,
     ctas,
+    ...(cleanHeroFont(r.fontFamily)
+      ? { fontFamily: cleanHeroFont(r.fontFamily)! }
+      : null),
+    ...(cleanHeroFontUrl(r.fontUrl)
+      ? { fontUrl: cleanHeroFontUrl(r.fontUrl)! }
+      : null),
   };
 }
 

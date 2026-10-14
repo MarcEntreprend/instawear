@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import HeroSlideView from "./HeroSlideView";
 import { trackHeroClick, trackHeroImpression } from "../lib/heroTracking";
+import { ensureHeroFonts, heroFontUrlsInUse, heroFontsInUse } from "../lib/heroFonts";
 import type { HeroSizing } from "../lib/heroSchema";
 import type { ResolvedHeroSlide } from "../lib/heroResolve";
 import { readLeadSlide } from "../lib/heroLead";
@@ -121,6 +122,10 @@ const [lead] = useState<ResolvedHeroSlide | null>(() =>
     return () => io.disconnect();
   }, [rootEl]);
   const trackedId = count > 0 ? list[index % count]?.id : undefined;
+  // Polices (PORT-15B P3) : <link> uniques, display=swap. Legacy sans fonte = zéro requête.
+  useEffect(() => {
+    ensureHeroFonts(heroFontsInUse(list), heroFontUrlsInUse(list));
+  }, [list]);
   useEffect(() => {
     if (noTrack || suspended || showLead || !inView || !trackedId) return;
     const t = setTimeout(
