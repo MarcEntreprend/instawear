@@ -41,6 +41,7 @@ import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 // Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
 const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+import HeroStudioPage from "./admin/HeroStudioPage";
 
 // Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
 function LazyFallback() {
@@ -155,7 +156,9 @@ export default function App() {
   // L'admin est une page (/admin) : l'URL au boot initialise l'état pour que
   // le refresh reste dans l'admin (source de vérité = URL, pas état volatil).
   const [activeTab, setActiveTab] = useState<"store" | "admin">(() =>
-    typeof window !== "undefined" && isAdminPath(window.location.pathname)
+    typeof window !== "undefined" &&
+    (isAdminPath(window.location.pathname) ||
+      window.location.pathname.startsWith("/admin/"))
       ? "admin"
       : "store",
   );
@@ -242,9 +245,11 @@ export default function App() {
       const path = window.location.pathname;
       const search = window.location.search;
       // /admin est une page : précédent/suivant navigateur entre/sort de l'admin.
-      if (isAdminPath(path)) {
+      const isAdminPage =
+        isAdminPath(path) || path.startsWith("/admin/");
+      if (isAdminPage) {
         setActiveTab("admin");
-        setShowNewAdmin(true);
+        setShowNewAdmin(isAdminPath(path)); // vrai seulement pour /admin
       } else {
         setShowNewAdmin(false);
         setActiveTab("store");
@@ -1639,6 +1644,7 @@ export default function App() {
       const knownPaths = [
         "/",
         "/admin",
+        "/admin/hero-studio",
         "/account",
         "/unsubscribe",
         "/index.html",
@@ -2038,10 +2044,13 @@ export default function App() {
       )}
 
       {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
-      {activeTab === "admin" && isAdmin && (
+      {activeTab === "admin" && isAdmin && window.location.pathname !== "/admin/hero-studio" && (
         <Suspense fallback={<LazyFallback />}>
           <AdminDashboardNew onReturnToStore={closeAdmin} />
         </Suspense>
+      )}
+      {activeTab === "admin" && isAdmin && window.location.pathname === "/admin/hero-studio" && (
+        <HeroStudioPage />
       )}
       {/* /admin en restauration de session : spinner plein écran — ni
           storefront ni 404 pendant que la session se restaure. */}

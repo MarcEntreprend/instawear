@@ -303,6 +303,11 @@ export default function AdminSidebar({
                   <li key={item.id}>
                     <button
                       onClick={() => {
+                        if (item.id === "hero-studio") {
+                          window.location.href = "/admin/hero-studio";
+                          if (mobile && onClose) onClose();
+                          return;
+                        }
                         onNavigate(item.id);
                         if (mobile && onClose) onClose();
                       }}
