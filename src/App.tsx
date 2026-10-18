@@ -2225,26 +2225,28 @@ export default function App() {
         />
       )}
 
-      {/* Global Brand Footer */}
-      <Footer
-        isAdmin={isAdmin}
-        onSelectEventType={setSelectedEventType}
-        onSelectCategory={setSelectedCategory}
-        onNavigate={setActiveTab}
-        onOpenAdmin={openAdmin}
-        onOpenLegal={openLegal}
-        onOpenFaq={openFaqPage}
-        onOpenContact={openContactPage}
-        onOpenTracking={() => {
-          setTrackingOpen(true);
-          setTrackingInitialCode(null);
-          pushOverlay("tracking");
-        }}
-        onOpenPromotions={openPromotionsPage}
-        onManageCookies={cookieConsent.resetConsent}
-        onOpenCatalog={() => scrollToSection("catalog")}
-        products={products}
-      />
+      {/* Global Brand Footer (masqué en mode admin / hero studio) */}
+      {activeTab === "store" && (
+        <Footer
+          isAdmin={isAdmin}
+          onSelectEventType={setSelectedEventType}
+          onSelectCategory={setSelectedCategory}
+          onNavigate={setActiveTab}
+          onOpenAdmin={openAdmin}
+          onOpenLegal={openLegal}
+          onOpenFaq={openFaqPage}
+          onOpenContact={openContactPage}
+          onOpenTracking={() => {
+            setTrackingOpen(true);
+            setTrackingInitialCode(null);
+            pushOverlay("tracking");
+          }}
+          onOpenPromotions={openPromotionsPage}
+          onManageCookies={cookieConsent.resetConsent}
+          onOpenCatalog={() => scrollToSection("catalog")}
+          products={products}
+        />
+      )}
 
       {showAuthModal && (
         <AuthModal
