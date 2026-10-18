@@ -1856,8 +1856,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
-      {/* App Header */}
-      <Header
+      {/* App Header (masqué en mode admin / hero studio) */}
+      {activeTab === "store" && <Header
         isHomePage={
           activeTab === "store" &&
           !selectedProduct &&
@@ -1948,6 +1948,7 @@ export default function App() {
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
         // onSelectProduct={(product) => setSelectedProduct(product)}
       />
+      }
 
       {/* Toast system */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
