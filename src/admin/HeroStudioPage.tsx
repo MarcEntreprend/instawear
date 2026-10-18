@@ -1683,10 +1683,10 @@ export default function HeroStudioPage() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 14,
+        gap: 24,
         background: studioThemeBg,
         borderRadius: 16,
-        padding: 12,
+        padding: 16,
       }}
     >
       <style>{`
