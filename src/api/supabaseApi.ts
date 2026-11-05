@@ -6,6 +6,16 @@ import { mapCustomerProfile } from "./customerMapping";
 // Règle CA net canonique (Vague B item 8) : orderStatusLabels n'importe
 // que React — pas de cycle api ↔ admin.
 import { sumRevenue } from "../admin/orderStatusLabels";
+import {
+  parseHeroConfig,
+  sanitizeHeroConfig,
+  buildHeroConfigFromLegacy,
+  heroPayloadBudget,
+  type HeroConfig,
+  type LegacyHeroFields,
+} from "../lib/heroSchema";
+import type { HeroVersionSnapshot } from "../lib/heroHistory";
+
 import type {
   AdminProduct,
   Customer,
@@ -233,7 +243,8 @@ function sanitizeHeroPhase2(promo: Partial<HeroPromotion>): {
 
 const mapHeroPromotion = (row: any): HeroPromotion => ({
   id: row.id,
-  productId: row.product_id,
+  // product_id est NULL pour un slide sans produit : "" côté TS (type string inchangé).
+  productId: row.product_id ?? "",
   title: row.title,
   headline: row.headline,
   sub: row.sub,
@@ -246,10 +257,12 @@ const mapHeroPromotion = (row: any): HeroPromotion => ({
   showTitle: row.show_title,
   isActive: row.is_active,
   layout: row.layout === "split" ? "split" : "full",
-  kind:
-    row.kind === "image" || row.kind === "grid" ? row.kind : "product",
+  kind: row.kind === "image" || row.kind === "grid" ? row.kind : "product",
   linkUrl: typeof row.link_url === "string" ? row.link_url : null,
   tiles: Array.isArray(row.tiles) ? row.tiles : null,
+  config: parseHeroConfig(row.config),
+  startsAt: row.starts_at ?? null,
+  endsAt: row.ends_at ?? null,
 });
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -2481,20 +2494,106 @@ export const adminAuditApi = {
   },
 };
 // ─── Hero Promotions ───────────────────────────────────────────────────
+// Colonnes de la liste (boutique ET admin). html/css EXCLUS : jusqu'à 50 Ko par slide,
+// chargés à la demande (getFull) — jamais dans le chemin LCP public.
+const HERO_LIST_COLUMNS =
+  "id, product_id, title, headline, sub, cta, bg_gradient, tag, image, order, show_tag, show_title, is_active, layout, kind, link_url, tiles, config, starts_at, ends_at";
+
+// Champs "contenu legacy" : si l'ancien formulaire en modifie un, la config
+// (origin "legacy") est régénérée depuis les colonnes legacy fusionnées.
+const HERO_LEGACY_CONTENT_KEYS = [
+  "productId",
+  "title",
+  "headline",
+  "sub",
+  "cta",
+  "bgGradient",
+  "tag",
+  "image",
+  "showTag",
+  "layout",
+  "kind",
+  "linkUrl",
+  "tiles",
+] as const;
+
+function heroLegacyFields(
+  h: Partial<HeroPromotion>,
+  p2: { kind: string; link_url: string | null; tiles: unknown },
+): LegacyHeroFields {
+  return {
+    kind: p2.kind,
+    layout: h.layout,
+    headline: h.headline,
+    sub: h.sub,
+    cta: h.cta,
+    tag: h.tag,
+    showTag: h.showTag,
+    image: h.image,
+    bgGradient: h.bgGradient,
+    linkUrl: p2.link_url,
+    tiles: p2.tiles,
+    productId: h.productId,
+  };
+}
+
 export const heroPromotionsApi = {
   async list(): Promise<HeroPromotion[]> {
     const { data, error } = await supabase
       .from("hero_promotions")
-      .select("*")
-      .order("order", { ascending: true });
+      .select(HERO_LIST_COLUMNS)
+      .order("order", { ascending: true })
+      .order("id", { ascending: true }); // départage les ex æquo : ordre déterministe
     if (error) throw error;
     return (data ?? []).map(mapHeroPromotion);
   },
+  /** Slide complet (html/css inclus) — édition admin uniquement. */
+  async getFull(id: string): Promise<HeroPromotion | null> {
+    const { data, error } = await supabase
+      .from("hero_promotions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapHeroPromotion(data);
+  },
+  /** Boutique : version + slides publiés en UNE requête atomique (RPC). Repli : list(). */
+  async getSnapshot(): Promise<{ version: number | null; slides: HeroPromotion[] }> {
+    const { data, error } = await supabase.rpc("get_hero_snapshot");
+    const snap = data as { version?: unknown; slides?: unknown } | null;
+    if (!error && snap && Array.isArray(snap.slides)) {
+      const v = Number(snap.version);
+      return {
+        version: Number.isFinite(v) ? v : null,
+        slides: (snap.slides as any[]).map(mapHeroPromotion),
+      };
+    }
+    return { version: null, slides: await this.list() };
+  },
+  /** Compteur de version (trigger Postgres) : ~100 octets, contrôle de fraîcheur. */
+  async getVersion(): Promise<number | null> {
+    // Pas de filtre sur `id` : anon n'a le droit de lire que version et updated_at.
+    const { data, error } = await supabase
+      .from("hero_version")
+      .select("version")
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const n = Number((data as { version: unknown }).version);
+    return Number.isFinite(n) ? n : null;
+  },
   async create(promo: Omit<HeroPromotion, "id">): Promise<HeroPromotion> {
+    const p2 = sanitizeHeroPhase2(promo);
+    const layout = promo.layout === "split" ? "split" : "full";
+    const config = sanitizeHeroConfig(
+      promo.config && promo.config.origin === "studio"
+        ? promo.config
+        : buildHeroConfigFromLegacy(heroLegacyFields({ ...promo, layout }, p2)),
+    );
     const { data, error } = await supabase
       .from("hero_promotions")
       .insert({
-        product_id: promo.productId,
+        product_id: promo.productId || null,
         title: promo.title,
         headline: promo.headline,
         sub: promo.sub,
@@ -2502,44 +2601,92 @@ export const heroPromotionsApi = {
         bg_gradient: promo.bgGradient,
         tag: promo.tag,
         image: promo.image,
-        layout: promo.layout === "split" ? "split" : "full",
-        ...sanitizeHeroPhase2(promo),
+        layout,
+        ...p2,
+        config,
+        starts_at: promo.startsAt ?? null,
+        ends_at: promo.endsAt ?? null,
         order: promo.order,
         is_active: promo.isActive !== false,
         show_tag: promo.showTag,
         show_title: promo.showTitle,
       })
-      .select()
+      .select(HERO_LIST_COLUMNS)
       .maybeSingle();
     if (error) throw error;
     return mapHeroPromotion(data);
   },
+  /**
+   * Update PARTIEL SÛR : seules les clés présentes (≠ undefined) sont écrites.
+   * (Avant : { isActive:false } réécrivait aussi layout/kind/link_url/tiles.)
+   * - Contenu legacy modifié + config origin "legacy" => config régénérée depuis
+   *   les colonnes legacy fusionnées (l'ancien formulaire reste cohérent).
+   * - config origin "studio" fournie => écrite telle quelle (source de vérité).
+   * - config origin "studio" déjà en base => jamais écrasée par le legacy.
+   */
   async update(
     id: string,
     promo: Partial<HeroPromotion>,
   ): Promise<HeroPromotion> {
+    const patch: Record<string, unknown> = {};
+    if (promo.productId !== undefined)
+      patch.product_id = promo.productId || null;
+    if (promo.title !== undefined) patch.title = promo.title;
+    if (promo.headline !== undefined) patch.headline = promo.headline;
+    if (promo.sub !== undefined) patch.sub = promo.sub;
+    if (promo.cta !== undefined) patch.cta = promo.cta;
+    if (promo.bgGradient !== undefined) patch.bg_gradient = promo.bgGradient;
+    if (promo.tag !== undefined) patch.tag = promo.tag;
+    if (promo.image !== undefined) patch.image = promo.image;
+    if (promo.order !== undefined) patch.order = promo.order;
+    if (promo.showTag !== undefined) patch.show_tag = promo.showTag;
+    if (promo.showTitle !== undefined) patch.show_title = promo.showTitle;
+    if (promo.isActive !== undefined) patch.is_active = promo.isActive;
+    if (promo.startsAt !== undefined) patch.starts_at = promo.startsAt;
+    if (promo.endsAt !== undefined) patch.ends_at = promo.endsAt;
+
+    const explicit =
+      promo.config && promo.config.origin === "studio" ? promo.config : null;
+    if (explicit) patch.config = sanitizeHeroConfig(explicit);
+
+    if (HERO_LEGACY_CONTENT_KEYS.some((k) => promo[k] !== undefined)) {
+      const { data: cur, error: curErr } = await supabase
+        .from("hero_promotions")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (curErr || !cur) throw curErr || new Error("Slide introuvable");
+      const defined = Object.fromEntries(
+        Object.entries(promo).filter(([, v]) => v !== undefined),
+      ) as Partial<HeroPromotion>;
+      const merged: HeroPromotion = { ...mapHeroPromotion(cur), ...defined };
+      const p2 = sanitizeHeroPhase2(merged);
+      patch.layout = merged.layout === "split" ? "split" : "full";
+      patch.kind = p2.kind;
+      patch.link_url = p2.link_url;
+      patch.tiles = p2.tiles;
+      const curIsStudio = isStudioConfigRow(cur.config);
+      if (!explicit && !curIsStudio) {
+        patch.config = sanitizeHeroConfig(
+          buildHeroConfigFromLegacy(heroLegacyFields(merged, p2)),
+        );
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      const cur = await this.getFull(id);
+      if (!cur) throw new Error("Slide introuvable");
+      return cur;
+    }
+
     const { data, error } = await supabase
       .from("hero_promotions")
-      .update({
-        product_id: promo.productId,
-        title: promo.title,
-        headline: promo.headline,
-        sub: promo.sub,
-        cta: promo.cta,
-        bg_gradient: promo.bgGradient,
-        tag: promo.tag,
-        image: promo.image,
-        layout: promo.layout === "split" ? "split" : "full",
-        ...sanitizeHeroPhase2(promo),
-        order: promo.order,
-        show_tag: promo.showTag,
-        show_title: promo.showTitle,
-        is_active: promo.isActive,
-      })
+      .update(patch)
       .eq("id", id)
-      .select()
+      .select(HERO_LIST_COLUMNS)
       .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error("Slide introuvable ou non modifiable");
     return mapHeroPromotion(data);
   },
   async delete(id: string): Promise<void> {
@@ -2549,13 +2696,379 @@ export const heroPromotionsApi = {
       .eq("id", id);
     if (error) throw error;
   },
+  /** Réordonnancement ATOMIQUE : 1 appel RPC (transaction unique, 1 seul bump de
+   *  version) au lieu de N updates séquentiels non atomiques. */
   async reorder(ids: string[]): Promise<void> {
-    for (let i = 0; i < ids.length; i++) {
-      await supabase
-        .from("hero_promotions")
-        .update({ order: i })
-        .eq("id", ids[i]);
+    const { error } = await supabase.rpc("reorder_hero_promotions", {
+      p_ids: ids,
+    });
+    if (error) throw error;
+  },
+};
+
+function isStudioConfigRow(raw: unknown): boolean {
+  return (
+    typeof raw === "object" &&
+    raw !== null &&
+    (raw as { origin?: unknown }).origin === "studio"
+  );
+}
+
+// ─── Hero : HTML/CSS collé (table hero_slide_html) ────────────────────────
+// Écriture : super_admin (RLS) + garde ici. Lecture publique = HTML des slides PUBLIÉS
+// uniquement (RLS) ; le brouillon n'est lisible que par un super_admin (RLS).
+export interface HeroHtmlRow {
+  slideId: string;
+  html: string;
+  css: string;
+}
+
+async function requireSuperAdmin(): Promise<string> {
+  const me = await adminUserApi.getMyRole();
+  if (!me || me.role !== "super_admin") {
+    throw new Error("HTML collé : réservé aux super-administrateurs.");
+  }
+  return me.email;
+}
+
+export const heroHtmlApi = {
+  /** Boutique : HTML des slides publiés. Jamais appelé sans ids. */
+  async getPublished(
+    ids: string[],
+  ): Promise<Record<string, { html: string; css: string }>> {
+    if (ids.length === 0) return {};
+    const { data, error } = await supabase
+      .from("hero_slide_html")
+      .select("slide_id, html, css")
+      .in("slide_id", ids);
+    if (error) throw error;
+    return Object.fromEntries(
+      (data ?? []).map((r: any) => [
+        r.slide_id,
+        { html: r.html ?? "", css: r.css ?? "" },
+      ]),
+    );
+  },
+  /** Studio : source brute (brouillon inclus). super_admin uniquement. */
+  async getForEdit(slideId: string): Promise<HeroHtmlRow | null> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_slide_html")
+      .select("slide_id, html, css")
+      .eq("slide_id", slideId)
+      .maybeSingle();
+    if (error) throw error;
+    return data
+      ? { slideId: data.slide_id, html: data.html ?? "", css: data.css ?? "" }
+      : null;
+  },
+  async save(slideId: string, html: string, css: string): Promise<void> {
+    const email = await requireSuperAdmin();
+    const budget = heroPayloadBudget(html, css);
+    if (budget.level === "over") {
+      throw new Error(
+        `HTML + CSS trop lourds (${budget.bytes} / ${budget.capBytes} octets).`,
+      );
     }
+    const { error } = await supabase
+      .from("hero_slide_html")
+      .upsert({ slide_id: slideId, html, css }, { onConflict: "slide_id" });
+    if (error) throw error;
+    adminAuditApi
+      .create({
+        actorEmail: email,
+        action: "hero_html_save",
+        targetType: "hero_slide",
+        targetId: slideId,
+        after: { bytes: budget.bytes },
+      })
+      .catch(() => {});
+  },
+  async remove(slideId: string): Promise<void> {
+    const email = await requireSuperAdmin();
+    const { error } = await supabase
+      .from("hero_slide_html")
+      .delete()
+      .eq("slide_id", slideId);
+    if (error) throw error;
+    adminAuditApi
+      .create({
+        actorEmail: email,
+        action: "hero_html_remove",
+        targetType: "hero_slide",
+        targetId: slideId,
+      })
+      .catch(() => {});
+  },
+};
+
+// ─── Hero : état du déploiement (Deploy Hook) ───────────────────────────────
+export interface HeroSyncStatus {
+  version: number;
+  lastHookAt: string | null;
+  /** true = le public voit autre chose que le dernier build. */
+  pending: boolean;
+  hookConfigured: boolean;
+}
+
+export const heroSyncApi = {
+  async status(): Promise<HeroSyncStatus | null> {
+    const { data, error } = await supabase.rpc("hero_sync_status");
+    if (error || !data) return null;
+    return data as HeroSyncStatus;
+  },
+  /** Force un build maintenant (ignore le débounce). Renvoie le code du flush. */
+  async rebuild(): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_request_rebuild");
+    if (error) throw error;
+    return String(data);
+  },
+  /** Build seulement si le public a changé ET hors débounce (le serveur décide). */
+  async flush(): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_flush_if_changed");
+    if (error) throw error;
+    return String(data);
+  },
+};
+
+// ─── Hero : modèles perso (config seule, jamais de HTML) ─────────────────────
+export interface HeroUserTemplate {
+  id: string;
+  name: string;
+  config: HeroConfig;
+  createdAt: string;
+}
+
+export const heroTemplatesApi = {
+  async list(): Promise<HeroUserTemplate[]> {
+    const { data, error } = await supabase
+      .from("hero_templates")
+      .select("id, name, config, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      config: sanitizeHeroConfig(r.config),
+      createdAt: r.created_at,
+    }));
+  },
+  async create(name: string, config: HeroConfig): Promise<void> {
+    const clean = sanitizeHeroConfig({ ...config, origin: "studio" });
+    // Un modèle est générique : pas de couche HTML (contenu non enregistré), pas de produit lié.
+    const layers = clean.layers
+      .filter((l) => l.type !== "html")
+      .map((l) => (l.type === "card" ? { ...l, productId: null } : l));
+    const me = await adminUserApi.getMyRole();
+    const { error } = await supabase.from("hero_templates").insert({
+      name: name.trim().slice(0, 60),
+      config: sanitizeHeroConfig({ ...clean, layers }),
+      created_by: me?.email ?? null,
+    });
+    if (error) throw error;
+  },
+  async remove(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("hero_templates")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+};
+
+// ─── Hero : historique, corbeille, historique HTML (super_admin) ──────────────
+export interface HeroVersionRow {
+  id: string;
+  slideId: string;
+  reason: "create" | "update" | "delete";
+  createdBy: string | null;
+  createdAt: string;
+  meta: {
+    headline?: string;
+    layers?: number;
+    ctas?: number;
+    active?: boolean;
+    origin?: string;
+  };
+}
+export interface HeroDeletedRow {
+  versionId: string;
+  slideId: string;
+  createdBy: string | null;
+  createdAt: string;
+  meta: HeroVersionRow["meta"];
+}
+export interface HeroHtmlVersionRow {
+  id: string;
+  op: "save" | "delete";
+  createdBy: string | null;
+  createdAt: string;
+  bytes: number;
+}
+
+const mapVersionRow = (r: any): HeroVersionRow => ({
+  id: r.id,
+  slideId: r.slide_id,
+  reason: r.reason,
+  createdBy: r.created_by ?? null,
+  createdAt: r.created_at,
+  meta: r.meta && typeof r.meta === "object" ? r.meta : {},
+});
+
+export const heroHistoryApi = {
+  /** Versions d'un slide (légères : sans snapshot). Admin (RLS). */
+  async list(slideId: string, limit = 30): Promise<HeroVersionRow[]> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("id, slide_id, reason, meta, created_by, created_at")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 50)));
+    if (error) throw error;
+    return (data ?? []).map(mapVersionRow);
+  },
+  /** Dernière version (détection de conflit d'édition). */
+  async latest(
+    slideId: string,
+  ): Promise<{
+    id: string;
+    createdBy: string | null;
+    createdAt: string;
+  } | null> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("id, created_by, created_at")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      id: data.id,
+      createdBy: data.created_by ?? null,
+      createdAt: data.created_at,
+    };
+  },
+  async getSnapshot(versionId: string): Promise<HeroVersionSnapshot | null> {
+    const { data, error } = await supabase
+      .from("hero_slide_versions")
+      .select("snapshot")
+      .eq("id", versionId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.snapshot as HeroVersionSnapshot;
+  },
+  /** Corbeille : slides supprimés (RPC admin). */
+  async deleted(): Promise<HeroDeletedRow[]> {
+    const { data, error } = await supabase.rpc("hero_deleted_slides");
+    if (error) throw error;
+    return ((data as any[]) ?? []).map((r) => ({
+      versionId: r.version_id,
+      slideId: r.slide_id,
+      createdBy: r.created_by ?? null,
+      createdAt: r.created_at,
+      meta: r.meta && typeof r.meta === "object" ? r.meta : {},
+    }));
+  },
+  /** Recrée le slide supprimé (même id, TOUJOURS en brouillon). Renvoie son id. */
+  async restoreDeleted(versionId: string): Promise<string> {
+    const { data, error } = await supabase.rpc("hero_restore_deleted", {
+      p_version_id: versionId,
+    });
+    if (error) throw error;
+    return String(data);
+  },
+  // ── HTML : super_admin (garde ici + RLS super_admin sur hero_html_versions) ──
+  async htmlList(slideId: string): Promise<HeroHtmlVersionRow[]> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_html_versions")
+      .select("id, op, created_by, created_at, bytes")
+      .eq("slide_id", slideId)
+      .order("created_at", { ascending: false })
+      .limit(15);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      op: r.op,
+      createdBy: r.created_by ?? null,
+      createdAt: r.created_at,
+      bytes: Number(r.bytes) || 0,
+    }));
+  },
+  async htmlGet(id: string): Promise<{ html: string; css: string } | null> {
+    await requireSuperAdmin();
+    const { data, error } = await supabase
+      .from("hero_html_versions")
+      .select("html, css")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { html: data.html ?? "", css: data.css ?? "" };
+  },
+};
+// ─── Hero : statistiques (RPC admin) ─────────────────────────────────────────
+export interface HeroStatsArm {
+  impressions: number;
+  clicks: number;
+  /** Visiteurs (sessions distinctes). */
+  impSessions: number;
+  clickSessions: number;
+}
+export interface HeroStatsSlide extends HeroStatsArm {
+  slideId: string;
+  byVariant: Record<string, HeroStatsArm>;
+  byCta: Record<string, number>;
+}
+export interface HeroStats {
+  days: number;
+  since: string;
+  lastEventAt: string | null;
+  slides: HeroStatsSlide[];
+  daily: { date: string; impressions: number; clicks: number }[];
+  /** Grain horaire, 24 dernières heures UTC (absent = RPC antérieur). */
+  hourly: { hour: string; impressions: number; clicks: number }[];
+}
+
+const num0 = (v: unknown) => Number(v) || 0;
+const toArm = (r: any): HeroStatsArm => ({
+  impressions: num0(r?.impressions),
+  clicks: num0(r?.clicks),
+  impSessions: num0(r?.impSessions),
+  clickSessions: num0(r?.clickSessions),
+});
+
+export const heroStatsApi = {
+  async get(days = 14): Promise<HeroStats> {
+    const { data, error } = await supabase.rpc("hero_stats", { p_days: days });
+    if (error) throw error;
+    const d: any = data ?? {};
+    return {
+      days: num0(d.days) || days,
+      since: String(d.since ?? ""),
+      lastEventAt: d.lastEventAt ?? null,
+      slides: ((d.slides as any[]) ?? []).map((s) => ({
+        ...toArm(s),
+        slideId: String(s.slideId),
+        byVariant: Object.fromEntries(
+          Object.entries(s.byVariant ?? {}).map(([k, v]) => [k, toArm(v)]),
+        ),
+        byCta: Object.fromEntries(
+          Object.entries(s.byCta ?? {}).map(([k, v]) => [k, num0(v)]),
+        ),
+      })),
+      daily: ((d.daily as any[]) ?? []).map((x) => ({
+        date: String(x.date),
+        impressions: num0(x.impressions),
+        clicks: num0(x.clicks),
+      })),
+      hourly: ((d.hourly as any[]) ?? []).map((x) => ({
+        hour: String(x.hour),
+        impressions: num0(x.impressions),
+        clicks: num0(x.clicks),
+      })),
+    };
   },
 };
 

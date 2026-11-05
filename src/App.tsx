@@ -41,6 +41,7 @@ import BackToTopButton from "./components/BackToTopButton";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 // Admin : chunk séparé, téléchargé si et seulement si un admin est loggué.
 const AdminDashboardNew = lazy(() => import("./admin/AdminDashboardNew"));
+import HeroStudioPage from "./admin/HeroStudioPage";
 
 // Fallback unique pour les chunks lazy (spinner léger, pas de dépendance lourde).
 function LazyFallback() {
@@ -88,11 +89,19 @@ import {
 import {
   productApi,
   heroPromotionsApi,
+  heroHtmlApi,
   customerApi,
   orderApi,
 } from "./api/supabaseApi";
 const ProductPage = lazy(() => import("./pages/ProductPage"));
-import HeroCarousel, { HERO_BG_FALLBACK } from "./components/HeroCarousel";
+import HeroCarousel from "./components/HeroCarousel";
+import {
+  resolveHeroSlides,
+  nextHeroScheduleChange,
+  heroHasHtml,
+} from "./lib/heroResolve";
+import { useHeroSync } from "./hooks/useHeroSync";
+import { leadHtmlSeed } from "./lib/heroLead";
 import CartDrawer from "./components/CartDrawer";
 import Footer from "./components/Footer";
 import type { HeroPromotion, Favourite } from "./admin/adminTypes";
@@ -100,7 +109,6 @@ import { rankProducts } from "./utils/productRanking";
 import CatalogSection from "./components/CatalogSection";
 import ForYouSection from "./components/ForYouSection";
 import SitewideCountdownBanner from "./components/SitewideCountdownBanner";
-import { PLACEHOLDER_IMG } from "./constants/assets";
 import DealsSection from "./components/DealsSection";
 import AboutSection from "./components/AboutSection";
 import ReassuranceBar from "./components/ReassuranceBar";
@@ -148,7 +156,9 @@ export default function App() {
   // L'admin est une page (/admin) : l'URL au boot initialise l'état pour que
   // le refresh reste dans l'admin (source de vérité = URL, pas état volatil).
   const [activeTab, setActiveTab] = useState<"store" | "admin">(() =>
-    typeof window !== "undefined" && isAdminPath(window.location.pathname)
+    typeof window !== "undefined" &&
+    (isAdminPath(window.location.pathname) ||
+      window.location.pathname.startsWith("/admin/"))
       ? "admin"
       : "store",
   );
@@ -235,9 +245,11 @@ export default function App() {
       const path = window.location.pathname;
       const search = window.location.search;
       // /admin est une page : précédent/suivant navigateur entre/sort de l'admin.
-      if (isAdminPath(path)) {
+      const isAdminPage =
+        isAdminPath(path) || path.startsWith("/admin/");
+      if (isAdminPage) {
         setActiveTab("admin");
-        setShowNewAdmin(true);
+        setShowNewAdmin(isAdminPath(path)); // vrai seulement pour /admin
       } else {
         setShowNewAdmin(false);
         setActiveTab("store");
@@ -772,21 +784,46 @@ export default function App() {
     }
   };
 
-  // Promotions
+  // Hero : version + slides en UNE requête atomique (RPC), puis le HTML des seuls slides concernés.
+  const heroVersionRef = useRef<number | null>(null);
+  // Amorcé avec le HTML du slide d'amorçage : le slide n°1 en HTML ne disparaît pas entre le
+  // chargement du snapshot et celui de son HTML (puis getPublished prend la main).
+  const [heroHtml, setHeroHtml] = useState<
+    Record<string, { html: string; css: string }>
+  >(() => leadHtmlSeed(getVariant()));
+  const loadHero = async () => {
+    try {
+      const snap = await heroPromotionsApi.getSnapshot();
+      heroVersionRef.current = snap.version;
+      setHeroPromotions(snap.slides);
+      const ids = snap.slides.filter((p) => heroHasHtml(p)).map((p) => p.id);
+      if (ids.length === 0) setHeroHtml({});
+      else
+        heroHtmlApi
+          .getPublished(ids)
+          .then(setHeroHtml)
+          .catch(() => {});
+    } catch {
+      /* on garde l'état précédent */
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
-    // fetchSettings();
-    heroPromotionsApi
-      .list()
-      .then(setHeroPromotions)
-      .catch(() => setHeroPromotions([]))
-      .finally(() => setPromotionsLoading(false));
+    loadHero().finally(() => setPromotionsLoading(false));
   }, []);
 
-  // Refresh catalog when admin modifies a product
+  // Visiteurs : contrôle de version au retour de focus (≤ 1 fois / min, sans timer).
+  useHeroSync(async () => {
+    const v = await heroPromotionsApi.getVersion();
+    if (v != null && v !== heroVersionRef.current) await loadHero();
+  });
+
+  // Refresh catalog + hero when admin modifies a product / a slide
   useEffect(() => {
     const handler = () => {
       fetchProducts();
+      void loadHero();
     };
     window.addEventListener("storefront:invalidate", handler);
     return () => window.removeEventListener("storefront:invalidate", handler);
@@ -1269,40 +1306,20 @@ export default function App() {
     return targetDate.toLocaleDateString("en-US", options);
   };
 
-  // Hero Carousel banners content
-  const heroBanners = React.useMemo(() => {
-    return [...heroPromotions]
-      .filter((promo) => {
-        if (promo.isActive === false) return false;
-        const product = products.find((p) => p.id === promo.productId);
-        if (!product || product.isActive === false) return false;
-        return true;
-      })
-      .sort((a, b) => a.order - b.order)
-      .map((promo) => {
-        const product = products.find((p) => p.id === promo.productId);
-        return {
-          title: promo.title || product?.title || promo.headline || "Promotion",
-          headline: promo.headline || product?.title || "",
-          sub: promo.sub || product?.description || "",
-          cta: promo.cta || "Discover",
-          bgGradient: promo.bgGradient || HERO_BG_FALLBACK,
-          image: promo.image || product?.image || PLACEHOLDER_IMG,
-          tag: promo.tag || "⚡ PROMOTION",
-          productId: promo.productId,
-          showTag: promo.showTag !== false,
-          showTitle: promo.showTitle !== false,
-          layout: (promo.layout === "split" ? "split" : "full") as
-            | "full"
-            | "split",
-          kind: (promo.kind === "image" || promo.kind === "grid"
-            ? promo.kind
-            : "product") as "product" | "image" | "grid",
-          linkUrl: typeof promo.linkUrl === "string" ? promo.linkUrl : null,
-          tiles: Array.isArray(promo.tiles) ? promo.tiles : null,
-        };
-      });
-  }, [heroPromotions, products]);
+  // Hero : slides résolus (config v1 + replis legacy/produit + planification).
+  // `heroNow` n'est qu'un déclencheur de recalcul aux bornes starts_at / ends_at.
+  const [heroNow, setHeroNow] = useState(() => Date.now());
+  useEffect(() => {
+    const next = nextHeroScheduleChange(heroPromotions, Date.now());
+    if (next == null) return;
+    const delay = Math.min(Math.max(next - Date.now() + 50, 50), 2_000_000_000);
+    const t = setTimeout(() => setHeroNow(Date.now()), delay);
+    return () => clearTimeout(t);
+  }, [heroPromotions, heroNow]);
+  const heroSlides = useMemo(
+    () => resolveHeroSlides(heroPromotions, products, heroNow, heroHtml, getVariant()),
+    [heroPromotions, products, heroNow, heroHtml],
+  );
 
   // NOTE LCP : pas de <link rel=preload> runtime ici — l'effet tourne APRÈS
   // le paint donc le <img> gagne toujours la course (preload inutile + warnings
@@ -1627,6 +1644,7 @@ export default function App() {
       const knownPaths = [
         "/",
         "/admin",
+        "/admin/hero-studio",
         "/account",
         "/unsubscribe",
         "/index.html",
@@ -1838,8 +1856,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
-      {/* App Header */}
-      <Header
+      {/* App Header (masqué en mode admin / hero studio) */}
+      {activeTab === "store" && <Header
         isHomePage={
           activeTab === "store" &&
           !selectedProduct &&
@@ -1930,6 +1948,7 @@ export default function App() {
         onToggleDarkMode={() => setDarkMode((prev) => !prev)}
         // onSelectProduct={(product) => setSelectedProduct(product)}
       />
+      }
 
       {/* Toast system */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -1943,17 +1962,18 @@ export default function App() {
           <SitewideCountdownBanner />
           {/* Dynamic Hero Carousel Banner (suspendu en cold deep-route produit : voir suspendHeroForBootProduct) */}
           <HeroCarousel
-            banners={heroBanners}
+            slides={heroSlides}
             loading={promotionsLoading}
             suspended={suspendHeroForBootProduct}
-            onBannerAction={(banner) => {
-              if (banner.linkUrl && openHeroLink(banner.linkUrl)) return;
-              if (banner.productId) {
-                const target = products.find((p) => p.id === banner.productId);
+            noTrack={isAdmin}
+            onSlideAction={(slide, link) => {
+              if (link && openHeroLink(link)) return;
+              if (slide.productId) {
+                const target = products.find((p) => p.id === slide.productId);
                 if (target) openProduct(target);
               }
             }}
-            onBannerLink={(link) => {
+            onSlideLink={(link) => {
               openHeroLink(link);
             }}
           />
@@ -2025,10 +2045,13 @@ export default function App() {
       )}
 
       {/* Admin Creator Dashboard Screen 2 (lazy + réservé aux admins) */}
-      {activeTab === "admin" && isAdmin && (
+      {activeTab === "admin" && isAdmin && window.location.pathname !== "/admin/hero-studio" && (
         <Suspense fallback={<LazyFallback />}>
           <AdminDashboardNew onReturnToStore={closeAdmin} />
         </Suspense>
+      )}
+      {activeTab === "admin" && isAdmin && window.location.pathname === "/admin/hero-studio" && (
+        <HeroStudioPage />
       )}
       {/* /admin en restauration de session : spinner plein écran — ni
           storefront ni 404 pendant que la session se restaure. */}
@@ -2202,26 +2225,28 @@ export default function App() {
         />
       )}
 
-      {/* Global Brand Footer */}
-      <Footer
-        isAdmin={isAdmin}
-        onSelectEventType={setSelectedEventType}
-        onSelectCategory={setSelectedCategory}
-        onNavigate={setActiveTab}
-        onOpenAdmin={openAdmin}
-        onOpenLegal={openLegal}
-        onOpenFaq={openFaqPage}
-        onOpenContact={openContactPage}
-        onOpenTracking={() => {
-          setTrackingOpen(true);
-          setTrackingInitialCode(null);
-          pushOverlay("tracking");
-        }}
-        onOpenPromotions={openPromotionsPage}
-        onManageCookies={cookieConsent.resetConsent}
-        onOpenCatalog={() => scrollToSection("catalog")}
-        products={products}
-      />
+      {/* Global Brand Footer (masqué en mode admin / hero studio) */}
+      {activeTab === "store" && (
+        <Footer
+          isAdmin={isAdmin}
+          onSelectEventType={setSelectedEventType}
+          onSelectCategory={setSelectedCategory}
+          onNavigate={setActiveTab}
+          onOpenAdmin={openAdmin}
+          onOpenLegal={openLegal}
+          onOpenFaq={openFaqPage}
+          onOpenContact={openContactPage}
+          onOpenTracking={() => {
+            setTrackingOpen(true);
+            setTrackingInitialCode(null);
+            pushOverlay("tracking");
+          }}
+          onOpenPromotions={openPromotionsPage}
+          onManageCookies={cookieConsent.resetConsent}
+          onOpenCatalog={() => scrollToSection("catalog")}
+          products={products}
+        />
+      )}
 
       {showAuthModal && (
         <AuthModal

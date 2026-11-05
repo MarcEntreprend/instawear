@@ -25,6 +25,7 @@ import FinancesPage from "./FinancesPage";
 import ShippedDeliveredPage from "./ShippedDeliveredPage";
 import PromotionsPage from "./PromotionsPage";
 import MerchandisingPage from "./MerchandisingPage";
+import HeroStudioPage from "./HeroStudioPage";
 import ReportsPage from "./ReportsPage";
 import ErrorMonitoringPage from "./ErrorMonitoringPage";
 import IntegrationsPage from "./IntegrationsPage";
@@ -1349,6 +1350,9 @@ export default function AdminDashboard({
           )}
           {section === "promotions" && <PromotionsPage />}
           {section === "merchandising" && <MerchandisingPage />}
+          {
+            section === "hero-studio" && <HeroStudioPage />
+          }
           {section === "reports" && <ReportsPage />}
           {section === "monitoring" && <ErrorMonitoringPage />}
           {section === "interactions" && <InteractionsPage />}
