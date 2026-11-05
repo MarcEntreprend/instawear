@@ -1,10 +1,8 @@
-// src/components/HeroCountdown.tsx — compte à rebours hero (PORT-15B P5).
-// Hydratation cliente uniquement : le prerender ne peint qu'un placeholder
-// statique (jamais de date figée), et ces slides sont exclus du lead.
-// Un intervalle d'1 s par compteur, nettoyé au démontage. Zéro dépendance.
+// src/components/HeroCountdown.tsx — compte à rebours hero (P5).
+// Hydratation cliente uniquement. Compteur qui défile en temps réel.
+// Zéro dépendance.
 import { useEffect, useState, type CSSProperties } from "react";
 
-/** Décomposition pure (testée) : jours/heures/min/sec + expiré. */
 export function heroCountdownParts(
   targetMs: number,
   nowMs: number,
@@ -42,57 +40,73 @@ export default function HeroCountdown({
     return () => clearInterval(t);
   }, []);
   const p = heroCountdownParts(targetMs, now);
-  const light = tone === "light";
-  const box: CSSProperties = {
-    background: light ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.55)",
-    color: light ? "#111" : "#fff",
-    borderRadius: 12,
-    padding: "8px 0",
-    minWidth: 58,
-    textAlign: "center",
-    backdropFilter: "blur(8px)",
-  };
+  const urgent = p.d === 0 && p.h <= 1;
+  if (p.expired) return null;
   return (
     <div
       role="timer"
-      aria-label={p.expired ? expiredText : `${label} : ${p.d}j ${p.h}h ${p.m}m`}
-      style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}
+      aria-label={`${label} : ${p.d}j ${p.h}h ${p.m}m ${p.s}s`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "4px 10px",
+        borderRadius: 8,
+        background: urgent ? "rgba(255,92,53,.12)" : "rgba(0,0,0,.05)",
+        border: `1px solid ${urgent ? "#ff5c35" : "var(--color-border)"}`,
+        fontFamily:
+          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        fontSize: 12,
+        color: urgent ? "#ff5c35" : "var(--color-ink)",
+      }}
     >
-      {!p.expired && label && (
-        <div
-          style={{
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: 13,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            textShadow: "0 1px 8px rgba(0,0,0,.5)",
-          }}
-        >
-          {label}
-        </div>
-      )}
-      {p.expired ? (
-        <div style={{ ...box, padding: "10px 22px", fontWeight: 800 }}>
-          {expiredText}
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 8 }}>
-          {[
-            [p.d, "j"],
-            [p.h, "h"],
-            [p.m, "m"],
-            [p.s, "s"],
-          ].map(([v, u], i) => (
-            <div key={i} style={box}>
-              <div style={{ fontWeight: 800, fontSize: 22, lineHeight: 1 }}>
-                {pad(v as number)}
-              </div>
-              <div style={{ fontSize: 10, opacity: 0.7 }}>{u}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <span
+        style={{
+          color: urgent ? "#ff5c35" : "var(--color-accent)",
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          color: urgent ? "#ff5c35" : "var(--color-ink)",
+          fontWeight: 800,
+        }}
+      >
+        {pad(p.d)}
+      </span>
+      <span style={{ color: "#666", fontSize: 10 }}>j</span>
+      <span
+        style={{
+          color: urgent ? "#ff5c35" : "var(--color-ink)",
+          fontWeight: 800,
+        }}
+      >
+        {pad(p.h)}
+      </span>
+      <span style={{ color: "#666", fontSize: 10 }}>h</span>
+      <span
+        style={{
+          color: urgent ? "#ff5c35" : "var(--color-ink)",
+          fontWeight: 800,
+        }}
+      >
+        {pad(p.m)}
+      </span>
+      <span style={{ color: "#666", fontSize: 10 }}>m</span>
+      <span
+        style={{
+          color: urgent ? "#ff5c35" : "var(--color-ink)",
+          fontWeight: 800,
+        }}
+      >
+        {pad(p.s)}
+      </span>
+      <span style={{ color: "#666", fontSize: 10 }}>s</span>
     </div>
   );
 }
